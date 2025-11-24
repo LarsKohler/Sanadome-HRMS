@@ -10,7 +10,6 @@ import NewsPage from './components/NewsPage';
 import OnboardingPage from './components/OnboardingPage';
 import SurveysPage from './components/SurveysPage';
 import EvaluationsPage from './components/EvaluationsPage'; 
-import KnowledgeBasePage from './components/KnowledgeBasePage';
 import ShopPage from './components/ShopPage'; // Import Shop
 import SurveyTakingFlow from './components/SurveyTakingFlow';
 import WelcomeFlow from './components/WelcomeFlow';
@@ -434,10 +433,6 @@ const App: React.FC = () => {
                 onAddNotification={handleAddNotification}
                 onShowToast={handleShowToast}
              />
-          )}
-
-          {currentView === ViewState.KNOWLEDGE_BASE && (
-            <KnowledgeBasePage onChangeView={setCurrentView} />
           )}
 
           {currentView === ViewState.REPORTS && currentUser.role === 'Manager' && <ReportsDashboard />}

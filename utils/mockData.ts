@@ -1,5 +1,5 @@
 
-import { Employee, NewsPost, OnboardingTask, EvaluationCycle, KnowledgeArticle, ViewState, ShopItem } from '../types';
+import { Employee, NewsPost, OnboardingTask, ShopItem } from '../types';
 
 // ... (Previous imports and helper functions remain, but keeping file concise)
 const generateOnboardingTasks = (): OnboardingTask[] => [
@@ -91,29 +91,6 @@ export const SHOP_CATALOG: ShopItem[] = [
     { id: 'color-gold', name: 'Golden Name', category: 'NameColor', price: 250, description: 'Je naam in goud.', previewValue: 'text-yellow-600 font-extrabold' },
     { id: 'color-purple', name: 'Royal Purple', category: 'NameColor', price: 250, description: 'Koninklijke uitstraling.', previewValue: 'text-purple-700 font-extrabold' },
     { id: 'color-teal', name: 'Signature Teal', category: 'NameColor', price: 150, description: 'Onze brand color, maar dan feller.', previewValue: 'text-teal-500 font-extrabold' },
-];
-
-export const KNOWLEDGE_ARTICLES: KnowledgeArticle[] = [
-    // ... (Existing articles kept, shortened for brevity)
-    {
-        id: 'ka-1',
-        title: 'Verlof aanvragen',
-        category: 'HR',
-        tags: ['verlof', 'vakantie', 'vrije dag', 'aanvragen', 'time off', 'ziekte'],
-        lastUpdated: '10 Sep 2023',
-        content: `# Verlof aanvragen\nJe kunt eenvoudig verlof aanvragen via je persoonlijke profiel.`,
-        relatedViews: [ViewState.HOME]
-    },
-    // New Article about Shop
-    {
-        id: 'ka-shop',
-        title: 'Sanacoins & Shop',
-        category: 'Systeem',
-        tags: ['punten', 'shop', 'rewards', 'sanacoins', 'avatar'],
-        lastUpdated: '26 Oct 2023',
-        content: `# Sanacoins verdienen\nJe verdient Sanacoins door taken af te ronden, zoals onboarding taken en surveys. Deze kun je uitgeven in de **Shop**.\n\n**Wat kan ik kopen?**\n- Avatar frames\n- Nieuwe profiel banners\n- Kleurtjes voor je naam\n- Speciale thema's`,
-        relatedViews: [ViewState.SHOP]
-    }
 ];
 
 export const MOCK_EMPLOYEES: Employee[] = [

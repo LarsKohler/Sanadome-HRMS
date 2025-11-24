@@ -10,8 +10,7 @@ export enum ViewState {
   SURVEYS = 'SURVEYS',
   EVALUATIONS = 'EVALUATIONS', 
   WELCOME = 'WELCOME',
-  KNOWLEDGE_BASE = 'KNOWLEDGE_BASE',
-  SHOP = 'SHOP', // New View
+  SHOP = 'SHOP',
 }
 
 export interface Notification {
@@ -256,18 +255,4 @@ export interface SurveyResponse {
   employeeId: string;
   answers: Record<string, string | number>; // questionId: answer
   completedAt: string;
-}
-
-// --- KNOWLEDGE BASE TYPES ---
-
-export type KnowledgeCategory = 'Systeem' | 'HR' | 'Facilitair' | 'IT' | 'Evaluatie' | 'Onboarding';
-
-export interface KnowledgeArticle {
-  id: string;
-  title: string;
-  category: KnowledgeCategory;
-  content: string; // The full explanation
-  tags: string[];
-  lastUpdated: string;
-  relatedViews?: ViewState[]; // Deep links to where this functionality lives
 }

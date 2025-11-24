@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Bell, HelpCircle, Plus, ChevronDown, Lock, LogOut, CheckCircle2, Pin, Menu, Coins } from 'lucide-react';
+import { Search, Bell, Plus, ChevronDown, Lock, LogOut, CheckCircle2, Pin, Menu, Coins } from 'lucide-react';
 import { Employee, Notification, ViewState } from '../types';
 
 interface TopNavProps {
@@ -93,13 +93,6 @@ const TopNav: React.FC<TopNavProps> = ({
         <div className="hidden md:block h-8 w-px bg-slate-200 mx-1"></div>
 
         <div className="flex items-center gap-1 lg:gap-3">
-          <button 
-            onClick={() => onNavigate(ViewState.KNOWLEDGE_BASE)}
-            className="hidden sm:block text-slate-400 hover:text-teal-600 transition-colors p-1"
-            title="Kennisbank & Help"
-          >
-            <HelpCircle size={22} />
-          </button>
           
           {/* Notification Bell */}
           <div className="relative" ref={notifRef}>
