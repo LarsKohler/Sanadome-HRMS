@@ -18,12 +18,11 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userRole, isOpen, onClose }) => {
   // Define all items
   const allItems = [
-    { icon: Home, label: 'Home', id: ViewState.HOME },
+    { icon: User, label: 'Mijn Profiel', id: ViewState.HOME }, // Home is now Profile
     { icon: Newspaper, label: 'Nieuws', id: ViewState.NEWS }, 
     { icon: UserCheck, label: 'Onboarding', id: ViewState.ONBOARDING },
     { icon: ClipboardList, label: 'Surveys', id: ViewState.SURVEYS },
     { icon: ClipboardCheck, label: 'Evaluaties', id: ViewState.EVALUATIONS }, 
-    { icon: User, label: 'Mijn Profiel', id: ViewState.PROFILE },
     { icon: CheckSquare, label: 'Taken', id: 'tasks', badge: 2 },
     { icon: Users, label: 'Collega\'s', id: ViewState.DIRECTORY },
     { icon: Calendar, label: 'Kalender', id: 'calendar' },

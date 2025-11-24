@@ -302,73 +302,7 @@ const App: React.FC = () => {
         />
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto no-scrollbar scroll-smooth">
-          {currentView === ViewState.HOME && (
-            <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
-              <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-                  <div>
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
-                        Goedemorgen, {currentUser.name.split(' ')[0]} 👋
-                    </h1>
-                    <p className="text-slate-500 mt-1">Hier is een overzicht van vandaag.</p>
-                  </div>
-              </div>
-
-              {/* Quick Actions / Dashboard Widgets can go here */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                  <div 
-                    onClick={() => setCurrentView(ViewState.NEWS)}
-                    className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer group"
-                  >
-                      <h3 className="font-bold text-slate-700 mb-2 group-hover:text-teal-600 transition-colors">Nieuws & Updates</h3>
-                      <p className="text-3xl font-bold text-slate-900">{newsItems.length}</p>
-                      <p className="text-xs text-slate-500 mt-1">Gepubliceerde berichten</p>
-                  </div>
-                  
-                  <div 
-                    onClick={() => setCurrentView(ViewState.ONBOARDING)}
-                    className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer group"
-                  >
-                      <h3 className="font-bold text-slate-700 mb-2 group-hover:text-teal-600 transition-colors">Onboarding</h3>
-                      {currentUser.role === 'Manager' ? (
-                           <>
-                             <p className="text-3xl font-bold text-slate-900">{employees.filter(e => e.onboardingStatus === 'Active').length}</p>
-                             <p className="text-xs text-slate-500 mt-1">Actieve trajecten</p>
-                           </>
-                      ) : (
-                           <>
-                             <p className="text-3xl font-bold text-slate-900">{currentUser.onboardingStatus}</p>
-                             <p className="text-xs text-slate-500 mt-1">Huidige status</p>
-                           </>
-                      )}
-                  </div>
-
-                  <div 
-                    onClick={() => setCurrentView(ViewState.EVALUATIONS)}
-                    className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer group"
-                  >
-                      <h3 className="font-bold text-slate-700 mb-2 group-hover:text-teal-600 transition-colors">Evaluaties</h3>
-                      <p className="text-3xl font-bold text-slate-900">
-                          {currentUser.role === 'Manager' 
-                            ? employees.flatMap(e => e.evaluations || []).filter(ev => ev.status === 'ManagerInput').length 
-                            : (currentUser.evaluations || []).filter(ev => ev.status === 'EmployeeInput').length
-                          }
-                      </p>
-                      <p className="text-xs text-slate-500 mt-1">Acties vereist</p>
-                  </div>
-              </div>
-            </div>
-          )}
-
-          {currentView === ViewState.NEWS && (
-             <NewsPage 
-                currentUser={currentUser}
-                newsItems={newsItems}
-                onAddNews={handleAddNews}
-                onLikeNews={handleLikeNews}
-             />
-          )}
-
-          {currentView === ViewState.PROFILE && (
+          {(currentView === ViewState.HOME || currentView === ViewState.PROFILE) && (
             <EmployeeProfile 
               employee={currentUser}
               onNext={() => {}} 
@@ -379,6 +313,15 @@ const App: React.FC = () => {
               onShowToast={showToast}
               managers={employees.filter(e => e.role === 'Manager')}
             />
+          )}
+
+          {currentView === ViewState.NEWS && (
+             <NewsPage 
+                currentUser={currentUser}
+                newsItems={newsItems}
+                onAddNews={handleAddNews}
+                onLikeNews={handleLikeNews}
+             />
           )}
 
           {currentView === ViewState.DIRECTORY && (
