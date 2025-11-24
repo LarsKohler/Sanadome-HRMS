@@ -179,7 +179,10 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       const targetId = id || recentlyAddedEmployee?.id;
       if (!targetId) return;
 
-      const link = `https://mijn.sanadome.nl/welcome/${targetId.substring(0,8)}`;
+      // Use window.location.origin to get the current base URL (local or Vercel)
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://sanadome-hrms.vercel.app';
+      const link = `${baseUrl}/welcome/${targetId.substring(0,8)}`;
+      
       navigator.clipboard.writeText(link).catch(() => {});
       
       setInviteLinkCopied(true);
@@ -189,6 +192,11 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
           setToastMessage("Uitnodigingslink gekopieerd");
           setActiveActionId(null);
       }
+  };
+
+  const getInviteLink = (id: string) => {
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://sanadome-hrms.vercel.app';
+      return `${baseUrl}/welcome/${id.substring(0,8)}`;
   };
 
   return (
@@ -554,7 +562,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
 
                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center gap-3 shadow-inner">
                      <code className="text-xs text-slate-600 flex-1 truncate font-mono">
-                         https://mijn.sanadome.nl/welcome/{recentlyAddedEmployee?.id.substring(0,8)}
+                         {recentlyAddedEmployee ? getInviteLink(recentlyAddedEmployee.id) : '...'}
                      </code>
                      <button 
                         onClick={() => handleCopyLink(recentlyAddedEmployee?.id)}

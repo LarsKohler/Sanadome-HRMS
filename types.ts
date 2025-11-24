@@ -10,6 +10,7 @@ export enum ViewState {
   SURVEYS = 'SURVEYS',
   EVALUATIONS = 'EVALUATIONS', 
   WELCOME = 'WELCOME',
+  SYSTEM_STATUS = 'SYSTEM_STATUS',
 }
 
 export interface Notification {

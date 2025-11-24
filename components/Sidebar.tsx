@@ -3,7 +3,7 @@ import React from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
   UserPlus, Trophy, FileText, PieChart, 
-  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck
+  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity
 } from 'lucide-react';
 import { ViewState } from '../types';
 
@@ -33,6 +33,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userRole, 
     { icon: FileText, label: 'Documenten', id: ViewState.DOCUMENTS }, 
     { icon: FileBarChart, label: 'Cases', id: 'cases' },
     { icon: PieChart, label: 'Rapportages', id: ViewState.REPORTS, restricted: true },
+    { icon: Activity, label: 'Systeemstatus', id: ViewState.SYSTEM_STATUS, restricted: true },
   ];
 
   // Filter items based on permissions

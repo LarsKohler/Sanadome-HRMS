@@ -12,6 +12,7 @@ import SurveysPage from './components/SurveysPage';
 import EvaluationsPage from './components/EvaluationsPage'; 
 import SurveyTakingFlow from './components/SurveyTakingFlow';
 import WelcomeFlow from './components/WelcomeFlow';
+import SystemStatusPage from './components/SystemStatusPage';
 import Login from './components/Login';
 import { Toast } from './components/Toast';
 import { ViewState, Employee, Notification, NewsPost, Survey, SurveyResponse } from './types';
@@ -438,6 +439,10 @@ const App: React.FC = () => {
                onAddNotification={handleAddNotification}
                onShowToast={showToast}
             />
+          )}
+
+          {currentView === ViewState.SYSTEM_STATUS && (
+            <SystemStatusPage />
           )}
 
         </main>
