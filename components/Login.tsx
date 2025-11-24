@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Lock, ArrowRight, AlertCircle, User, Shield, Key, ChevronLeft, Mail, Database, RefreshCw } from 'lucide-react';
-import { api, isLive } from '../utils/api';
+import { Lock, ArrowRight, AlertCircle, User, Key, ChevronLeft, Mail } from 'lucide-react';
 
 interface LoginProps {
   onLogin: (email: string, password: string) => boolean;
@@ -14,11 +13,10 @@ const LOGIN_IMAGES = [
 ];
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
-  const [email, setEmail] = useState('manager@sanadome.nl');
-  const [password, setPassword] = useState('demo');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [isSeeding, setIsSeeding] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
@@ -43,31 +41,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         setIsLoading(false);
       }
     }, 800);
-  };
-
-  const handleManualSeed = async () => {
-      if (!confirm("Weet je zeker dat je de database wilt vullen met standaard data? Dit is bedoeld voor lege databases.")) return;
-      
-      setIsSeeding(true);
-      try {
-          await api.seedDatabase();
-          alert("Database succesvol gevuld! De pagina wordt nu herladen.");
-          window.location.reload();
-      } catch (e) {
-          alert("Er is iets misgegaan tijdens het vullen.");
-          console.error(e);
-          setIsSeeding(false);
-      }
-  };
-
-  const fillCredentials = (role: 'manager' | 'employee') => {
-    if (role === 'manager') {
-      setEmail('manager@sanadome.nl');
-      setPassword('demo');
-    } else {
-      setEmail('medewerker@sanadome.nl');
-      setPassword('demo');
-    }
   };
 
   return (
@@ -229,48 +202,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </button>
                 </div>
             </form>
-
-            {/* Quick Login Section */}
-            <div className="mt-10">
-                <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                    <div className="w-full border-t border-slate-200" />
-                </div>
-                <div className="relative flex justify-center text-sm">
-                    <span className="bg-slate-50 px-4 text-slate-500 font-bold uppercase tracking-wider text-[10px]">Snel inloggen (Demo)</span>
-                </div>
-                </div>
-
-                <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button 
-                    type="button"
-                    onClick={() => fillCredentials('manager')}
-                    className="flex items-center p-3 border border-slate-200 rounded-xl bg-white hover:border-teal-400 hover:shadow-md transition-all text-left group"
-                >
-                    <div className="w-10 h-10 rounded-full bg-teal-50 text-teal-600 flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
-                        <Shield size={20} />
-                    </div>
-                    <div>
-                    <div className="font-bold text-slate-800 text-sm">Manager</div>
-                    <div className="text-slate-500 text-xs font-medium">Volledige rechten</div>
-                    </div>
-                </button>
-
-                <button 
-                    type="button"
-                    onClick={() => fillCredentials('employee')}
-                    className="flex items-center p-3 border border-slate-200 rounded-xl bg-white hover:border-blue-400 hover:shadow-md transition-all text-left group"
-                >
-                    <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
-                        <User size={20} />
-                    </div>
-                    <div>
-                    <div className="font-bold text-slate-800 text-sm">Medewerker</div>
-                    <div className="text-slate-500 text-xs font-medium">Standaard toegang</div>
-                    </div>
-                </button>
-                </div>
-            </div>
             </div>
         )}
 
@@ -341,20 +272,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
               &copy; {new Date().getFullYear()} Sanadome Nijmegen. Secure Environment.
             </p>
         </div>
-
-        {/* Troubleshoot / Manual Seed Button (Only for live connections) */}
-        {isLive && (
-             <div className="absolute bottom-6 right-6">
-                 <button 
-                    onClick={handleManualSeed}
-                    disabled={isSeeding}
-                    className="flex items-center gap-2 text-[10px] text-slate-400 hover:text-slate-800 bg-white/50 hover:bg-white px-3 py-1.5 rounded-lg border border-transparent hover:border-slate-200 transition-all"
-                 >
-                     {isSeeding ? <RefreshCw size={12} className="animate-spin"/> : <Database size={12}/>}
-                     Database Herstellen (Seed)
-                 </button>
-             </div>
-        )}
       </div>
     </div>
   );
