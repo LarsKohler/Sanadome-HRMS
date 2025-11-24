@@ -50,6 +50,33 @@ export const api = {
     console.log("Database seed completed.");
   },
 
+  uploadFile: async (file: File, bucket: string = 'hrms-storage'): Promise<string | null> => {
+    if (isLive && supabase) {
+      try {
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from(bucket)
+          .upload(filePath, file);
+
+        if (uploadError) {
+          console.error('Upload Error:', uploadError);
+          return null;
+        }
+
+        const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
+        return data.publicUrl;
+      } catch (e) {
+        console.error('Upload exception:', e);
+        return null;
+      }
+    }
+    // Fallback for local testing
+    return URL.createObjectURL(file);
+  },
+
   // --- EMPLOYEES ---
   getEmployees: async (): Promise<Employee[]> => {
     if (isLive && supabase) {

@@ -10,6 +10,7 @@ import {
 import { Employee, LeaveRequest, EmployeeNote, EmployeeDocument, Notification, ViewState } from '../types';
 import { Modal } from './Modal';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
+import { api } from '../utils/api';
 
 interface EmployeeProfileProps {
   employee: Employee;
@@ -63,13 +64,26 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
     return baseTabs;
   }, [employee.onboardingStatus]);
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'banner') => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'banner') => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const imageUrl = URL.createObjectURL(file);
-    const updatedEmployee = { ...employee, [type]: imageUrl };
-    onUpdateEmployee(updatedEmployee);
-    onShowToast(`${type === 'avatar' ? 'Profielfoto' : 'Banner'} succesvol bijgewerkt.`);
+
+    onShowToast(`${type === 'avatar' ? 'Profielfoto' : 'Banner'} uploaden...`);
+
+    try {
+        const publicUrl = await api.uploadFile(file);
+        
+        if (publicUrl) {
+            const updatedEmployee = { ...employee, [type]: publicUrl };
+            onUpdateEmployee(updatedEmployee);
+            onShowToast(`${type === 'avatar' ? 'Profielfoto' : 'Banner'} succesvol bijgewerkt.`);
+        } else {
+             onShowToast('Uploaden mislukt. Probeer het opnieuw.');
+        }
+    } catch (error) {
+        console.error("Upload error", error);
+        onShowToast('Er is een fout opgetreden bij het uploaden.');
+    }
   };
 
   const handleRecordLeave = (e: React.FormEvent) => {

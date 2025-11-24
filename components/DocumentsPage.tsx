@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { Employee, EmployeeNote, EmployeeDocument, Notification, ViewState } from '../types';
 import { Modal } from './Modal';
+import { api } from '../utils/api';
 
 interface DocumentsPageProps {
   employees: Employee[];
@@ -54,6 +55,9 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
 
   const [docName, setDocName] = useState('');
   const [docCategory, setDocCategory] = useState<'Contract' | 'Loonstrook' | 'Identificatie' | 'Overig'>('Overig');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isManager = currentUser.role === 'Manager';
   const selectorRef = useRef<HTMLDivElement>(null);
@@ -195,48 +199,66 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
   const handleOpenUpload = () => {
     setDocName('');
     setDocCategory('Overig');
+    setUploadFile(null);
     setIsUploadModalOpen(true);
   };
 
-  const handleUploadDocument = (e: React.FormEvent) => {
+  const handleUploadDocument = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedEmployee) return;
+    if (!selectedEmployee || !uploadFile) {
+        onShowToast('Selecteer eerst een bestand.');
+        return;
+    }
 
-    const newDoc: EmployeeDocument = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: docName || 'Naamloos document',
-      type: 'PDF',
-      category: docCategory,
-      date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
-      size: '1.5 MB',
-      uploadedBy: currentUser.name
-    };
+    setIsUploading(true);
+    try {
+        const publicUrl = await api.uploadFile(uploadFile);
+        
+        if (publicUrl) {
+            const fileSize = (uploadFile.size / 1024 / 1024).toFixed(1) + ' MB';
+            const newDoc: EmployeeDocument = {
+              id: Math.random().toString(36).substr(2, 9),
+              name: docName || uploadFile.name,
+              type: 'PDF', // Simplified for demo, ideally detect MIME type
+              category: docCategory,
+              date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
+              size: fileSize,
+              uploadedBy: currentUser.name
+            };
 
-    const updatedEmployee = {
-      ...selectedEmployee,
-      documents: [newDoc, ...(selectedEmployee.documents || [])]
-    };
+            const updatedEmployee = {
+              ...selectedEmployee,
+              documents: [newDoc, ...(selectedEmployee.documents || [])]
+            };
 
-    onUpdateEmployee(updatedEmployee);
-    setIsUploadModalOpen(false);
-    
-    onShowToast('Document succesvol geüpload.');
+            onUpdateEmployee(updatedEmployee);
+            setIsUploadModalOpen(false);
+            onShowToast('Document succesvol geüpload.');
 
-    if (selectedEmployee.id !== currentUser.id) {
-        const notification: Notification = {
-          id: Math.random().toString(36).substr(2, 9),
-          recipientId: selectedEmployee.id,
-          senderName: currentUser.name,
-          type: 'Document',
-          title: 'Nieuw document',
-          message: `Nieuw document toegevoegd: "${newDoc.name}"`,
-          date: 'Zojuist',
-          read: false,
-          targetView: ViewState.DOCUMENTS,
-          targetEmployeeId: selectedEmployee.id
-        };
-        onAddNotification(notification);
-     }
+            if (selectedEmployee.id !== currentUser.id) {
+                const notification: Notification = {
+                  id: Math.random().toString(36).substr(2, 9),
+                  recipientId: selectedEmployee.id,
+                  senderName: currentUser.name,
+                  type: 'Document',
+                  title: 'Nieuw document',
+                  message: `Nieuw document toegevoegd: "${newDoc.name}"`,
+                  date: 'Zojuist',
+                  read: false,
+                  targetView: ViewState.DOCUMENTS,
+                  targetEmployeeId: selectedEmployee.id
+                };
+                onAddNotification(notification);
+             }
+        } else {
+            onShowToast('Upload mislukt.');
+        }
+    } catch (e) {
+        console.error(e);
+        onShowToast('Upload fout.');
+    } finally {
+        setIsUploading(false);
+    }
   };
 
   const handleOpenEditDoc = (doc: EmployeeDocument) => {
@@ -653,19 +675,31 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
 
       <Modal isOpen={isUploadModalOpen} onClose={() => setIsUploadModalOpen(false)} title="Document uploaden">
          <form onSubmit={handleUploadDocument} className="space-y-5">
-           <div className="border-2 border-dashed border-slate-300 rounded-2xl p-10 text-center bg-slate-50 hover:bg-slate-100 transition-all cursor-pointer hover:border-teal-400 group">
-            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm group-hover:scale-110 transition-transform">
-                <Upload className="h-8 w-8 text-teal-500" />
-            </div>
-            <p className="mt-2 text-sm font-bold text-slate-700">Klik om te bladeren of sleep bestand hierheen</p>
-            <p className="text-xs text-slate-400 mt-1">PDF, DOCX, JPG tot 10MB</p>
-          </div>
+           <div>
+               <input 
+                 type="file"
+                 ref={fileInputRef}
+                 className="hidden"
+                 onChange={(e) => setUploadFile(e.target.files?.[0] || null)}
+               />
+               <div 
+                 onClick={() => fileInputRef.current?.click()}
+                 className={`border-2 border-dashed border-slate-300 rounded-2xl p-10 text-center hover:bg-slate-50 transition-all cursor-pointer hover:border-teal-400 group ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
+               >
+                <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm group-hover:scale-110 transition-transform">
+                    {isUploading ? <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-600"></div> : <Upload className="h-8 w-8 text-teal-500" />}
+                </div>
+                <p className="mt-2 text-sm font-bold text-slate-700">
+                    {uploadFile ? uploadFile.name : (isUploading ? 'Uploaden...' : 'Klik om te bladeren of sleep bestand hierheen')}
+                </p>
+                <p className="text-xs text-slate-400 mt-1">PDF, DOCX, JPG tot 10MB</p>
+              </div>
+           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Bestandsnaam</label>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Bestandsnaam (Optioneel)</label>
             <input 
               type="text" 
-              required
               value={docName}
               onChange={(e) => setDocName(e.target.value)}
               className="w-full rounded-xl border border-slate-200 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 bg-slate-50 font-medium"
@@ -689,7 +723,9 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
 
           <div className="pt-6 flex justify-end gap-3">
             <button type="button" onClick={() => setIsUploadModalOpen(false)} className="px-6 py-3 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">Annuleren</button>
-            <button type="submit" className="px-6 py-3 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-colors shadow-sm">Toevoegen</button>
+            <button type="submit" disabled={isUploading} className="px-6 py-3 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-colors shadow-sm disabled:opacity-50">
+                {isUploading ? 'Bezig...' : 'Toevoegen'}
+            </button>
           </div>
          </form>
       </Modal>

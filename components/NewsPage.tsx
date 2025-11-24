@@ -3,6 +3,7 @@ import React, { useState, useRef } from 'react';
 import { Heart, MessageSquare, Share2, Send, Image as ImageIcon, X, User, Bold, Italic, List, Maximize2, ChevronRight } from 'lucide-react';
 import { Employee, NewsPost } from '../types';
 import { Modal } from './Modal';
+import { api } from '../utils/api';
 
 interface NewsPageProps {
   currentUser: Employee;
@@ -14,6 +15,7 @@ interface NewsPageProps {
 const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, onLikeNews }) => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<NewsPost | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   
   const [title, setTitle] = useState('');
   const [shortDescription, setShortDescription] = useState('');
@@ -24,11 +26,20 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
 
   const canPost = currentUser.role === 'Manager' || currentUser.role === 'Senior Medewerker';
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setImageUrl(url);
+      setIsUploading(true);
+      try {
+        const publicUrl = await api.uploadFile(file);
+        if (publicUrl) {
+            setImageUrl(publicUrl);
+        }
+      } catch (error) {
+        console.error("News upload error", error);
+      } finally {
+        setIsUploading(false);
+      }
     }
   };
 
@@ -158,7 +169,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                     />
                     <div>
                        <div className="text-xs font-bold text-slate-800">{post.authorName}</div>
-                       <div className="text-[10px] text-slate-400 font-medium uppercase tracking-wide">{post.date}</div>
+                       <div className="text-xs text-slate-400 font-medium uppercase tracking-wide">{post.date}</div>
                     </div>
                   </div>
                   <button className="text-slate-300 hover:text-slate-500 transition-colors">
@@ -292,13 +303,13 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
             
             {!imageUrl ? (
               <div 
-                onClick={() => fileInputRef.current?.click()}
-                className="border-2 border-dashed border-slate-300 rounded-xl p-10 text-center hover:bg-slate-50 cursor-pointer transition-all hover:border-teal-400 group"
+                onClick={() => !isUploading && fileInputRef.current?.click()}
+                className={`border-2 border-dashed border-slate-300 rounded-xl p-10 text-center hover:bg-slate-50 cursor-pointer transition-all hover:border-teal-400 group ${isUploading ? 'opacity-50 pointer-events-none' : ''}`}
               >
                 <div className="w-14 h-14 bg-teal-50 text-teal-500 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                   <ImageIcon size={24} />
+                   {isUploading ? <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-teal-500"></div> : <ImageIcon size={24} />}
                 </div>
-                <p className="text-sm font-bold text-slate-700">Afbeelding uploaden</p>
+                <p className="text-sm font-bold text-slate-700">{isUploading ? 'Uploaden...' : 'Afbeelding uploaden'}</p>
                 <p className="text-xs text-slate-400 mt-1">PNG, JPG tot 5MB</p>
               </div>
             ) : (
@@ -325,7 +336,8 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
             </button>
             <button 
               type="submit"
-              className="px-6 py-3 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-colors shadow-lg flex items-center gap-2"
+              disabled={isUploading}
+              className="px-6 py-3 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-colors shadow-lg flex items-center gap-2 disabled:opacity-50"
             >
               <Send size={16} />
               Publiceren
