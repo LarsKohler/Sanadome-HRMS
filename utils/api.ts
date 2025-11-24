@@ -77,6 +77,38 @@ export const api = {
     return URL.createObjectURL(file);
   },
 
+  deleteFile: async (fullUrl: string, bucket: string = 'hrms-storage') => {
+    if (isLive && supabase && fullUrl) {
+        try {
+            // Check if the URL belongs to our Supabase project
+            // Example URL: https://xyz.supabase.co/storage/v1/object/public/hrms-storage/filename.jpg
+            const projectUrlPart = supabase['supabaseUrl']; // Access internal URL or use logic
+            
+            // Only try to delete if it looks like a Supabase URL from this bucket
+            if (fullUrl.includes(bucket)) {
+                // Extract the path after the bucket name
+                // Split by bucket name and get the last part
+                const parts = fullUrl.split(`${bucket}/`);
+                if (parts.length > 1) {
+                    const filePath = parts[1]; // e.g., "filename.jpg"
+                    
+                    const { error } = await supabase.storage
+                        .from(bucket)
+                        .remove([filePath]);
+                    
+                    if (error) {
+                        console.error("Error deleting file:", error);
+                    } else {
+                        console.log("Old file deleted successfully:", filePath);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Delete exception:", e);
+        }
+    }
+  },
+
   // --- EMPLOYEES ---
   getEmployees: async (): Promise<Employee[]> => {
     if (isLive && supabase) {

@@ -71,6 +71,13 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
     onShowToast(`${type === 'avatar' ? 'Profielfoto' : 'Banner'} uploaden...`);
 
     try {
+        // 1. Check for old file to delete (if it exists and is a Supabase URL)
+        const oldUrl = type === 'avatar' ? employee.avatar : employee.banner;
+        if (oldUrl && oldUrl.includes('supabase')) {
+             await api.deleteFile(oldUrl);
+        }
+
+        // 2. Upload new file
         const publicUrl = await api.uploadFile(file);
         
         if (publicUrl) {

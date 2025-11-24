@@ -51,6 +51,15 @@ const App: React.FC = () => {
         setNewsItems(newsData);
         setNotifications(notifData);
         setSurveys(surveyData);
+        
+        // CHECK FOR SAVED SESSION
+        const savedSessionId = localStorage.getItem('hrms_session_id');
+        if (savedSessionId) {
+             const foundUser = empData.find(e => e.id === savedSessionId);
+             if (foundUser) {
+                 setCurrentUser(foundUser);
+             }
+        }
       } catch (error) {
         console.error("Error loading data", error);
       } finally {
@@ -114,6 +123,8 @@ const App: React.FC = () => {
     const foundUser = employees.find(emp => emp.email.toLowerCase() === email.toLowerCase() && emp.password === password);
     if (foundUser) {
       setCurrentUser(foundUser);
+      // Persist Session
+      localStorage.setItem('hrms_session_id', foundUser.id);
       return true;
     }
     return false;
@@ -123,6 +134,8 @@ const App: React.FC = () => {
     setCurrentUser(null);
     setCurrentView(ViewState.HOME);
     setDossierEmployeeId(null);
+    // Clear Session
+    localStorage.removeItem('hrms_session_id');
   };
 
   // --- DATA MUTATION HANDLERS (Using API Layer) ---
