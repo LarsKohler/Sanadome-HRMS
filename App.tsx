@@ -10,13 +10,20 @@ import NewsPage from './components/NewsPage';
 import OnboardingPage from './components/OnboardingPage';
 import SurveysPage from './components/SurveysPage';
 import EvaluationsPage from './components/EvaluationsPage'; 
-import ShopPage from './components/ShopPage'; // Import Shop
 import SurveyTakingFlow from './components/SurveyTakingFlow';
 import WelcomeFlow from './components/WelcomeFlow';
 import Login from './components/Login';
 import { Toast } from './components/Toast';
 import { ViewState, Employee, Notification, NewsPost, Survey, SurveyResponse } from './types';
-import { MOCK_EMPLOYEES, MOCK_NEWS, SHOP_CATALOG } from './utils/mockData';
+import { MOCK_EMPLOYEES, MOCK_NEWS } from './utils/mockData';
+
+// Storage Keys
+const STORAGE_KEYS = {
+    EMPLOYEES: 'hrms_employees',
+    NEWS: 'hrms_news',
+    NOTIFICATIONS: 'hrms_notifications',
+    SURVEYS: 'hrms_surveys'
+};
 
 const App: React.FC = () => {
   // Authentication State
@@ -25,48 +32,72 @@ const App: React.FC = () => {
 
   // View State
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.HOME);
-  const [employees, setEmployees] = useState<Employee[]>(MOCK_EMPLOYEES);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [newsItems, setNewsItems] = useState<NewsPost[]>(MOCK_NEWS);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // Theme State
-  const [activeThemeColor, setActiveThemeColor] = useState<string>('');
 
-  // Apply Theme Effect
-  useEffect(() => {
-    if (currentUser && currentUser.activeCosmetics.themeId) {
-        const theme = SHOP_CATALOG.find(t => t.id === currentUser.activeCosmetics.themeId);
-        if (theme) {
-            setActiveThemeColor(theme.previewValue);
-        } else {
-            setActiveThemeColor('');
+  // --- DATA LOADING WITH PERSISTENCE ---
+
+  // Employees
+  const [employees, setEmployees] = useState<Employee[]>(() => {
+      const saved = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
+      return saved ? JSON.parse(saved) : MOCK_EMPLOYEES;
+  });
+
+  // News
+  const [newsItems, setNewsItems] = useState<NewsPost[]>(() => {
+      const saved = localStorage.getItem(STORAGE_KEYS.NEWS);
+      return saved ? JSON.parse(saved) : MOCK_NEWS;
+  });
+
+  // Notifications
+  const [notifications, setNotifications] = useState<Notification[]>(() => {
+      const saved = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
+      return saved ? JSON.parse(saved) : [];
+  });
+
+  // Surveys
+  const [surveys, setSurveys] = useState<Survey[]>(() => {
+      const saved = localStorage.getItem(STORAGE_KEYS.SURVEYS);
+      if (saved) return JSON.parse(saved);
+      return [
+        {
+            id: 's1',
+            title: 'Medewerkerstevredenheid 2023',
+            description: 'Wij horen graag hoe jij je voelt binnen het team. Deze survey helpt ons om Sanadome nog beter te maken.',
+            targetAudience: 'All',
+            questions: [
+                { id: 'q1', text: 'Ik voel mij gewaardeerd door mijn manager', type: 'Rating', image: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=1920&q=80' },
+                { id: 'q2', text: 'Ik heb voldoende doorgroeimogelijkheden', type: 'Choice', options: ['Mee eens', 'Neutraal', 'Mee oneens'] },
+                { id: 'q3', text: 'Wat kunnen we verbeteren op de werkvloer?', type: 'Text' }
+            ],
+            createdBy: 'HR',
+            createdAt: '20 Okt 2023',
+            status: 'Active',
+            responseCount: 12,
+            completedBy: []
         }
-    } else {
-        setActiveThemeColor('');
-    }
-  }, [currentUser]);
-  
-  // Survey State
-  const [surveys, setSurveys] = useState<Survey[]>([
-      {
-          id: 's1',
-          title: 'Medewerkerstevredenheid 2023',
-          description: 'Wij horen graag hoe jij je voelt binnen het team. Deze survey helpt ons om Sanadome nog beter te maken.',
-          targetAudience: 'All',
-          questions: [
-              { id: 'q1', text: 'Ik voel mij gewaardeerd door mijn manager', type: 'Rating', image: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=1920&q=80' },
-              { id: 'q2', text: 'Ik heb voldoende doorgroeimogelijkheden', type: 'Choice', options: ['Mee eens', 'Neutraal', 'Mee oneens'] },
-              { id: 'q3', text: 'Wat kunnen we verbeteren op de werkvloer?', type: 'Text' }
-          ],
-          createdBy: 'HR',
-          createdAt: '20 Okt 2023',
-          status: 'Active',
-          responseCount: 12,
-          completedBy: [], // Initial empty list
-          rewardPoints: 50 // Points
-      }
-  ]);
+      ];
+  });
+
+  // --- PERSISTENCE EFFECTS ---
+
+  useEffect(() => {
+      localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
+  }, [employees]);
+
+  useEffect(() => {
+      localStorage.setItem(STORAGE_KEYS.NEWS, JSON.stringify(newsItems));
+  }, [newsItems]);
+
+  useEffect(() => {
+      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
+  }, [notifications]);
+
+  useEffect(() => {
+      localStorage.setItem(STORAGE_KEYS.SURVEYS, JSON.stringify(surveys));
+  }, [surveys]);
+
+
+  // Active Survey State
   const [activeSurveyId, setActiveSurveyId] = useState<string | null>(null);
 
   // Deep Link State
@@ -123,7 +154,6 @@ const App: React.FC = () => {
     setCurrentUser(null);
     setCurrentView(ViewState.HOME);
     setDossierEmployeeId(null);
-    setActiveThemeColor('');
   };
 
   const handleUpdateEmployee = (updatedEmployee: Employee) => {
@@ -198,21 +228,12 @@ const App: React.FC = () => {
       // 1. Close flow
       setActiveSurveyId(null);
       
-      // 2. Update count and track who completed it (State Update)
+      // 2. Update count and track who completed it
       setSurveys(prevSurveys => {
           return prevSurveys.map(s => {
               if (s.id === response.surveyId) {
                   if (s.completedBy.includes(currentUser.id)) return s;
                   
-                  // REWARD POINTS
-                  const points = s.rewardPoints || 50;
-                  const updatedUser = { 
-                      ...currentUser, 
-                      walletBalance: currentUser.walletBalance + points 
-                  };
-                  handleUpdateEmployee(updatedUser);
-                  handleShowToast(`Bedankt! Je hebt ${points} Sanacoins verdiend.`);
-
                   return { 
                       ...s, 
                       responseCount: s.responseCount + 1, 
@@ -223,6 +244,8 @@ const App: React.FC = () => {
           });
       });
       
+      handleShowToast(`Bedankt voor je feedback!`);
+
       // 3. Remove Pinned Notification
       setNotifications(prev => prev.filter(n => {
           if (n.type === 'Survey' && n.metaId === response.surveyId && n.recipientId === currentUser.id) {
@@ -315,11 +338,8 @@ const App: React.FC = () => {
   }
 
   return (
-    // Standard Layout Container with Theme Injection
-    <div 
-        className={`fixed inset-0 font-sans flex flex-col overflow-hidden transition-colors duration-500`}
-        style={{ backgroundColor: activeThemeColor || '#f8fafc' }}
-    >
+    // Default Slate-50 background, no dynamic theme
+    <div className="fixed inset-0 font-sans flex flex-col overflow-hidden bg-slate-50 transition-colors duration-500">
       
       {/* SURVEY OVERLAY */}
       {activeSurveyId && (
@@ -363,14 +383,6 @@ const App: React.FC = () => {
               onAddNotification={handleAddNotification}
               onShowToast={handleShowToast}
             />
-          )}
-          
-          {currentView === ViewState.SHOP && (
-              <ShopPage 
-                  currentUser={currentUser}
-                  onUpdateEmployee={handleUpdateEmployee}
-                  onShowToast={handleShowToast}
-              />
           )}
 
           {currentView === ViewState.DIRECTORY && (

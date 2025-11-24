@@ -10,14 +10,13 @@ export enum ViewState {
   SURVEYS = 'SURVEYS',
   EVALUATIONS = 'EVALUATIONS', 
   WELCOME = 'WELCOME',
-  SHOP = 'SHOP',
 }
 
 export interface Notification {
   id: string;
   recipientId: string;
   senderName: string;
-  type: 'LeaveRequest' | 'Document' | 'Note' | 'System' | 'News' | 'Onboarding' | 'Survey' | 'Evaluation' | 'Reward';
+  type: 'LeaveRequest' | 'Document' | 'Note' | 'System' | 'News' | 'Onboarding' | 'Survey' | 'Evaluation';
   title: string;
   message: string;
   date: string;
@@ -140,27 +139,6 @@ export interface EvaluationCycle {
     smartAdvice?: string[]; 
 }
 
-// --- GAMIFICATION / SHOP TYPES ---
-
-export type ShopCategory = 'Frame' | 'Banner' | 'Theme' | 'NameColor' | 'BadgeSlot';
-
-export interface ShopItem {
-  id: string;
-  name: string;
-  description: string;
-  category: ShopCategory;
-  price: number;
-  previewValue: string; // CSS class, Image URL, or Hex Code
-  isPremium?: boolean;
-}
-
-export interface ActiveCosmetics {
-  frameId?: string;
-  bannerId?: string;
-  nameColorId?: string;
-  themeId?: string;
-}
-
 export interface Employee {
   id: string;
   name: string;
@@ -168,7 +146,7 @@ export interface Employee {
   department: string;
   location: string;
   avatar: string;
-  banner?: string; // New field for custom profile banner
+  banner?: string; // Custom profile banner
   email: string;
   phone: string;
   linkedin: string;
@@ -178,11 +156,6 @@ export interface Employee {
   
   // Account Status
   accountStatus?: 'Active' | 'Inactive' | 'Pending';
-
-  // Gamification
-  walletBalance: number;
-  inventory: string[]; // List of ShopItem IDs owned
-  activeCosmetics: ActiveCosmetics;
 
   // Onboarding Specifics
   mentor?: string; // Name of the buddy/mentor
@@ -246,7 +219,6 @@ export interface Survey {
   status: 'Draft' | 'Active' | 'Closed';
   responseCount: number;
   completedBy: string[]; // List of employee IDs who completed this survey
-  rewardPoints: number; // Points earned for completing
 }
 
 export interface SurveyResponse {

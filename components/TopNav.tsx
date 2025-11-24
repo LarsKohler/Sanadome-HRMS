@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Bell, Plus, ChevronDown, Lock, LogOut, CheckCircle2, Pin, Menu, Coins } from 'lucide-react';
+import { Search, Bell, Plus, ChevronDown, Lock, LogOut, CheckCircle2, Pin, Menu } from 'lucide-react';
 import { Employee, Notification, ViewState } from '../types';
 
 interface TopNavProps {
@@ -76,22 +76,6 @@ const TopNav: React.FC<TopNavProps> = ({
 
       <div className="flex items-center gap-2 lg:gap-5">
         
-        {/* Wallet Display */}
-        {user && (
-            <button 
-                onClick={() => onNavigate(ViewState.SHOP)}
-                className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-sm font-bold hover:bg-amber-100 hover:scale-105 transition-all cursor-pointer"
-                title="Sanacoins Wallet"
-            >
-                <div className="bg-amber-400 text-white rounded-full p-1 shadow-sm">
-                    <Coins size={14} fill="currentColor" />
-                </div>
-                <span>{user.walletBalance}</span>
-            </button>
-        )}
-
-        <div className="hidden md:block h-8 w-px bg-slate-200 mx-1"></div>
-
         <div className="flex items-center gap-1 lg:gap-3">
           
           {/* Notification Bell */}

@@ -157,9 +157,6 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       employmentType: formData.employmentType,
       accountStatus: 'Pending',
       onboardingStatus: 'Pending',
-      walletBalance: 0,
-      inventory: [],
-      activeCosmetics: {},
       leaveBalances: [
         { type: 'Annual Leave', entitled: 25, taken: 0 },
         { type: 'Sick Leave', entitled: 10, taken: 0 },

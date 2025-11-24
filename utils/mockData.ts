@@ -1,5 +1,5 @@
 
-import { Employee, NewsPost, OnboardingTask, ShopItem } from '../types';
+import { Employee, NewsPost, OnboardingTask } from '../types';
 
 // ... (Previous imports and helper functions remain, but keeping file concise)
 const generateOnboardingTasks = (): OnboardingTask[] => [
@@ -71,28 +71,6 @@ export const MOCK_NEWS: NewsPost[] = [
   }
 ];
 
-export const SHOP_CATALOG: ShopItem[] = [
-    // FRAMES
-    { id: 'frame-gold', name: 'Legendary Gold', category: 'Frame', price: 500, description: 'Een gouden rand voor toppresteerders.', previewValue: 'border-4 border-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.6)]' },
-    { id: 'frame-neon', name: 'Neon Vibes', category: 'Frame', price: 350, description: 'Val op met deze felle neon gloed.', previewValue: 'border-4 border-fuchsia-500 shadow-[0_0_15px_rgba(217,70,239,0.8)]' },
-    { id: 'frame-nature', name: 'Nature Green', category: 'Frame', price: 200, description: 'Subtiele groene rand met blaadjes effect.', previewValue: 'border-4 border-emerald-500 border-dashed' },
-    { id: 'frame-fire', name: 'Firestorm', category: 'Frame', price: 750, description: 'Voor als je on fire bent!', previewValue: 'border-4 border-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.8)] animate-pulse' },
-
-    // BANNERS
-    { id: 'banner-tech', name: 'Tech Stack', category: 'Banner', price: 400, description: 'Een moderne code achtergrond.', previewValue: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1920&q=80' },
-    { id: 'banner-zen', name: 'Zen Garden', category: 'Banner', price: 300, description: 'Rustgevende stenen en zand.', previewValue: 'https://images.unsplash.com/photo-1519275528373-c4083d92257e?auto=format&fit=crop&w=1920&q=80' },
-    { id: 'banner-space', name: 'Galaxy', category: 'Banner', price: 600, description: 'Reis naar de sterren.', previewValue: 'https://images.unsplash.com/photo-1462331940025-496dfbfc7564?auto=format&fit=crop&w=1920&q=80' },
-    
-    // THEMES
-    { id: 'theme-dark', name: 'Sanadome Dark', category: 'Theme', price: 1000, description: 'Een rustig donker thema voor de late uurtjes.', previewValue: '#1e293b' },
-    { id: 'theme-cyber', name: 'Cyberpunk', category: 'Theme', price: 1500, description: 'High contrast, neon accenten.', previewValue: '#0f172a' },
-    
-    // NAME COLORS
-    { id: 'color-gold', name: 'Golden Name', category: 'NameColor', price: 250, description: 'Je naam in goud.', previewValue: 'text-yellow-600 font-extrabold' },
-    { id: 'color-purple', name: 'Royal Purple', category: 'NameColor', price: 250, description: 'Koninklijke uitstraling.', previewValue: 'text-purple-700 font-extrabold' },
-    { id: 'color-teal', name: 'Signature Teal', category: 'NameColor', price: 150, description: 'Onze brand color, maar dan feller.', previewValue: 'text-teal-500 font-extrabold' },
-];
-
 export const MOCK_EMPLOYEES: Employee[] = [
   {
     id: 'manager-user',
@@ -109,9 +87,6 @@ export const MOCK_EMPLOYEES: Employee[] = [
     hiredOn: '01 Jan 2018',
     employmentType: 'Full-Time',
     accountStatus: 'Active',
-    walletBalance: 2450,
-    inventory: ['frame-gold', 'theme-dark', 'color-gold'],
-    activeCosmetics: { frameId: 'frame-gold', themeId: 'theme-dark', nameColorId: 'color-gold' },
     leaveBalances: [
       { type: 'Annual Leave', entitled: 30.0, taken: 5.0 },
       { type: 'Sick Leave', entitled: 10.0, taken: 0.0 },
@@ -143,9 +118,6 @@ export const MOCK_EMPLOYEES: Employee[] = [
     hiredOn: '15 Mrt 2022',
     employmentType: 'Full-Time',
     accountStatus: 'Active',
-    walletBalance: 450,
-    inventory: ['frame-neon'],
-    activeCosmetics: { frameId: 'frame-neon' },
     leaveBalances: [
       { type: 'Annual Leave', entitled: 25.0, taken: 12.0 },
       { type: 'Sick Leave', entitled: 10.0, taken: 1.0 },

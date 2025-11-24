@@ -130,7 +130,6 @@ const SurveysPage: React.FC<SurveysPageProps> = ({ currentUser, surveys, onAddSu
           status: 'Active',
           responseCount: 0,
           completedBy: [],
-          rewardPoints: 50 // Default reward points
       };
       onAddSurvey(newSurvey);
       setIsBuilderOpen(false);

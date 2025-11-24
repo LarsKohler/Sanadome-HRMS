@@ -3,7 +3,7 @@ import React from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
   UserPlus, Trophy, FileText, PieChart, 
-  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, ShoppingBag
+  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck
 } from 'lucide-react';
 import { ViewState } from '../types';
 
@@ -23,7 +23,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userRole, 
     { icon: UserCheck, label: 'Onboarding', id: ViewState.ONBOARDING },
     { icon: ClipboardList, label: 'Surveys', id: ViewState.SURVEYS },
     { icon: ClipboardCheck, label: 'Evaluaties', id: ViewState.EVALUATIONS }, 
-    { icon: ShoppingBag, label: 'Rewards Shop', id: ViewState.SHOP }, // New
     { icon: User, label: 'Mijn Profiel', id: 'me' },
     { icon: CheckSquare, label: 'Taken', id: 'tasks', badge: 2 },
     { icon: Users, label: 'Collega\'s', id: ViewState.DIRECTORY },
