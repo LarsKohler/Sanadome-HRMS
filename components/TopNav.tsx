@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Bell, Plus, ChevronDown, Lock, LogOut, CheckCircle2, Pin, Menu } from 'lucide-react';
+import { Search, Bell, Plus, ChevronDown, Lock, LogOut, CheckCircle2, Pin, Menu, Cloud, Database } from 'lucide-react';
 import { Employee, Notification, ViewState } from '../types';
 
 interface TopNavProps {
@@ -12,6 +12,7 @@ interface TopNavProps {
   onMarkSingleRead: (id: string) => void;
   onToggleMobileMenu: () => void;
   onNavigate: (view: ViewState) => void;
+  isLive: boolean; // New prop for status
 }
 
 const TopNav: React.FC<TopNavProps> = ({ 
@@ -22,7 +23,8 @@ const TopNav: React.FC<TopNavProps> = ({
   onMarkAllRead,
   onMarkSingleRead,
   onToggleMobileMenu,
-  onNavigate
+  onNavigate,
+  isLive
 }) => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -68,9 +70,10 @@ const TopNav: React.FC<TopNavProps> = ({
             </div>
         </div>
         
-        <div className="hidden xl:flex items-center bg-slate-50 border border-slate-200 rounded-full px-4 py-1.5 text-xs font-bold text-slate-500 ml-8 opacity-70 pointer-events-none select-none">
-            <Lock size={10} className="mr-2 text-teal-600"/>
-            mijn.sanadome.nl
+        {/* Status Indicator */}
+        <div className={`hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ml-4 ${isLive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+            {isLive ? <Cloud size={12} className="text-green-600"/> : <Database size={12} className="text-slate-400"/>}
+            {isLive ? 'Live (Supabase)' : 'Lokaal (Offline)'}
         </div>
       </div>
 

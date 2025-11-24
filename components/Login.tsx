@@ -1,5 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
-import { Lock, ArrowRight, AlertCircle, User, Shield, Key, ChevronLeft, Mail } from 'lucide-react';
+import { Lock, ArrowRight, AlertCircle, User, Shield, Key, ChevronLeft, Mail, Database, RefreshCw } from 'lucide-react';
+import { api, isLive } from '../utils/api';
 
 interface LoginProps {
   onLogin: (email: string, password: string) => boolean;
@@ -16,6 +18,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [password, setPassword] = useState('demo');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isSeeding, setIsSeeding] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
 
@@ -40,6 +43,21 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         setIsLoading(false);
       }
     }, 800);
+  };
+
+  const handleManualSeed = async () => {
+      if (!confirm("Weet je zeker dat je de database wilt vullen met standaard data? Dit is bedoeld voor lege databases.")) return;
+      
+      setIsSeeding(true);
+      try {
+          await api.seedDatabase();
+          alert("Database succesvol gevuld! De pagina wordt nu herladen.");
+          window.location.reload();
+      } catch (e) {
+          alert("Er is iets misgegaan tijdens het vullen.");
+          console.error(e);
+          setIsSeeding(false);
+      }
   };
 
   const fillCredentials = (role: 'manager' | 'employee') => {
@@ -318,11 +336,25 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         )}
 
         {/* Footer */}
-        <div className="absolute bottom-6 w-full text-center pointer-events-none">
+        <div className="absolute bottom-6 w-full text-center pointer-events-none flex justify-center items-center gap-4">
             <p className="text-xs text-slate-400 font-medium">
               &copy; {new Date().getFullYear()} Sanadome Nijmegen. Secure Environment.
             </p>
         </div>
+
+        {/* Troubleshoot / Manual Seed Button (Only for live connections) */}
+        {isLive && (
+             <div className="absolute bottom-6 right-6">
+                 <button 
+                    onClick={handleManualSeed}
+                    disabled={isSeeding}
+                    className="flex items-center gap-2 text-[10px] text-slate-400 hover:text-slate-800 bg-white/50 hover:bg-white px-3 py-1.5 rounded-lg border border-transparent hover:border-slate-200 transition-all"
+                 >
+                     {isSeeding ? <RefreshCw size={12} className="animate-spin"/> : <Database size={12}/>}
+                     Database Herstellen (Seed)
+                 </button>
+             </div>
+        )}
       </div>
     </div>
   );

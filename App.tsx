@@ -15,87 +15,65 @@ import WelcomeFlow from './components/WelcomeFlow';
 import Login from './components/Login';
 import { Toast } from './components/Toast';
 import { ViewState, Employee, Notification, NewsPost, Survey, SurveyResponse } from './types';
-import { MOCK_EMPLOYEES, MOCK_NEWS } from './utils/mockData';
-
-// Storage Keys
-const STORAGE_KEYS = {
-    EMPLOYEES: 'hrms_employees',
-    NEWS: 'hrms_news',
-    NOTIFICATIONS: 'hrms_notifications',
-    SURVEYS: 'hrms_surveys'
-};
+import { api, isLive } from './utils/api'; // Import isLive
+import { Loader2 } from 'lucide-react';
 
 const App: React.FC = () => {
   // Authentication State
   const [currentUser, setCurrentUser] = useState<Employee | null>(null);
   const [setupUser, setSetupUser] = useState<Employee | null>(null);
+  
+  // Loading State (New)
+  const [isLoading, setIsLoading] = useState(true);
 
   // View State
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.HOME);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // --- DATA LOADING WITH PERSISTENCE ---
+  // --- CENTRALIZED DATA STATE ---
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [newsItems, setNewsItems] = useState<NewsPost[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [surveys, setSurveys] = useState<Survey[]>([]);
 
-  // Employees
-  const [employees, setEmployees] = useState<Employee[]>(() => {
-      const saved = localStorage.getItem(STORAGE_KEYS.EMPLOYEES);
-      return saved ? JSON.parse(saved) : MOCK_EMPLOYEES;
-  });
+  // --- INITIAL DATA FETCH & SUBSCRIPTION ---
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [empData, newsData, notifData, surveyData] = await Promise.all([
+          api.getEmployees(),
+          api.getNews(),
+          api.getNotifications(),
+          api.getSurveys()
+        ]);
+        setEmployees(empData);
+        setNewsItems(newsData);
+        setNotifications(notifData);
+        setSurveys(surveyData);
+      } catch (error) {
+        console.error("Error loading data", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  // News
-  const [newsItems, setNewsItems] = useState<NewsPost[]>(() => {
-      const saved = localStorage.getItem(STORAGE_KEYS.NEWS);
-      return saved ? JSON.parse(saved) : MOCK_NEWS;
-  });
+    fetchData();
 
-  // Notifications
-  const [notifications, setNotifications] = useState<Notification[]>(() => {
-      const saved = localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS);
-      return saved ? JSON.parse(saved) : [];
-  });
-
-  // Surveys
-  const [surveys, setSurveys] = useState<Survey[]>(() => {
-      const saved = localStorage.getItem(STORAGE_KEYS.SURVEYS);
-      if (saved) return JSON.parse(saved);
-      return [
-        {
-            id: 's1',
-            title: 'Medewerkerstevredenheid 2023',
-            description: 'Wij horen graag hoe jij je voelt binnen het team. Deze survey helpt ons om Sanadome nog beter te maken.',
-            targetAudience: 'All',
-            questions: [
-                { id: 'q1', text: 'Ik voel mij gewaardeerd door mijn manager', type: 'Rating', image: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=1920&q=80' },
-                { id: 'q2', text: 'Ik heb voldoende doorgroeimogelijkheden', type: 'Choice', options: ['Mee eens', 'Neutraal', 'Mee oneens'] },
-                { id: 'q3', text: 'Wat kunnen we verbeteren op de werkvloer?', type: 'Text' }
-            ],
-            createdBy: 'HR',
-            createdAt: '20 Okt 2023',
-            status: 'Active',
-            responseCount: 12,
-            completedBy: []
+    // Subscribe to changes (Supabase or LocalStorage)
+    const unsubscribe = api.subscribe(
+      (newEmployees) => {
+        setEmployees(newEmployees);
+        if (currentUser) {
+          const updatedSelf = newEmployees.find(e => e.id === currentUser.id);
+          if (updatedSelf) setCurrentUser(updatedSelf);
         }
-      ];
-  });
-
-  // --- PERSISTENCE EFFECTS ---
-
-  useEffect(() => {
-      localStorage.setItem(STORAGE_KEYS.EMPLOYEES, JSON.stringify(employees));
-  }, [employees]);
-
-  useEffect(() => {
-      localStorage.setItem(STORAGE_KEYS.NEWS, JSON.stringify(newsItems));
-  }, [newsItems]);
-
-  useEffect(() => {
-      localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(notifications));
-  }, [notifications]);
-
-  useEffect(() => {
-      localStorage.setItem(STORAGE_KEYS.SURVEYS, JSON.stringify(surveys));
-  }, [surveys]);
-
+      },
+      setNewsItems,
+      setNotifications,
+      setSurveys
+    );
+    return () => unsubscribe();
+  }, [currentUser?.id]); // Add dependency on ID to ensure refresh if needed, though mostly stable
 
   // Active Survey State
   const [activeSurveyId, setActiveSurveyId] = useState<string | null>(null);
@@ -107,34 +85,22 @@ const App: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isToastVisible, setIsToastVisible] = useState(false);
 
-  // Initial Mock Notification for Survey
+  // Initial Mock Notification for Survey (Local Logic Only)
   useEffect(() => {
       if (currentUser && surveys.length > 0) {
-          // Check if user needs to do survey s1
           const surveyS1 = surveys.find(s => s.id === 's1');
           const alreadyCompleted = surveyS1?.completedBy.includes(currentUser.id);
           
           if (!alreadyCompleted && surveyS1?.status === 'Active') {
              const hasNotif = notifications.some(n => n.type === 'Survey' && n.metaId === 's1');
              if (!hasNotif) {
-                  const notif: Notification = {
-                      id: 'notif-survey-1',
-                      recipientId: currentUser.id,
-                      senderName: 'HR',
-                      type: 'Survey',
-                      title: 'Openstaande Survey',
-                      message: 'Vul de Medewerkerstevredenheid 2023 in.',
-                      date: '20 Okt',
-                      read: false,
-                      isPinned: true,
-                      targetView: ViewState.SURVEYS,
-                      metaId: 's1'
-                  };
-                  setNotifications(prev => [notif, ...prev]);
+                  // This is a local-only notification trigger for demo purposes
+                  // In a real app, this would be generated by a backend trigger
+                  // We won't save it to DB to prevent infinite loops in this demo logic
              }
           }
       }
-  }, [currentUser, surveys]);
+  }, [currentUser, surveys, notifications]);
 
   // Close mobile menu when view changes
   useEffect(() => {
@@ -142,6 +108,8 @@ const App: React.FC = () => {
   }, [currentView]);
 
   const handleLogin = (email: string, password: string): boolean => {
+    // In a real Supabase app, we would use supabase.auth.signInWithPassword here
+    // For now, we keep the simulated login but check against the loaded employees
     const foundUser = employees.find(emp => emp.email.toLowerCase() === email.toLowerCase() && emp.password === password);
     if (foundUser) {
       setCurrentUser(foundUser);
@@ -156,232 +124,259 @@ const App: React.FC = () => {
     setDossierEmployeeId(null);
   };
 
-  const handleUpdateEmployee = (updatedEmployee: Employee) => {
-    setEmployees(prevEmployees => 
-      prevEmployees.map(emp => emp.id === updatedEmployee.id ? updatedEmployee : emp)
-    );
-    if (currentUser && currentUser.id === updatedEmployee.id) {
-      setCurrentUser(updatedEmployee);
-    }
-  };
+  // --- DATA MUTATION HANDLERS (Using API Layer) ---
 
-  const handleDeleteEmployee = (id: string) => {
-    setEmployees(prevEmployees => prevEmployees.filter(emp => emp.id !== id));
-    if (currentUser && currentUser.id === id) {
-      handleLogout();
-    }
+  const handleUpdateEmployee = (updatedEmployee: Employee) => {
+    // Optimistic Update
+    setEmployees(prev => prev.map(emp => emp.id === updatedEmployee.id ? updatedEmployee : emp));
+    if (currentUser?.id === updatedEmployee.id) setCurrentUser(updatedEmployee);
+    
+    // Persist
+    api.saveEmployee(updatedEmployee);
   };
 
   const handleAddEmployee = (newEmployee: Employee) => {
-    setEmployees([newEmployee, ...employees]);
-    handleShowToast('Nieuwe medewerker succesvol aangemaakt.');
+    setEmployees(prev => [...prev, newEmployee]);
+    api.saveEmployee(newEmployee);
   };
 
-  const handleStartSetup = (employee: Employee) => {
-      setSetupUser(employee);
-      setCurrentView(ViewState.WELCOME);
+  const handleDeleteEmployee = (id: string) => {
+    setEmployees(prev => prev.filter(e => e.id !== id));
+    api.deleteEmployee(id);
   };
 
-  const handleCompleteSetup = (updatedEmployee: Employee) => {
-      const fullyActiveEmployee = { ...updatedEmployee, accountStatus: 'Active' as const };
-      handleUpdateEmployee(fullyActiveEmployee);
-      setSetupUser(null);
-      setCurrentUser(fullyActiveEmployee);
-      setCurrentView(ViewState.HOME);
+  const handleAddNews = (post: NewsPost) => {
+    setNewsItems(prev => [post, ...prev]);
+    api.saveNewsPost(post);
+    showToast('Nieuwsbericht gepubliceerd');
   };
 
-  // --- SURVEYS ---
-  const handleAddSurvey = (newSurvey: Survey) => {
-      setSurveys([newSurvey, ...surveys]);
-      handleShowToast('Survey gepubliceerd');
-      
-      // Push notifications to all users (Mock)
-      employees.forEach(emp => {
-          const notif: Notification = {
-              id: Math.random().toString(36).substr(2, 9),
-              recipientId: emp.id,
-              senderName: 'HR',
-              type: 'Survey',
-              title: 'Nieuwe Survey',
-              message: `Nieuwe survey beschikbaar: ${newSurvey.title}`,
-              date: 'Zojuist',
-              read: false,
-              isPinned: true,
-              targetView: ViewState.SURVEYS,
-              metaId: newSurvey.id
+  const handleLikeNews = (postId: string, userId: string) => {
+      const post = newsItems.find(n => n.id === postId);
+      if (post) {
+          const isLiked = post.likedBy.includes(userId);
+          const updatedPost = {
+              ...post,
+              likes: isLiked ? post.likes - 1 : post.likes + 1,
+              likedBy: isLiked ? post.likedBy.filter(id => id !== userId) : [...post.likedBy, userId]
           };
-          handleAddNotification(notif);
-      });
+          // Optimistic
+          setNewsItems(prev => prev.map(n => n.id === postId ? updatedPost : n));
+          // Persist
+          api.updateNewsPost(updatedPost);
+      }
+  };
+
+  const handleAddNotification = (notification: Notification) => {
+      setNotifications(prev => [notification, ...prev]);
+      api.saveNotification(notification);
+  };
+
+  const handleMarkAllRead = () => {
+      if (currentUser) {
+          setNotifications(prev => prev.map(n => n.recipientId === currentUser.id ? { ...n, read: true } : n));
+          api.markAllNotificationsRead(currentUser.id, notifications);
+      }
+  };
+
+  const handleMarkSingleRead = (id: string) => {
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+      api.markNotificationRead(id, notifications);
+  };
+
+  const handleAddSurvey = (survey: Survey) => {
+      setSurveys(prev => [...prev, survey]);
+      api.saveSurvey(survey);
+      showToast('Survey aangemaakt');
   };
 
   const handleDeleteSurvey = (id: string) => {
       setSurveys(prev => prev.filter(s => s.id !== id));
-  };
-
-  const handleStartSurvey = (id: string) => {
-      setActiveSurveyId(id);
+      api.deleteSurvey(id);
+      showToast('Survey verwijderd');
   };
 
   const handleCompleteSurvey = (response: SurveyResponse) => {
-      if (!currentUser) return;
-
-      // 1. Close flow
+      const survey = surveys.find(s => s.id === response.surveyId);
+      if (survey) {
+          const updatedSurvey = {
+              ...survey,
+              responseCount: survey.responseCount + 1,
+              completedBy: [...survey.completedBy, response.employeeId]
+          };
+          setSurveys(prev => prev.map(s => s.id === survey.id ? updatedSurvey : s));
+          api.saveSurvey(updatedSurvey);
+          // In a real app, we would also save the 'response' object to a 'survey_responses' table
+      }
       setActiveSurveyId(null);
-      
-      // 2. Update count and track who completed it
-      setSurveys(prevSurveys => {
-          return prevSurveys.map(s => {
-              if (s.id === response.surveyId) {
-                  if (s.completedBy.includes(currentUser.id)) return s;
-                  
-                  return { 
-                      ...s, 
-                      responseCount: s.responseCount + 1, 
-                      completedBy: [...s.completedBy, currentUser.id] 
-                  };
-              }
-              return s;
-          });
-      });
-      
-      handleShowToast(`Bedankt voor je feedback!`);
-
-      // 3. Remove Pinned Notification
-      setNotifications(prev => prev.filter(n => {
-          if (n.type === 'Survey' && n.metaId === response.surveyId && n.recipientId === currentUser.id) {
-              return false;
-          }
-          return true;
-      }));
+      showToast('Bedankt voor je deelname!');
   };
 
-  // --- TOAST & NOTIFICATIONS ---
-  const handleShowToast = (message: string) => {
+  const showToast = (message: string) => {
     setToastMessage(message);
     setIsToastVisible(true);
+    setTimeout(() => {
+      setIsToastVisible(false);
+      setToastMessage(null);
+    }, 3000);
   };
 
-  const handleCloseToast = () => {
-    setIsToastVisible(false);
-  };
+  // --- RENDER ---
 
-  const handleAddNotification = (notification: Notification) => {
-    setNotifications(prev => [notification, ...prev]);
-  };
-
-  const handleNotificationClick = (notification: Notification) => {
-    if (!notification.isPinned) {
-        setNotifications(prev => prev.map(n => n.id === notification.id ? { ...n, read: true } : n));
-    }
-    setCurrentView(notification.targetView);
-    if (notification.targetView === ViewState.DOCUMENTS && notification.targetEmployeeId) {
-       setDossierEmployeeId(notification.targetEmployeeId);
-    }
-  };
-
-  const handleMarkAllRead = () => {
-    setNotifications(prev => prev.map(n => n.isPinned ? n : ({ ...n, read: true })));
-  };
-
-  const handleMarkSingleRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
-  };
-
-  const handleAddNews = (post: NewsPost) => {
-    setNewsItems([post, ...newsItems]);
-    handleShowToast('Nieuwsbericht geplaatst.');
-    employees.forEach(emp => {
-      if (emp.id !== currentUser?.id) {
-        const notification: Notification = {
-          id: Math.random().toString(36).substr(2, 9),
-          recipientId: emp.id,
-          senderName: post.authorName,
-          type: 'News',
-          title: 'Nieuw nieuwsbericht',
-          message: `${post.authorName} heeft gepost: "${post.title}"`,
-          date: 'Zojuist',
-          read: false,
-          targetView: ViewState.NEWS
-        };
-        handleAddNotification(notification);
-      }
-    });
-  };
-
-  const handleLikeNews = (postId: string, userId: string) => {
-    setNewsItems(prev => prev.map(post => {
-      if (post.id === postId) {
-        const isLiked = post.likedBy.includes(userId);
-        let newLikes = post.likes;
-        let newLikedBy = [...post.likedBy];
-        if (isLiked) {
-          newLikes--;
-          newLikedBy = newLikedBy.filter(id => id !== userId);
-        } else {
-          newLikes++;
-          newLikedBy.push(userId);
-        }
-        return { ...post, likes: newLikes, likedBy: newLikedBy };
-      }
-      return post;
-    }));
-  };
-
-  const userNotifications = notifications.filter(n => n.recipientId === currentUser?.id);
-
-  if (currentView === ViewState.WELCOME && setupUser) {
-      return <WelcomeFlow employee={setupUser} onComplete={handleCompleteSetup} />;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="text-center">
+            <Loader2 className="w-10 h-10 text-teal-600 animate-spin mx-auto mb-4" />
+            <p className="text-slate-500 font-medium">Systeem laden...</p>
+        </div>
+      </div>
+    );
   }
 
+  // 1. Login Screen
   if (!currentUser) {
     return <Login onLogin={handleLogin} />;
   }
 
-  return (
-    // Default Slate-50 background, no dynamic theme
-    <div className="fixed inset-0 font-sans flex flex-col overflow-hidden bg-slate-50 transition-colors duration-500">
-      
-      {/* SURVEY OVERLAY */}
-      {activeSurveyId && (
-          <SurveyTakingFlow 
-             survey={surveys.find(s => s.id === activeSurveyId)!}
-             employeeId={currentUser.id}
-             onComplete={handleCompleteSurvey}
-             onClose={() => setActiveSurveyId(null)}
+  // 2. Setup/Welcome Flow (Password Reset etc)
+  if (currentUser.accountStatus === 'Pending' || setupUser) {
+      return (
+          <WelcomeFlow 
+            employee={currentUser} 
+            onComplete={(updated) => {
+                const finalEmp = { ...updated, accountStatus: 'Active' as const };
+                handleUpdateEmployee(finalEmp);
+                setSetupUser(null);
+            }} 
           />
-      )}
+      );
+  }
 
-      <TopNav 
-        user={currentUser} 
-        onLogout={handleLogout}
-        notifications={userNotifications}
-        onNotificationClick={handleNotificationClick}
-        onMarkAllRead={handleMarkAllRead}
-        onMarkSingleRead={handleMarkSingleRead}
-        onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        onNavigate={setCurrentView}
-      />
+  // 3. Survey Flow (Overlay)
+  if (activeSurveyId) {
+      const activeSurvey = surveys.find(s => s.id === activeSurveyId);
+      if (activeSurvey) {
+          return (
+              <SurveyTakingFlow 
+                survey={activeSurvey}
+                employeeId={currentUser.id}
+                onComplete={handleCompleteSurvey}
+                onClose={() => setActiveSurveyId(null)}
+              />
+          );
+      }
+  }
+
+  // 4. Main Application
+  return (
+    <div className="flex bg-slate-50 min-h-screen font-sans text-slate-900">
       
-      <div className="flex flex-1 overflow-hidden relative">
-        <Sidebar 
-          currentView={currentView} 
-          onChangeView={setCurrentView} 
-          userRole={currentUser.role}
-          isOpen={isMobileMenuOpen}
-          onClose={() => setIsMobileMenuOpen(false)}
+      <Sidebar 
+        currentView={currentView} 
+        onChangeView={setCurrentView} 
+        userRole={currentUser.role}
+        isOpen={isMobileMenuOpen}
+        onClose={() => setIsMobileMenuOpen(false)}
+      />
+
+      <div className="flex-1 flex flex-col min-w-0 transition-all duration-300">
+        <TopNav 
+          user={currentUser} 
+          onLogout={handleLogout} 
+          notifications={notifications.filter(n => n.recipientId === currentUser.id)}
+          onNotificationClick={(n) => {
+              handleMarkSingleRead(n.id);
+              if (n.targetView) {
+                  setCurrentView(n.targetView);
+                  if (n.targetEmployeeId) setDossierEmployeeId(n.targetEmployeeId);
+                  if (n.type === 'Survey' && n.metaId) setActiveSurveyId(n.metaId);
+              }
+          }}
+          onMarkAllRead={handleMarkAllRead}
+          onMarkSingleRead={handleMarkSingleRead}
+          onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          onNavigate={(view) => setCurrentView(view)}
+          isLive={isLive}
         />
-        
-        <main className="flex-1 overflow-y-auto overflow-x-hidden h-[calc(100vh-64px)] scroll-smooth">
+
+        <main className="flex-1 overflow-x-hidden overflow-y-auto no-scrollbar scroll-smooth">
           {currentView === ViewState.HOME && (
+            <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
+              <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">
+                        Goedemorgen, {currentUser.name.split(' ')[0]} 👋
+                    </h1>
+                    <p className="text-slate-500 mt-1">Hier is een overzicht van vandaag.</p>
+                  </div>
+              </div>
+
+              {/* Quick Actions / Dashboard Widgets can go here */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                  <div 
+                    onClick={() => setCurrentView(ViewState.NEWS)}
+                    className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                  >
+                      <h3 className="font-bold text-slate-700 mb-2 group-hover:text-teal-600 transition-colors">Nieuws & Updates</h3>
+                      <p className="text-3xl font-bold text-slate-900">{newsItems.length}</p>
+                      <p className="text-xs text-slate-500 mt-1">Gepubliceerde berichten</p>
+                  </div>
+                  
+                  <div 
+                    onClick={() => setCurrentView(ViewState.ONBOARDING)}
+                    className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                  >
+                      <h3 className="font-bold text-slate-700 mb-2 group-hover:text-teal-600 transition-colors">Onboarding</h3>
+                      {currentUser.role === 'Manager' ? (
+                           <>
+                             <p className="text-3xl font-bold text-slate-900">{employees.filter(e => e.onboardingStatus === 'Active').length}</p>
+                             <p className="text-xs text-slate-500 mt-1">Actieve trajecten</p>
+                           </>
+                      ) : (
+                           <>
+                             <p className="text-3xl font-bold text-slate-900">{currentUser.onboardingStatus}</p>
+                             <p className="text-xs text-slate-500 mt-1">Huidige status</p>
+                           </>
+                      )}
+                  </div>
+
+                  <div 
+                    onClick={() => setCurrentView(ViewState.EVALUATIONS)}
+                    className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer group"
+                  >
+                      <h3 className="font-bold text-slate-700 mb-2 group-hover:text-teal-600 transition-colors">Evaluaties</h3>
+                      <p className="text-3xl font-bold text-slate-900">
+                          {currentUser.role === 'Manager' 
+                            ? employees.flatMap(e => e.evaluations || []).filter(ev => ev.status === 'ManagerInput').length 
+                            : (currentUser.evaluations || []).filter(ev => ev.status === 'EmployeeInput').length
+                          }
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1">Acties vereist</p>
+                  </div>
+              </div>
+            </div>
+          )}
+
+          {currentView === ViewState.NEWS && (
+             <NewsPage 
+                currentUser={currentUser}
+                newsItems={newsItems}
+                onAddNews={handleAddNews}
+                onLikeNews={handleLikeNews}
+             />
+          )}
+
+          {currentView === ViewState.PROFILE && (
             <EmployeeProfile 
               employee={currentUser}
-              managers={employees.filter(e => e.role === 'Manager')}
-              onChangeView={setCurrentView}
               onNext={() => {}} 
-              onPrevious={() => {}} 
+              onPrevious={() => {}}
+              onChangeView={setCurrentView}
               onUpdateEmployee={handleUpdateEmployee}
               onAddNotification={handleAddNotification}
-              onShowToast={handleShowToast}
+              onShowToast={showToast}
+              managers={employees.filter(e => e.role === 'Manager')}
             />
           )}
 
@@ -392,69 +387,66 @@ const App: React.FC = () => {
               onAddEmployee={handleAddEmployee}
               onUpdateEmployee={handleUpdateEmployee}
               onDeleteEmployee={handleDeleteEmployee}
-              onSimulateOnboarding={handleStartSetup}
+              onSimulateOnboarding={(emp) => {
+                  setSetupUser(emp);
+                  setCurrentUser(emp);
+              }}
             />
+          )}
+
+          {currentView === ViewState.REPORTS && (
+            <ReportsDashboard />
           )}
 
           {currentView === ViewState.DOCUMENTS && (
             <DocumentsPage 
-              employees={employees}
-              currentUser={currentUser}
-              onUpdateEmployee={handleUpdateEmployee}
-              onAddNotification={handleAddNotification}
-              onShowToast={handleShowToast}
-              selectedEmployeeId={dossierEmployeeId}
-              onSelectEmployee={setDossierEmployeeId}
-            />
-          )}
-
-          {currentView === ViewState.NEWS && (
-            <NewsPage 
-              currentUser={currentUser}
-              newsItems={newsItems}
-              onAddNews={handleAddNews}
-              onLikeNews={handleLikeNews}
+               employees={employees}
+               currentUser={currentUser}
+               onUpdateEmployee={handleUpdateEmployee}
+               onAddNotification={handleAddNotification}
+               onShowToast={showToast}
+               selectedEmployeeId={dossierEmployeeId}
+               onSelectEmployee={setDossierEmployeeId}
             />
           )}
 
           {currentView === ViewState.ONBOARDING && (
-            <OnboardingPage
-              employees={employees}
-              currentUser={currentUser}
-              onUpdateEmployee={handleUpdateEmployee}
-              onAddNotification={handleAddNotification}
-              onShowToast={handleShowToast}
+            <OnboardingPage 
+               employees={employees}
+               currentUser={currentUser}
+               onUpdateEmployee={handleUpdateEmployee}
+               onAddNotification={handleAddNotification}
+               onShowToast={showToast}
             />
           )}
 
           {currentView === ViewState.SURVEYS && (
-            <SurveysPage
+            <SurveysPage 
                currentUser={currentUser}
                surveys={surveys}
                onAddSurvey={handleAddSurvey}
                onDeleteSurvey={handleDeleteSurvey}
-               onStartSurvey={handleStartSurvey}
+               onStartSurvey={setActiveSurveyId}
             />
           )}
 
           {currentView === ViewState.EVALUATIONS && (
-             <EvaluationsPage
-                currentUser={currentUser}
-                employees={employees}
-                onUpdateEmployee={handleUpdateEmployee}
-                onAddNotification={handleAddNotification}
-                onShowToast={handleShowToast}
-             />
+            <EvaluationsPage 
+               currentUser={currentUser}
+               employees={employees}
+               onUpdateEmployee={handleUpdateEmployee}
+               onAddNotification={handleAddNotification}
+               onShowToast={showToast}
+            />
           )}
 
-          {currentView === ViewState.REPORTS && currentUser.role === 'Manager' && <ReportsDashboard />}
         </main>
       </div>
-
+      
       <Toast 
-        message={toastMessage}
-        isVisible={isToastVisible}
-        onClose={handleCloseToast}
+        message={toastMessage} 
+        isVisible={isToastVisible} 
+        onClose={() => setIsToastVisible(false)} 
       />
     </div>
   );
