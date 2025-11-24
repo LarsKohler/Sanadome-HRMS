@@ -1,8 +1,8 @@
 
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, Survey } from '../types';
-import { MOCK_EMPLOYEES, MOCK_NEWS } from './mockData';
+import { Employee, NewsPost, Notification, Survey, OnboardingTemplate } from '../types';
+import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
 // We explicitely check if supabase is not null
@@ -45,6 +45,16 @@ export const api = {
             defaultSurveys.map(s => ({ id: s.id, data: s }))
         );
         if (error) console.error("Error seeding surveys:", error);
+    }
+
+    // 4. Seed Templates
+    const { count: templateCount } = await supabase.from('onboarding_templates').select('*', { count: 'exact', head: true });
+    if (templateCount === 0) {
+        console.log("Seeding templates...");
+        const { error } = await supabase.from('onboarding_templates').insert(
+            MOCK_TEMPLATES.map(t => ({ id: t.id, data: t }))
+        );
+        if (error) console.error("Error seeding templates:", error);
     }
     
     console.log("Database seed completed.");
@@ -285,12 +295,50 @@ export const api = {
     }
   },
 
+  // --- TEMPLATES ---
+  getTemplates: async (): Promise<OnboardingTemplate[]> => {
+    if (isLive && supabase) {
+      try {
+        const { data, error } = await supabase.from('onboarding_templates').select('data');
+        if (!error && data && data.length > 0) return data.map((row: any) => row.data);
+        if (data?.length === 0) {
+             return MOCK_TEMPLATES;
+        }
+      } catch (e) {
+        return storage.getTemplates();
+      }
+    }
+    return storage.getTemplates();
+  },
+
+  saveTemplate: async (template: OnboardingTemplate) => {
+    if (isLive && supabase) {
+      await supabase.from('onboarding_templates').upsert({ id: template.id, data: template });
+    } else {
+      const current = storage.getTemplates();
+      const index = current.findIndex(t => t.id === template.id);
+      if (index >= 0) current[index] = template;
+      else current.push(template);
+      storage.saveTemplates(current);
+    }
+  },
+
+  deleteTemplate: async (id: string) => {
+    if (isLive && supabase) {
+        await supabase.from('onboarding_templates').delete().eq('id', id);
+    } else {
+        const current = storage.getTemplates();
+        storage.saveTemplates(current.filter(t => t.id !== id));
+    }
+  },
+
   // --- REALTIME SUBSCRIPTION ---
   subscribe: (
     onEmployees: (data: Employee[]) => void,
     onNews: (data: NewsPost[]) => void,
     onNotifications: (data: Notification[]) => void,
-    onSurveys: (data: Survey[]) => void
+    onSurveys: (data: Survey[]) => void,
+    onTemplates?: (data: OnboardingTemplate[]) => void
   ) => {
     if (isLive && supabase) {
       // Supabase Realtime
@@ -311,12 +359,18 @@ export const api = {
              const { data } = await supabase.from('surveys').select('data');
              if (data) onSurveys(data.map((r: any) => r.data));
         })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'onboarding_templates' }, async () => {
+             if (onTemplates) {
+                 const { data } = await supabase.from('onboarding_templates').select('data');
+                 if (data) onTemplates(data.map((r: any) => r.data));
+             }
+        })
         .subscribe();
 
       return () => { supabase.removeChannel(channel); };
     } else {
       // Fallback to LocalStorage events
-      return storage.subscribe(onEmployees, onNews, onNotifications, onSurveys);
+      return storage.subscribe(onEmployees, onNews, onNotifications, onSurveys, onTemplates);
     }
   }
 };

@@ -1,7 +1,9 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, CheckCircle2, User, ChevronDown, MessageSquare, Save, PlayCircle, Eye, EyeOff, Calendar, Clock, Trophy, Check, ArrowRight, Circle } from 'lucide-react';
-import { Employee, OnboardingTask, Notification, ViewState, OnboardingWeekData } from '../types';
+import { Search, CheckCircle2, User, ChevronDown, MessageSquare, Save, PlayCircle, Eye, EyeOff, Calendar, Clock, Trophy, Check, ArrowRight, Circle, Settings, Plus, Trash2, Edit2, Copy } from 'lucide-react';
+import { Employee, OnboardingTask, Notification, ViewState, OnboardingWeekData, OnboardingTemplate } from '../types';
+import { api } from '../utils/api';
+import { Modal } from './Modal';
 
 interface OnboardingPageProps {
   employees: Employee[];
@@ -76,6 +78,22 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
   const [openTaskNoteId, setOpenTaskNoteId] = useState<string | null>(null); 
   const [isEmployeeSelectorOpen, setIsEmployeeSelectorOpen] = useState(false);
   const selectorRef = useRef<HTMLDivElement>(null);
+
+  // Templates State
+  const [templates, setTemplates] = useState<OnboardingTemplate[]>([]);
+  const [isTemplateManagerOpen, setIsTemplateManagerOpen] = useState(false);
+  
+  // Template Manager State
+  const [editingTemplate, setEditingTemplate] = useState<OnboardingTemplate | null>(null);
+  const [isEditingTemplate, setIsEditingTemplate] = useState(false);
+
+  useEffect(() => {
+    // Fetch Templates
+    api.getTemplates().then(setTemplates);
+    // Subscribe to changes mainly for template sync
+    // Note: App.tsx handles employee sync, we handle templates locally here for simplicity or add to App.tsx
+    // For now we just fetch once, realistically should subscribe.
+  }, []);
 
   useEffect(() => {
     if (isManager && employees.length > 0 && selectedEmployeeId === currentUser.id) {
@@ -218,6 +236,106 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
       onShowToast(status === 'Active' ? 'Onboarding gestart!' : status === 'Completed' ? 'Onboarding afgerond!' : 'Status gewijzigd');
   };
 
+  // --- TEMPLATE LOGIC ---
+
+  const handleApplyTemplate = (templateId: string) => {
+      const template = templates.find(t => t.id === templateId);
+      if (template) {
+          // Generate new IDs for tasks to avoid reference issues
+          const newTasks = template.tasks.map(t => ({
+              ...t,
+              id: Math.random().toString(36).substr(2, 9),
+              score: 0,
+              completed: false,
+              completedBy: undefined,
+              completedDate: undefined,
+              notes: undefined
+          }));
+
+          const updatedEmployee: Employee = {
+              ...selectedEmployee,
+              onboardingTasks: newTasks,
+              onboardingStatus: 'Active'
+          };
+          onUpdateEmployee(updatedEmployee);
+          onShowToast(`Traject "${template.title}" gestart voor ${selectedEmployee.name}`);
+      }
+  };
+
+  const handleSaveTemplate = () => {
+      if (editingTemplate) {
+          if (!editingTemplate.title) return alert("Titel is verplicht");
+          api.saveTemplate(editingTemplate);
+          setTemplates(prev => {
+              const idx = prev.findIndex(t => t.id === editingTemplate.id);
+              if (idx >= 0) {
+                  const newArr = [...prev];
+                  newArr[idx] = editingTemplate;
+                  return newArr;
+              }
+              return [...prev, editingTemplate];
+          });
+          setIsEditingTemplate(false);
+          setEditingTemplate(null);
+          onShowToast("Template opgeslagen");
+      }
+  };
+
+  const handleDeleteTemplate = (id: string) => {
+      if (confirm("Weet je zeker dat je dit template wilt verwijderen?")) {
+          api.deleteTemplate(id);
+          setTemplates(prev => prev.filter(t => t.id !== id));
+          onShowToast("Template verwijderd");
+      }
+  };
+
+  const handleCreateTemplate = () => {
+      const newTemplate: OnboardingTemplate = {
+          id: Math.random().toString(36).substr(2, 9),
+          title: 'Nieuw Traject',
+          description: '',
+          tasks: [],
+          createdAt: new Date().toLocaleDateString('nl-NL')
+      };
+      setEditingTemplate(newTemplate);
+      setIsEditingTemplate(true);
+  };
+
+  const addTaskToTemplate = (week: 1 | 2 | 3 | 4) => {
+      if (editingTemplate) {
+          const newTask: OnboardingTask = {
+              id: Math.random().toString(36).substr(2, 9),
+              week,
+              category: 'Algemeen',
+              title: 'Nieuwe taak',
+              description: '',
+              completed: false
+          };
+          setEditingTemplate({
+              ...editingTemplate,
+              tasks: [...editingTemplate.tasks, newTask]
+          });
+      }
+  };
+
+  const updateTemplateTask = (taskId: string, field: keyof OnboardingTask, value: any) => {
+      if (editingTemplate) {
+          const updatedTasks = editingTemplate.tasks.map(t => t.id === taskId ? { ...t, [field]: value } : t);
+          setEditingTemplate({ ...editingTemplate, tasks: updatedTasks });
+      }
+  };
+
+  const removeTaskFromTemplate = (taskId: string) => {
+      if (editingTemplate) {
+          setEditingTemplate({
+              ...editingTemplate,
+              tasks: editingTemplate.tasks.filter(t => t.id !== taskId)
+          });
+      }
+  };
+
+  // --- RENDER ---
+
   return (
     <div className="p-4 md:p-8 2xl:p-12 w-full animate-in fade-in duration-500 max-w-[2400px] mx-auto min-h-[calc(100vh-80px)]">
       
@@ -228,63 +346,75 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
            <p className="text-slate-500 mt-1">Begeleid nieuwe collega's naar een succesvolle start.</p>
         </div>
 
-        {(isManager || isSenior) && (
-          <div className="relative z-20" ref={selectorRef}>
-             <button 
-                onClick={() => setIsEmployeeSelectorOpen(!isEmployeeSelectorOpen)}
-                className="flex items-center gap-3 bg-white border border-slate-200 shadow-sm px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-all min-w-[280px] justify-between group"
-             >
-                <div className="flex items-center gap-3">
-                    <img src={selectedEmployee.avatar} className="w-8 h-8 rounded-full border border-slate-200" alt="Avatar"/>
-                    <div className="text-left">
-                        <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">Geselecteerd</div>
-                        <div className="text-sm font-bold text-slate-800">{selectedEmployee.name}</div>
-                    </div>
-                </div>
-                <ChevronDown size={16} className={`text-slate-400 transition-transform duration-200 ${isEmployeeSelectorOpen ? 'rotate-180' : ''}`} />
-             </button>
+        <div className="flex items-center gap-3">
+            {canEdit && (
+                <button 
+                    onClick={() => setIsTemplateManagerOpen(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl shadow-sm transition-all text-sm font-bold"
+                >
+                    <Settings size={18} />
+                    Templates Beheren
+                </button>
+            )}
 
-             {isEmployeeSelectorOpen && (
-                 <div className="absolute right-0 top-full mt-2 w-[320px] bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                     <div className="p-3 border-b border-slate-50 bg-slate-50/50">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                            <input 
-                                type="text" 
-                                autoFocus
-                                placeholder="Zoek medewerker..." 
-                                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
+            {(isManager || isSenior) && (
+            <div className="relative z-20" ref={selectorRef}>
+                <button 
+                    onClick={() => setIsEmployeeSelectorOpen(!isEmployeeSelectorOpen)}
+                    className="flex items-center gap-3 bg-white border border-slate-200 shadow-sm px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-all min-w-[280px] justify-between group"
+                >
+                    <div className="flex items-center gap-3">
+                        <img src={selectedEmployee.avatar} className="w-8 h-8 rounded-full border border-slate-200" alt="Avatar"/>
+                        <div className="text-left">
+                            <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">Geselecteerd</div>
+                            <div className="text-sm font-bold text-slate-800">{selectedEmployee.name}</div>
                         </div>
-                     </div>
-                     <div className="max-h-[300px] overflow-y-auto">
-                        {filteredEmployees.map(emp => (
-                            <button
-                                key={emp.id}
-                                onClick={() => {
-                                    setSelectedEmployeeId(emp.id);
-                                    setIsEmployeeSelectorOpen(false);
-                                }}
-                                className={`w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-3 ${selectedEmployeeId === emp.id ? 'bg-teal-50/50' : ''}`}
-                            >
-                                <img src={emp.avatar} className="w-8 h-8 rounded-full object-cover" alt={emp.name}/>
-                                <div className="flex-1 min-w-0">
-                                    <div className={`text-sm font-bold truncate ${selectedEmployeeId === emp.id ? 'text-teal-900' : 'text-slate-900'}`}>{emp.name}</div>
-                                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                                         {emp.role}
-                                         {emp.onboardingStatus === 'Active' && <span className="w-2 h-2 bg-teal-500 rounded-full ml-1"></span>}
+                    </div>
+                    <ChevronDown size={16} className={`text-slate-400 transition-transform duration-200 ${isEmployeeSelectorOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isEmployeeSelectorOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-[320px] bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-3 border-b border-slate-50 bg-slate-50/50">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                                <input 
+                                    type="text" 
+                                    autoFocus
+                                    placeholder="Zoek medewerker..." 
+                                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div className="max-h-[300px] overflow-y-auto">
+                            {filteredEmployees.map(emp => (
+                                <button
+                                    key={emp.id}
+                                    onClick={() => {
+                                        setSelectedEmployeeId(emp.id);
+                                        setIsEmployeeSelectorOpen(false);
+                                    }}
+                                    className={`w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-3 ${selectedEmployeeId === emp.id ? 'bg-teal-50/50' : ''}`}
+                                >
+                                    <img src={emp.avatar} className="w-8 h-8 rounded-full object-cover" alt={emp.name}/>
+                                    <div className="flex-1 min-w-0">
+                                        <div className={`text-sm font-bold truncate ${selectedEmployeeId === emp.id ? 'text-teal-900' : 'text-slate-900'}`}>{emp.name}</div>
+                                        <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                                            {emp.role}
+                                            {emp.onboardingStatus === 'Active' && <span className="w-2 h-2 bg-teal-500 rounded-full ml-1"></span>}
+                                        </div>
                                     </div>
-                                </div>
-                                {selectedEmployeeId === emp.id && <Check size={16} className="text-teal-600"/>}
-                            </button>
-                        ))}
-                     </div>
-                 </div>
-             )}
-          </div>
-        )}
+                                    {selectedEmployeeId === emp.id && <Check size={16} className="text-teal-600"/>}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+            )}
+        </div>
       </div>
 
       {/* Main Content */}
@@ -323,7 +453,7 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                       </div>
                   </div>
 
-                  {canEdit && (
+                  {canEdit && selectedEmployee.onboardingTasks.length > 0 && (
                       <div className="mt-8 pt-6 border-t border-slate-50">
                           {selectedEmployee.onboardingStatus === 'Active' ? (
                               <button onClick={() => handleChangeStatus('Completed')} className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm shadow-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
@@ -342,35 +472,82 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   )}
               </div>
 
-              {/* Progress Circle Card */}
-              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex items-center gap-6">
-                  <div className="relative w-20 h-20 flex-shrink-0">
-                        <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                        <path className="text-slate-100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                        <path className="text-teal-500 transition-all duration-1000 ease-out" strokeDasharray={`${progress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                        </svg>
-                        <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-slate-900">{progress}%</div>
+              {/* Progress Circle Card (Only if tasks exist) */}
+              {selectedEmployee.onboardingTasks.length > 0 && (
+                  <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex items-center gap-6">
+                      <div className="relative w-20 h-20 flex-shrink-0">
+                            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                            <path className="text-slate-100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                            <path className="text-teal-500 transition-all duration-1000 ease-out" strokeDasharray={`${progress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-slate-900">{progress}%</div>
+                      </div>
+                      <div>
+                          <h3 className="font-bold text-slate-900">Voortgang</h3>
+                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
+                              {progress === 100 ? "Onboarding compleet!" : "Blijf zo doorgaan."}
+                          </p>
+                      </div>
                   </div>
-                  <div>
-                      <h3 className="font-bold text-slate-900">Voortgang</h3>
-                      <p className="text-xs text-slate-500 mt-1 leading-relaxed">
-                          {progress === 100 ? "Onboarding compleet!" : "Blijf zo doorgaan."}
-                      </p>
-                  </div>
-              </div>
+              )}
           </div>
 
-          {/* Right Column: Timeline Journey */}
+          {/* Right Column: Timeline Journey or Selector */}
           <div className="lg:col-span-3">
-              {(selectedEmployee.onboardingStatus === 'Pending' && !canEdit) ? (
-                 <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center h-full flex flex-col items-center justify-center min-h-[400px]">
-                     <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-6">
-                         <Clock size={40} />
-                     </div>
-                     <h3 className="text-xl font-bold text-slate-900">Nog niet gestart</h3>
-                     <p className="text-slate-500 mt-2 max-w-sm mx-auto">De manager heeft het onboarding programma nog niet geactiveerd. Neem contact op met je leidinggevende.</p>
+              {(selectedEmployee.onboardingTasks.length === 0) ? (
+                 // --- SELECTOR STATE ---
+                 <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center min-h-[600px] flex flex-col items-center justify-center">
+                     {canEdit ? (
+                         <div className="max-w-xl w-full">
+                             <div className="w-20 h-20 bg-teal-50 rounded-full flex items-center justify-center text-teal-600 mb-6 mx-auto">
+                                 <PlayCircle size={40} />
+                             </div>
+                             <h3 className="text-2xl font-bold text-slate-900 mb-2">Kies een Onboarding Traject</h3>
+                             <p className="text-slate-500 mb-8">Selecteer een template om het inwerktraject voor <strong>{selectedEmployee.name}</strong> te starten.</p>
+                             
+                             <div className="space-y-4 text-left">
+                                 {templates.map(template => (
+                                     <div 
+                                        key={template.id}
+                                        className="p-5 rounded-xl border border-slate-200 hover:border-teal-500 hover:shadow-md transition-all cursor-pointer bg-white group"
+                                        onClick={() => handleApplyTemplate(template.id)}
+                                     >
+                                         <div className="flex justify-between items-center">
+                                             <div>
+                                                 <h4 className="font-bold text-slate-900 group-hover:text-teal-700">{template.title}</h4>
+                                                 <p className="text-sm text-slate-500 mt-1">{template.description || 'Geen beschrijving'}</p>
+                                                 <div className="flex items-center gap-4 mt-3 text-xs text-slate-400 font-medium">
+                                                     <span>{template.tasks.length} taken</span>
+                                                     <span>•</span>
+                                                     <span>{template.role || 'Algemeen'}</span>
+                                                 </div>
+                                             </div>
+                                             <div className="w-10 h-10 rounded-full bg-slate-50 group-hover:bg-teal-50 flex items-center justify-center text-slate-400 group-hover:text-teal-600 transition-colors">
+                                                 <ArrowRight size={20} />
+                                             </div>
+                                         </div>
+                                     </div>
+                                 ))}
+                                 {templates.length === 0 && (
+                                     <div className="text-center p-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                         <p className="text-slate-500 text-sm">Er zijn nog geen templates aangemaakt.</p>
+                                         <button onClick={() => setIsTemplateManagerOpen(true)} className="text-teal-600 font-bold text-sm mt-2 hover:underline">Maak er een aan</button>
+                                     </div>
+                                 )}
+                             </div>
+                         </div>
+                     ) : (
+                         <div>
+                             <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-6 mx-auto">
+                                 <Clock size={40} />
+                             </div>
+                             <h3 className="text-xl font-bold text-slate-900">Nog niet gestart</h3>
+                             <p className="text-slate-500 mt-2 max-w-sm mx-auto">De manager heeft het onboarding programma nog niet geactiveerd.</p>
+                         </div>
+                     )}
                  </div>
               ) : (
+                 // --- TIMELINE STATE ---
                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 min-h-[600px]">
                     <div className="relative">
                         {/* Connecting Line */}
@@ -378,6 +555,7 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
                         {[1, 2, 3, 4].map((week) => {
                             const tasks = tasksByWeek[week] || [];
+                            // Skip empty weeks if desired, but usually structure is fixed
                             const weekData = getWeekData(week);
                             const completedCount = tasks.filter(t => t.score === 100).length;
                             const totalCount = tasks.length;
@@ -534,6 +712,107 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
               )}
           </div>
       </div>
+
+      {/* Template Manager Modal */}
+      <Modal
+        isOpen={isTemplateManagerOpen}
+        onClose={() => { setIsTemplateManagerOpen(false); setIsEditingTemplate(false); setEditingTemplate(null); }}
+        title="Templates Beheren"
+      >
+          {isEditingTemplate && editingTemplate ? (
+              <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
+                  <div className="flex items-center gap-4">
+                      <button onClick={() => setIsEditingTemplate(false)} className="text-sm font-bold text-slate-500 hover:text-slate-800">Terug</button>
+                      <h3 className="font-bold text-slate-900">Template Bewerken</h3>
+                  </div>
+                  
+                  <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Template Naam</label>
+                      <input 
+                        type="text" 
+                        className="w-full rounded-lg border border-slate-300 p-2 text-sm font-bold"
+                        value={editingTemplate.title}
+                        onChange={(e) => setEditingTemplate({...editingTemplate, title: e.target.value})}
+                      />
+                  </div>
+                  <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Omschrijving</label>
+                      <textarea 
+                        className="w-full rounded-lg border border-slate-300 p-2 text-sm"
+                        value={editingTemplate.description || ''}
+                        onChange={(e) => setEditingTemplate({...editingTemplate, description: e.target.value})}
+                      />
+                  </div>
+
+                  <div className="space-y-6">
+                      {[1, 2, 3, 4].map((week) => {
+                          const weekTasks = editingTemplate.tasks.filter(t => t.week === week);
+                          return (
+                              <div key={week} className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                  <div className="flex justify-between items-center mb-3">
+                                      <h4 className="font-bold text-slate-900 text-sm">Week {week}</h4>
+                                      <button onClick={() => addTaskToTemplate(week as any)} className="text-xs text-teal-600 font-bold hover:underline">+ Taak toevoegen</button>
+                                  </div>
+                                  <div className="space-y-3">
+                                      {weekTasks.map(task => (
+                                          <div key={task.id} className="bg-white p-3 rounded-lg border border-slate-200 space-y-2">
+                                              <div className="flex justify-between items-start">
+                                                  <input 
+                                                    className="font-bold text-sm w-full border-none p-0 focus:ring-0 text-slate-900"
+                                                    placeholder="Taak titel"
+                                                    value={task.title}
+                                                    onChange={(e) => updateTemplateTask(task.id, 'title', e.target.value)}
+                                                  />
+                                                  <button onClick={() => removeTaskFromTemplate(task.id)} className="text-slate-300 hover:text-red-500 ml-2"><Trash2 size={14}/></button>
+                                              </div>
+                                              <div className="flex gap-2">
+                                                  <input 
+                                                    className="text-xs bg-slate-50 border-none rounded px-2 py-1 w-1/3 text-slate-600"
+                                                    placeholder="Categorie"
+                                                    value={task.category}
+                                                    onChange={(e) => updateTemplateTask(task.id, 'category', e.target.value)}
+                                                  />
+                                                  <input 
+                                                    className="text-xs bg-slate-50 border-none rounded px-2 py-1 w-2/3 text-slate-600"
+                                                    placeholder="Omschrijving"
+                                                    value={task.description}
+                                                    onChange={(e) => updateTemplateTask(task.id, 'description', e.target.value)}
+                                                  />
+                                              </div>
+                                          </div>
+                                      ))}
+                                      {weekTasks.length === 0 && <p className="text-xs text-slate-400 italic">Geen taken in deze week.</p>}
+                                  </div>
+                              </div>
+                          );
+                      })}
+                  </div>
+
+                  <button onClick={handleSaveTemplate} className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold">Opslaan</button>
+              </div>
+          ) : (
+              <div className="space-y-4">
+                  {templates.map(t => (
+                      <div key={t.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                          <div>
+                              <div className="font-bold text-slate-900">{t.title}</div>
+                              <div className="text-xs text-slate-500">{t.tasks.length} taken • {t.role || 'Geen rol'}</div>
+                          </div>
+                          <div className="flex gap-2">
+                              <button onClick={() => { setEditingTemplate(t); setIsEditingTemplate(true); }} className="p-2 bg-white border border-slate-200 rounded-lg hover:text-teal-600"><Edit2 size={16}/></button>
+                              <button onClick={() => handleDeleteTemplate(t.id)} className="p-2 bg-white border border-slate-200 rounded-lg hover:text-red-600"><Trash2 size={16}/></button>
+                          </div>
+                      </div>
+                  ))}
+                  <button 
+                    onClick={handleCreateTemplate}
+                    className="w-full py-3 border-2 border-dashed border-slate-300 text-slate-500 rounded-xl font-bold hover:bg-slate-50 hover:text-slate-700 flex items-center justify-center gap-2"
+                  >
+                      <Plus size={18} /> Nieuw Template
+                  </button>
+              </div>
+          )}
+      </Modal>
 
     </div>
   );

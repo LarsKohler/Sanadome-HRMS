@@ -1,18 +1,20 @@
-import { Employee, NewsPost, Notification, Survey } from '../types';
-import { MOCK_EMPLOYEES, MOCK_NEWS } from './mockData';
+
+import { Employee, NewsPost, Notification, Survey, OnboardingTemplate } from '../types';
+import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES } from './mockData';
 
 // Keys for localStorage
 export const STORAGE_KEYS = {
   EMPLOYEES: 'hrms_employees_v2',
   NEWS: 'hrms_news_v2',
   NOTIFICATIONS: 'hrms_notifications_v2',
-  SURVEYS: 'hrms_surveys_v2'
+  SURVEYS: 'hrms_surveys_v2',
+  TEMPLATES: 'hrms_templates_v1'
 };
 
 // Broadcast Channel for cross-tab communication
 const channel = new BroadcastChannel('hrms_sync_channel');
 
-type EventType = 'UPDATE_EMPLOYEES' | 'UPDATE_NEWS' | 'UPDATE_NOTIFICATIONS' | 'UPDATE_SURVEYS';
+type EventType = 'UPDATE_EMPLOYEES' | 'UPDATE_NEWS' | 'UPDATE_NOTIFICATIONS' | 'UPDATE_SURVEYS' | 'UPDATE_TEMPLATES';
 
 // Helper to dispatch events locally and across tabs
 const notifyChange = (type: EventType, data: any) => {
@@ -100,13 +102,29 @@ export const storage = {
     localStorage.setItem(STORAGE_KEYS.SURVEYS, JSON.stringify(surveys));
     notifyChange('UPDATE_SURVEYS', surveys);
   },
+
+  // --- TEMPLATES ---
+  getTemplates: (): OnboardingTemplate[] => {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.TEMPLATES);
+      return data ? JSON.parse(data) : MOCK_TEMPLATES;
+    } catch {
+      return MOCK_TEMPLATES;
+    }
+  },
+
+  saveTemplates: (templates: OnboardingTemplate[]) => {
+    localStorage.setItem(STORAGE_KEYS.TEMPLATES, JSON.stringify(templates));
+    notifyChange('UPDATE_TEMPLATES', templates);
+  },
   
   // Listeners
   subscribe: (
     onEmployees: (data: Employee[]) => void,
     onNews: (data: NewsPost[]) => void,
     onNotifications: (data: Notification[]) => void,
-    onSurveys: (data: Survey[]) => void
+    onSurveys: (data: Survey[]) => void,
+    onTemplates?: (data: OnboardingTemplate[]) => void
   ) => {
     // Listener for other tabs
     channel.onmessage = (event) => {
@@ -115,6 +133,7 @@ export const storage = {
       if (type === 'UPDATE_NEWS') onNews(data);
       if (type === 'UPDATE_NOTIFICATIONS') onNotifications(data);
       if (type === 'UPDATE_SURVEYS') onSurveys(data);
+      if (type === 'UPDATE_TEMPLATES' && onTemplates) onTemplates(data);
     };
 
     // Listener for current tab (CustomEvents)
@@ -125,12 +144,14 @@ export const storage = {
       if (type === 'UPDATE_NEWS') onNews(detail);
       if (type === 'UPDATE_NOTIFICATIONS') onNotifications(detail);
       if (type === 'UPDATE_SURVEYS') onSurveys(detail);
+      if (type === 'UPDATE_TEMPLATES' && onTemplates) onTemplates(detail);
     };
 
     window.addEventListener('UPDATE_EMPLOYEES', handleLocal);
     window.addEventListener('UPDATE_NEWS', handleLocal);
     window.addEventListener('UPDATE_NOTIFICATIONS', handleLocal);
     window.addEventListener('UPDATE_SURVEYS', handleLocal);
+    window.addEventListener('UPDATE_TEMPLATES', handleLocal);
 
     // Also listen to storage events (fallback for some browsers)
     const handleStorage = (e: StorageEvent) => {
@@ -138,6 +159,7 @@ export const storage = {
       if (e.key === STORAGE_KEYS.NEWS) onNews(storage.getNews());
       if (e.key === STORAGE_KEYS.NOTIFICATIONS) onNotifications(storage.getNotifications());
       if (e.key === STORAGE_KEYS.SURVEYS) onSurveys(storage.getSurveys());
+      if (e.key === STORAGE_KEYS.TEMPLATES && onTemplates) onTemplates(storage.getTemplates());
     };
     window.addEventListener('storage', handleStorage);
 
@@ -148,6 +170,7 @@ export const storage = {
       window.removeEventListener('UPDATE_NEWS', handleLocal);
       window.removeEventListener('UPDATE_NOTIFICATIONS', handleLocal);
       window.removeEventListener('UPDATE_SURVEYS', handleLocal);
+      window.removeEventListener('UPDATE_TEMPLATES', handleLocal);
       window.removeEventListener('storage', handleStorage);
     };
   }

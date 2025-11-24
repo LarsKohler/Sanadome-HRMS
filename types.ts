@@ -81,6 +81,15 @@ export interface OnboardingTask {
   score?: number; // New: 0, 25, 50, 75, 100
 }
 
+export interface OnboardingTemplate {
+  id: string;
+  title: string;
+  description?: string;
+  role?: string; // Suggest for specific roles
+  tasks: OnboardingTask[];
+  createdAt: string;
+}
+
 export interface OnboardingWeekData {
     week: number;
     status: 'Locked' | 'Open' | 'Completed';

@@ -1,5 +1,5 @@
 
-import { Employee, NewsPost, OnboardingTask } from '../types';
+import { Employee, NewsPost, OnboardingTask, OnboardingTemplate } from '../types';
 
 // ... (Previous imports and helper functions remain, but keeping file concise)
 const generateOnboardingTasks = (): OnboardingTask[] => [
@@ -27,6 +27,30 @@ const generateOnboardingTasks = (): OnboardingTask[] => [
   { id: 'w4-2', week: 4, category: 'Sales', title: 'Upsell Training', description: 'Training in upselling van kamertypes en spa behandelingen bij check-in.', completed: false, score: 0 },
   { id: 'w4-3', week: 4, category: 'HR', title: 'Evaluatiegesprek Maand 1', description: 'Voortgangsgesprek met Front Office Manager.', completed: false, score: 0 },
   { id: 'w4-4', week: 4, category: 'Praktijk', title: 'Zelfstandig Draaien', description: 'Een volledige shift draaien onder supervisie op afstand.', completed: false, score: 0 },
+];
+
+export const MOCK_TEMPLATES: OnboardingTemplate[] = [
+    {
+        id: 'template-basis',
+        title: 'Sanadome Basis (Front Office)',
+        description: 'Standaard inwerktraject voor nieuwe receptiemedewerkers.',
+        role: 'Medewerker',
+        createdAt: '2023-01-01',
+        tasks: generateOnboardingTasks()
+    },
+    {
+        id: 'template-senior',
+        title: 'Senior Leadership Track',
+        description: 'Verdiepend traject voor leidinggevenden en senior medewerkers.',
+        role: 'Senior Medewerker',
+        createdAt: '2023-06-15',
+        tasks: [
+            { id: 's-w1-1', week: 1, category: 'Introductie', title: 'Meet the Team', description: 'Kennismaking met alle afdelingshoofden.', completed: false, score: 0 },
+            { id: 's-w1-2', week: 1, category: 'Strategie', title: 'Visie & Missie', description: 'Uitleg over de lange termijn strategie van Sanadome.', completed: false, score: 0 },
+            { id: 's-w2-1', week: 2, category: 'Admin', title: 'Roosterplanning', description: 'Training in het maken van roosters en budgetbeheer.', completed: false, score: 0 },
+            { id: 's-w2-2', week: 2, category: 'HR', title: 'Evaluaties Voeren', description: 'Training in het voeren van functioneringsgesprekken.', completed: false, score: 0 }
+        ]
+    }
 ];
 
 export const EVALUATION_TEMPLATES = {
