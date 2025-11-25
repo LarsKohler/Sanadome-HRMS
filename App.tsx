@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import TopNav from './components/TopNav';
@@ -13,7 +14,8 @@ import EvaluationsPage from './components/EvaluationsPage';
 import SurveyTakingFlow from './components/SurveyTakingFlow';
 import WelcomeFlow from './components/WelcomeFlow';
 import SystemStatusPage from './components/SystemStatusPage';
-import SettingsPage from './components/SettingsPage'; // Import new page
+import SettingsPage from './components/SettingsPage'; 
+import DebtControlPage from './components/DebtControlPage'; // New Import
 import Login from './components/Login';
 import { Toast } from './components/Toast';
 import { ViewState, Employee, Notification, NewsPost, Survey, SurveyResponse } from './types';
@@ -454,6 +456,12 @@ const App: React.FC = () => {
                employees={employees}
                currentUser={currentUser}
                onUpdateEmployee={handleUpdateEmployee}
+               onShowToast={showToast}
+            />
+          )}
+
+          {currentView === ViewState.DEBT_CONTROL && (
+            <DebtControlPage 
                onShowToast={showToast}
             />
           )}

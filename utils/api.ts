@@ -1,7 +1,8 @@
 
+
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask } from '../types';
+import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor } from '../types';
 import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
@@ -115,7 +116,7 @@ export const api = {
             'VIEW_REPORTS', 'MANAGE_EMPLOYEES', 'MANAGE_DOCUMENTS', 
             'VIEW_ALL_DOCUMENTS', 'CREATE_NEWS', 'MANAGE_ONBOARDING', 
             'MANAGE_SURVEYS', 'VIEW_SYSTEM_STATUS', 'MANAGE_SETTINGS', 
-            'MANAGE_EVALUATIONS'
+            'MANAGE_EVALUATIONS', 'MANAGE_DEBTORS'
           ] : undefined
       };
 
@@ -457,6 +458,39 @@ export const api = {
         const current = storage.getTemplates();
         storage.saveTemplates(current.filter(t => t.id !== id));
     }
+  },
+
+  // --- DEBT CONTROL (DEBITEUREN) ---
+  getDebtors: async (): Promise<Debtor[]> => {
+    if (isLive && supabase) {
+        try {
+            const { data, error } = await supabase.from('debtors').select('data');
+            if (!error && data && data.length > 0) return data.map((row: any) => row.data);
+            return [];
+        } catch (e) {
+            // If table doesn't exist yet or error, return local
+            const local = localStorage.getItem('hrms_debtors');
+            return local ? JSON.parse(local) : [];
+        }
+    } else {
+        const local = localStorage.getItem('hrms_debtors');
+        return local ? JSON.parse(local) : [];
+    }
+  },
+
+  saveDebtors: async (debtors: Debtor[]) => {
+      if (isLive && supabase) {
+          // Bulk upsert
+          const updates = debtors.map(d => ({ id: d.id, data: d }));
+          const { error } = await supabase.from('debtors').upsert(updates);
+          if (error) {
+              // If table 'debtors' does not exist, we might need to create it or fallback.
+              // Assuming table exists for this feature.
+              console.error("Error saving debtors:", error);
+          }
+      } 
+      // Always update local for reactivity/fallback
+      localStorage.setItem('hrms_debtors', JSON.stringify(debtors));
   },
 
   // --- SYSTEM LOGS ---

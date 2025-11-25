@@ -13,6 +13,7 @@ export enum ViewState {
   WELCOME = 'WELCOME',
   SYSTEM_STATUS = 'SYSTEM_STATUS',
   SETTINGS = 'SETTINGS', // New View
+  DEBT_CONTROL = 'DEBT_CONTROL', // New: Debiteuren Beheer
 }
 
 // --- PERMISSIONS SYSTEM ---
@@ -27,7 +28,8 @@ export type Permission =
   | 'MANAGE_SURVEYS' // Create/Delete surveys
   | 'VIEW_SYSTEM_STATUS'
   | 'MANAGE_SETTINGS' // Access to permission settings
-  | 'MANAGE_EVALUATIONS'; // Create cycles, finalize reports
+  | 'MANAGE_EVALUATIONS' // Create cycles, finalize reports
+  | 'MANAGE_DEBTORS'; // New: Access Debt Control
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_REPORTS': 'Rapportages Inzien',
@@ -39,8 +41,25 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'MANAGE_SURVEYS': 'Surveys Maken & Beheren',
   'VIEW_SYSTEM_STATUS': 'Systeemstatus Bekijken',
   'MANAGE_SETTINGS': 'Rechten & Instellingen Beheren',
-  'MANAGE_EVALUATIONS': 'Evaluaties Beheren'
+  'MANAGE_EVALUATIONS': 'Evaluaties Beheren',
+  'MANAGE_DEBTORS': 'Debiteuren Beheer'
 };
+
+// --- DEBT CONTROL TYPES ---
+
+export type DebtorStatus = 'New' | '1st Reminder' | '2nd Reminder' | 'Final Notice' | 'Paid' | 'Blacklist';
+
+export interface Debtor {
+  id: string;
+  reservationNumber: string; // The "Number" from export
+  firstName: string;
+  lastName: string; // Parsed from "Group name"
+  address: string;
+  amount: number; // "Balance of companions"
+  status: DebtorStatus;
+  lastUpdated: string;
+  importedAt: string;
+}
 
 export interface Notification {
   id: string;

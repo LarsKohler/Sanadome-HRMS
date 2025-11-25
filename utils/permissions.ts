@@ -1,4 +1,5 @@
 
+
 import { Employee, Permission } from '../types';
 
 // Define default permissions per role
@@ -13,14 +14,16 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'MANAGE_SURVEYS',
     'VIEW_SYSTEM_STATUS',
     'MANAGE_SETTINGS',
-    'MANAGE_EVALUATIONS'
+    'MANAGE_EVALUATIONS',
+    'MANAGE_DEBTORS' // Added: Debt Control
   ],
   'Senior Medewerker': [
     'CREATE_NEWS',
     'MANAGE_ONBOARDING',
     'MANAGE_SURVEYS',
     'MANAGE_EVALUATIONS', // Can do evaluations but maybe not settings
-    'VIEW_REPORTS' // Can see reports
+    'VIEW_REPORTS', // Can see reports
+    'MANAGE_DEBTORS' // Seniors can also manage debts
   ],
   'Medewerker': [
     // Basic employees mostly just consume, but we might add specific ones later
