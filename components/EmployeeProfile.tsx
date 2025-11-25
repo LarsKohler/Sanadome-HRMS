@@ -1,11 +1,11 @@
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { 
   Briefcase, MapPin, 
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, ChevronRight, Flag
+  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle
 } from 'lucide-react';
 import { Employee, LeaveRequest, EmployeeNote, EmployeeDocument, Notification, ViewState } from '../types';
 import { Modal } from './Modal';
@@ -53,7 +53,33 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   const [noteImpact, setNoteImpact] = useState<'Positive' | 'Negative' | 'Neutral'>('Neutral');
   const [noteScore, setNoteScore] = useState(0); // 0-5
 
+  // Onboarding Template State
+  const [templateTitle, setTemplateTitle] = useState<string>('');
+
   const isViewerManager = employee.role === 'Manager'; 
+
+  useEffect(() => {
+      const fetchTemplateName = async () => {
+          if (employee.activeTemplateId) {
+              try {
+                  const templates = await api.getTemplates();
+                  const found = templates.find(t => t.id === employee.activeTemplateId);
+                  if (found) {
+                      setTemplateTitle(found.title);
+                  } else {
+                      // Fallback: If ID exists but not found (e.g. deleted), check if tasks exist
+                      setTemplateTitle(employee.onboardingTasks.length > 0 ? 'Persoonlijk Traject' : 'Onbekend Traject');
+                  }
+              } catch (e) {
+                  console.error("Error fetching templates", e);
+                  setTemplateTitle('Traject');
+              }
+          } else {
+              setTemplateTitle('');
+          }
+      };
+      fetchTemplateName();
+  }, [employee.activeTemplateId, employee.onboardingTasks]);
 
   const tabs = useMemo(() => {
     const baseTabs = ['Persoonlijk', 'Functie', 'Evaluatie'];
@@ -390,319 +416,171 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
      </div>
   );
 
-  const renderOnboardingCompact = () => {
-     // If no active tasks and no history, don't show or show empty state
+  const renderOnboardingContent = () => {
      const hasActiveTasks = employee.onboardingTasks && employee.onboardingTasks.length > 0;
      const hasHistory = employee.onboardingHistory && employee.onboardingHistory.length > 0;
 
-     if (!hasActiveTasks && !hasHistory) return null;
-     
-     // If tasks are active, show progress
-     if (hasActiveTasks) {
-         const total = employee.onboardingTasks.length;
-         const completed = employee.onboardingTasks.filter(t => t.score === 100).length;
-         const progress = Math.round((completed / total) * 100);
-
-         return (
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex justify-between items-end mb-4">
-                   <div>
-                      <h3 className="font-bold text-slate-900">Onboarding Voortgang</h3>
-                      <p className="text-xs text-slate-500 mt-1">Huidig traject: {employee.role}</p>
-                   </div>
-                   <div className="text-3xl font-bold text-teal-600">{progress}%</div>
-                </div>
-                
-                <div className="w-full bg-slate-100 rounded-full h-3 mb-6 overflow-hidden">
-                   <div className="bg-teal-500 h-full rounded-full transition-all duration-1000" style={{ width: `${progress}%` }}></div>
-                </div>
-
-                <div className="space-y-3">
-                   {employee.onboardingTasks.slice(0, 3).map(task => (
-                      <div key={task.id} className="flex items-center gap-3 text-sm">
-                         <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            task.score === 100 ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-300'
-                         }`}>
-                            <CheckCircle2 size={12} />
-                         </div>
-                         <span className={task.score === 100 ? 'text-slate-500 line-through' : 'text-slate-700 font-medium'}>
-                            {task.title}
-                         </span>
-                      </div>
-                   ))}
-                </div>
-                
-                <button 
-                 onClick={() => onChangeView(ViewState.ONBOARDING)}
-                 className="w-full mt-6 py-3 bg-slate-900 text-white font-bold rounded-xl text-sm hover:bg-slate-800 transition-colors shadow-md"
-               >
-                  Bekijk volledig plan
-               </button>
+     // If no active tasks and no history, show specific empty state
+     if (!hasActiveTasks && !hasHistory) return (
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                <Flag size={32} />
             </div>
-         );
-     } else {
-         // If no active tasks but has history (Completed)
-         const lastEntry = employee.onboardingHistory![employee.onboardingHistory!.length - 1];
-         return (
-            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="flex items-center gap-4 mb-6">
-                    <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
-                        <Flag size={24} />
-                    </div>
-                    <div>
-                        <h3 className="font-bold text-slate-900">Klaar voor de volgende stap</h3>
-                        <p className="text-xs text-slate-500">Laatste traject: {lastEntry.templateTitle}</p>
-                    </div>
-                </div>
-                
+            <h3 className="font-bold text-slate-900 text-lg">Nog geen onboarding</h3>
+            <p className="text-slate-500 mt-2 max-w-md mx-auto">
+                Er is nog geen onboarding traject gestart voor deze medewerker.
+            </p>
+            {isViewerManager && (
                 <button 
-                 onClick={() => onChangeView(ViewState.ONBOARDING)}
-                 className="w-full py-3 border border-slate-200 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-50 transition-colors"
-               >
-                  Start nieuw traject
-               </button>
-            </div>
-         );
-     }
-  };
-
-  return (
-    <div className="p-6 lg:p-8 w-full w-full mx-auto animate-in fade-in duration-500">
-      <input type="file" ref={bannerInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'banner')} />
-      <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'avatar')} />
-
-      {/* Profile Header Card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8 relative">
-        <div className="h-32 md:h-48 relative group overflow-hidden bg-slate-900">
-          {employee.banner ? (
-            <img src={employee.banner} alt="Banner" className="w-full h-full object-cover opacity-90" />
-          ) : (
-             <div className="w-full h-full bg-slate-800 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-l from-teal-900/40 to-slate-900/40"></div>
-             </div>
-          )}
-          
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-500"></div>
-          
-          <button 
-            onClick={() => bannerInputRef.current?.click()}
-            className="absolute top-4 right-4 md:top-6 md:right-6 px-4 py-2 bg-white/90 hover:bg-white text-slate-800 text-xs font-bold uppercase tracking-wider rounded-lg shadow-sm opacity-100 md:opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center gap-2 backdrop-blur-md"
-          >
-            <ImageIcon size={14} />
-            <span className="hidden sm:inline">Cover wijzigen</span>
-          </button>
-        </div>
-        
-        <div className="px-6 md:px-10 pb-2 relative">
-          <div className="flex flex-col md:flex-row items-center md:items-start -mt-12 mb-8">
-            <div className="relative md:mr-8 group mb-4 md:mb-0">
-              <div className="relative">
-                <div className="relative rounded-2xl border-4 border-white shadow-lg">
-                    <img 
-                    src={employee.avatar} 
-                    alt={employee.name} 
-                    className="w-32 h-32 md:w-36 md:h-36 rounded-xl object-cover bg-white"
-                    />
-                </div>
-                
-                <div 
-                  onClick={() => avatarInputRef.current?.click()}
-                  className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer border-4 border-transparent"
+                    onClick={() => onChangeView(ViewState.ONBOARDING)}
+                    className="mt-6 px-6 py-2 bg-slate-900 text-white rounded-xl font-bold text-sm"
                 >
-                  <Camera className="text-white" size={28} />
-                </div>
-              </div>
-            </div>
+                    Start Traject
+                </button>
+            )}
+        </div>
+     );
+     
+     // Calculate Stats for Active Trajectory
+     const totalTasks = employee.onboardingTasks.length;
+     const completedTasks = employee.onboardingTasks.filter(t => t.score === 100).length;
+     const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+     
+     // Find current week/phase based on incomplete tasks
+     const currentWeek = employee.onboardingTasks.find(t => t.score !== 100)?.week || 4;
+     
+     // Find next task
+     const nextTask = employee.onboardingTasks.find(t => t.score !== 100);
+
+     // Determine title
+     let activeTitle = 'Laden...';
+     if (templateTitle) {
+         activeTitle = templateTitle;
+     } else if (employee.activeTemplateId) {
+         activeTitle = 'Traject Laden...';
+     } else {
+         activeTitle = 'Persoonlijk Ontwikkelplan'; // Fallback if no ID but tasks exist
+     }
+
+     return (
+        <div className="lg:col-span-2 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             
-            <div className="flex-1 pt-0 md:pt-4 md:mt-16 text-center md:text-left">
-              <h1 className="text-2xl md:text-4xl font-bold tracking-tight mb-1.5 text-slate-900">
-                  {employee.name}
-              </h1>
-              <div className="flex flex-wrap justify-center md:justify-start items-center gap-3 md:gap-6 mt-1 text-sm font-medium text-slate-600">
-                <div className="flex items-center gap-2">
-                  <Briefcase size={16} className="text-slate-400" />
-                  <span>{employee.role}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <MapPin size={16} className="text-slate-400" />
-                  <span>{employee.location}</span>
-                </div>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-slate-100 text-slate-700 uppercase tracking-wide border border-slate-200">
-                  {employee.department}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Tabs */}
-          <div className="flex items-center gap-6 md:gap-8 border-t border-slate-100 pt-1 overflow-x-auto no-scrollbar pb-1">
-            {tabs.map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={`py-4 text-sm font-bold border-b-2 transition-all whitespace-nowrap ${
-                  activeTab === tab 
-                    ? 'border-teal-600 text-teal-700' 
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Main Content Area */}
-        {activeTab === 'Time off' && renderTimeOffContent()}
-        {activeTab === 'Documenten' && renderDocumentsContent()}
-        {activeTab === 'Evaluatie' && renderPerformanceReport()}
-        {activeTab === 'Onboarding' && renderOnboardingCompact()}
-        
-        {(activeTab === 'Persoonlijk' || activeTab === 'Functie' || activeTab === 'Meer' || activeTab === 'Uren') && (
-             <div className="lg:col-span-2 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
-                     <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
-                         <Briefcase size={32} />
-                     </div>
-                     <h3 className="font-bold text-slate-900 text-lg">Profiel Details</h3>
-                     <p className="text-slate-500 mt-2 max-w-md mx-auto">
-                        De uitgebreide profiel details voor {activeTab} zijn momenteel in ontwikkeling.
-                        Bekijk de andere tabbladen voor actuele informatie.
-                     </p>
-                 </div>
-             </div>
-        )}
-
-        {/* Right Sidebar - Info */}
-        <div className="lg:col-span-1 order-first lg:order-last">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 md:p-8 space-y-8 sticky top-24">
-            <div>
-                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Contactgegevens</h4>
-                 <div className="space-y-4">
-                    <div className="flex items-center gap-4 text-sm group">
-                        <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-teal-50 group-hover:text-teal-600 transition-colors">
-                        <Mail size={18} />
+            {/* Active Trajectory Card */}
+            {hasActiveTasks ? (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
+                    {/* Header with Gradient */}
+                    <div className="h-32 bg-slate-900 relative p-8 flex flex-col justify-center overflow-hidden">
+                        <div className="absolute inset-0 bg-gradient-to-r from-teal-900 to-slate-900"></div>
+                        <div className="absolute right-0 top-0 p-8 opacity-10">
+                            <Target size={120} className="text-white" />
                         </div>
-                        <a href={`mailto:${employee.email}`} className="text-slate-700 hover:text-teal-600 font-medium truncate transition-colors">{employee.email}</a>
+                        
+                        <div className="relative z-10 flex justify-between items-end">
+                            <div>
+                                <div className="text-teal-400 text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-2">
+                                    <div className="w-2 h-2 rounded-full bg-teal-400 animate-pulse"></div>
+                                    Actief Traject
+                                </div>
+                                <h3 className="text-2xl font-bold text-white">{activeTitle}</h3>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-3xl font-bold text-white">{progress}%</div>
+                                <div className="text-slate-400 text-xs font-medium">Voltooid</div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className="flex items-center gap-4 text-sm group">
-                        <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                        <Linkedin size={18} />
-                        </div>
-                        <a href="#" className="text-slate-700 hover:text-blue-600 font-medium transition-colors">{employee.linkedin}</a>
+                    {/* Progress Bar */}
+                    <div className="h-1 w-full bg-slate-100">
+                        <div className="h-full bg-teal-500 transition-all duration-1000" style={{ width: `${progress}%` }}></div>
                     </div>
 
-                    <div className="flex items-center gap-4 text-sm group">
-                        <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-green-50 group-hover:text-green-600 transition-colors">
-                        <Phone size={18} />
+                    <div className="p-8">
+                        {/* Timeline Visual */}
+                        <div className="flex items-center justify-between mb-10 relative">
+                            <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-slate-100 -z-10"></div>
+                            {[1, 2, 3, 4].map(week => {
+                                const isPast = week < currentWeek;
+                                const isCurrent = week === currentWeek;
+                                return (
+                                    <div key={week} className="flex flex-col items-center gap-3 bg-white px-2">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-4 transition-all ${
+                                            isPast ? 'bg-teal-500 border-teal-500 text-white' :
+                                            isCurrent ? 'bg-white border-teal-500 text-teal-600 shadow-lg scale-110' :
+                                            'bg-slate-50 border-slate-200 text-slate-400'
+                                        }`}>
+                                            {isPast ? <Check size={16} strokeWidth={3}/> : week}
+                                        </div>
+                                        <span className={`text-xs font-bold uppercase tracking-wide ${isCurrent ? 'text-slate-900' : 'text-slate-400'}`}>
+                                            Week {week}
+                                        </span>
+                                    </div>
+                                );
+                            })}
                         </div>
-                        <span className="text-slate-700 font-medium">{employee.phone}</span>
+
+                        {/* Next Step Focus */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="bg-slate-50 rounded-xl p-5 border border-slate-100">
+                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                                    <Target size={14}/> Eerstvolgende stap
+                                </h4>
+                                {nextTask ? (
+                                    <div>
+                                        <div className="font-bold text-slate-900 mb-1">{nextTask.title}</div>
+                                        <p className="text-xs text-slate-500 line-clamp-2">{nextTask.description}</p>
+                                        <div className="mt-3 flex items-center gap-2">
+                                            <span className="text-[10px] font-bold bg-white border border-slate-200 px-2 py-1 rounded text-slate-600">
+                                                {nextTask.category}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-3 text-green-600">
+                                        <CheckCircle2 size={24} />
+                                        <span className="font-bold text-sm">Alles afgerond!</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="flex flex-col justify-center items-start space-y-3">
+                                <button 
+                                    onClick={() => onChangeView(ViewState.ONBOARDING)}
+                                    className="w-full py-3 bg-white border-2 border-slate-100 text-slate-700 font-bold rounded-xl hover:border-teal-500 hover:text-teal-600 transition-all flex items-center justify-center gap-2 group"
+                                >
+                                    Bekijk volledig plan <ArrowUpRight size={18} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"/>
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-
-            <div className="pt-8 border-t border-slate-100">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Dienstverband</h4>
-                <div className="space-y-5">
-                    <div>
-                        <div className="text-xs text-slate-500 mb-1">Datum in dienst</div>
-                        <div className="text-sm font-bold text-slate-900">{employee.hiredOn}</div>
+            ) : (
+                // Case: No active trajectory but has history
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
+                            <PlayCircle size={24} />
+                        </div>
+                        <div>
+                            <h3 className="font-bold text-slate-900">Geen actief onboarding traject</h3>
+                            <p className="text-sm text-slate-500">De medewerker volgt momenteel geen programma.</p>
+                        </div>
                     </div>
-                    
-                    <div>
-                        <div className="text-xs text-slate-500 mb-1">Contract type</div>
-                        <div className="text-sm font-bold text-slate-900">{employee.employmentType}</div>
-                    </div>
-
-                    <div>
-                        <div className="text-xs text-slate-500 mb-1">Functie</div>
-                        <div className="text-sm font-bold text-slate-900">{employee.role}</div>
-                    </div>
+                    {isViewerManager && (
+                        <button 
+                            onClick={() => onChangeView(ViewState.ONBOARDING)}
+                            className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-colors shadow-sm whitespace-nowrap"
+                        >
+                            Start Nieuw Traject
+                        </button>
+                    )}
                 </div>
-            </div>
-          </div>
-        </div>
-      </div>
+            )}
 
-      <Modal 
-        isOpen={isLeaveModalOpen} 
-        onClose={() => setIsLeaveModalOpen(false)}
-        title={`Verlof aanvragen`}
-      >
-        <form onSubmit={handleRecordLeave} className="space-y-5">
-           <div>
-               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Type Verlof</label>
-               <select 
-                 className="w-full rounded-xl border border-slate-200 p-3 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-teal-500"
-                 value={leaveType}
-                 onChange={(e) => setLeaveType(e.target.value as any)}
-               >
-                   <option value="Annual Leave">Vakantie (Annual Leave)</option>
-                   <option value="Sick Leave">Ziekte (Sick Leave)</option>
-                   <option value="Without Pay">Onbetaald Verlof</option>
-               </select>
-           </div>
-           
-           <div className="grid grid-cols-2 gap-4">
-               <div>
-                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Van</label>
-                   <input 
-                     type="date" 
-                     required
-                     className="w-full rounded-xl border border-slate-200 p-3 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-teal-500"
-                     value={startDate}
-                     onChange={(e) => setStartDate(e.target.value)}
-                   />
-               </div>
-               <div>
-                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tot en met</label>
-                   <input 
-                     type="date" 
-                     required
-                     className="w-full rounded-xl border border-slate-200 p-3 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-teal-500"
-                     value={endDate}
-                     onChange={(e) => setEndDate(e.target.value)}
-                   />
-               </div>
-           </div>
-
-           <div>
-               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Aantal Dagen</label>
-               <input 
-                 type="number" 
-                 step="0.5"
-                 min="0.5"
-                 required
-                 className="w-full rounded-xl border border-slate-200 p-3 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-teal-500"
-                 value={amount}
-                 onChange={(e) => setAmount(Number(e.target.value))}
-               />
-           </div>
-
-           <button type="submit" className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl shadow-md hover:bg-slate-800 transition-colors">
-               Aanvraag Versturen
-           </button>
-        </form>
-      </Modal>
-
-      <Modal
-        isOpen={isNoteModalOpen}
-        onClose={() => setIsNoteModalOpen(false)}
-        title="Notitie toevoegen"
-      >
-        <form onSubmit={handleAddNote} className="space-y-5">
-             {/* Form content same as DocumentPage for consistency */}
-             <p className="text-slate-500 italic">Notitie functionaliteit is beschikbaar via het tabblad 'Documenten'.</p>
-             <button type="button" onClick={() => setIsNoteModalOpen(false)} className="w-full py-2 border border-slate-200 rounded-lg font-bold text-slate-600">Sluiten</button>
-        </form>
-      </Modal>
-
-    </div>
-  );
-};
-
-export default EmployeeProfile;
+            {/* History Section */}
+            {hasHistory && (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                        <h3 className="font-bold text-slate-900 text-sm uppercase tracking-wider flex items-center gap-2">
+                            <History size={16}/> Afgeronde Trajecten
+                        </h3>
