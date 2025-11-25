@@ -79,7 +79,6 @@ const App: React.FC = () => {
         }
 
         // AUTO LOG SYSTEM UPDATE
-        // Check if the latest update is already in the DB logs
         const logs = await api.getSystemLogs();
         const alreadyLogged = logs.some(l => l.id === LATEST_SYSTEM_UPDATE.id);
         if (!alreadyLogged) {
@@ -143,33 +142,14 @@ const App: React.FC = () => {
   }, [currentView]);
 
   const handleLogin = async (email: string, password: string): Promise<boolean> => {
-    const normEmail = email.trim().toLowerCase();
+    // Use direct API login instead of local filtering to ensure we hit Supabase
+    const user = await api.loginUser(email, password);
     
-    // 1. Try to find user in current loaded state
-    let foundUser = employees.find(emp => emp.email.toLowerCase() === normEmail && emp.password === password);
-    
-    if (foundUser) {
-      setCurrentUser(foundUser);
-      localStorage.setItem('hrms_session_id', foundUser.id);
-      return true;
+    if (user) {
+        setCurrentUser(user);
+        localStorage.setItem('hrms_session_id', user.id);
+        return true;
     }
-
-    // 2. If not found, force a fresh fetch from API (addresses staleness issues)
-    console.log("User not found locally, attempting forced refresh from API...");
-    try {
-        const freshEmployees = await api.getEmployees();
-        setEmployees(freshEmployees); // Update state for the app
-        foundUser = freshEmployees.find(emp => emp.email.toLowerCase() === normEmail && emp.password === password);
-        
-        if (foundUser) {
-            setCurrentUser(foundUser);
-            localStorage.setItem('hrms_session_id', foundUser.id);
-            return true;
-        }
-    } catch (e) {
-        console.error("Login refresh failed", e);
-    }
-
     return false;
   };
 
@@ -305,14 +285,19 @@ const App: React.FC = () => {
           <WelcomeFlow 
             employee={currentUser} 
             onComplete={async (updated) => {
-                // Explicitly wait for the database save to complete
-                const finalEmp = { ...updated, accountStatus: 'Active' as const };
+                // Ensure we enforce Active status and have a password before saving
+                const finalEmp = { 
+                    ...updated, 
+                    accountStatus: 'Active' as const,
+                    // Fallback if somehow password is lost, though WelcomeFlow should handle it
+                    password: updated.password || 'sanadome123' 
+                };
                 
                 // Save via API and Wait - now returns boolean success
                 const success = await api.saveEmployee(finalEmp);
                 
                 if (!success) {
-                    throw new Error("Opslaan mislukt in database. Mogelijk heeft u geen rechten of is er een netwerkprobleem.");
+                    throw new Error("Opslaan mislukt in database. Controleer uw verbinding.");
                 }
                 
                 // Update Local State only after confirmed success

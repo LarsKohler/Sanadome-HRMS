@@ -17,6 +17,55 @@ const generateDemoTasks = (): OnboardingTask[] => [
 ];
 
 export const api = {
+  // --- DIRECT LOGIN (SUPABASE ONLY) ---
+  loginUser: async (email: string, password: string): Promise<Employee | null> => {
+      if (!isLive || !supabase) {
+          // Fallback for local dev without Supabase
+          const employees = storage.getEmployees();
+          return employees.find(e => e.email.toLowerCase() === email.toLowerCase() && e.password === password) || null;
+      }
+
+      try {
+          // Query Supabase directly for the email inside the JSONB 'data' column
+          // Note: We use ->> to get the value as text
+          const { data, error } = await supabase
+              .from('employees')
+              .select('data')
+              .eq('data->>email', email) // Exact match on email (Supabase is case sensitive usually, but email should be stored consistently)
+              .single();
+
+          if (error || !data) {
+              console.warn("Login query failed or user not found:", error);
+              // Retry with lowercase just in case
+              const { data: dataLower, error: errorLower } = await supabase
+                .from('employees')
+                .select('data')
+                .ilike('data->>email', email) // Case insensitive match
+                .single();
+                
+              if(errorLower || !dataLower) return null;
+              
+              const emp = dataLower.data as Employee;
+              if (emp.password === password) return emp;
+              return null;
+          }
+
+          const emp = data.data as Employee;
+          
+          // Verify password
+          if (emp.password === password) {
+              return emp;
+          }
+          
+          console.warn("Password mismatch for user:", email);
+          return null;
+
+      } catch (e) {
+          console.error("Login exception:", e);
+          return null;
+      }
+  },
+
   // --- DEMO USER GENERATOR ---
   createDemoUser: async (role: 'Manager' | 'Medewerker'): Promise<{email: string, password: string}> => {
       const rand = Math.floor(Math.random() * 10000);
@@ -153,16 +202,10 @@ export const api = {
   deleteFile: async (fullUrl: string, bucket: string = 'hrms-storage') => {
     if (isLive && supabase && fullUrl) {
         try {
-            // Check if the URL belongs to our Supabase project
-            // Example URL: https://xyz.supabase.co/storage/v1/object/public/hrms-storage/filename.jpg
-            
-            // Only try to delete if it looks like a Supabase URL from this bucket
             if (fullUrl.includes(bucket)) {
-                // Extract the path after the bucket name
-                // Split by bucket name and get the last part
                 const parts = fullUrl.split(`${bucket}/`);
                 if (parts.length > 1) {
-                    const filePath = parts[1]; // e.g., "filename.jpg"
+                    const filePath = parts[1]; 
                     
                     const { error } = await supabase.storage
                         .from(bucket)
@@ -187,7 +230,6 @@ export const api = {
       try {
         const { data, error } = await supabase.from('employees').select('data');
         
-        // If successful and has data, return it
         if (!error && data && data.length > 0) {
             return data.map((row: any) => row.data);
         }
@@ -195,8 +237,8 @@ export const api = {
         // If table is empty, attempt to seed it immediately
         if (data?.length === 0) {
            console.log("Employees table empty, attempting auto-seed...");
-           await api.seedDatabase(); // Call the seed function
-           return MOCK_EMPLOYEES; // Return the mock data directly for immediate UI render
+           await api.seedDatabase();
+           return MOCK_EMPLOYEES;
         }
       } catch (e) {
         console.warn("Supabase connection failed, falling back to local storage", e);
@@ -209,8 +251,8 @@ export const api = {
   saveEmployee: async (employee: Employee): Promise<boolean> => {
     if (isLive && supabase) {
       try {
-          // Upsert: update if exists, insert if new
-          // We use select() to confirm the operation returned data and ensure persistence
+          // Important: Supabase might block updates via RLS if policies aren't set up for Anon key.
+          // We attempt the update.
           const { data, error } = await supabase
             .from('employees')
             .upsert({ id: employee.id, data: employee })
@@ -218,13 +260,12 @@ export const api = {
             .single();
 
           if (error) {
-              console.error('Supabase Error:', error);
+              console.error('Supabase Save Error:', error);
               return false;
           }
           
-          // Explicit check: if no data returned, the update likely failed due to RLS or other constraint silently
           if (!data) {
-              console.error("Update failed: No data returned from database.");
+              console.error("Update failed: No data returned. Likely RLS blocking update.");
               return false;
           }
 
@@ -260,10 +301,7 @@ export const api = {
         const { data, error } = await supabase.from('news').select('data');
         if (!error && data && data.length > 0) return data.map((row: any) => row.data);
         
-        if (data?.length === 0) {
-          // Fallback if seed didn't happen in getEmployees
-          return MOCK_NEWS; 
-        }
+        if (data?.length === 0) return MOCK_NEWS; 
       } catch (e) {
         return storage.getNews();
       }
@@ -313,7 +351,6 @@ export const api = {
   },
 
   markNotificationRead: async (id: string, allNotifications: Notification[]) => {
-      // Logic handled in App.tsx mainly, but we need to persist the single update
       const notif = allNotifications.find(n => n.id === id);
       if (notif) {
           const updated = { ...notif, read: true };
@@ -330,8 +367,6 @@ export const api = {
   markAllNotificationsRead: async (userId: string, allNotifications: Notification[]) => {
       const userNotifs = allNotifications.filter(n => n.recipientId === userId && !n.read);
       if (isLive && supabase) {
-          // This is a bit heavier in a loop, normally we'd do a bulk update or SQL query
-          // For now, loop is fine for small scale
           for (const n of userNotifs) {
               await supabase.from('notifications').update({ data: { ...n, read: true } }).eq('id', n.id);
           }
@@ -348,10 +383,7 @@ export const api = {
       try {
         const { data, error } = await supabase.from('surveys').select('data');
         if (!error && data && data.length > 0) return data.map((row: any) => row.data);
-        if (data?.length === 0) {
-             const defaultSurveys = storage.getSurveys(); // Use default from storage logic
-             return defaultSurveys;
-        }
+        if (data?.length === 0) return storage.getSurveys();
       } catch (e) {
         return storage.getSurveys();
       }
@@ -386,9 +418,7 @@ export const api = {
       try {
         const { data, error } = await supabase.from('onboarding_templates').select('data');
         if (!error && data && data.length > 0) return data.map((row: any) => row.data);
-        if (data?.length === 0) {
-             return MOCK_TEMPLATES;
-        }
+        if (data?.length === 0) return MOCK_TEMPLATES;
       } catch (e) {
         return storage.getTemplates();
       }
@@ -428,7 +458,6 @@ export const api = {
             return MOCK_SYSTEM_LOGS;
         }
     }
-    // For logs, we just return Mock if offline for now as storage isn't implemented for logs in storage.ts
     return MOCK_SYSTEM_LOGS;
   },
 
@@ -436,7 +465,6 @@ export const api = {
       if (isLive && supabase) {
           await supabase.from('system_updates').insert({ id: log.id, data: log });
       }
-      // No local storage fallback for logs implemented in this demo scope
   },
 
   // --- REALTIME SUBSCRIPTION ---
@@ -476,7 +504,6 @@ export const api = {
 
       return () => { supabase.removeChannel(channel); };
     } else {
-      // Fallback to LocalStorage events
       return storage.subscribe(onEmployees, onNews, onNotifications, onSurveys, onTemplates);
     }
   }
