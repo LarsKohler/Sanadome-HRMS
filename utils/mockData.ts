@@ -1,20 +1,22 @@
 
+
 import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog } from '../types';
 
 // --- AUTO UPDATE LOGGER ---
 export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
-    id: 'update-v3.2.0-auth-fix', 
-    version: 'v3.2.0',
+    id: 'update-v3.3.0-debt-module', 
+    version: 'v3.3.0',
     date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
     timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
     author: 'AI Assistant',
-    type: 'Bugfix',
+    type: 'Feature',
     impact: 'High',
-    affectedArea: 'Authenticatie & Database',
-    description: `- Critical Fix: Login logica volledig herschreven om direct met Supabase te communiceren in plaats van lokale cache.
-- Fix: Wachtwoord updates tijdens de 'Welcome Flow' werden niet correct opgeslagen door asynchrone timing issues.
-- Feature: Medewerkers met status 'Pending' kunnen nu inloggen zonder wachtwoord om direct hun account te activeren en een wachtwoord in te stellen.
-- Improvement: E-mailadres controle bij inloggen is nu hoofdletterongevoelig.`,
+    affectedArea: 'Debiteuren Beheer',
+    description: `- Nieuwe module 'Debiteuren Beheer' toegevoegd.
+- Importeer functie voor Excel/CSV rapportages vanuit PMS.
+- Automatische matching en filtering van openstaande saldi.
+- Status workflow (Herinnering, Aanmaning, Betaald, Blacklist).
+- Dependency 'xlsx' toegevoegd voor parsing.`,
     status: 'Success'
 };
 

@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw } from 'lucide-react';
 import { Debtor, DebtorStatus } from '../types';
 import { api } from '../utils/api';
-// @ts-ignore
 import * as XLSX from 'xlsx';
 
 interface DebtControlPageProps {
