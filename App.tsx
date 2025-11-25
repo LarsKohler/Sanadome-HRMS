@@ -142,8 +142,18 @@ const App: React.FC = () => {
     setIsMobileMenuOpen(false);
   }, [currentView]);
 
-  const handleLogin = (email: string, password: string): boolean => {
-    const foundUser = employees.find(emp => emp.email.toLowerCase() === email.toLowerCase() && emp.password === password);
+  const handleLogin = async (email: string, password: string): Promise<boolean> => {
+    // 1. Try to find user in current loaded state
+    let foundUser = employees.find(emp => emp.email.toLowerCase() === email.toLowerCase() && emp.password === password);
+    
+    // 2. If not found, force a fresh fetch from API (addresses staleness issues)
+    if (!foundUser) {
+        console.log("User not found in local cache, fetching fresh data from Supabase...");
+        const freshEmployees = await api.getEmployees();
+        setEmployees(freshEmployees); // Update state for the app
+        foundUser = freshEmployees.find(emp => emp.email.toLowerCase() === email.toLowerCase() && emp.password === password);
+    }
+
     if (foundUser) {
       setCurrentUser(foundUser);
       // Persist Session

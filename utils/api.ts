@@ -1,14 +1,67 @@
 
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog } from '../types';
+import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask } from '../types';
 import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
 // We explicitely check if supabase is not null
 export const isLive = !!supabase;
 
+// Helper to generate fresh tasks for demo users
+const generateDemoTasks = (): OnboardingTask[] => [
+  { id: 'd-1', week: 1, category: 'Introductie', title: 'Rondleiding Hotel & Spa', description: 'Volledige rondleiding door faciliteiten.', completed: true, score: 100, completedBy: 'System', completedDate: 'Vandaag' },
+  { id: 'd-2', week: 1, category: 'IT', title: 'IDu PMS Training', description: 'Basisnavigatie in het systeem.', completed: true, score: 100, completedBy: 'System', completedDate: 'Vandaag' },
+  { id: 'd-3', week: 2, category: 'Front Office', title: 'Check-in Procedure', description: 'Gasten ontvangen en registreren.', completed: false, score: 0 },
+  { id: 'd-4', week: 3, category: 'Financieel', title: 'Kassa Afsluiting', description: 'Procedure voor einde dienst.', completed: false, score: 0 },
+];
+
 export const api = {
+  // --- DEMO USER GENERATOR ---
+  createDemoUser: async (role: 'Manager' | 'Medewerker'): Promise<{email: string, password: string}> => {
+      const rand = Math.floor(Math.random() * 10000);
+      const email = role === 'Manager' ? `demo.manager.${rand}@sanadome.nl` : `demo.user.${rand}@sanadome.nl`;
+      const password = 'demo';
+      const name = role === 'Manager' ? `Demo Manager ${rand}` : `Demo Medewerker ${rand}`;
+      
+      const newEmployee: Employee = {
+          id: `demo-${rand}`,
+          name: name,
+          role: role,
+          department: role === 'Manager' ? 'Management' : 'Front Office',
+          location: 'Nijmegen',
+          avatar: `https://ui-avatars.com/api/?name=${name.replace(' ', '+')}&background=${role === 'Manager' ? '0d9488' : '2563eb'}&color=fff`,
+          email: email,
+          password: password,
+          phone: '+31 6 1234 5678',
+          linkedin: name,
+          hiredOn: new Date().toLocaleDateString('nl-NL'),
+          employmentType: 'Full-Time',
+          accountStatus: 'Active',
+          onboardingStatus: role === 'Manager' ? 'Completed' : 'Active',
+          leaveBalances: [
+              { type: 'Annual Leave', entitled: 25, taken: 0 },
+              { type: 'Sick Leave', entitled: 10, taken: 0 },
+              { type: 'Without Pay', entitled: 0, taken: 0 }
+          ],
+          leaveRequests: [],
+          documents: [],
+          notes: [],
+          onboardingTasks: role === 'Manager' ? [] : generateDemoTasks(),
+          evaluations: [],
+          // Managers get full permissions, Employees get defaults
+          customPermissions: role === 'Manager' ? [
+            'VIEW_REPORTS', 'MANAGE_EMPLOYEES', 'MANAGE_DOCUMENTS', 
+            'VIEW_ALL_DOCUMENTS', 'CREATE_NEWS', 'MANAGE_ONBOARDING', 
+            'MANAGE_SURVEYS', 'VIEW_SYSTEM_STATUS', 'MANAGE_SETTINGS', 
+            'MANAGE_EVALUATIONS'
+          ] : undefined
+      };
+
+      await api.saveEmployee(newEmployee);
+      return { email, password };
+  },
+
   // --- UTILS ---
   seedDatabase: async () => {
     if (!isLive || !supabase) return;
