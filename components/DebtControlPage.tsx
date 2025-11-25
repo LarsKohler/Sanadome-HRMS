@@ -221,10 +221,17 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
 
   const handleDeleteDebtor = async (id: string) => {
       if(confirm("Weet je zeker dat je dit dossier wilt verwijderen?")) {
+          const previousDebtors = [...debtors];
           const updatedList = debtors.filter(d => d.id !== id);
-          setDebtors(updatedList);
-          await api.deleteDebtor(id);
-          onShowToast("Dossier verwijderd");
+          setDebtors(updatedList); // Optimistic update
+          
+          const success = await api.deleteDebtor(id);
+          if (success) {
+              onShowToast("Dossier verwijderd");
+          } else {
+              setDebtors(previousDebtors); // Revert if failed
+              onShowToast("Fout bij verwijderen. Controleer de database rechten.");
+          }
       }
   };
 

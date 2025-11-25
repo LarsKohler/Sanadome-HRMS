@@ -49,6 +49,9 @@ import { createClient } from '@supabase/supabase-js';
 // -- 7. Enable Realtime
 // alter publication supabase_realtime add table employees, news, notifications, surveys, onboarding_templates, debtors;
 
+// -- 8. Enable Delete Policy for Debtors (Cruciaal voor verwijderen!)
+// create policy "Enable delete access for all users" on debtors for delete using (true);
+
 // Veilig ophalen van env vars, met fallback naar de door jou opgegeven keys
 const getEnvVar = (key: string, fallback: string) => {
   if (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env[key]) {

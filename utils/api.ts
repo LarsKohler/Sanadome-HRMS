@@ -492,11 +492,12 @@ export const api = {
       localStorage.setItem('hrms_debtors', JSON.stringify(debtors));
   },
 
-  deleteDebtor: async (id: string) => {
+  deleteDebtor: async (id: string): Promise<boolean> => {
       if (isLive && supabase) {
           const { error } = await supabase.from('debtors').delete().eq('id', id);
           if (error) {
               console.error("Error deleting debtor:", error);
+              return false;
           }
       }
       // Also remove from local storage to stay in sync/fallback
@@ -506,6 +507,7 @@ export const api = {
           const filtered = parsed.filter((d: Debtor) => d.id !== id);
           localStorage.setItem('hrms_debtors', JSON.stringify(filtered));
       }
+      return true;
   },
 
   // Subscribe to debtors specifically
