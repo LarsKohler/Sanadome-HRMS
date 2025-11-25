@@ -223,7 +223,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
       if(confirm("Weet je zeker dat je dit dossier wilt verwijderen?")) {
           const updatedList = debtors.filter(d => d.id !== id);
           setDebtors(updatedList);
-          await api.saveDebtors(updatedList);
+          await api.deleteDebtor(id);
           onShowToast("Dossier verwijderd");
       }
   };
