@@ -1,22 +1,23 @@
 
+
 import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog } from '../types';
 
 // --- AUTO UPDATE LOGGER ---
 // This object is updated by the AI with every code generation.
 // The App checks this ID on startup. If not in DB, it logs it.
 export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
-    id: 'update-v2.7.0-affected-area-log', 
-    version: 'v2.7.0',
+    id: 'update-v2.8.0-onboarding-reports', 
+    version: 'v2.8.0',
     date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
     timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
-    author: 'Lars Kohler',
+    author: 'AI Assistant',
     type: 'Feature',
-    impact: 'Low',
-    affectedArea: 'Systeemstatus & Database',
-    description: `- Toegevoegd: 'Betrokken Onderdeel' (Affected Area) veld aan systeem updates.
-- Update van logboek tabel om te tonen welk onderdeel van de website is gewijzigd.
-- Database schema uitgebreid via JSONB voor flexibele opslag van metadata.
-- Formulier voor handmatige updates bijgewerkt met selectie voor onderdeel.`,
+    impact: 'Medium',
+    affectedArea: 'Onboarding & Evaluaties',
+    description: `- Toegevoegd: Gedetailleerde rapportage weergave voor afgeronde onboarding trajecten.
+- Feature: Week evaluaties en feedback notities worden nu gearchiveerd en getoond in het rapport.
+- UI Update: Uniforme paginatitels en knoppen consistentie in Evaluatie module.
+- Fix: Data structuur update voor historische trajecten om week-data te bevatten.`,
     status: 'Success'
 };
 

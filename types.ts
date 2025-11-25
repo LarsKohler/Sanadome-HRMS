@@ -1,4 +1,5 @@
 
+
 export enum ViewState {
   HOME = 'HOME',
   DIRECTORY = 'DIRECTORY',
@@ -103,6 +104,7 @@ export interface OnboardingHistoryEntry {
     startDate: string;
     endDate: string;
     tasks: OnboardingTask[];
+    weeks?: OnboardingWeekData[]; // Added: Store weekly summaries in history
     finalScore: number;
 }
 

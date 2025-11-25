@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, CheckCircle2, User, ChevronDown, MessageSquare, Save, PlayCircle, Eye, EyeOff, Calendar, Clock, Trophy, Check, ArrowRight, Circle, Settings, Plus, Trash2, Edit2, Copy, Archive, XCircle, History, FileText, BarChart3 } from 'lucide-react';
+import { Search, CheckCircle2, User, ChevronDown, MessageSquare, Save, PlayCircle, Eye, EyeOff, Calendar, Clock, Trophy, Check, ArrowRight, Circle, Settings, Plus, Trash2, Edit2, Copy, Archive, XCircle, History, FileText, BarChart3, Quote } from 'lucide-react';
 import { Employee, OnboardingTask, Notification, ViewState, OnboardingWeekData, OnboardingTemplate, OnboardingHistoryEntry } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
@@ -273,6 +273,7 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
           startDate: selectedEmployee.hiredOn, // Approximate start
           endDate: new Date().toLocaleDateString('nl-NL'),
           tasks: [...selectedEmployee.onboardingTasks],
+          weeks: [...(selectedEmployee.onboardingWeeks || [])], // Archive the week summaries
           finalScore: progress
       };
 
@@ -397,11 +398,34 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   </div>
               </div>
 
+              {/* Week Summaries */}
+              {entry.weeks && entry.weeks.length > 0 && (
+                  <div className="space-y-4">
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                          <BarChart3 size={18} className="text-teal-600"/>
+                          <h3 className="font-bold text-slate-900">Week Evaluaties & Samenvattingen</h3>
+                      </div>
+                      <div className="grid grid-cols-1 gap-4">
+                          {entry.weeks.sort((a,b) => a.week - b.week).map((week, i) => (
+                              <div key={i} className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                  <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Week {week.week}</h4>
+                                  <div className="flex gap-3 items-start">
+                                       <Quote size={16} className="text-slate-300 flex-shrink-0 mt-0.5"/>
+                                       <p className="text-sm text-slate-700 font-medium italic">
+                                           {week.managerNotes || 'Geen evaluatie genoteerd voor deze week.'}
+                                       </p>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  </div>
+              )}
+
               {/* Aggregated Feedback / Notes Section */}
               <div className="space-y-4">
                   <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
-                      <FileText size={18} className="text-teal-600"/>
-                      <h3 className="font-bold text-slate-900">Genoteerde Feedback & Opmerkingen</h3>
+                      <MessageSquare size={18} className="text-teal-600"/>
+                      <h3 className="font-bold text-slate-900">Genoteerde Feedback (Taken)</h3>
                   </div>
                   
                   {tasksWithNotes.length > 0 ? (
@@ -434,7 +458,7 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                       </div>
                   ) : (
                       <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                          <p className="text-sm text-slate-500 italic">Er zijn geen specifieke notities gemaakt tijdens dit traject.</p>
+                          <p className="text-sm text-slate-500 italic">Er zijn geen specifieke notities gemaakt bij taken.</p>
                       </div>
                   )}
               </div>

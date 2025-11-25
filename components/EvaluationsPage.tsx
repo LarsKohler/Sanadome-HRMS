@@ -251,10 +251,10 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   const renderDashboard = () => (
       <div className="space-y-8">
           {/* Header & KPIs */}
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                <div>
-                   <h2 className="text-xl font-bold text-slate-900">Performance Center</h2>
-                   <p className="text-slate-500 text-sm mt-1">Monitor groei, doelstellingen en evaluaties.</p>
+                   <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">Performance Center</h1>
+                   <p className="text-slate-500 mt-1">Monitor groei, doelstellingen en evaluaties.</p>
                </div>
                {isManager && (
                    <div className="flex gap-3">
