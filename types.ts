@@ -250,3 +250,17 @@ export interface SurveyResponse {
   answers: Record<string, string | number>; // questionId: answer
   completedAt: string;
 }
+
+// --- SYSTEM STATUS TYPES ---
+
+export interface SystemUpdateLog {
+  id: string;
+  version: string;
+  date: string;
+  timestamp: string;
+  author: string;
+  type: 'Feature' | 'Bugfix' | 'Maintenance' | 'Security';
+  impact: 'High' | 'Medium' | 'Low';
+  description: string;
+  status: 'Success' | 'Pending' | 'Failed';
+}

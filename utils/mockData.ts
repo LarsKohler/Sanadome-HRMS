@@ -1,5 +1,5 @@
 
-import { Employee, NewsPost, OnboardingTask, OnboardingTemplate } from '../types';
+import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog } from '../types';
 
 // ... (Previous imports and helper functions remain, but keeping file concise)
 const generateOnboardingTasks = (): OnboardingTask[] => [
@@ -66,6 +66,42 @@ export const EVALUATION_TEMPLATES = {
         { category: 'Soft Skills', topic: 'Punctualiteit' },
     ]
 };
+
+export const MOCK_SYSTEM_LOGS: SystemUpdateLog[] = [
+    {
+        id: 'log-1',
+        version: 'v2.4.0',
+        date: '24 Okt 2023',
+        timestamp: '14:30',
+        author: 'GitHub Actions',
+        type: 'Feature',
+        impact: 'Medium',
+        description: 'Nieuwe Onboarding Module live gezet. Templates nu beschikbaar voor beheer.',
+        status: 'Success'
+    },
+    {
+        id: 'log-2',
+        version: 'v2.3.5',
+        date: '22 Okt 2023',
+        timestamp: '09:15',
+        author: 'Dennis de Manager',
+        type: 'Bugfix',
+        impact: 'Low',
+        description: 'Correctie profielweergave op mobiele apparaten. CSS Grid fix.',
+        status: 'Success'
+    },
+    {
+        id: 'log-3',
+        version: 'v2.3.0',
+        date: '20 Okt 2023',
+        timestamp: '11:00',
+        author: 'System Admin',
+        type: 'Security',
+        impact: 'High',
+        description: 'Supabase Row Level Security policies geüpdatet voor documenten.',
+        status: 'Success'
+    }
+];
 
 export const MOCK_NEWS: NewsPost[] = [
   {

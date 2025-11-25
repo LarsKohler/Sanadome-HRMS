@@ -1,8 +1,8 @@
 
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, Survey, OnboardingTemplate } from '../types';
-import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES } from './mockData';
+import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog } from '../types';
+import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
 // We explicitely check if supabase is not null
@@ -55,6 +55,16 @@ export const api = {
             MOCK_TEMPLATES.map(t => ({ id: t.id, data: t }))
         );
         if (error) console.error("Error seeding templates:", error);
+    }
+
+    // 5. Seed System Logs
+    const { count: logsCount } = await supabase.from('system_updates').select('*', { count: 'exact', head: true });
+    if (logsCount === 0) {
+        console.log("Seeding system logs...");
+        const { error } = await supabase.from('system_updates').insert(
+            MOCK_SYSTEM_LOGS.map(l => ({ id: l.id, data: l }))
+        );
+        if (error) console.error("Error seeding logs:", error);
     }
     
     console.log("Database seed completed.");
@@ -330,6 +340,28 @@ export const api = {
         const current = storage.getTemplates();
         storage.saveTemplates(current.filter(t => t.id !== id));
     }
+  },
+
+  // --- SYSTEM LOGS ---
+  getSystemLogs: async (): Promise<SystemUpdateLog[]> => {
+    if (isLive && supabase) {
+        try {
+            const { data, error } = await supabase.from('system_updates').select('data');
+            if (!error && data && data.length > 0) return data.map((row: any) => row.data);
+            if (data?.length === 0) return MOCK_SYSTEM_LOGS;
+        } catch (e) {
+            return MOCK_SYSTEM_LOGS;
+        }
+    }
+    // For logs, we just return Mock if offline for now as storage isn't implemented for logs in storage.ts
+    return MOCK_SYSTEM_LOGS;
+  },
+
+  saveSystemLog: async (log: SystemUpdateLog) => {
+      if (isLive && supabase) {
+          await supabase.from('system_updates').insert({ id: log.id, data: log });
+      }
+      // No local storage fallback for logs implemented in this demo scope
   },
 
   // --- REALTIME SUBSCRIPTION ---
