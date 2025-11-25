@@ -1,5 +1,4 @@
 
-
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
 import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor } from '../types';
@@ -493,6 +492,20 @@ export const api = {
       localStorage.setItem('hrms_debtors', JSON.stringify(debtors));
   },
 
+  // Subscribe to debtors specifically
+  subscribeToDebtors: (onUpdate: (debtors: Debtor[]) => void) => {
+    if (isLive && supabase) {
+      const channel = supabase.channel('debtors_realtime')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'debtors' }, async () => {
+             const { data } = await supabase.from('debtors').select('data');
+             if (data) onUpdate(data.map((r: any) => r.data));
+        })
+        .subscribe();
+      return () => { supabase.removeChannel(channel); };
+    }
+    return () => {};
+  },
+
   // --- SYSTEM LOGS ---
   getSystemLogs: async (): Promise<SystemUpdateLog[]> => {
     if (isLive && supabase) {
@@ -513,7 +526,7 @@ export const api = {
       }
   },
 
-  // --- REALTIME SUBSCRIPTION ---
+  // --- REALTIME SUBSCRIPTION (GLOBAL) ---
   subscribe: (
     onEmployees: (data: Employee[]) => void,
     onNews: (data: NewsPost[]) => void,

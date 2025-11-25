@@ -39,8 +39,15 @@ import { createClient } from '@supabase/supabase-js';
 //   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 // );
 
-// -- 6. Enable Realtime
-// alter publication supabase_realtime add table employees, news, notifications, surveys, onboarding_templates;
+// -- 6. Create Debtors Table
+// create table if not exists debtors (
+//   id text primary key,
+//   data jsonb not null,
+//   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+// );
+
+// -- 7. Enable Realtime
+// alter publication supabase_realtime add table employees, news, notifications, surveys, onboarding_templates, debtors;
 
 // Veilig ophalen van env vars, met fallback naar de door jou opgegeven keys
 const getEnvVar = (key: string, fallback: string) => {

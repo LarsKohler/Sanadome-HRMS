@@ -22,6 +22,17 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
   useEffect(() => {
     loadDebtors();
     
+    // Subscribe to realtime changes
+    const unsubscribe = api.subscribeToDebtors((updatedDebtors) => {
+        setDebtors(updatedDebtors.sort((a, b) => {
+            if (a.status === 'Blacklist' && b.status !== 'Blacklist') return -1;
+            if (b.status === 'Blacklist' && a.status !== 'Blacklist') return 1;
+            if (a.status === 'New' && b.status !== 'New') return -1;
+            if (b.status === 'New' && a.status !== 'New') return 1;
+            return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
+        }));
+    });
+
     // Close dropdown on outside click
     const handleClickOutside = (event: MouseEvent) => {
         if (openDropdownId && !(event.target as Element).closest('.status-dropdown-trigger')) {
@@ -29,7 +40,10 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
         }
     };
     document.addEventListener('click', handleClickOutside);
-    return () => document.removeEventListener('click', handleClickOutside);
+    return () => {
+        document.removeEventListener('click', handleClickOutside);
+        unsubscribe();
+    };
   }, [openDropdownId]);
 
   const loadDebtors = async () => {
