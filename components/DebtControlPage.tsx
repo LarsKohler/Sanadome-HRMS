@@ -349,7 +349,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                   <h3 className="font-bold text-slate-500 text-xs uppercase tracking-wider">Actie Vereist</h3>
               </div>
               <div className="text-3xl font-bold text-amber-600">{actionRequiredCount}</div>
-              <p className="text-xs text-slate-500 mt-1">Dossiers > 14 dagen in huidige status</p>
+              <p className="text-xs text-slate-500 mt-1">Dossiers &gt; 14 dagen in huidige status</p>
           </div>
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
               <div className="flex items-center gap-3 mb-2">
