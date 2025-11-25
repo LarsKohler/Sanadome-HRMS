@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw } from 'lucide-react';
+import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone } from 'lucide-react';
 import { Debtor, DebtorStatus } from '../types';
 import { api } from '../utils/api';
 import * as XLSX from 'xlsx';
@@ -44,18 +45,27 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
 
     setIsUploading(true);
     const reader = new FileReader();
+    
     reader.onload = async (evt) => {
         try {
             const bstr = evt.target?.result;
             const wb = XLSX.read(bstr, { type: 'binary' });
-            const wsname = wb.SheetNames[0];
-            const ws = wb.Sheets[wsname];
-            const data = XLSX.utils.sheet_to_json(ws);
+            
+            // SPECIFIC LOGIC: Target "Reservations" sheet, or fallback to first
+            let ws = wb.Sheets['Reservations'];
+            if (!ws) {
+                console.warn("Sheet 'Reservations' not found, defaulting to first sheet.");
+                ws = wb.Sheets[wb.SheetNames[0]];
+            }
+
+            // Use header: 'A' to get column letters as keys (A, B, C...)
+            // defval: '' ensures empty cells are empty strings, not undefined
+            const data = XLSX.utils.sheet_to_json(ws, { header: 'A', defval: '' }) as any[];
 
             processImportedData(data);
         } catch (error) {
             console.error("Parsing error", error);
-            onShowToast("Fout bij inlezen bestand. Controleer het formaat.");
+            onShowToast("Fout bij inlezen bestand. Controleer of het tabblad 'Reservations' bestaat.");
             setIsUploading(false);
         }
     };
@@ -64,38 +74,45 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
 
   const processImportedData = async (data: any[]) => {
       try {
-          // 1. Filter for Balance > 0
-          // Need to identify column names loosely because Excel headers might vary slightly in case/spacing
-          // Mapping based on prompt: Number, Group name, First name, Address, Balance of companions
-          
           let newCount = 0;
           let updateCount = 0;
           
-          // Create a map of existing debtors for quick lookup
           const currentDebtorsMap = new Map<string, Debtor>(debtors.map(d => [d.reservationNumber, d]));
           const updatedDebtorsList = [...debtors];
 
-          for (const row of data) {
-              // Find keys (case-insensitive match)
-              const getVal = (keyPart: string) => {
-                  const key = Object.keys(row).find(k => k.toLowerCase().includes(keyPart.toLowerCase()));
-                  return key ? row[key] : undefined;
-              };
-
-              const balance = parseFloat(getVal('Balance') || '0');
+          // Skip header row (usually index 0)
+          // We iterate from index 1 assuming row 1 is headers like "Number", "Group Name" etc.
+          for (let i = 1; i < data.length; i++) {
+              const row = data[i];
               
-              // Only positive balances (Debtors)
+              // Column AO is the Balance. 
+              // Note: XLSX might map 'AO' correctly if header='A' is used.
+              const balanceStr = row['AO'];
+              
+              // Ensure we have a number
+              let balance = 0;
+              if (typeof balanceStr === 'number') {
+                  balance = balanceStr;
+              } else if (typeof balanceStr === 'string') {
+                  // Handle "1.200,00" or "1200.00" formats if necessary, but normally raw excel is safe
+                  balance = parseFloat(balanceStr.replace(',', '.'));
+              }
+
+              // FILTER: Only processing items with Positive Balance (> 0)
               if (balance > 0) {
-                  const reservationNumber = String(getVal('Number') || '');
-                  if (!reservationNumber) continue;
+                  const reservationNumber = String(row['A'] || '').trim();
+                  if (!reservationNumber) continue; // Skip if no reservation number
 
-                  const groupName = String(getVal('Group name') || '');
-                  const firstName = String(getVal('First name') || '');
-                  const address = String(getVal('Address') || '');
+                  // Column B: Group Name (e.g. "Akbar-19-11-D802")
+                  // Logic: Split at first hyphen to get Last Name
+                  const groupName = String(row['B'] || '');
+                  const lastName = groupName.split('-')[0].trim() || 'Onbekend';
 
-                  // Logic: Split Group name for Last Name
-                  // "Akbar-19-11-D802" -> "Akbar"
-                  const lastName = groupName.split('-')[0].trim();
+                  // Other Columns
+                  const firstName = String(row['D'] || '').trim();
+                  const email = String(row['E'] || '').trim();
+                  const phone = String(row['F'] || '').trim();
+                  const address = String(row['G'] || '').trim();
 
                   const existing = currentDebtorsMap.get(reservationNumber);
 
@@ -105,12 +122,13 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                       if (updatedIndex >= 0) {
                           updatedDebtorsList[updatedIndex] = {
                               ...existing,
-                              amount: balance,
+                              amount: balance, // Update amount
+                              // Update contact info if it was empty, or overwrite? Let's overwrite to keep it fresh
+                              email: email || existing.email,
+                              phone: phone || existing.phone,
+                              address: address || existing.address,
                               lastUpdated: new Date().toLocaleDateString('nl-NL'),
-                              // Do NOT overwrite status unless it was Paid but now owes money? 
-                              // Prompt says "update amount but do not overwrite status".
-                              // If it was 'Paid' but balance is > 0 again, maybe we should reset? 
-                              // For now, adhering strictly to prompt: don't overwrite status.
+                              // Status remains unchanged
                           };
                           updateCount++;
                       }
@@ -121,6 +139,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                           reservationNumber,
                           firstName,
                           lastName,
+                          email, 
+                          phone,
                           address,
                           amount: balance,
                           status: 'New',
@@ -128,15 +148,19 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                           importedAt: new Date().toLocaleDateString('nl-NL')
                       };
                       updatedDebtorsList.push(newDebtor);
-                      currentDebtorsMap.set(reservationNumber, newDebtor); // Prevent dups within same file
+                      currentDebtorsMap.set(reservationNumber, newDebtor);
                       newCount++;
                   }
               }
           }
 
-          await api.saveDebtors(updatedDebtorsList);
-          setDebtors(updatedDebtorsList);
-          onShowToast(`Import voltooid: ${newCount} nieuwe, ${updateCount} geüpdatet.`);
+          if (newCount === 0 && updateCount === 0) {
+              onShowToast("Geen openstaande posten (> 0) gevonden in kolom AO.");
+          } else {
+              await api.saveDebtors(updatedDebtorsList);
+              setDebtors(updatedDebtorsList);
+              onShowToast(`Import voltooid: ${newCount} nieuwe, ${updateCount} geüpdatet.`);
+          }
 
       } catch (e) {
           console.error("Processing error", e);
@@ -259,6 +283,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                       <tr>
                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Nr.</th>
                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Naam</th>
+                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact</th>
                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Adres</th>
                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Bedrag</th>
                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
@@ -282,11 +307,26 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                                   <div className="font-bold text-slate-900">{debtor.lastName}, {debtor.firstName}</div>
                                   <div className="text-xs text-slate-400">Import: {debtor.importedAt}</div>
                               </td>
+                              <td className="px-6 py-4 text-sm">
+                                  <div className="flex flex-col gap-1">
+                                      {debtor.email && (
+                                          <div className="flex items-center gap-1.5 text-slate-600" title={debtor.email}>
+                                              <Mail size={12}/> <span className="text-xs truncate max-w-[150px]">{debtor.email}</span>
+                                          </div>
+                                      )}
+                                      {debtor.phone && (
+                                          <div className="flex items-center gap-1.5 text-slate-600" title={debtor.phone}>
+                                              <Phone size={12}/> <span className="text-xs">{debtor.phone}</span>
+                                          </div>
+                                      )}
+                                      {!debtor.email && !debtor.phone && <span className="text-slate-300 text-xs">-</span>}
+                                  </div>
+                              </td>
                               <td className="px-6 py-4 text-sm text-slate-600 max-w-[200px] truncate" title={debtor.address}>
-                                  {debtor.address}
+                                  {debtor.address || '-'}
                               </td>
                               <td className="px-6 py-4">
-                                  <span className="font-bold text-slate-900">€ {debtor.amount.toFixed(2)}</span>
+                                  <span className="font-bold text-slate-900">€ {debtor.amount.toLocaleString('nl-NL', {minimumFractionDigits: 2})}</span>
                               </td>
                               <td className="px-6 py-4">
                                   <div className="relative group/dropdown inline-block">
@@ -322,7 +362,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                       ))}
                       {filteredDebtors.length === 0 && (
                           <tr>
-                              <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic">
+                              <td colSpan={7} className="px-6 py-12 text-center text-slate-400 italic">
                                   Geen dossiers gevonden.
                               </td>
                           </tr>

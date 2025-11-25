@@ -54,6 +54,8 @@ export interface Debtor {
   reservationNumber: string; // The "Number" from export
   firstName: string;
   lastName: string; // Parsed from "Group name"
+  email?: string; // New: Column E
+  phone?: string; // New: Column F
   address: string;
   amount: number; // "Balance of companions"
   status: DebtorStatus;
