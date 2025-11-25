@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   Activity, Database, Server, Clock, Users, FileText, 
   MessageSquare, ShieldCheck, RefreshCw, AlertCircle, 
-  CheckCircle2, HardDrive, GitCommit, Tag, User, AlertTriangle, Plus
+  CheckCircle2, HardDrive, GitCommit, Tag, User, AlertTriangle, Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { supabase } from '../utils/supabaseClient';
 import { api, isLive } from '../utils/api';
@@ -29,6 +30,13 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
   const [latencyHistory, setLatencyHistory] = useState<{time: string, latency: number}[]>([]);
   const [updateLogs, setUpdateLogs] = useState<SystemUpdateLog[]>([]);
   
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const logsPerPage = 5;
+
+  // Read More State
+  const [expandedLogs, setExpandedLogs] = useState<Set<string>>(new Set());
+
   // Modal State
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [newLog, setNewLog] = useState({
@@ -123,6 +131,30 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
       setIsLogModalOpen(false);
       fetchStats(); // Refresh list
       setNewLog({ version: 'v', type: 'Feature', impact: 'Low', description: '' });
+  };
+
+  const toggleExpandLog = (id: string) => {
+      const newSet = new Set(expandedLogs);
+      if (newSet.has(id)) {
+          newSet.delete(id);
+      } else {
+          newSet.add(id);
+      }
+      setExpandedLogs(newSet);
+  };
+
+  // Pagination Logic
+  const indexOfLastLog = currentPage * logsPerPage;
+  const indexOfFirstLog = indexOfLastLog - logsPerPage;
+  const currentLogs = updateLogs.slice(indexOfFirstLog, indexOfLastLog);
+  const totalPages = Math.ceil(updateLogs.length / logsPerPage);
+
+  const handlePrevPage = () => {
+      if (currentPage > 1) setCurrentPage(prev => prev - 1);
+  };
+
+  const handleNextPage = () => {
+      if (currentPage < totalPages) setCurrentPage(prev => prev + 1);
   };
 
   return (
@@ -229,45 +261,67 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
                               <th className="px-6 py-4">Versie & Datum</th>
                               <th className="px-6 py-4">Type</th>
                               <th className="px-6 py-4">Impact</th>
-                              <th className="px-6 py-4">Beschrijving</th>
+                              <th className="px-6 py-4 w-1/3">Beschrijving</th>
                               <th className="px-6 py-4 text-right">Auteur</th>
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-sm">
-                          {updateLogs.map(log => (
-                              <tr key={log.id} className="hover:bg-slate-50 transition-colors">
-                                  <td className="px-6 py-4">
-                                      <div className="font-bold text-slate-900">{log.version}</div>
-                                      <div className="text-xs text-slate-500">{log.date} • {log.timestamp}</div>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-bold border ${
-                                          log.type === 'Feature' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                                          log.type === 'Bugfix' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                                          log.type === 'Security' ? 'bg-purple-50 text-purple-700 border-purple-100' :
-                                          'bg-slate-100 text-slate-600 border-slate-200'
-                                      }`}>
-                                          {log.type}
-                                      </span>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                      <div className="flex items-center gap-2">
-                                          <div className={`w-2 h-2 rounded-full ${
-                                              log.impact === 'High' ? 'bg-red-500' :
-                                              log.impact === 'Medium' ? 'bg-amber-500' :
-                                              'bg-green-500'
-                                          }`}></div>
-                                          <span className="text-slate-600 font-medium">{log.impact}</span>
-                                      </div>
-                                  </td>
-                                  <td className="px-6 py-4">
-                                      <p className="text-slate-700 line-clamp-2">{log.description}</p>
-                                  </td>
-                                  <td className="px-6 py-4 text-right text-slate-500 font-medium">
-                                      {log.author}
-                                  </td>
-                              </tr>
-                          ))}
+                          {currentLogs.map(log => {
+                              const isExpanded = expandedLogs.has(log.id);
+                              const isLongText = log.description.length > 100 || log.description.includes('\n');
+                              
+                              return (
+                                <tr key={log.id} className="hover:bg-slate-50 transition-colors align-top">
+                                    <td className="px-6 py-4 whitespace-nowrap">
+                                        <div className="font-bold text-slate-900">{log.version}</div>
+                                        <div className="text-xs text-slate-500">{log.date}</div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-bold border ${
+                                            log.type === 'Feature' ? 'bg-blue-50 text-blue-700 border-blue-100' :
+                                            log.type === 'Bugfix' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                            log.type === 'Security' ? 'bg-purple-50 text-purple-700 border-purple-100' :
+                                            'bg-slate-100 text-slate-600 border-slate-200'
+                                        }`}>
+                                            {log.type}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-2 h-2 rounded-full ${
+                                                log.impact === 'High' ? 'bg-red-500' :
+                                                log.impact === 'Medium' ? 'bg-amber-500' :
+                                                'bg-green-500'
+                                            }`}></div>
+                                            <span className="text-slate-600 font-medium">{log.impact}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className={`text-slate-700 ${isExpanded ? 'whitespace-pre-wrap' : ''}`}>
+                                            {isExpanded 
+                                                ? log.description 
+                                                : (log.description.substring(0, 100) + (isLongText ? '...' : ''))
+                                            }
+                                        </div>
+                                        {isLongText && (
+                                            <button 
+                                                onClick={() => toggleExpandLog(log.id)}
+                                                className="text-teal-600 hover:text-teal-800 text-xs font-bold mt-1 flex items-center gap-1"
+                                            >
+                                                {isExpanded ? (
+                                                    <>Minder tonen <ChevronUp size={12} /></>
+                                                ) : (
+                                                    <>Lees meer <ChevronDown size={12} /></>
+                                                )}
+                                            </button>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 text-right text-slate-500 font-medium whitespace-nowrap">
+                                        {log.author}
+                                    </td>
+                                </tr>
+                              );
+                          })}
                           {updateLogs.length === 0 && (
                               <tr>
                                   <td colSpan={5} className="px-6 py-10 text-center text-slate-400 italic">
@@ -278,6 +332,31 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
                       </tbody>
                   </table>
               </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                  <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                      <div className="text-xs text-slate-500 font-medium">
+                          Pagina {currentPage} van {totalPages}
+                      </div>
+                      <div className="flex gap-2">
+                          <button 
+                            onClick={handlePrevPage}
+                            disabled={currentPage === 1}
+                            className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                          >
+                              <ChevronLeft size={16} />
+                          </button>
+                          <button 
+                            onClick={handleNextPage}
+                            disabled={currentPage === totalPages}
+                            className="p-1.5 rounded-lg border border-slate-200 bg-white text-slate-500 hover:bg-slate-50 disabled:opacity-50 transition-colors"
+                          >
+                              <ChevronRight size={16} />
+                          </button>
+                      </div>
+                  </div>
+              )}
           </div>
 
           {/* Latency Chart */}

@@ -1,6 +1,25 @@
 
 import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog } from '../types';
 
+// --- AUTO UPDATE LOGGER ---
+// This object is updated by the AI with every code generation.
+// The App checks this ID on startup. If not in DB, it logs it.
+export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
+    id: 'update-v2.6.0-pagination-footer', 
+    version: 'v2.6.0',
+    date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
+    timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
+    author: 'Lars Kohler',
+    type: 'Feature',
+    impact: 'Medium',
+    description: `- Implementatie van paginering op de Systeemstatus pagina (maximaal 5 updates per pagina).
+- Toevoeging van 'Lees meer' functionaliteit voor lange update beschrijvingen om de leesbaarheid te vergroten.
+- Nieuwe footer toegevoegd aan de linker menubalk met copyright en dynamische systeemversie.
+- Automatische auteur voor systeemupdates gewijzigd naar Lars Kohler.
+- Visuele verbeteringen aan de logboek tabel.`,
+    status: 'Success'
+};
+
 // ... (Previous imports and helper functions remain, but keeping file concise)
 const generateOnboardingTasks = (): OnboardingTask[] => [
   // WEEK 1: Introductie & Basis

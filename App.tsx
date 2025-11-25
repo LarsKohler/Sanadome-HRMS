@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import TopNav from './components/TopNav';
@@ -17,6 +18,7 @@ import { Toast } from './components/Toast';
 import { ViewState, Employee, Notification, NewsPost, Survey, SurveyResponse } from './types';
 import { api, isLive } from './utils/api';
 import { Loader2 } from 'lucide-react';
+import { LATEST_SYSTEM_UPDATE } from './utils/mockData';
 
 const App: React.FC = () => {
   // Authentication State
@@ -74,6 +76,16 @@ const App: React.FC = () => {
                  setCurrentUser(foundUser);
              }
         }
+
+        // AUTO LOG SYSTEM UPDATE
+        // Check if the latest update is already in the DB logs
+        const logs = await api.getSystemLogs();
+        const alreadyLogged = logs.some(l => l.id === LATEST_SYSTEM_UPDATE.id);
+        if (!alreadyLogged) {
+            await api.saveSystemLog(LATEST_SYSTEM_UPDATE);
+            console.log("System update auto-logged:", LATEST_SYSTEM_UPDATE.version);
+        }
+
       } catch (error) {
         console.error("Error loading data", error);
       } finally {
@@ -309,6 +321,7 @@ const App: React.FC = () => {
         userRole={currentUser.role}
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
+        systemVersion={LATEST_SYSTEM_UPDATE.version}
       />
 
       <div className="flex-1 flex flex-col min-w-0 transition-all duration-300">

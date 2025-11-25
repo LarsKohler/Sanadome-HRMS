@@ -13,9 +13,10 @@ interface SidebarProps {
   userRole?: string;
   isOpen: boolean;
   onClose: () => void;
+  systemVersion?: string; // New Prop
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userRole, isOpen, onClose }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userRole, isOpen, onClose, systemVersion = 'v1.0' }) => {
   // Define all items
   const allItems = [
     { icon: User, label: 'Mijn Profiel', id: ViewState.HOME }, // Home is now Profile
@@ -58,11 +59,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userRole, 
           h-full lg:h-[calc(100vh-80px)] w-72 
           bg-white border-r border-slate-200 
           transform transition-transform duration-300 ease-in-out
-          flex-shrink-0 overflow-y-auto no-scrollbar pb-10
+          flex flex-col
           ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
-        <div className="py-6 px-4 relative">
+        <div className="py-6 px-4 flex-1 overflow-y-auto no-scrollbar">
           
           {/* Mobile Close Button */}
           <div className="flex justify-end lg:hidden mb-4">
@@ -114,6 +115,16 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userRole, 
                Inklappen
              </button>
           </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-slate-100 text-center bg-slate-50/30">
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                &copy; {new Date().getFullYear()} MijnSanadome
+            </p>
+            <p className="text-[10px] font-mono text-slate-300 mt-1">
+                {systemVersion}
+            </p>
         </div>
       </aside>
     </>
