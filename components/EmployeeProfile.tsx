@@ -5,7 +5,7 @@ import {
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, ChevronRight
+  TrendingUp, Award, ChevronRight, Flag
 } from 'lucide-react';
 import { Employee, LeaveRequest, EmployeeNote, EmployeeDocument, Notification, ViewState } from '../types';
 import { Modal } from './Modal';
@@ -57,12 +57,13 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
 
   const tabs = useMemo(() => {
     const baseTabs = ['Persoonlijk', 'Functie', 'Evaluatie'];
-    if (employee.onboardingStatus === 'Active') {
+    // Always show Onboarding tab if active or history exists
+    if (employee.onboardingStatus === 'Active' || (employee.onboardingHistory && employee.onboardingHistory.length > 0)) {
         baseTabs.push('Onboarding');
     }
     baseTabs.push('Time off', 'Documenten', 'Meer');
     return baseTabs;
-  }, [employee.onboardingStatus]);
+  }, [employee.onboardingStatus, employee.onboardingHistory]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'banner') => {
     const file = e.target.files?.[0];
@@ -390,49 +391,79 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   );
 
   const renderOnboardingCompact = () => {
-     if (!employee.onboardingTasks || employee.onboardingTasks.length === 0) return null;
+     // If no active tasks and no history, don't show or show empty state
+     const hasActiveTasks = employee.onboardingTasks && employee.onboardingTasks.length > 0;
+     const hasHistory = employee.onboardingHistory && employee.onboardingHistory.length > 0;
+
+     if (!hasActiveTasks && !hasHistory) return null;
      
-     const total = employee.onboardingTasks.length;
-     const completed = employee.onboardingTasks.filter(t => t.score === 100).length;
-     const progress = Math.round((completed / total) * 100);
+     // If tasks are active, show progress
+     if (hasActiveTasks) {
+         const total = employee.onboardingTasks.length;
+         const completed = employee.onboardingTasks.filter(t => t.score === 100).length;
+         const progress = Math.round((completed / total) * 100);
 
-     return (
-        <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex justify-between items-end mb-4">
-               <div>
-                  <h3 className="font-bold text-slate-900">Onboarding Voortgang</h3>
-                  <p className="text-xs text-slate-500 mt-1">Huidig traject: {employee.role}</p>
-               </div>
-               <div className="text-3xl font-bold text-teal-600">{progress}%</div>
-            </div>
-            
-            <div className="w-full bg-slate-100 rounded-full h-3 mb-6 overflow-hidden">
-               <div className="bg-teal-500 h-full rounded-full transition-all duration-1000" style={{ width: `${progress}%` }}></div>
-            </div>
+         return (
+            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex justify-between items-end mb-4">
+                   <div>
+                      <h3 className="font-bold text-slate-900">Onboarding Voortgang</h3>
+                      <p className="text-xs text-slate-500 mt-1">Huidig traject: {employee.role}</p>
+                   </div>
+                   <div className="text-3xl font-bold text-teal-600">{progress}%</div>
+                </div>
+                
+                <div className="w-full bg-slate-100 rounded-full h-3 mb-6 overflow-hidden">
+                   <div className="bg-teal-500 h-full rounded-full transition-all duration-1000" style={{ width: `${progress}%` }}></div>
+                </div>
 
-            <div className="space-y-3">
-               {employee.onboardingTasks.slice(0, 3).map(task => (
-                  <div key={task.id} className="flex items-center gap-3 text-sm">
-                     <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        task.score === 100 ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-300'
-                     }`}>
-                        <CheckCircle2 size={12} />
-                     </div>
-                     <span className={task.score === 100 ? 'text-slate-500 line-through' : 'text-slate-700 font-medium'}>
-                        {task.title}
-                     </span>
-                  </div>
-               ))}
+                <div className="space-y-3">
+                   {employee.onboardingTasks.slice(0, 3).map(task => (
+                      <div key={task.id} className="flex items-center gap-3 text-sm">
+                         <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            task.score === 100 ? 'bg-green-100 text-green-600' : 'bg-slate-100 text-slate-300'
+                         }`}>
+                            <CheckCircle2 size={12} />
+                         </div>
+                         <span className={task.score === 100 ? 'text-slate-500 line-through' : 'text-slate-700 font-medium'}>
+                            {task.title}
+                         </span>
+                      </div>
+                   ))}
+                </div>
+                
+                <button 
+                 onClick={() => onChangeView(ViewState.ONBOARDING)}
+                 className="w-full mt-6 py-3 bg-slate-900 text-white font-bold rounded-xl text-sm hover:bg-slate-800 transition-colors shadow-md"
+               >
+                  Bekijk volledig plan
+               </button>
             </div>
-            
-            <button 
-             onClick={() => onChangeView(ViewState.ONBOARDING)}
-             className="w-full mt-6 py-3 bg-slate-900 text-white font-bold rounded-xl text-sm hover:bg-slate-800 transition-colors shadow-md"
-           >
-              Bekijk volledig plan
-           </button>
-        </div>
-     );
+         );
+     } else {
+         // If no active tasks but has history (Completed)
+         const lastEntry = employee.onboardingHistory![employee.onboardingHistory!.length - 1];
+         return (
+            <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div className="flex items-center gap-4 mb-6">
+                    <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
+                        <Flag size={24} />
+                    </div>
+                    <div>
+                        <h3 className="font-bold text-slate-900">Klaar voor de volgende stap</h3>
+                        <p className="text-xs text-slate-500">Laatste traject: {lastEntry.templateTitle}</p>
+                    </div>
+                </div>
+                
+                <button 
+                 onClick={() => onChangeView(ViewState.ONBOARDING)}
+                 className="w-full py-3 border border-slate-200 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-50 transition-colors"
+               >
+                  Start nieuw traject
+               </button>
+            </div>
+         );
+     }
   };
 
   return (

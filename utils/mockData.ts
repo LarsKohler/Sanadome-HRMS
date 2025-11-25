@@ -126,6 +126,8 @@ export const MOCK_EMPLOYEES: Employee[] = [
     mentor: 'HR',
     onboardingWeeks: [],
     onboardingTasks: generateOnboardingTasks().map(t => ({...t, completed: true, completedBy: 'System', completedDate: '01 Feb 2018', score: 100, notesVisibleToEmployee: true})),
+    onboardingHistory: [],
+    activeTemplateId: 'template-basis',
     evaluations: []
   },
   {
@@ -186,6 +188,8 @@ export const MOCK_EMPLOYEES: Employee[] = [
         };
         return t;
     }),
+    onboardingHistory: [],
+    activeTemplateId: 'template-basis',
     evaluations: [
         {
             id: 'ev-1',

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, CheckCircle2, User, ChevronDown, MessageSquare, Save, PlayCircle, Eye, EyeOff, Calendar, Clock, Trophy, Check, ArrowRight, Circle, Settings, Plus, Trash2, Edit2, Copy } from 'lucide-react';
-import { Employee, OnboardingTask, Notification, ViewState, OnboardingWeekData, OnboardingTemplate } from '../types';
+import { Search, CheckCircle2, User, ChevronDown, MessageSquare, Save, PlayCircle, Eye, EyeOff, Calendar, Clock, Trophy, Check, ArrowRight, Circle, Settings, Plus, Trash2, Edit2, Copy, Archive, XCircle, History } from 'lucide-react';
+import { Employee, OnboardingTask, Notification, ViewState, OnboardingWeekData, OnboardingTemplate, OnboardingHistoryEntry } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
 
@@ -35,7 +35,7 @@ const CircularScoreSelector = ({ score, onChange, readOnly }: { score: number, o
             </svg>
             
             {!readOnly && (
-                <div className="absolute inset-0 flex flex-wrap opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10 bg-white/50 backdrop-blur-[1px] rounded-full">
+                <div className="absolute inset-0 flex flex-wrap opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10 bg-white/95 rounded-full border border-slate-100">
                     <div className="w-1/2 h-1/2" onClick={() => onChange(score === 100 ? 0 : 100)} title="100%"></div>
                     <div className="w-1/2 h-1/2" onClick={() => onChange(score === 25 ? 0 : 25)} title="25%"></div>
                     <div className="w-1/2 h-1/2" onClick={() => onChange(score === 75 ? 0 : 75)} title="75%"></div>
@@ -90,9 +90,6 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
   useEffect(() => {
     // Fetch Templates
     api.getTemplates().then(setTemplates);
-    // Subscribe to changes mainly for template sync
-    // Note: App.tsx handles employee sync, we handle templates locally here for simplicity or add to App.tsx
-    // For now we just fetch once, realistically should subscribe.
   }, []);
 
   useEffect(() => {
@@ -230,18 +227,11 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
       return (selectedEmployee.onboardingWeeks || []).find(w => w.week === week);
   };
 
-  const handleChangeStatus = (status: 'Active' | 'Completed' | 'Pending') => {
-      const updatedEmployee = { ...selectedEmployee, onboardingStatus: status };
-      onUpdateEmployee(updatedEmployee);
-      onShowToast(status === 'Active' ? 'Onboarding gestart!' : status === 'Completed' ? 'Onboarding afgerond!' : 'Status gewijzigd');
-  };
-
-  // --- TEMPLATE LOGIC ---
+  // --- LIFECYCLE & TEMPLATE LOGIC ---
 
   const handleApplyTemplate = (templateId: string) => {
       const template = templates.find(t => t.id === templateId);
       if (template) {
-          // Generate new IDs for tasks to avoid reference issues
           const newTasks = template.tasks.map(t => ({
               ...t,
               id: Math.random().toString(36).substr(2, 9),
@@ -255,11 +245,39 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
           const updatedEmployee: Employee = {
               ...selectedEmployee,
               onboardingTasks: newTasks,
-              onboardingStatus: 'Active'
+              onboardingStatus: 'Active',
+              activeTemplateId: template.id,
+              onboardingWeeks: [] // Reset weekly data for new track
           };
           onUpdateEmployee(updatedEmployee);
           onShowToast(`Traject "${template.title}" gestart voor ${selectedEmployee.name}`);
       }
+  };
+
+  const handleArchiveTrajectory = (status: 'Completed' | 'Aborted') => {
+      const currentTemplate = templates.find(t => t.id === selectedEmployee.activeTemplateId) || { title: 'Aangepast Traject' };
+      
+      const historyEntry: OnboardingHistoryEntry = {
+          id: Math.random().toString(36).substr(2, 9),
+          templateTitle: currentTemplate.title,
+          role: selectedEmployee.role,
+          startDate: selectedEmployee.hiredOn, // Approximate start
+          endDate: new Date().toLocaleDateString('nl-NL'),
+          tasks: [...selectedEmployee.onboardingTasks],
+          finalScore: progress
+      };
+
+      const updatedEmployee: Employee = {
+          ...selectedEmployee,
+          onboardingHistory: [...(selectedEmployee.onboardingHistory || []), historyEntry],
+          onboardingTasks: [], // Clear current
+          onboardingWeeks: [],
+          onboardingStatus: 'Completed',
+          activeTemplateId: undefined
+      };
+
+      onUpdateEmployee(updatedEmployee);
+      onShowToast(status === 'Completed' ? 'Traject succesvol afgerond en gearchiveerd.' : 'Traject stopgezet en gearchiveerd.');
   };
 
   const handleSaveTemplate = () => {
@@ -454,20 +472,13 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   </div>
 
                   {canEdit && selectedEmployee.onboardingTasks.length > 0 && (
-                      <div className="mt-8 pt-6 border-t border-slate-50">
-                          {selectedEmployee.onboardingStatus === 'Active' ? (
-                              <button onClick={() => handleChangeStatus('Completed')} className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm shadow-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
-                                  <Trophy size={16}/> Afronden
-                              </button>
-                          ) : selectedEmployee.onboardingStatus === 'Pending' ? (
-                                <button onClick={() => handleChangeStatus('Active')} className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-sm shadow-md hover:bg-slate-800 transition-colors flex items-center justify-center gap-2">
-                                    <PlayCircle size={16}/> Starten
-                                </button>
-                          ) : (
-                                <button onClick={() => handleChangeStatus('Active')} className="w-full py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-50 transition-colors">
-                                    Heropenen
-                                </button>
-                          )}
+                      <div className="mt-8 pt-6 border-t border-slate-50 space-y-3">
+                          <button onClick={() => handleArchiveTrajectory('Completed')} className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm shadow-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
+                              <Archive size={16}/> Afronden & Archiveren
+                          </button>
+                          <button onClick={() => handleArchiveTrajectory('Aborted')} className="w-full py-3 bg-white border border-red-100 text-red-600 rounded-xl font-bold text-sm hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
+                              <XCircle size={16}/> Traject Stopzetten
+                          </button>
                       </div>
                   )}
               </div>
@@ -495,54 +506,91 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
           {/* Right Column: Timeline Journey or Selector */}
           <div className="lg:col-span-3">
               {(selectedEmployee.onboardingTasks.length === 0) ? (
-                 // --- SELECTOR STATE ---
-                 <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center min-h-[600px] flex flex-col items-center justify-center">
-                     {canEdit ? (
-                         <div className="max-w-xl w-full">
-                             <div className="w-20 h-20 bg-teal-50 rounded-full flex items-center justify-center text-teal-600 mb-6 mx-auto">
-                                 <PlayCircle size={40} />
-                             </div>
-                             <h3 className="text-2xl font-bold text-slate-900 mb-2">Kies een Onboarding Traject</h3>
-                             <p className="text-slate-500 mb-8">Selecteer een template om het inwerktraject voor <strong>{selectedEmployee.name}</strong> te starten.</p>
-                             
-                             <div className="space-y-4 text-left">
-                                 {templates.map(template => (
-                                     <div 
-                                        key={template.id}
-                                        className="p-5 rounded-xl border border-slate-200 hover:border-teal-500 hover:shadow-md transition-all cursor-pointer bg-white group"
-                                        onClick={() => handleApplyTemplate(template.id)}
-                                     >
-                                         <div className="flex justify-between items-center">
-                                             <div>
-                                                 <h4 className="font-bold text-slate-900 group-hover:text-teal-700">{template.title}</h4>
-                                                 <p className="text-sm text-slate-500 mt-1">{template.description || 'Geen beschrijving'}</p>
-                                                 <div className="flex items-center gap-4 mt-3 text-xs text-slate-400 font-medium">
-                                                     <span>{template.tasks.length} taken</span>
-                                                     <span>•</span>
-                                                     <span>{template.role || 'Algemeen'}</span>
+                 <div className="flex flex-col gap-8">
+                     {/* Template Selector */}
+                     <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center flex flex-col items-center justify-center shadow-sm">
+                         {canEdit ? (
+                             <div className="max-w-xl w-full">
+                                 <div className="w-20 h-20 bg-teal-50 rounded-full flex items-center justify-center text-teal-600 mb-6 mx-auto">
+                                     <PlayCircle size={40} />
+                                 </div>
+                                 <h3 className="text-2xl font-bold text-slate-900 mb-2">Kies een Onboarding Traject</h3>
+                                 <p className="text-slate-500 mb-8">Selecteer een template om het inwerktraject voor <strong>{selectedEmployee.name}</strong> te starten.</p>
+                                 
+                                 <div className="space-y-4 text-left">
+                                     {templates.map(template => (
+                                         <div 
+                                            key={template.id}
+                                            className="p-5 rounded-xl border border-slate-200 hover:border-teal-500 hover:shadow-md transition-all cursor-pointer bg-white group"
+                                            onClick={() => handleApplyTemplate(template.id)}
+                                         >
+                                             <div className="flex justify-between items-center">
+                                                 <div>
+                                                     <h4 className="font-bold text-slate-900 group-hover:text-teal-700">{template.title}</h4>
+                                                     <p className="text-sm text-slate-500 mt-1">{template.description || 'Geen beschrijving'}</p>
+                                                     <div className="flex items-center gap-4 mt-3 text-xs text-slate-400 font-medium">
+                                                         <span>{template.tasks.length} taken</span>
+                                                         <span>•</span>
+                                                         <span>{template.role || 'Algemeen'}</span>
+                                                     </div>
+                                                 </div>
+                                                 <div className="w-10 h-10 rounded-full bg-slate-50 group-hover:bg-teal-50 flex items-center justify-center text-slate-400 group-hover:text-teal-600 transition-colors">
+                                                     <ArrowRight size={20} />
                                                  </div>
                                              </div>
-                                             <div className="w-10 h-10 rounded-full bg-slate-50 group-hover:bg-teal-50 flex items-center justify-center text-slate-400 group-hover:text-teal-600 transition-colors">
-                                                 <ArrowRight size={20} />
+                                         </div>
+                                     ))}
+                                     {templates.length === 0 && (
+                                         <div className="text-center p-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                             <p className="text-slate-500 text-sm">Er zijn nog geen templates aangemaakt.</p>
+                                             <button onClick={() => setIsTemplateManagerOpen(true)} className="text-teal-600 font-bold text-sm mt-2 hover:underline">Maak er een aan</button>
+                                         </div>
+                                     )}
+                                 </div>
+                             </div>
+                         ) : (
+                             <div>
+                                 <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-6 mx-auto">
+                                     <Clock size={40} />
+                                 </div>
+                                 <h3 className="text-xl font-bold text-slate-900">Nog niet gestart</h3>
+                                 <p className="text-slate-500 mt-2 max-w-sm mx-auto">De manager heeft het onboarding programma nog niet geactiveerd.</p>
+                             </div>
+                         )}
+                     </div>
+
+                     {/* History Section */}
+                     {selectedEmployee.onboardingHistory && selectedEmployee.onboardingHistory.length > 0 && (
+                         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                                 <h3 className="font-bold text-slate-900 text-sm uppercase tracking-wider flex items-center gap-2">
+                                     <History size={16}/> Eerdere Trajecten
+                                 </h3>
+                             </div>
+                             <div className="divide-y divide-slate-100">
+                                 {selectedEmployee.onboardingHistory.map(entry => (
+                                     <div key={entry.id} className="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                                         <div className="flex items-center gap-4">
+                                             <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500">
+                                                 <CheckCircle2 size={20}/>
                                              </div>
+                                             <div>
+                                                 <h4 className="font-bold text-slate-900">{entry.templateTitle}</h4>
+                                                 <p className="text-xs text-slate-500">{entry.startDate} - {entry.endDate}</p>
+                                             </div>
+                                         </div>
+                                         <div className="flex items-center gap-6">
+                                             <div className="text-right">
+                                                 <div className="text-xs font-bold text-slate-400 uppercase">Score</div>
+                                                 <div className="font-bold text-teal-600">{entry.finalScore}%</div>
+                                             </div>
+                                             <button className="text-slate-400 hover:text-slate-700">
+                                                 <Eye size={20} />
+                                             </button>
                                          </div>
                                      </div>
                                  ))}
-                                 {templates.length === 0 && (
-                                     <div className="text-center p-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                                         <p className="text-slate-500 text-sm">Er zijn nog geen templates aangemaakt.</p>
-                                         <button onClick={() => setIsTemplateManagerOpen(true)} className="text-teal-600 font-bold text-sm mt-2 hover:underline">Maak er een aan</button>
-                                     </div>
-                                 )}
                              </div>
-                         </div>
-                     ) : (
-                         <div>
-                             <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-6 mx-auto">
-                                 <Clock size={40} />
-                             </div>
-                             <h3 className="text-xl font-bold text-slate-900">Nog niet gestart</h3>
-                             <p className="text-slate-500 mt-2 max-w-sm mx-auto">De manager heeft het onboarding programma nog niet geactiveerd.</p>
                          </div>
                      )}
                  </div>
@@ -555,7 +603,6 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
                         {[1, 2, 3, 4].map((week) => {
                             const tasks = tasksByWeek[week] || [];
-                            // Skip empty weeks if desired, but usually structure is fixed
                             const weekData = getWeekData(week);
                             const completedCount = tasks.filter(t => t.score === 100).length;
                             const totalCount = tasks.length;

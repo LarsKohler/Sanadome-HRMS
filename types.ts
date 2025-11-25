@@ -96,6 +96,16 @@ export interface OnboardingWeekData {
     managerNotes?: string; // New: General evaluation for the week
 }
 
+export interface OnboardingHistoryEntry {
+    id: string;
+    templateTitle: string;
+    role: string;
+    startDate: string;
+    endDate: string;
+    tasks: OnboardingTask[];
+    finalScore: number;
+}
+
 // --- EVALUATION SYSTEM TYPES ---
 
 export type EvaluationStatus = 'Planned' | 'EmployeeInput' | 'ManagerInput' | 'Review' | 'Completed';
@@ -171,12 +181,14 @@ export interface Employee {
   mentor?: string; // Name of the buddy/mentor
   onboardingStatus?: 'Pending' | 'Active' | 'Completed' | 'Offboarding';
   onboardingWeeks?: OnboardingWeekData[]; // Store week-level metadata
+  onboardingTasks: OnboardingTask[]; // New field for onboarding
+  onboardingHistory?: OnboardingHistoryEntry[]; // Archived trajectories
+  activeTemplateId?: string; // To track which template is currently active
 
   leaveBalances: LeaveBalance[];
   leaveRequests: LeaveRequest[];
   documents: EmployeeDocument[];
   notes: EmployeeNote[];
-  onboardingTasks: OnboardingTask[]; // New field for onboarding
   
   evaluations?: EvaluationCycle[]; // New field for evaluations
 }
