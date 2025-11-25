@@ -1,8 +1,8 @@
 
-import React, { useState, useMemo } from 'react';
-import { Shield, Search, Check, AlertTriangle, User, Save, RefreshCcw, Lock, Unlock } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Shield, Search, Check, AlertTriangle, User, Save, RefreshCcw, Lock, Unlock, ToggleLeft, ToggleRight, Briefcase } from 'lucide-react';
 import { Employee, Permission, PERMISSION_LABELS } from '../types';
-import { ROLE_PERMISSIONS, hasPermission, getEffectivePermissions } from '../utils/permissions';
+import { ROLE_PERMISSIONS, hasPermission } from '../utils/permissions';
 
 interface SettingsPageProps {
   employees: Employee[];
@@ -13,8 +13,22 @@ interface SettingsPageProps {
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onUpdateEmployee, onShowToast }) => {
   const [activeTab, setActiveTab] = useState<'users' | 'roles'>('users');
+  
+  // Selection State
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
+  const [selectedRoleKey, setSelectedRoleKey] = useState<string | null>(null); // For role editing
+  
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Local state for Role Definitions (to allow editing)
+  const [roleConfigs, setRoleConfigs] = useState<Record<string, Permission[]>>(ROLE_PERMISSIONS);
+
+  // Initialize selection
+  useEffect(() => {
+      if (activeTab === 'roles' && !selectedRoleKey) {
+          setSelectedRoleKey('Manager');
+      }
+  }, [activeTab, selectedRoleKey]);
 
   // Filtered employees for search
   const filteredEmployees = useMemo(() => {
@@ -27,39 +41,73 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
 
   const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
 
-  // Helper to toggle a permission for the selected user
-  const handleTogglePermission = (perm: Permission) => {
+  // --- HANDLERS FOR USERS ---
+
+  const handleToggleUserPermission = (perm: Permission) => {
       if (!selectedEmployee) return;
 
-      const currentPermissions = selectedEmployee.customPermissions 
-          ? [...selectedEmployee.customPermissions] 
-          : [...(ROLE_PERMISSIONS[selectedEmployee.role] || [])]; // Initialize with defaults if undefined
+      // Determine current effective permissions
+      const currentCustom = selectedEmployee.customPermissions;
+      const roleDefaults = roleConfigs[selectedEmployee.role] || [];
+      
+      // If user has no custom permissions yet, we start with the role defaults
+      let newPermissions = currentCustom ? [...currentCustom] : [...roleDefaults];
 
-      if (currentPermissions.includes(perm)) {
-          // Remove permission
-          const updated = currentPermissions.filter(p => p !== perm);
-          onUpdateEmployee({ ...selectedEmployee, customPermissions: updated });
+      if (newPermissions.includes(perm)) {
+          newPermissions = newPermissions.filter(p => p !== perm);
       } else {
-          // Add permission
-          const updated = [...currentPermissions, perm];
-          onUpdateEmployee({ ...selectedEmployee, customPermissions: updated });
+          newPermissions.push(perm);
       }
+
+      onUpdateEmployee({ ...selectedEmployee, customPermissions: newPermissions });
   };
 
-  const handleResetPermissions = () => {
+  const handleResetUserPermissions = () => {
       if (!selectedEmployee) return;
-      // Resetting customPermissions to undefined makes it fall back to Role defaults
       onUpdateEmployee({ ...selectedEmployee, customPermissions: undefined });
       onShowToast(`Rechten voor ${selectedEmployee.name} hersteld naar standaard.`);
   };
 
-  // Get display status of a permission
-  const getPermissionStatus = (perm: Permission) => {
+  // --- HANDLERS FOR ROLES ---
+
+  const handleToggleRolePermission = (perm: Permission) => {
+      if (!selectedRoleKey) return;
+
+      setRoleConfigs(prev => {
+          const currentPerms = prev[selectedRoleKey] || [];
+          const hasIt = currentPerms.includes(perm);
+          
+          let newPerms;
+          if (hasIt) {
+              newPerms = currentPerms.filter(p => p !== perm);
+          } else {
+              newPerms = [...currentPerms, perm];
+          }
+
+          return { ...prev, [selectedRoleKey]: newPerms };
+      });
+  };
+
+  const handleSaveRoleConfig = () => {
+      // In a real app, this would save to backend. 
+      // For now, we simulate a save.
+      onShowToast(`Rol configuratie voor ${selectedRoleKey} opgeslagen.`);
+  };
+
+  // --- RENDER HELPERS ---
+
+  const getUserPermissionStatus = (perm: Permission) => {
       if (!selectedEmployee) return 'disabled';
       
       const isCustom = !!selectedEmployee.customPermissions;
-      const hasPerm = hasPermission(selectedEmployee, perm);
-      const defaultHasPerm = (ROLE_PERMISSIONS[selectedEmployee.role] || []).includes(perm);
+      // We use roleConfigs here to reflect current (possibly unsaved) role settings if we were fully dynamic,
+      // but strictly for "Effective" check we use what's in the object.
+      const roleDefaults = roleConfigs[selectedEmployee.role] || [];
+      const hasPerm = selectedEmployee.customPermissions 
+          ? selectedEmployee.customPermissions.includes(perm) 
+          : roleDefaults.includes(perm);
+
+      const defaultHasPerm = roleDefaults.includes(perm);
 
       if (!isCustom) {
           return defaultHasPerm ? 'default-on' : 'default-off';
@@ -68,172 +116,286 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
   };
 
   return (
-    <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
+    <div className="p-6 md:p-10 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
       
-      <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-6">
         <div>
-           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
-             <Shield className="text-teal-600" size={32} />
+           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
+             <Shield className="text-teal-600" size={36} />
              Instellingen & Rechten
            </h1>
-           <p className="text-slate-500 mt-1">Beheer toegang en permissies per gebruiker of rol.</p>
+           <p className="text-slate-500 mt-2 text-lg">Beheer toegangsrechten voor rollen en individuele gebruikers.</p>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col md:flex-row min-h-[600px]">
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col lg:flex-row min-h-[700px]">
           
-          {/* Sidebar / Navigation */}
-          <div className="w-full md:w-72 bg-slate-50 border-r border-slate-200 p-4">
-              <div className="space-y-1">
-                  <button 
-                    onClick={() => setActiveTab('users')}
-                    className={`w-full flex items-center px-4 py-3 text-sm font-bold rounded-xl transition-all ${activeTab === 'users' ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:bg-white/50'}`}
-                  >
-                      <User size={18} className="mr-3"/> Gebruikers Specifiek
-                  </button>
-                  <button 
-                    onClick={() => setActiveTab('roles')}
-                    className={`w-full flex items-center px-4 py-3 text-sm font-bold rounded-xl transition-all ${activeTab === 'roles' ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:bg-white/50'}`}
-                  >
-                      <Shield size={18} className="mr-3"/> Rollen & Defaults
-                  </button>
+          {/* SIDEBAR NAVIGATION */}
+          <div className="w-full lg:w-80 bg-slate-50 border-r border-slate-200 flex flex-col">
+              
+              {/* Mode Switcher */}
+              <div className="p-4 border-b border-slate-200">
+                  <div className="bg-white p-1 rounded-xl border border-slate-200 flex shadow-sm">
+                      <button 
+                        onClick={() => setActiveTab('users')}
+                        className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${activeTab === 'users' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                      >
+                          <User size={16} /> Gebruikers
+                      </button>
+                      <button 
+                        onClick={() => setActiveTab('roles')}
+                        className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center justify-center gap-2 ${activeTab === 'roles' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                      >
+                          <Briefcase size={16} /> Rollen
+                      </button>
+                  </div>
               </div>
 
+              {/* LIST: USERS */}
               {activeTab === 'users' && (
-                  <div className="mt-8">
-                      <div className="relative mb-4">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                          <input 
-                            type="text" 
-                            placeholder="Zoek medewerker..." 
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-xs font-medium focus:ring-2 focus:ring-teal-500 outline-none"
-                          />
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                      <div className="p-4">
+                          <div className="relative">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                              <input 
+                                type="text" 
+                                placeholder="Zoek medewerker..." 
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-teal-500 outline-none transition-shadow"
+                              />
+                          </div>
                       </div>
-                      <div className="space-y-1 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
+                      <div className="flex-1 overflow-y-auto p-3 space-y-1 custom-scrollbar">
                           {filteredEmployees.map(emp => (
                               <button 
                                 key={emp.id}
                                 onClick={() => setSelectedEmployeeId(emp.id)}
-                                className={`w-full text-left px-3 py-2 rounded-lg text-xs font-medium flex items-center gap-3 transition-colors ${selectedEmployeeId === emp.id ? 'bg-teal-50 text-teal-700' : 'hover:bg-slate-200/50 text-slate-600'}`}
+                                className={`w-full text-left px-4 py-3 rounded-xl text-sm font-medium flex items-center gap-3 transition-all ${
+                                    selectedEmployeeId === emp.id 
+                                    ? 'bg-white border border-teal-200 text-teal-800 shadow-sm ring-1 ring-teal-50' 
+                                    : 'text-slate-600 hover:bg-white hover:shadow-sm border border-transparent'
+                                }`}
                               >
-                                  <img src={emp.avatar} className="w-6 h-6 rounded-full object-cover" alt="Av"/>
-                                  <span className="truncate">{emp.name}</span>
-                                  {emp.customPermissions && <div className="w-1.5 h-1.5 bg-amber-400 rounded-full ml-auto" title="Aangepaste rechten"></div>}
+                                  <img src={emp.avatar} className="w-8 h-8 rounded-full object-cover border border-slate-100" alt="Av"/>
+                                  <span className="truncate flex-1">{emp.name}</span>
+                                  {emp.customPermissions && <div className="w-2 h-2 bg-amber-400 rounded-full shadow-sm" title="Aangepaste rechten"></div>}
                               </button>
                           ))}
                       </div>
                   </div>
               )}
+
+              {/* LIST: ROLES */}
+              {activeTab === 'roles' && (
+                  <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar pt-4">
+                      {Object.keys(roleConfigs).map(role => (
+                          <button 
+                            key={role}
+                            onClick={() => setSelectedRoleKey(role)}
+                            className={`w-full text-left px-5 py-4 rounded-xl text-sm font-bold flex items-center justify-between transition-all ${
+                                selectedRoleKey === role 
+                                ? 'bg-white border border-purple-200 text-purple-800 shadow-sm ring-1 ring-purple-50' 
+                                : 'text-slate-600 hover:bg-white hover:shadow-sm border border-transparent'
+                            }`}
+                          >
+                              <div className="flex items-center gap-3">
+                                  <div className={`p-2 rounded-lg ${selectedRoleKey === role ? 'bg-purple-100 text-purple-600' : 'bg-slate-200 text-slate-500'}`}>
+                                      <Shield size={18}/>
+                                  </div>
+                                  <span>{role}</span>
+                              </div>
+                              <div className="text-xs font-medium px-2 py-1 bg-slate-100 rounded-md text-slate-500">
+                                  {roleConfigs[role].length}
+                              </div>
+                          </button>
+                      ))}
+                  </div>
+              )}
           </div>
 
-          {/* Main Content Area */}
-          <div className="flex-1 p-6 md:p-10 bg-white overflow-y-auto">
+          {/* MAIN CONTENT AREA */}
+          <div className="flex-1 bg-white p-8 lg:p-12 overflow-y-auto">
               
-              {/* USER PERMISSIONS TAB */}
+              {/* ---------------- USER EDITING VIEW ---------------- */}
               {activeTab === 'users' && (
-                  <>
-                    {selectedEmployee ? (
-                        <div className="animate-in fade-in slide-in-from-bottom-2">
-                            <div className="flex justify-between items-start mb-8">
-                                <div className="flex items-center gap-4">
-                                    <img src={selectedEmployee.avatar} className="w-16 h-16 rounded-2xl object-cover shadow-sm border border-slate-100" alt="Avatar"/>
-                                    <div>
-                                        <h2 className="text-xl font-bold text-slate-900">{selectedEmployee.name}</h2>
-                                        <div className="flex items-center gap-2 text-sm text-slate-500">
-                                            <span className="bg-slate-100 px-2 py-0.5 rounded text-xs font-bold uppercase tracking-wide">{selectedEmployee.role}</span>
-                                            {selectedEmployee.department}
+                  selectedEmployee ? (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto">
+                        
+                        {/* User Header */}
+                        <div className="flex items-center justify-between mb-8 pb-8 border-b border-slate-100">
+                            <div className="flex items-center gap-6">
+                                <div className="relative">
+                                    <img src={selectedEmployee.avatar} className="w-20 h-20 rounded-2xl object-cover shadow-md border-2 border-white" alt="Avatar"/>
+                                    {selectedEmployee.customPermissions && (
+                                        <div className="absolute -top-2 -right-2 bg-amber-100 text-amber-700 p-1.5 rounded-full border-2 border-white" title="Aangepaste rechten actief">
+                                            <AlertTriangle size={14} />
                                         </div>
+                                    )}
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-bold text-slate-900">{selectedEmployee.name}</h2>
+                                    <div className="flex items-center gap-3 mt-1 text-sm text-slate-500 font-medium">
+                                        <span className="bg-slate-100 px-2.5 py-0.5 rounded-md text-slate-600 border border-slate-200">{selectedEmployee.role}</span>
+                                        <span>•</span>
+                                        <span>{selectedEmployee.department}</span>
                                     </div>
                                 </div>
-                                {selectedEmployee.customPermissions && (
-                                    <button 
-                                        onClick={handleResetPermissions}
-                                        className="text-xs font-bold text-amber-600 hover:text-amber-800 bg-amber-50 px-3 py-2 rounded-lg border border-amber-100 flex items-center gap-2 transition-colors"
+                            </div>
+                            {selectedEmployee.customPermissions && (
+                                <button 
+                                    onClick={handleResetUserPermissions}
+                                    className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 text-sm font-bold rounded-xl transition-colors flex items-center gap-2 border border-amber-200"
+                                >
+                                    <RefreshCcw size={16} /> Reset naar Standaard
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Info Banner */}
+                        <div className="mb-8 p-5 bg-blue-50 border border-blue-100 rounded-2xl flex items-start gap-4">
+                            <div className="p-2 bg-blue-100 text-blue-600 rounded-lg mt-0.5">
+                                <Unlock size={20} />
+                            </div>
+                            <div className="text-sm text-blue-800">
+                                <h4 className="font-bold text-base mb-1">Rechten Configureren</h4>
+                                <p className="leading-relaxed opacity-80">
+                                    Gebruik de schakelaars hieronder om specifieke uitzonderingen te maken voor deze gebruiker. 
+                                    Groen = Actief. Grijs = Inactief. <br/>
+                                    <span className="italic">Let op: Wijzigingen worden direct toegepast.</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Permissions Grid */}
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                            {(Object.keys(PERMISSION_LABELS) as Permission[]).map(perm => {
+                                const status = getUserPermissionStatus(perm);
+                                const isActive = status === 'default-on' || status === 'custom-on';
+                                const isCustom = status === 'custom-on' || status === 'custom-off';
+
+                                return (
+                                    <div 
+                                        key={perm} 
+                                        onClick={() => handleToggleUserPermission(perm)}
+                                        className={`group p-5 rounded-2xl border-2 cursor-pointer transition-all duration-200 flex items-center justify-between ${
+                                            isActive 
+                                            ? (isCustom ? 'bg-teal-50 border-teal-200' : 'bg-slate-50 border-slate-200 hover:border-teal-200') 
+                                            : 'bg-white border-slate-100 hover:border-slate-300'
+                                        }`}
                                     >
-                                        <RefreshCcw size={14} /> Herstel naar Rol Standaard
-                                    </button>
-                                )}
-                            </div>
-
-                            <div className="mb-6 p-4 bg-blue-50 border border-blue-100 rounded-xl flex items-start gap-3">
-                                <AlertTriangle className="text-blue-600 flex-shrink-0 mt-0.5" size={18} />
-                                <div className="text-sm text-blue-800">
-                                    <p className="font-bold mb-1">Rechten Beheer</p>
-                                    <p className="opacity-80">
-                                        Hieronder zie je de actieve rechten. Een <span className="font-bold">blauw</span> vinkje betekent geërfd van de rol. 
-                                        Een <span className="font-bold text-teal-600">groen</span> vinkje is een specifieke toewijzing.
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                                {(Object.keys(PERMISSION_LABELS) as Permission[]).map(perm => {
-                                    const status = getPermissionStatus(perm);
-                                    const isActive = status === 'default-on' || status === 'custom-on';
-                                    const isCustom = status === 'custom-on' || status === 'custom-off';
-
-                                    return (
-                                        <div 
-                                            key={perm} 
-                                            onClick={() => handleTogglePermission(perm)}
-                                            className={`p-4 rounded-xl border cursor-pointer transition-all flex items-center justify-between group ${
-                                                isActive 
-                                                ? (isCustom ? 'bg-teal-50 border-teal-200' : 'bg-slate-50 border-blue-200') 
-                                                : 'bg-white border-slate-200 hover:border-slate-300'
-                                            }`}
-                                        >
-                                            <div>
-                                                <div className="font-bold text-slate-900 text-sm">{PERMISSION_LABELS[perm]}</div>
-                                                <div className="text-xs text-slate-500 font-mono mt-0.5 opacity-60">{perm}</div>
+                                        <div>
+                                            <div className={`font-bold text-sm ${isActive ? 'text-slate-900' : 'text-slate-400'}`}>
+                                                {PERMISSION_LABELS[perm]}
                                             </div>
-                                            
-                                            <div className={`w-12 h-6 rounded-full p-1 transition-colors relative ${isActive ? (isCustom ? 'bg-teal-500' : 'bg-slate-400') : 'bg-slate-200'}`}>
-                                                <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${isActive ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                                            <div className={`text-xs font-mono mt-1 ${isActive ? 'text-slate-500' : 'text-slate-300'}`}>
+                                                {perm}
                                             </div>
                                         </div>
-                                    );
-                                })}
-                            </div>
+                                        
+                                        <div className={`relative w-14 h-8 rounded-full transition-colors duration-300 ${
+                                            isActive ? (isCustom ? 'bg-teal-500' : 'bg-slate-400') : 'bg-slate-200'
+                                        }`}>
+                                            <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-sm transition-transform duration-300 transform ${
+                                                isActive ? 'translate-x-6' : 'translate-x-0'
+                                            }`}>
+                                                {isActive && isCustom && <div className="absolute inset-0 flex items-center justify-center text-teal-500"><Check size={14} strokeWidth={3}/></div>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
-                    ) : (
-                        <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                            <User size={48} className="mb-4 opacity-20"/>
-                            <p className="text-lg font-medium">Selecteer een gebruiker om rechten te beheren.</p>
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-400 animate-in fade-in">
+                        <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mb-6">
+                            <User size={48} className="opacity-20"/>
                         </div>
-                    )}
-                  </>
+                        <h3 className="text-xl font-bold text-slate-600">Geen gebruiker geselecteerd</h3>
+                        <p className="text-lg mt-2">Selecteer een medewerker uit de lijst links.</p>
+                    </div>
+                  )
               )}
 
-              {/* ROLES OVERVIEW TAB */}
+              {/* ---------------- ROLE EDITING VIEW ---------------- */}
               {activeTab === 'roles' && (
-                  <div className="animate-in fade-in">
-                      <h2 className="text-xl font-bold text-slate-900 mb-2">Standaard Rol Definities</h2>
-                      <p className="text-slate-500 mb-8 text-sm">Dit zijn de standaardrechten per rol. Pas individuele gebruikers aan in het andere tabblad.</p>
+                  selectedRoleKey ? (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl mx-auto">
+                        
+                        {/* Role Header */}
+                        <div className="flex items-center justify-between mb-8 pb-8 border-b border-slate-100">
+                            <div>
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="p-2 bg-purple-100 text-purple-700 rounded-lg">
+                                        <Briefcase size={24} />
+                                    </div>
+                                    <h2 className="text-3xl font-bold text-slate-900">{selectedRoleKey}</h2>
+                                </div>
+                                <p className="text-slate-500 text-lg">
+                                    Standaardrechten voor alle medewerkers met de rol <span className="font-bold text-slate-700">{selectedRoleKey}</span>.
+                                </p>
+                            </div>
+                            <button 
+                                onClick={handleSaveRoleConfig}
+                                className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center gap-2 hover:-translate-y-0.5"
+                            >
+                                <Save size={18} /> Opslaan
+                            </button>
+                        </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                          {Object.entries(ROLE_PERMISSIONS).map(([role, perms]) => (
-                              <div key={role} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                                  <div className="bg-slate-900 text-white p-4">
-                                      <h3 className="font-bold text-lg">{role}</h3>
-                                      <p className="text-xs text-slate-400 mt-1">{perms.length} rechten actief</p>
-                                  </div>
-                                  <div className="p-4 space-y-2 max-h-[500px] overflow-y-auto">
-                                      {(Object.keys(PERMISSION_LABELS) as Permission[]).map(perm => {
-                                          const hasIt = perms.includes(perm);
-                                          return (
-                                              <div key={perm} className={`flex items-center gap-3 text-sm ${hasIt ? 'text-slate-800' : 'text-slate-300 line-through'}`}>
-                                                  {hasIt ? <Check size={14} className="text-green-500"/> : <Lock size={14}/>}
-                                                  {PERMISSION_LABELS[perm]}
-                                              </div>
-                                          );
-                                      })}
-                                  </div>
-                              </div>
-                          ))}
-                      </div>
-                  </div>
+                        {/* Permissions Grid */}
+                        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                            {(Object.keys(PERMISSION_LABELS) as Permission[]).map(perm => {
+                                const isActive = (roleConfigs[selectedRoleKey] || []).includes(perm);
+
+                                return (
+                                    <div 
+                                        key={perm} 
+                                        onClick={() => handleToggleRolePermission(perm)}
+                                        className={`group p-6 rounded-2xl border-2 cursor-pointer transition-all duration-200 flex items-center justify-between ${
+                                            isActive 
+                                            ? 'bg-purple-50/50 border-purple-200 shadow-sm' 
+                                            : 'bg-white border-slate-100 hover:border-slate-300'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className={`p-2 rounded-lg transition-colors ${isActive ? 'bg-white text-purple-600 shadow-sm' : 'bg-slate-100 text-slate-400'}`}>
+                                                {isActive ? <Unlock size={20}/> : <Lock size={20}/>}
+                                            </div>
+                                            <div>
+                                                <div className={`font-bold text-base ${isActive ? 'text-slate-900' : 'text-slate-400'}`}>
+                                                    {PERMISSION_LABELS[perm]}
+                                                </div>
+                                                <div className={`text-xs font-mono mt-1 ${isActive ? 'text-purple-600/70' : 'text-slate-300'}`}>
+                                                    {perm}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Toggle Switch */}
+                                        <div className={`relative w-16 h-9 rounded-full transition-colors duration-300 ${
+                                            isActive ? 'bg-purple-600' : 'bg-slate-200'
+                                        }`}>
+                                            <div className={`absolute top-1 left-1 w-7 h-7 bg-white rounded-full shadow-md transition-transform duration-300 transform flex items-center justify-center ${
+                                                isActive ? 'translate-x-7' : 'translate-x-0'
+                                            }`}>
+                                                {isActive && <Check size={14} className="text-purple-600" strokeWidth={3}/>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-400 animate-in fade-in">
+                        <Shield size={64} className="mb-6 opacity-20"/>
+                        <h3 className="text-xl font-bold text-slate-600">Geen rol geselecteerd</h3>
+                        <p className="text-lg mt-2">Kies een rol uit het menu om de rechten aan te passen.</p>
+                    </div>
+                  )
               )}
 
           </div>
