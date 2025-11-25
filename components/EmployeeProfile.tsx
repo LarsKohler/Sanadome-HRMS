@@ -5,7 +5,7 @@ import {
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User
+  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare
 } from 'lucide-react';
 import { Employee, LeaveRequest, EmployeeNote, EmployeeDocument, Notification, ViewState } from '../types';
 import { Modal } from './Modal';
@@ -33,7 +33,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   onShowToast,
   managers
 }) => {
-  const [activeTab, setActiveTab] = useState('Time off');
+  const [activeTab, setActiveTab] = useState('Overzicht');
   const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   
@@ -56,29 +56,19 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   // Onboarding Template State
   const [templateTitle, setTemplateTitle] = useState<string>('');
 
-  const isViewerManager = employee.role === 'Manager'; 
-
   // Load Template Name correctly
   useEffect(() => {
       const fetchTemplateName = async () => {
-          // If there is an active template ID, try to fetch its name
           if (employee.activeTemplateId) {
               try {
                   const templates = await api.getTemplates();
                   const found = templates.find(t => t.id === employee.activeTemplateId);
-                  
-                  if (found) {
-                      setTemplateTitle(found.title);
-                  } else {
-                      // Fallback if ID exists but template is gone
-                      setTemplateTitle('Maatwerk Traject');
-                  }
+                  if (found) setTemplateTitle(found.title);
+                  else setTemplateTitle('Maatwerk Traject');
               } catch (e) {
-                  console.error("Error fetching templates", e);
                   setTemplateTitle('Onboarding Traject');
               }
           } else if (employee.onboardingTasks && employee.onboardingTasks.length > 0) {
-              // If no ID but tasks exist
               setTemplateTitle('Maatwerk Traject');
           } else {
               setTemplateTitle('');
@@ -91,13 +81,10 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   }, [employee.activeTemplateId, employee.onboardingStatus, employee.onboardingTasks]);
 
   const tabs = useMemo(() => {
-    const baseTabs = ['Persoonlijk', 'Functie', 'Evaluatie'];
+    const baseTabs = ['Overzicht', 'Carrière', 'Evaluatie'];
     
-    // STRICT CHECK: Only show Onboarding if status is Active AND tasks exist, OR History exists.
-    // This prevents the tab from showing up for users with no active process.
     const hasActiveTasks = employee.onboardingTasks && employee.onboardingTasks.length > 0;
     const isStatusActive = employee.onboardingStatus === 'Active';
-    
     const hasActive = isStatusActive && hasActiveTasks;
     const hasHistory = employee.onboardingHistory && employee.onboardingHistory.length > 0;
 
@@ -105,11 +92,10 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
         baseTabs.push('Onboarding');
     }
     
-    baseTabs.push('Time off', 'Documenten', 'Meer');
+    baseTabs.push('Verlof', 'Documenten');
     return baseTabs;
   }, [employee.onboardingStatus, employee.onboardingHistory, employee.onboardingTasks]);
 
-  // Reset active tab if it disappears (e.g. if onboarding is cancelled while viewing)
   useEffect(() => {
       if (!tabs.includes(activeTab)) {
           setActiveTab(tabs[0]);
@@ -123,13 +109,11 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
     onShowToast(`${type === 'avatar' ? 'Profielfoto' : 'Banner'} uploaden...`);
 
     try {
-        // 1. Check for old file to delete (if it exists and is a Supabase URL)
         const oldUrl = type === 'avatar' ? employee.avatar : employee.banner;
         if (oldUrl && oldUrl.includes('supabase')) {
              await api.deleteFile(oldUrl);
         }
 
-        // 2. Upload new file
         const publicUrl = await api.uploadFile(file);
         
         if (publicUrl) {
@@ -218,7 +202,286 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
     onShowToast('Notitie toegevoegd.');
   };
 
-  // --- RESTORED CONTENT RENDERS ---
+  // --- COMPONENT RENDERS ---
+
+  const renderDashboardOverview = () => {
+      const annualLeave = employee.leaveBalances.find(b => b.type === 'Annual Leave') || { entitled: 0, taken: 0 };
+      const remainingLeave = annualLeave.entitled - annualLeave.taken;
+      
+      // Calculate Tenure
+      const hiredDate = new Date(employee.hiredOn);
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - hiredDate.getTime());
+      const diffYears = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 365));
+      const diffMonths = Math.floor((diffTime % (1000 * 60 * 60 * 24 * 365)) / (1000 * 60 * 60 * 24 * 30));
+
+      return (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              
+              {/* Welcome Hero */}
+              <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl p-8 text-white shadow-lg relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500 rounded-full mix-blend-overlay filter blur-3xl opacity-20 -mr-16 -mt-16"></div>
+                  <div className="relative z-10">
+                      <h2 className="text-3xl font-serif font-bold mb-2">Welkom terug, {employee.name.split(' ')[0]}</h2>
+                      <p className="text-slate-300 mb-6 max-w-xl">
+                          Hier is een overzicht van jouw actuele status, taken en voortgang binnen Sanadome.
+                      </p>
+                      <div className="flex gap-3">
+                          <button onClick={() => setIsLeaveModalOpen(true)} className="px-5 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-bold text-sm transition-all shadow-md flex items-center gap-2">
+                              <Calendar size={16} /> Verlof Aanvragen
+                          </button>
+                          <button onClick={() => onChangeView(ViewState.DOCUMENTS)} className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold text-sm transition-all backdrop-blur-sm flex items-center gap-2">
+                              <FileText size={16} /> Documenten
+                          </button>
+                      </div>
+                  </div>
+              </div>
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Leave Stat */}
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between group hover:border-teal-200 transition-colors">
+                      <div className="flex justify-between items-start">
+                          <div>
+                              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Verlof Saldo</div>
+                              <div className="text-3xl font-bold text-slate-900 mt-1">{remainingLeave} <span className="text-sm text-slate-400 font-medium">dagen</span></div>
+                          </div>
+                          <div className="p-3 bg-teal-50 text-teal-600 rounded-xl group-hover:scale-110 transition-transform">
+                              <Calendar size={24} />
+                          </div>
+                      </div>
+                      <div className="w-full bg-slate-100 h-1.5 rounded-full mt-4 overflow-hidden">
+                          <div className="bg-teal-500 h-full rounded-full" style={{width: `${(remainingLeave / annualLeave.entitled) * 100}%`}}></div>
+                      </div>
+                  </div>
+
+                  {/* Tenure Stat */}
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between group hover:border-purple-200 transition-colors">
+                      <div className="flex justify-between items-start">
+                          <div>
+                              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Dienstverband</div>
+                              <div className="text-3xl font-bold text-slate-900 mt-1">
+                                  {diffYears > 0 ? `${diffYears} Jaar` : `${diffMonths} Maanden`}
+                              </div>
+                          </div>
+                          <div className="p-3 bg-purple-50 text-purple-600 rounded-xl group-hover:scale-110 transition-transform">
+                              <Award size={24} />
+                          </div>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-4">Startdatum: {employee.hiredOn}</p>
+                  </div>
+
+                  {/* Next Action Stat */}
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between group hover:border-amber-200 transition-colors">
+                      <div className="flex justify-between items-start">
+                          <div>
+                              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Volgende Actie</div>
+                              <div className="text-lg font-bold text-slate-900 mt-1 line-clamp-2">
+                                  {employee.onboardingStatus === 'Active' 
+                                    ? 'Onboarding afronden' 
+                                    : 'Jaarlijkse Evaluatie'
+                                  }
+                              </div>
+                          </div>
+                          <div className="p-3 bg-amber-50 text-amber-600 rounded-xl group-hover:scale-110 transition-transform">
+                              <Zap size={24} />
+                          </div>
+                      </div>
+                      <button 
+                        onClick={() => onChangeView(employee.onboardingStatus === 'Active' ? ViewState.ONBOARDING : ViewState.EVALUATIONS)}
+                        className="text-xs font-bold text-amber-600 mt-4 hover:underline flex items-center gap-1"
+                      >
+                          Bekijk details <ArrowUpRight size={12}/>
+                      </button>
+                  </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* Recent Activity / Timeline */}
+                  <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                      <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                          <h3 className="font-bold text-slate-900">Activiteiten Tijdlijn</h3>
+                          <button className="text-xs font-bold text-teal-600 hover:underline">Bekijk alles</button>
+                      </div>
+                      <div className="p-6">
+                          <div className="relative border-l-2 border-slate-100 ml-3 space-y-8">
+                              {/* Mock Activity Items based on profile data */}
+                              {employee.documents.slice(0, 2).map((doc, idx) => (
+                                  <div key={`doc-${idx}`} className="relative pl-8">
+                                      <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-blue-100 border-2 border-white ring-1 ring-blue-200"></div>
+                                      <div>
+                                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">{doc.date}</span>
+                                          <p className="text-sm font-bold text-slate-900">Nieuw document toegevoegd</p>
+                                          <p className="text-sm text-slate-500 mt-0.5">"{doc.name}" is toegevoegd aan je dossier.</p>
+                                      </div>
+                                  </div>
+                              ))}
+                              {employee.onboardingStatus === 'Completed' && (
+                                  <div className="relative pl-8">
+                                      <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-green-100 border-2 border-white ring-1 ring-green-200"></div>
+                                      <div>
+                                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Recent</span>
+                                          <p className="text-sm font-bold text-slate-900">Onboarding Afgerond</p>
+                                          <p className="text-sm text-slate-500 mt-0.5">Gefeliciteerd met het afronden van je introductie!</p>
+                                      </div>
+                                  </div>
+                              )}
+                              <div className="relative pl-8">
+                                  <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-100 border-2 border-white ring-1 ring-slate-200"></div>
+                                  <div>
+                                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">{employee.hiredOn}</span>
+                                      <p className="text-sm font-bold text-slate-900">Start Dienstverband</p>
+                                      <p className="text-sm text-slate-500 mt-0.5">Eerste werkdag bij Sanadome.</p>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* Sidebar Info */}
+                  <div className="space-y-6">
+                      {/* Contact Card */}
+                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                          <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider">Contactgegevens</h3>
+                          <div className="space-y-4">
+                              <div className="flex items-center gap-3 group">
+                                  <div className="p-2 bg-slate-50 text-slate-400 rounded-lg group-hover:text-teal-600 transition-colors"><Mail size={16}/></div>
+                                  <div className="overflow-hidden">
+                                      <div className="text-xs text-slate-400 font-bold uppercase">Email</div>
+                                      <div className="text-sm font-medium text-slate-900 truncate">{employee.email}</div>
+                                  </div>
+                              </div>
+                              <div className="flex items-center gap-3 group">
+                                  <div className="p-2 bg-slate-50 text-slate-400 rounded-lg group-hover:text-teal-600 transition-colors"><Phone size={16}/></div>
+                                  <div>
+                                      <div className="text-xs text-slate-400 font-bold uppercase">Telefoon</div>
+                                      <div className="text-sm font-medium text-slate-900">{employee.phone}</div>
+                                  </div>
+                              </div>
+                              <div className="flex items-center gap-3 group">
+                                  <div className="p-2 bg-slate-50 text-slate-400 rounded-lg group-hover:text-teal-600 transition-colors"><MapPin size={16}/></div>
+                                  <div>
+                                      <div className="text-xs text-slate-400 font-bold uppercase">Locatie</div>
+                                      <div className="text-sm font-medium text-slate-900">{employee.location}</div>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
+  const renderCareerDetails = () => {
+      return (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {/* Career Header */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 flex flex-col md:flex-row gap-8 items-start">
+                  <div className="flex-1">
+                      <h2 className="text-2xl font-bold text-slate-900 mb-2">{employee.role}</h2>
+                      <div className="flex flex-wrap gap-3 mb-6">
+                          <span className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold uppercase tracking-wide border border-slate-200">
+                              {employee.department}
+                          </span>
+                          <span className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold uppercase tracking-wide border border-slate-200">
+                              {employee.employmentType}
+                          </span>
+                      </div>
+                      <p className="text-slate-500 text-sm leading-relaxed max-w-2xl">
+                          Als {employee.role} ben je verantwoordelijk voor de dagelijkse operatie binnen {employee.department}. 
+                          Je rapporteert direct aan de afdelingsmanager.
+                      </p>
+                  </div>
+                  
+                  {/* Contract Box */}
+                  <div className="w-full md:w-72 bg-slate-50 rounded-xl p-5 border border-slate-200">
+                      <div className="flex items-center gap-3 mb-4">
+                          <div className="p-2 bg-white rounded-lg shadow-sm text-teal-600"><Briefcase size={20}/></div>
+                          <div>
+                              <div className="text-xs font-bold text-slate-400 uppercase">Contract</div>
+                              <div className="text-sm font-bold text-slate-900">Onbepaalde tijd</div>
+                          </div>
+                      </div>
+                      <div className="space-y-2 border-t border-slate-200 pt-4 mt-2">
+                          <div className="flex justify-between text-sm">
+                              <span className="text-slate-500">Uren p/w</span>
+                              <span className="font-bold text-slate-900">38</span>
+                          </div>
+                          <div className="flex justify-between text-sm">
+                              <span className="text-slate-500">Startdatum</span>
+                              <span className="font-bold text-slate-900">{employee.hiredOn}</span>
+                          </div>
+                      </div>
+                      <button 
+                        onClick={() => onChangeView(ViewState.DOCUMENTS)}
+                        className="w-full mt-4 py-2 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-600 hover:text-teal-600 hover:border-teal-200 transition-all shadow-sm"
+                      >
+                          Bekijk Contract
+                      </button>
+                  </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {/* Team Context */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                      <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
+                          <Users size={20} className="text-teal-600"/> Mijn Team
+                      </h3>
+                      <div className="space-y-6">
+                          {/* Manager */}
+                          <div className="flex items-center gap-4">
+                              <img src="https://ui-avatars.com/api/?name=Dennis+Manager&background=0d9488&color=fff" className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm" alt="Manager"/>
+                              <div className="flex-1">
+                                  <div className="text-sm font-bold text-slate-900">Dennis de Manager</div>
+                                  <div className="text-xs text-slate-500">Leidinggevende</div>
+                              </div>
+                              <a href="mailto:manager@sanadome.nl" className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors">
+                                  <Mail size={18}/>
+                              </a>
+                          </div>
+                          {/* Mentor */}
+                          {employee.mentor && (
+                              <div className="flex items-center gap-4">
+                                  <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-lg border-2 border-white shadow-sm">
+                                      {employee.mentor.charAt(0)}
+                                  </div>
+                                  <div className="flex-1">
+                                      <div className="text-sm font-bold text-slate-900">{employee.mentor}</div>
+                                      <div className="text-xs text-slate-500">Mentor / Buddy</div>
+                                  </div>
+                                  <button className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors">
+                                      <MessageSquare size={18}/>
+                                  </button>
+                              </div>
+                          )}
+                      </div>
+                  </div>
+
+                  {/* Skills / Tags (Mock) */}
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                      <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
+                          <Sparkles size={20} className="text-teal-600"/> Vaardigheden & Complimenten
+                      </h3>
+                      <div className="flex flex-wrap gap-2 mb-6">
+                          {['Gastvrijheid', 'Front Office', 'IDu PMS', 'Engels', 'Teamplayer'].map(tag => (
+                              <span key={tag} className="px-3 py-1.5 bg-slate-50 text-slate-700 rounded-lg text-xs font-bold border border-slate-200">
+                                  {tag}
+                              </span>
+                          ))}
+                      </div>
+                      <div className="bg-green-50 border border-green-100 rounded-xl p-4">
+                          <div className="flex items-center gap-2 mb-2">
+                              <Award size={16} className="text-green-600"/>
+                              <span className="text-xs font-bold text-green-700 uppercase tracking-wide">Recent Compliment</span>
+                          </div>
+                          <p className="text-sm text-slate-700 italic">"Geweldig gehandeld tijdens de drukte gisteren!"</p>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      );
+  };
 
   const renderTimeOffContent = () => {
     const annualLeave = employee.leaveBalances.find(b => b.type === 'Annual Leave') || { entitled: 0, taken: 0 };
@@ -231,7 +494,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
     ];
 
     return (
-      <div className="lg:col-span-2 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Annual Leave Card */}
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
@@ -360,7 +623,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   };
 
   const renderDocumentsContent = () => (
-    <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
        <div className="px-6 py-5 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
           <h3 className="font-bold text-slate-900">Personeelsdossier</h3>
           <button 
@@ -401,7 +664,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   );
 
   const renderPerformanceReport = () => (
-     <div className="lg:col-span-2 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
            <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
               <Award className="text-teal-600" size={20}/>
@@ -445,31 +708,19 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
      const hasActiveTasks = employee.onboardingTasks && employee.onboardingTasks.length > 0;
      const hasHistory = employee.onboardingHistory && employee.onboardingHistory.length > 0;
 
-     // If no active tasks and no history, show nothing (tab shouldn't be reachable anyway due to useMemo logic)
      if (!hasActiveTasks && !hasHistory) return null;
      
-     // Calculate Stats for Active Trajectory
      const totalTasks = employee.onboardingTasks.length;
      const completedTasks = employee.onboardingTasks.filter(t => t.score === 100).length;
      const progress = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
-     
-     // Find current week/phase based on incomplete tasks
      const currentWeek = employee.onboardingTasks.find(t => t.score !== 100)?.week || 4;
-     
-     // Find next task
      const nextTask = employee.onboardingTasks.find(t => t.score !== 100);
-
-     // Determine title
      let activeTitle = templateTitle || 'Traject Laden...';
 
      return (
-        <div className="lg:col-span-2 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            
-            {/* HIGH END DASHBOARD CARD */}
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {hasActiveTasks ? (
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
-                    
-                    {/* Header with clean Corporate Styling */}
                     <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
                             <div className="flex items-center gap-2 mb-1">
@@ -488,7 +739,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                         </div>
                     </div>
 
-                    {/* Segmented Progress Bar */}
                     <div className="w-full h-2 flex gap-1 bg-slate-50">
                         <div className={`h-full rounded-r-full transition-all duration-1000 ${progress >= 25 ? 'bg-teal-500' : 'bg-slate-200'}`} style={{width: '25%'}}></div>
                         <div className={`h-full rounded-full transition-all duration-1000 ${progress >= 50 ? 'bg-teal-500' : 'bg-slate-200'}`} style={{width: '25%'}}></div>
@@ -497,11 +747,8 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                     </div>
 
                     <div className="p-8">
-                        {/* Journey Map / Visual Milestones */}
                         <div className="grid grid-cols-4 gap-4 mb-10 relative">
-                            {/* Connection line handled by pseudo elements or bg, simplistic grid for now */}
                             <div className="absolute top-5 left-0 w-full h-0.5 bg-slate-100 -z-10 hidden md:block"></div>
-                            
                             {[1, 2, 3, 4].map(week => {
                                 const isPast = week < currentWeek;
                                 const isCurrent = week === currentWeek && progress < 100;
@@ -530,7 +777,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                             })}
                         </div>
 
-                        {/* Action Card: Next Step */}
                         <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 flex flex-col md:flex-row gap-6 items-center">
                             <div className="p-4 bg-white rounded-full shadow-sm text-teal-600">
                                 {nextTask ? <Target size={24} /> : <Award size={24}/>}
@@ -556,7 +802,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                     </div>
                 </div>
             ) : (
-                // Case: No active trajectory but has history
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 flex flex-col md:flex-row items-center justify-between gap-6">
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
@@ -570,7 +815,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                 </div>
             )}
 
-            {/* History Section */}
             {hasHistory && (
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                     <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
@@ -606,58 +850,55 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   };
 
   return (
-    <div className="p-6 lg:p-8 w-full w-full mx-auto animate-in fade-in duration-500">
+    <div className="p-6 lg:p-8 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
       <input type="file" ref={bannerInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'banner')} />
       <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'avatar')} />
 
       {/* Profile Header Card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8 relative">
-        <div className="h-32 md:h-48 relative group overflow-hidden bg-slate-900">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8 relative group/header">
+        <div className="h-48 md:h-64 relative overflow-hidden bg-slate-900">
           {employee.banner ? (
-            <img src={employee.banner} alt="Banner" className="w-full h-full object-cover opacity-90" />
+            <img src={employee.banner} alt="Banner" className="w-full h-full object-cover opacity-90 transition-transform duration-1000 group-hover/header:scale-105" />
           ) : (
              <div className="w-full h-full bg-slate-800 relative overflow-hidden">
                   <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-l from-teal-900/40 to-slate-900/40"></div>
              </div>
           )}
           
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors duration-500"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0"></div>
           
           <button 
             onClick={() => bannerInputRef.current?.click()}
-            className="absolute top-4 right-4 md:top-6 md:right-6 px-4 py-2 bg-white/90 hover:bg-white text-slate-800 text-xs font-bold uppercase tracking-wider rounded-lg shadow-sm opacity-100 md:opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center gap-2 backdrop-blur-md"
+            className="absolute top-4 right-4 px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white text-xs font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all flex items-center gap-2 opacity-0 group-hover/header:opacity-100"
           >
             <ImageIcon size={14} />
-            <span className="hidden sm:inline">Cover wijzigen</span>
+            <span className="hidden sm:inline">Cover Wijzigen</span>
           </button>
         </div>
         
-        <div className="px-6 md:px-10 pb-2 relative">
-          <div className="flex flex-col md:flex-row items-center md:items-start -mt-12 mb-8">
-            <div className="relative md:mr-8 group mb-4 md:mb-0">
-              <div className="relative">
-                <div className="relative rounded-2xl border-4 border-white shadow-lg">
-                    <img 
+        <div className="px-6 md:px-10 pb-0 relative">
+          <div className="flex flex-col md:flex-row items-center md:items-end -mt-20 mb-6 md:mb-8">
+            <div className="relative md:mr-8 mb-4 md:mb-0 group">
+              <div className="relative rounded-2xl border-[6px] border-white shadow-xl overflow-hidden bg-white">
+                  <img 
                     src={employee.avatar} 
                     alt={employee.name} 
-                    className="w-32 h-32 md:w-36 md:h-36 rounded-xl object-cover bg-white"
-                    />
-                </div>
-                
-                <div 
-                  onClick={() => avatarInputRef.current?.click()}
-                  className="absolute inset-0 rounded-2xl bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer border-4 border-transparent"
-                >
-                  <Camera className="text-white" size={28} />
-                </div>
+                    className="w-32 h-32 md:w-40 md:h-40 object-cover"
+                  />
+                  <div 
+                    onClick={() => avatarInputRef.current?.click()}
+                    className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+                  >
+                    <Camera className="text-white" size={28} />
+                  </div>
               </div>
             </div>
             
-            <div className="flex-1 pt-0 md:pt-4 md:mt-16 text-center md:text-left">
-              <h1 className="text-2xl md:text-4xl font-bold tracking-tight mb-1.5 text-slate-900">
+            <div className="flex-1 text-center md:text-left mb-2">
+              <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 mb-2">
                   {employee.name}
               </h1>
-              <div className="flex flex-wrap justify-center md:justify-start items-center gap-3 md:gap-6 mt-1 text-sm font-medium text-slate-600">
+              <div className="flex flex-wrap justify-center md:justify-start items-center gap-4 text-sm font-medium text-slate-600">
                 <div className="flex items-center gap-2">
                   <Briefcase size={16} className="text-slate-400" />
                   <span>{employee.role}</span>
@@ -666,23 +907,24 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                   <MapPin size={16} className="text-slate-400" />
                   <span>{employee.location}</span>
                 </div>
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-slate-100 text-slate-700 uppercase tracking-wide border border-slate-200">
-                  {employee.department}
-                </span>
+                <div className="flex items-center gap-2">
+                  <Building2 size={16} className="text-slate-400" />
+                  <span>{employee.department}</span>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="flex items-center gap-6 md:gap-8 border-t border-slate-100 pt-1 overflow-x-auto no-scrollbar pb-1">
+          <div className="flex items-center gap-2 md:gap-4 overflow-x-auto no-scrollbar pb-4 md:pb-0 border-t border-slate-100 md:border-none pt-4 md:pt-0">
             {tabs.map(tab => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
-                className={`py-4 text-sm font-bold border-b-2 transition-all whitespace-nowrap ${
+                className={`px-5 py-2.5 text-sm font-bold rounded-full transition-all whitespace-nowrap ${
                   activeTab === tab 
-                    ? 'border-teal-600 text-teal-700' 
-                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:border-slate-300'
+                    ? 'bg-slate-900 text-white shadow-md' 
+                    : 'bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                 }`}
               >
                 {tab}
@@ -690,82 +932,16 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
             ))}
           </div>
         </div>
+        <div className="h-6 md:h-8"></div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Main Content Area */}
-        {activeTab === 'Time off' && renderTimeOffContent()}
-        {activeTab === 'Documenten' && renderDocumentsContent()}
-        {activeTab === 'Evaluatie' && renderPerformanceReport()}
-        {activeTab === 'Onboarding' && renderOnboardingContent()}
-        
-        {(activeTab === 'Persoonlijk' || activeTab === 'Functie' || activeTab === 'Meer' || activeTab === 'Uren') && (
-             <div className="lg:col-span-2 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center">
-                     <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
-                         <Briefcase size={32} />
-                     </div>
-                     <h3 className="font-bold text-slate-900 text-lg">Profiel Details</h3>
-                     <p className="text-slate-500 mt-2 max-w-md mx-auto">
-                        De uitgebreide profiel details voor {activeTab} zijn momenteel in ontwikkeling.
-                        Bekijk de andere tabbladen voor actuele informatie.
-                     </p>
-                 </div>
-             </div>
-        )}
-
-        {/* Right Sidebar - Info */}
-        <div className="lg:col-span-1 order-first lg:order-last">
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 md:p-8 space-y-8 sticky top-24">
-            <div>
-                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Contactgegevens</h4>
-                 <div className="space-y-4">
-                    <div className="flex items-center gap-4 text-sm group">
-                        <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-teal-50 group-hover:text-teal-600 transition-colors">
-                        <Mail size={18} />
-                        </div>
-                        <a href={`mailto:${employee.email}`} className="text-slate-700 hover:text-teal-600 font-medium truncate transition-colors">{employee.email}</a>
-                    </div>
-
-                    <div className="flex items-center gap-4 text-sm group">
-                        <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
-                        <Linkedin size={18} />
-                        </div>
-                        <a href="#" className="text-slate-700 hover:text-blue-600 font-medium transition-colors">{employee.linkedin}</a>
-                    </div>
-
-                    <div className="flex items-center gap-4 text-sm group">
-                        <div className="w-10 h-10 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-green-50 group-hover:text-green-600 transition-colors">
-                        <Phone size={18} />
-                        </div>
-                        <span className="text-slate-700 font-medium">{employee.phone}</span>
-                    </div>
-                </div>
-            </div>
-
-            <div className="pt-8 border-t border-slate-100">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Dienstverband</h4>
-                <div className="space-y-5">
-                    <div>
-                        <div className="text-xs text-slate-500 mb-1">Datum in dienst</div>
-                        <div className="text-sm font-bold text-slate-900">{employee.hiredOn}</div>
-                    </div>
-                    
-                    <div>
-                        <div className="text-xs text-slate-500 mb-1">Contract type</div>
-                        <div className="text-sm font-bold text-slate-900">{employee.employmentType}</div>
-                    </div>
-
-                    <div>
-                        <div className="text-xs text-slate-500 mb-1">Functie</div>
-                        <div className="text-sm font-bold text-slate-900">{employee.role}</div>
-                    </div>
-                </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Content Area */}
+      {activeTab === 'Overzicht' && renderDashboardOverview()}
+      {activeTab === 'Carrière' && renderCareerDetails()}
+      {activeTab === 'Verlof' && renderTimeOffContent()}
+      {activeTab === 'Documenten' && renderDocumentsContent()}
+      {activeTab === 'Evaluatie' && renderPerformanceReport()}
+      {activeTab === 'Onboarding' && renderOnboardingContent()}
 
       <Modal 
         isOpen={isLeaveModalOpen} 
@@ -834,7 +1010,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
         title="Notitie toevoegen"
       >
         <form onSubmit={handleAddNote} className="space-y-5">
-             {/* Form content same as DocumentPage for consistency */}
              <p className="text-slate-500 italic">Notitie functionaliteit is beschikbaar via het tabblad 'Documenten'.</p>
              <button type="button" onClick={() => setIsNoteModalOpen(false)} className="w-full py-2 border border-slate-200 rounded-lg font-bold text-slate-600">Sluiten</button>
         </form>
