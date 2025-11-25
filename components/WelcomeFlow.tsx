@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { ChevronRight, Check, ArrowRight, ShieldCheck, Sparkles, Lock, Calendar, FileText, Users, Trophy, LayoutDashboard, BookOpen, Loader2 } from 'lucide-react';
+import { ChevronRight, Check, ArrowRight, ShieldCheck, Sparkles, Lock, Calendar, FileText, Users, Trophy, LayoutDashboard, BookOpen, Loader2, AlertCircle } from 'lucide-react';
 import { Employee } from '../types';
 
 interface WelcomeFlowProps {
@@ -47,11 +47,13 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
 
   const handleFinish = async () => {
       setIsProcessing(true);
+      setError('');
       try {
           const updated = { ...employee, password: password || employee.password };
           await onComplete(updated);
       } catch (e) {
           console.error("Error completing welcome flow", e);
+          setError('Fout bij opslaan: Database update mislukt. Probeer het opnieuw.');
           setIsProcessing(false);
       }
   };
@@ -250,6 +252,13 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
                                 </div>
                             </div>
                         </div>
+
+                        {error && (
+                            <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3 text-red-800 text-sm font-medium">
+                                <AlertCircle size={18} />
+                                {error}
+                            </div>
+                        )}
 
                         <button 
                             onClick={handleFinish}

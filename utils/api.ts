@@ -1,4 +1,3 @@
-
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
 import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask } from '../types';
@@ -207,17 +206,22 @@ export const api = {
     return storage.getEmployees();
   },
 
-  saveEmployee: async (employee: Employee) => {
+  saveEmployee: async (employee: Employee): Promise<boolean> => {
     if (isLive && supabase) {
       // Upsert: update if exists, insert if new
       const { error } = await supabase.from('employees').upsert({ id: employee.id, data: employee });
-      if (error) console.error('Supabase Error:', error);
+      if (error) {
+          console.error('Supabase Error:', error);
+          return false;
+      }
+      return true;
     } else {
       const current = storage.getEmployees();
       const index = current.findIndex(e => e.id === employee.id);
       if (index >= 0) current[index] = employee;
       else current.push(employee);
       storage.saveEmployees(current);
+      return true;
     }
   },
 

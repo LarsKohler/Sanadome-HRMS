@@ -299,7 +299,11 @@ const App: React.FC = () => {
                 const finalEmp = { ...updated, accountStatus: 'Active' as const };
                 
                 // Save via API and Wait
-                await api.saveEmployee(finalEmp);
+                const success = await api.saveEmployee(finalEmp);
+                
+                if (!success) {
+                    throw new Error("Opslaan mislukt in database. Probeer het opnieuw.");
+                }
                 
                 // Update Local State
                 setEmployees(prev => prev.map(emp => emp.id === finalEmp.id ? finalEmp : emp));
