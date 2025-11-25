@@ -143,23 +143,33 @@ const App: React.FC = () => {
   }, [currentView]);
 
   const handleLogin = async (email: string, password: string): Promise<boolean> => {
-    // 1. Try to find user in current loaded state
-    let foundUser = employees.find(emp => emp.email.toLowerCase() === email.toLowerCase() && emp.password === password);
+    const normEmail = email.trim().toLowerCase();
     
-    // 2. If not found, force a fresh fetch from API (addresses staleness issues)
-    if (!foundUser) {
-        console.log("User not found in local cache, fetching fresh data from Supabase...");
-        const freshEmployees = await api.getEmployees();
-        setEmployees(freshEmployees); // Update state for the app
-        foundUser = freshEmployees.find(emp => emp.email.toLowerCase() === email.toLowerCase() && emp.password === password);
-    }
-
+    // 1. Try to find user in current loaded state
+    let foundUser = employees.find(emp => emp.email.toLowerCase() === normEmail && emp.password === password);
+    
     if (foundUser) {
       setCurrentUser(foundUser);
-      // Persist Session
       localStorage.setItem('hrms_session_id', foundUser.id);
       return true;
     }
+
+    // 2. If not found, force a fresh fetch from API (addresses staleness issues)
+    console.log("User not found locally, attempting forced refresh from API...");
+    try {
+        const freshEmployees = await api.getEmployees();
+        setEmployees(freshEmployees); // Update state for the app
+        foundUser = freshEmployees.find(emp => emp.email.toLowerCase() === normEmail && emp.password === password);
+        
+        if (foundUser) {
+            setCurrentUser(foundUser);
+            localStorage.setItem('hrms_session_id', foundUser.id);
+            return true;
+        }
+    } catch (e) {
+        console.error("Login refresh failed", e);
+    }
+
     return false;
   };
 
@@ -298,14 +308,14 @@ const App: React.FC = () => {
                 // Explicitly wait for the database save to complete
                 const finalEmp = { ...updated, accountStatus: 'Active' as const };
                 
-                // Save via API and Wait
+                // Save via API and Wait - now returns boolean success
                 const success = await api.saveEmployee(finalEmp);
                 
                 if (!success) {
-                    throw new Error("Opslaan mislukt in database. Probeer het opnieuw.");
+                    throw new Error("Opslaan mislukt in database. Mogelijk heeft u geen rechten of is er een netwerkprobleem.");
                 }
                 
-                // Update Local State
+                // Update Local State only after confirmed success
                 setEmployees(prev => prev.map(emp => emp.id === finalEmp.id ? finalEmp : emp));
                 setCurrentUser(finalEmp);
                 setSetupUser(null);

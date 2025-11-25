@@ -1,3 +1,4 @@
+
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
 import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask } from '../types';
@@ -154,7 +155,6 @@ export const api = {
         try {
             // Check if the URL belongs to our Supabase project
             // Example URL: https://xyz.supabase.co/storage/v1/object/public/hrms-storage/filename.jpg
-            const projectUrlPart = supabase['supabaseUrl']; // Access internal URL or use logic
             
             // Only try to delete if it looks like a Supabase URL from this bucket
             if (fullUrl.includes(bucket)) {
@@ -208,13 +208,31 @@ export const api = {
 
   saveEmployee: async (employee: Employee): Promise<boolean> => {
     if (isLive && supabase) {
-      // Upsert: update if exists, insert if new
-      const { error } = await supabase.from('employees').upsert({ id: employee.id, data: employee });
-      if (error) {
-          console.error('Supabase Error:', error);
+      try {
+          // Upsert: update if exists, insert if new
+          // We use select() to confirm the operation returned data and ensure persistence
+          const { data, error } = await supabase
+            .from('employees')
+            .upsert({ id: employee.id, data: employee })
+            .select()
+            .single();
+
+          if (error) {
+              console.error('Supabase Error:', error);
+              return false;
+          }
+          
+          // Explicit check: if no data returned, the update likely failed due to RLS or other constraint silently
+          if (!data) {
+              console.error("Update failed: No data returned from database.");
+              return false;
+          }
+
+          return true;
+      } catch (e) {
+          console.error("Exception in saveEmployee:", e);
           return false;
       }
-      return true;
     } else {
       const current = storage.getEmployees();
       const index = current.findIndex(e => e.id === employee.id);

@@ -49,11 +49,17 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
       setIsProcessing(true);
       setError('');
       try {
-          const updated = { ...employee, password: password || employee.password };
+          // Ensure we have a password set in the object
+          const updated = { 
+              ...employee, 
+              password: password || employee.password || 'sanadome123', // Fallback only if absolutely necessary, though validation should prevent this
+              accountStatus: 'Active' as const
+          };
           await onComplete(updated);
-      } catch (e) {
+          // Success is handled by parent (unmounting this component)
+      } catch (e: any) {
           console.error("Error completing welcome flow", e);
-          setError('Fout bij opslaan: Database update mislukt. Probeer het opnieuw.');
+          setError(e.message || 'Fout bij opslaan: Database update mislukt. Probeer het opnieuw.');
           setIsProcessing(false);
       }
   };
@@ -201,7 +207,7 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
                             </div>
                             {error && (
                                 <div className="text-red-600 text-xs font-bold bg-red-50 p-3 rounded-lg flex items-center gap-2 border border-red-100">
-                                    <div className="w-1.5 h-1.5 bg-red-500 rounded-full"></div>
+                                    <AlertCircle size={14} />
                                     {error}
                                 </div>
                             )}
@@ -209,7 +215,8 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
 
                         <button 
                             onClick={handleNext}
-                            className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-all"
+                            disabled={!password || password !== confirmPassword}
+                            className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                             Opslaan & Verder
                         </button>
@@ -254,7 +261,7 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
                         </div>
 
                         {error && (
-                            <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3 text-red-800 text-sm font-medium">
+                            <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-center gap-3 text-red-800 text-sm font-medium animate-in slide-in-from-bottom-2">
                                 <AlertCircle size={18} />
                                 {error}
                             </div>
