@@ -5,7 +5,7 @@ import {
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle
+  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User
 } from 'lucide-react';
 import { Employee, LeaveRequest, EmployeeNote, EmployeeDocument, Notification, ViewState } from '../types';
 import { Modal } from './Modal';
@@ -465,90 +465,91 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
      return (
         <div className="lg:col-span-2 space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             
-            {/* Active Trajectory Card */}
+            {/* HIGH END DASHBOARD CARD */}
             {hasActiveTasks ? (
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
-                    {/* Header with Gradient */}
-                    <div className="h-32 bg-slate-900 relative p-8 flex flex-col justify-center overflow-hidden">
-                        <div className="absolute inset-0 bg-gradient-to-r from-teal-900 to-slate-900"></div>
-                        <div className="absolute right-0 top-0 p-8 opacity-10">
-                            <Target size={120} className="text-white" />
+                    
+                    {/* Header with clean Corporate Styling */}
+                    <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                        <div>
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="px-2.5 py-0.5 bg-teal-50 text-teal-700 text-[10px] font-bold uppercase tracking-wider rounded-full border border-teal-100 flex items-center gap-1">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse"></div>
+                                    Actief Traject
+                                </span>
+                            </div>
+                            <h3 className="text-xl md:text-2xl font-bold text-slate-900">{activeTitle}</h3>
+                            <p className="text-slate-500 text-xs mt-1">Begeleid door {employee.mentor || 'HR'}</p>
                         </div>
                         
-                        <div className="relative z-10 flex justify-between items-end">
-                            <div>
-                                <div className="text-teal-400 text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-2">
-                                    <div className="w-2 h-2 rounded-full bg-teal-400 animate-pulse"></div>
-                                    Actief Traject
-                                </div>
-                                <h3 className="text-2xl font-bold text-white">{activeTitle}</h3>
-                            </div>
-                            <div className="text-right">
-                                <div className="text-3xl font-bold text-white">{progress}%</div>
-                                <div className="text-slate-400 text-xs font-medium">Voltooid</div>
-                            </div>
+                        <div className="text-right">
+                            <div className="text-4xl font-bold text-teal-600">{progress}%</div>
+                            <div className="text-slate-400 text-xs font-bold uppercase tracking-wide">Voltooid</div>
                         </div>
                     </div>
 
-                    {/* Progress Bar */}
-                    <div className="h-1 w-full bg-slate-100">
-                        <div className="h-full bg-teal-500 transition-all duration-1000" style={{ width: `${progress}%` }}></div>
+                    {/* Segmented Progress Bar */}
+                    <div className="w-full h-2 flex gap-1 bg-slate-50">
+                        <div className={`h-full rounded-r-full transition-all duration-1000 ${progress >= 25 ? 'bg-teal-500' : 'bg-slate-200'}`} style={{width: '25%'}}></div>
+                        <div className={`h-full rounded-full transition-all duration-1000 ${progress >= 50 ? 'bg-teal-500' : 'bg-slate-200'}`} style={{width: '25%'}}></div>
+                        <div className={`h-full rounded-full transition-all duration-1000 ${progress >= 75 ? 'bg-teal-500' : 'bg-slate-200'}`} style={{width: '25%'}}></div>
+                        <div className={`h-full rounded-l-full transition-all duration-1000 ${progress >= 100 ? 'bg-teal-500' : 'bg-slate-200'}`} style={{width: '25%'}}></div>
                     </div>
 
                     <div className="p-8">
-                        {/* Timeline Visual */}
-                        <div className="flex items-center justify-between mb-10 relative">
-                            <div className="absolute left-0 right-0 top-1/2 h-0.5 bg-slate-100 -z-10"></div>
+                        {/* Journey Map / Visual Milestones */}
+                        <div className="grid grid-cols-4 gap-4 mb-10 relative">
+                            {/* Connection line handled by pseudo elements or bg, simplistic grid for now */}
+                            <div className="absolute top-5 left-0 w-full h-0.5 bg-slate-100 -z-10 hidden md:block"></div>
+                            
                             {[1, 2, 3, 4].map(week => {
                                 const isPast = week < currentWeek;
-                                const isCurrent = week === currentWeek;
+                                const isCurrent = week === currentWeek && progress < 100;
+                                const isCompleted = progress === 100;
+                                const isActive = isCurrent || (week === 4 && isCompleted);
+
                                 return (
-                                    <div key={week} className="flex flex-col items-center gap-3 bg-white px-2">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-4 transition-all ${
-                                            isPast ? 'bg-teal-500 border-teal-500 text-white' :
-                                            isCurrent ? 'bg-white border-teal-500 text-teal-600 shadow-lg scale-110' :
-                                            'bg-slate-50 border-slate-200 text-slate-400'
-                                        }`}>
-                                            {isPast ? <Check size={16} strokeWidth={3}/> : week}
+                                    <div key={week} className="flex flex-col items-center text-center gap-3">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold border-4 transition-all bg-white z-10
+                                            ${isPast || (isCompleted) ? 'border-teal-500 text-teal-600' : 
+                                              isCurrent ? 'border-teal-500 text-teal-600 shadow-lg ring-4 ring-teal-50' : 
+                                              'border-slate-200 text-slate-300'}
+                                        `}>
+                                            {isPast || isCompleted ? <Check size={16} strokeWidth={3}/> : week}
                                         </div>
-                                        <span className={`text-xs font-bold uppercase tracking-wide ${isCurrent ? 'text-slate-900' : 'text-slate-400'}`}>
-                                            Week {week}
-                                        </span>
+                                        <div>
+                                            <span className={`text-xs font-bold uppercase tracking-wide block ${isActive ? 'text-slate-900' : 'text-slate-400'}`}>
+                                                Week {week}
+                                            </span>
+                                            <span className="text-[10px] text-slate-400 hidden md:block">
+                                                {week === 1 ? 'Introductie' : week === 2 ? 'Basis' : week === 3 ? 'Verdieping' : 'Zelfstandig'}
+                                            </span>
+                                        </div>
                                     </div>
                                 );
                             })}
                         </div>
 
-                        {/* Next Step Focus */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div className="bg-slate-50 rounded-xl p-5 border border-slate-100">
-                                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                                    <Target size={14}/> Eerstvolgende stap
-                                </h4>
-                                {nextTask ? (
-                                    <div>
-                                        <div className="font-bold text-slate-900 mb-1">{nextTask.title}</div>
-                                        <p className="text-xs text-slate-500 line-clamp-2">{nextTask.description}</p>
-                                        <div className="mt-3 flex items-center gap-2">
-                                            <span className="text-[10px] font-bold bg-white border border-slate-200 px-2 py-1 rounded text-slate-600">
-                                                {nextTask.category}
-                                            </span>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="flex items-center gap-3 text-green-600">
-                                        <CheckCircle2 size={24} />
-                                        <span className="font-bold text-sm">Alles afgerond!</span>
-                                    </div>
-                                )}
+                        {/* Action Card: Next Step */}
+                        <div className="bg-slate-50 rounded-xl p-6 border border-slate-200 flex flex-col md:flex-row gap-6 items-center">
+                            <div className="p-4 bg-white rounded-full shadow-sm text-teal-600">
+                                {nextTask ? <Target size={24} /> : <Award size={24}/>}
                             </div>
-
-                            <div className="flex flex-col justify-center items-start space-y-3">
+                            <div className="flex-1 text-center md:text-left">
+                                <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                    {nextTask ? 'Volgende Stap' : 'Gefeliciteerd!'}
+                                </h4>
+                                <div className="text-lg font-bold text-slate-900">
+                                    {nextTask ? nextTask.title : 'Alle taken zijn afgerond.'}
+                                </div>
+                                {nextTask && <p className="text-sm text-slate-500 mt-1 line-clamp-1">{nextTask.description}</p>}
+                            </div>
+                            <div>
                                 <button 
                                     onClick={() => onChangeView(ViewState.ONBOARDING)}
-                                    className="w-full py-3 bg-white border-2 border-slate-100 text-slate-700 font-bold rounded-xl hover:border-teal-500 hover:text-teal-600 transition-all flex items-center justify-center gap-2 group"
+                                    className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm flex items-center gap-2 text-sm"
                                 >
-                                    Bekijk volledig plan <ArrowUpRight size={18} className="group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform"/>
+                                    Naar Plan <ArrowUpRight size={16} />
                                 </button>
                             </div>
                         </div>
@@ -579,10 +580,10 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                     </div>
                     <div className="divide-y divide-slate-100">
                         {employee.onboardingHistory?.map(entry => (
-                            <div key={entry.id} className="p-5 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                            <div key={entry.id} className="p-5 flex items-center justify-between hover:bg-slate-50 transition-colors group">
                                 <div className="flex items-center gap-4">
-                                    <div className="w-10 h-10 bg-green-50 text-green-600 rounded-full flex items-center justify-center">
-                                        <Layers size={20}/>
+                                    <div className="w-10 h-10 bg-green-50 text-green-600 rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                                        <Award size={20}/>
                                     </div>
                                     <div>
                                         <h4 className="font-bold text-slate-900 text-sm">{entry.templateTitle}</h4>
