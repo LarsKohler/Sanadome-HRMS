@@ -415,7 +415,7 @@ const App: React.FC = () => {
           )}
 
           {currentView === ViewState.SYSTEM_STATUS && (
-            <SystemStatusPage />
+            <SystemStatusPage currentUser={currentUser} />
           )}
 
         </main>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   Activity, Database, Server, Clock, Users, FileText, 
@@ -8,10 +7,14 @@ import {
 import { supabase } from '../utils/supabaseClient';
 import { api, isLive } from '../utils/api';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { SystemUpdateLog } from '../types';
+import { SystemUpdateLog, Employee } from '../types';
 import { Modal } from './Modal';
 
-export default function SystemStatusPage() {
+interface SystemStatusPageProps {
+    currentUser: Employee | null;
+}
+
+const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     employees: 0,
@@ -30,8 +33,8 @@ export default function SystemStatusPage() {
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [newLog, setNewLog] = useState({
       version: 'v',
-      type: 'Feature' as const,
-      impact: 'Low' as const,
+      type: 'Feature' as 'Feature' | 'Bugfix' | 'Maintenance' | 'Security',
+      impact: 'Low' as 'High' | 'Medium' | 'Low',
       description: ''
   });
 
@@ -110,7 +113,7 @@ export default function SystemStatusPage() {
           type: newLog.type,
           impact: newLog.impact,
           description: newLog.description,
-          author: 'Admin', // Simplified for demo
+          author: currentUser ? currentUser.name : 'System Admin',
           date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
           timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
           status: 'Success'
@@ -336,11 +339,11 @@ export default function SystemStatusPage() {
               <div>
                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Impact Level</label>
                   <div className="flex gap-2">
-                      {['Low', 'Medium', 'High'].map((impact) => (
+                      {(['Low', 'Medium', 'High'] as const).map((impact) => (
                           <button
                             key={impact}
                             type="button"
-                            onClick={() => setNewLog({...newLog, impact: impact as any})}
+                            onClick={() => setNewLog({...newLog, impact})}
                             className={`flex-1 py-2 rounded-lg text-sm font-bold border transition-all ${
                                 newLog.impact === impact 
                                 ? (impact === 'High' ? 'bg-red-100 text-red-700 border-red-300' : impact === 'Medium' ? 'bg-amber-100 text-amber-700 border-amber-300' : 'bg-green-100 text-green-700 border-green-300')
@@ -373,3 +376,5 @@ export default function SystemStatusPage() {
     </div>
   );
 }
+
+export default SystemStatusPage;
