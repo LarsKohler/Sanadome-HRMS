@@ -3,17 +3,18 @@ import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog
 
 // --- AUTO UPDATE LOGGER ---
 export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
-    id: 'update-v3.1.0-permissions-module', 
-    version: 'v3.1.0',
+    id: 'update-v3.2.0-auth-fix', 
+    version: 'v3.2.0',
     date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
     timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
     author: 'AI Assistant',
-    type: 'Feature',
+    type: 'Bugfix',
     impact: 'High',
-    affectedArea: 'Systeembeheer',
-    description: `- Feature: Geavanceerd Rechtenbeheer toegevoegd. Managers kunnen nu specifieke permissies per gebruiker instellen.
-- Security: Action buttons (Edit/Delete/Post) nu gekoppeld aan permissie checks in plaats van vaste rollen.
-- UI: Nieuwe instellingen pagina toegevoegd voor beheerders.`,
+    affectedArea: 'Authenticatie & Database',
+    description: `- Critical Fix: Login logica volledig herschreven om direct met Supabase te communiceren in plaats van lokale cache.
+- Fix: Wachtwoord updates tijdens de 'Welcome Flow' werden niet correct opgeslagen door asynchrone timing issues.
+- Feature: Medewerkers met status 'Pending' kunnen nu inloggen zonder wachtwoord om direct hun account te activeren en een wachtwoord in te stellen.
+- Improvement: E-mailadres controle bij inloggen is nu hoofdletterongevoelig.`,
     status: 'Success'
 };
 
@@ -86,14 +87,14 @@ export const EVALUATION_TEMPLATES = {
 export const MOCK_SYSTEM_LOGS: SystemUpdateLog[] = [
     {
         id: 'log-1',
-        version: 'v2.6.0',
-        date: '24 Okt 2023',
+        version: 'v3.1.0',
+        date: '25 Okt 2023',
         timestamp: '14:30',
-        author: 'Lars Kohler',
+        author: 'AI Assistant',
         type: 'Feature',
-        impact: 'Medium',
-        affectedArea: 'Systeemstatus',
-        description: 'Implementatie van paginering en footer updates.',
+        impact: 'High',
+        affectedArea: 'Systeembeheer',
+        description: 'Implementatie Geavanceerd Rechtenbeheer en Instellingen Pagina.',
         status: 'Success'
     },
     {

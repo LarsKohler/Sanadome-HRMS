@@ -22,7 +22,8 @@ export const api = {
       if (!isLive || !supabase) {
           // Fallback for local dev without Supabase
           const employees = storage.getEmployees();
-          return employees.find(e => e.email.toLowerCase() === email.toLowerCase() && e.password === password) || null;
+          // For local pending users, allow logic if needed, but usually stricter
+          return employees.find(e => e.email.toLowerCase() === email.toLowerCase() && (e.password === password || e.accountStatus === 'Pending')) || null;
       }
 
       try {
@@ -46,13 +47,24 @@ export const api = {
               if(errorLower || !dataLower) return null;
               
               const emp = dataLower.data as Employee;
+              
+              // CRITICAL CHANGE: Allow Pending users to proceed to Welcome Flow without password check
+              if (emp.accountStatus === 'Pending') {
+                  return emp;
+              }
+
               if (emp.password === password) return emp;
               return null;
           }
 
           const emp = data.data as Employee;
           
-          // Verify password
+          // CRITICAL CHANGE: Allow Pending users to proceed to Welcome Flow without password check
+          if (emp.accountStatus === 'Pending') {
+              return emp;
+          }
+          
+          // Verify password for Active users
           if (emp.password === password) {
               return emp;
           }
