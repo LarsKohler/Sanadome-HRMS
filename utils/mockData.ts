@@ -5,19 +5,19 @@ import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog
 // This object is updated by the AI with every code generation.
 // The App checks this ID on startup. If not in DB, it logs it.
 export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
-    id: 'update-v2.9.0-profile-dashboard', 
-    version: 'v2.9.0',
+    id: 'update-v3.0.0-profile-redesign-light', 
+    version: 'v3.0.0',
     date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
     timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
     author: 'AI Assistant',
     type: 'Feature',
     impact: 'High',
     affectedArea: 'Profiel Pagina',
-    description: `- MAJOR: Compleet vernieuwd profiel dashboard.
-- Feature: Nieuwe 'Overzicht' tab met persoonlijke stats en timeline.
-- Feature: 'Carrière' tab toegevoegd met contract details en team context.
-- UI Update: High-end header design met verbeterde navigatie.
-- Improvement: Betere integratie van onboarding en evaluatie status.`,
+    description: `- DESIGN: Profielpagina verlicht (Light Theme) voor betere leesbaarheid.
+- Feature: "Volgende Actie" vervangen door dynamisch "Openstaande Acties" blok.
+- Removal: Verlof functionaliteit volledig verwijderd uit profiel (tab en saldo).
+- UX: Onboarding tekst gepersonaliseerd ("Momenteel volg je nog geen...").
+- Improvement: Dashboard grid geoptimaliseerd.`,
     status: 'Success'
 };
 

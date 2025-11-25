@@ -5,7 +5,7 @@ import {
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare
+  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo
 } from 'lucide-react';
 import { Employee, LeaveRequest, EmployeeNote, EmployeeDocument, Notification, ViewState } from '../types';
 import { Modal } from './Modal';
@@ -34,16 +34,10 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   managers
 }) => {
   const [activeTab, setActiveTab] = useState('Overzicht');
-  const [isLeaveModalOpen, setIsLeaveModalOpen] = useState(false);
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
-
-  const [leaveType, setLeaveType] = useState<'Annual Leave' | 'Sick Leave' | 'Without Pay'>('Annual Leave');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [amount, setAmount] = useState(1);
 
   // Note State
   const [noteTitle, setNoteTitle] = useState('');
@@ -92,7 +86,8 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
         baseTabs.push('Onboarding');
     }
     
-    baseTabs.push('Verlof', 'Documenten');
+    // Removed 'Verlof' as requested
+    baseTabs.push('Documenten');
     return baseTabs;
   }, [employee.onboardingStatus, employee.onboardingHistory, employee.onboardingTasks]);
 
@@ -129,55 +124,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
     }
   };
 
-  const handleRecordLeave = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newRequest: LeaveRequest = {
-      id: Math.random().toString(36).substr(2, 9),
-      type: leaveType,
-      startDate: new Date(startDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }),
-      endDate: new Date(endDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }),
-      amount: Number(amount),
-      status: 'Pending'
-    };
-
-    const updatedBalances = employee.leaveBalances.map(b => {
-      if (b.type === leaveType) {
-        return { ...b, taken: b.taken + Number(amount) };
-      }
-      return b;
-    });
-
-    const updatedEmployee = {
-      ...employee,
-      leaveBalances: updatedBalances,
-      leaveRequests: [newRequest, ...employee.leaveRequests]
-    };
-
-    onUpdateEmployee(updatedEmployee);
-    setIsLeaveModalOpen(false);
-    setStartDate('');
-    setEndDate('');
-    setAmount(1);
-    onShowToast('Verlofaanvraag succesvol ingediend.');
-
-    const manager = managers[0];
-    if (manager) {
-        const notification: Notification = {
-            id: Math.random().toString(36).substr(2, 9),
-            recipientId: manager.id,
-            senderName: employee.name,
-            type: 'LeaveRequest',
-            title: 'Nieuwe verlofaanvraag',
-            message: `${employee.name} heeft ${amount} dagen ${leaveType} aangevraagd.`,
-            date: 'Zojuist',
-            read: false,
-            targetView: ViewState.HOME,
-            targetEmployeeId: employee.id
-        };
-        onAddNotification(notification);
-    }
-  };
-
   const handleAddNote = (e: React.FormEvent) => {
     e.preventDefault();
     const newNote: EmployeeNote = {
@@ -205,9 +151,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   // --- COMPONENT RENDERS ---
 
   const renderDashboardOverview = () => {
-      const annualLeave = employee.leaveBalances.find(b => b.type === 'Annual Leave') || { entitled: 0, taken: 0 };
-      const remainingLeave = annualLeave.entitled - annualLeave.taken;
-      
       // Calculate Tenure
       const hiredDate = new Date(employee.hiredOn);
       const now = new Date();
@@ -215,23 +158,26 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       const diffYears = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 365));
       const diffMonths = Math.floor((diffTime % (1000 * 60 * 60 * 24 * 365)) / (1000 * 60 * 60 * 24 * 30));
 
+      // Open Actions Logic
+      const openOnboardingTasks = employee.onboardingTasks?.filter(t => t.score !== 100) || [];
+      const pendingEvaluations = employee.evaluations?.filter(ev => ev.status === 'EmployeeInput' || ev.status === 'ManagerInput') || [];
+      
+      const hasOpenActions = openOnboardingTasks.length > 0 || pendingEvaluations.length > 0;
+
       return (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               
-              {/* Welcome Hero */}
-              <div className="bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl p-8 text-white shadow-lg relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-teal-500 rounded-full mix-blend-overlay filter blur-3xl opacity-20 -mr-16 -mt-16"></div>
+              {/* Light Hero Welcome */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm relative overflow-hidden">
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-teal-50 rounded-full mix-blend-multiply filter blur-3xl opacity-50 -mr-16 -mt-16"></div>
                   <div className="relative z-10">
-                      <h2 className="text-3xl font-serif font-bold mb-2">Welkom terug, {employee.name.split(' ')[0]}</h2>
-                      <p className="text-slate-300 mb-6 max-w-xl">
-                          Hier is een overzicht van jouw actuele status, taken en voortgang binnen Sanadome.
+                      <h2 className="text-3xl font-serif font-bold mb-2 text-slate-900">Welkom terug, {employee.name.split(' ')[0]}</h2>
+                      <p className="text-slate-500 mb-6 max-w-xl leading-relaxed">
+                          Fijn dat je er bent. Hier is een overzicht van jouw actuele status, taken en voortgang binnen Sanadome.
                       </p>
                       <div className="flex gap-3">
-                          <button onClick={() => setIsLeaveModalOpen(true)} className="px-5 py-2.5 bg-teal-600 hover:bg-teal-500 text-white rounded-xl font-bold text-sm transition-all shadow-md flex items-center gap-2">
-                              <Calendar size={16} /> Verlof Aanvragen
-                          </button>
-                          <button onClick={() => onChangeView(ViewState.DOCUMENTS)} className="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold text-sm transition-all backdrop-blur-sm flex items-center gap-2">
-                              <FileText size={16} /> Documenten
+                          <button onClick={() => onChangeView(ViewState.DOCUMENTS)} className="px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-sm transition-all shadow-sm flex items-center gap-2">
+                              <FileText size={16} /> Mijn Dossier
                           </button>
                       </div>
                   </div>
@@ -239,19 +185,65 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
 
               {/* Stats Grid */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {/* Leave Stat */}
-                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between group hover:border-teal-200 transition-colors">
-                      <div className="flex justify-between items-start">
-                          <div>
-                              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Verlof Saldo</div>
-                              <div className="text-3xl font-bold text-slate-900 mt-1">{remainingLeave} <span className="text-sm text-slate-400 font-medium">dagen</span></div>
+                  
+                  {/* Open Actions Block - Replaces 'Next Action' */}
+                  <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col group hover:border-teal-200 transition-colors">
+                      <div className="flex justify-between items-center mb-4">
+                          <div className="flex items-center gap-2">
+                              <div className="p-2 bg-teal-50 text-teal-600 rounded-lg">
+                                  <ListTodo size={20} />
+                              </div>
+                              <div>
+                                  <div className="text-sm font-bold text-slate-900">Openstaande Acties</div>
+                              </div>
                           </div>
-                          <div className="p-3 bg-teal-50 text-teal-600 rounded-xl group-hover:scale-110 transition-transform">
-                              <Calendar size={24} />
-                          </div>
+                          {hasOpenActions && (
+                              <span className="bg-teal-100 text-teal-700 text-xs font-bold px-2 py-1 rounded-full">
+                                  {openOnboardingTasks.length + pendingEvaluations.length}
+                              </span>
+                          )}
                       </div>
-                      <div className="w-full bg-slate-100 h-1.5 rounded-full mt-4 overflow-hidden">
-                          <div className="bg-teal-500 h-full rounded-full" style={{width: `${(remainingLeave / annualLeave.entitled) * 100}%`}}></div>
+                      
+                      <div className="flex-1">
+                          {hasOpenActions ? (
+                              <div className="space-y-3">
+                                  {pendingEvaluations.slice(0, 2).map(ev => (
+                                      <div key={ev.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                          <div className="flex items-center gap-3">
+                                              <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                                              <div>
+                                                  <div className="text-sm font-bold text-slate-800">Evaluatie: {ev.type}</div>
+                                                  <div className="text-xs text-slate-500">Jouw input wordt verwacht</div>
+                                              </div>
+                                          </div>
+                                          <button onClick={() => onChangeView(ViewState.EVALUATIONS)} className="text-xs font-bold text-teal-600 hover:underline">Starten</button>
+                                      </div>
+                                  ))}
+                                  {openOnboardingTasks.slice(0, 3).map(task => (
+                                      <div key={task.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
+                                          <div className="flex items-center gap-3">
+                                              <div className="w-2 h-2 bg-teal-500 rounded-full"></div>
+                                              <div>
+                                                  <div className="text-sm font-bold text-slate-800">{task.title}</div>
+                                                  <div className="text-xs text-slate-500">Week {task.week} • {task.category}</div>
+                                              </div>
+                                          </div>
+                                          <button onClick={() => onChangeView(ViewState.ONBOARDING)} className="text-xs font-bold text-slate-400 hover:text-teal-600">Bekijken</button>
+                                      </div>
+                                  ))}
+                                  {(openOnboardingTasks.length + pendingEvaluations.length) > 4 && (
+                                      <div className="text-center text-xs text-slate-400 pt-1">En meer...</div>
+                                  )}
+                              </div>
+                          ) : (
+                              <div className="h-full flex flex-col items-center justify-center text-center py-4">
+                                  <div className="w-10 h-10 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-2">
+                                      <CheckCircle2 size={20} />
+                                  </div>
+                                  <p className="text-slate-900 font-bold text-sm">Er staan geen open acties.</p>
+                                  <p className="text-slate-500 text-xs">Je bent helemaal bij!</p>
+                              </div>
+                          )}
                       </div>
                   </div>
 
@@ -269,30 +261,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                           </div>
                       </div>
                       <p className="text-xs text-slate-500 mt-4">Startdatum: {employee.hiredOn}</p>
-                  </div>
-
-                  {/* Next Action Stat */}
-                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between group hover:border-amber-200 transition-colors">
-                      <div className="flex justify-between items-start">
-                          <div>
-                              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Volgende Actie</div>
-                              <div className="text-lg font-bold text-slate-900 mt-1 line-clamp-2">
-                                  {employee.onboardingStatus === 'Active' 
-                                    ? 'Onboarding afronden' 
-                                    : 'Jaarlijkse Evaluatie'
-                                  }
-                              </div>
-                          </div>
-                          <div className="p-3 bg-amber-50 text-amber-600 rounded-xl group-hover:scale-110 transition-transform">
-                              <Zap size={24} />
-                          </div>
-                      </div>
-                      <button 
-                        onClick={() => onChangeView(employee.onboardingStatus === 'Active' ? ViewState.ONBOARDING : ViewState.EVALUATIONS)}
-                        className="text-xs font-bold text-amber-600 mt-4 hover:underline flex items-center gap-1"
-                      >
-                          Bekijk details <ArrowUpRight size={12}/>
-                      </button>
                   </div>
               </div>
 
@@ -483,145 +451,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       );
   };
 
-  const renderTimeOffContent = () => {
-    const annualLeave = employee.leaveBalances.find(b => b.type === 'Annual Leave') || { entitled: 0, taken: 0 };
-    const sickLeave = employee.leaveBalances.find(b => b.type === 'Sick Leave') || { entitled: 0, taken: 0 };
-    
-    const remaining = annualLeave.entitled - annualLeave.taken;
-    const pieData = [
-      { name: 'Opgenomen', value: annualLeave.taken, color: '#0f172a' }, // Slate 900
-      { name: 'Resterend', value: remaining, color: '#0d9488' } // Teal 600
-    ];
-
-    return (
-      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Annual Leave Card */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="font-bold text-slate-700">Vakantiedagen</h3>
-                <p className="text-xs text-slate-400">Jaarlijks saldo</p>
-              </div>
-              <div className="p-2 bg-teal-50 text-teal-600 rounded-lg">
-                <Calendar size={20} />
-              </div>
-            </div>
-            
-            <div className="flex items-end gap-4">
-              <div className="relative w-24 h-24">
-                 <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={pieData}
-                        innerRadius={35}
-                        outerRadius={45}
-                        paddingAngle={5}
-                        dataKey="value"
-                        startAngle={90}
-                        endAngle={-270}
-                      >
-                        {pieData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} stroke="none"/>
-                        ))}
-                      </Pie>
-                    </PieChart>
-                 </ResponsiveContainer>
-                 <div className="absolute inset-0 flex items-center justify-center font-bold text-slate-900 text-lg">
-                    {remaining}
-                 </div>
-              </div>
-              <div>
-                 <div className="text-3xl font-bold text-slate-900">{annualLeave.entitled}</div>
-                 <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Totaal Dagen</div>
-                 <div className="mt-2 text-xs text-slate-500">
-                    <span className="font-bold text-slate-900">{annualLeave.taken}</span> opgenomen
-                 </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Sick Leave Card */}
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
-             <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="font-bold text-slate-700">Verzuim</h3>
-                <p className="text-xs text-slate-400">Ziektedagen dit jaar</p>
-              </div>
-              <div className="p-2 bg-rose-50 text-rose-600 rounded-lg">
-                <AlertCircle size={20} />
-              </div>
-            </div>
-            
-            <div className="mt-4">
-               <div className="text-4xl font-bold text-slate-900">{sickLeave.taken}</div>
-               <div className="text-xs font-bold text-slate-400 uppercase tracking-wide mt-1">Dagen Ziek</div>
-            </div>
-
-            <div className="mt-6 w-full bg-slate-100 rounded-full h-2 overflow-hidden">
-               <div className="bg-rose-500 h-full rounded-full" style={{ width: `${Math.min((sickLeave.taken / 10) * 100, 100)}%` }}></div>
-            </div>
-            <p className="text-[10px] text-slate-400 mt-2 text-right">Bradford Factor: {Math.pow(sickLeave.taken, 2) * 1}</p>
-          </div>
-        </div>
-
-        {/* Action Button */}
-        <button 
-          onClick={() => setIsLeaveModalOpen(true)}
-          className="w-full py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold shadow-md hover:shadow-lg transition-all flex items-center justify-center gap-2"
-        >
-          <Calendar size={18} />
-          Verlof Aanvragen
-        </button>
-
-        {/* History */}
-        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-           <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="font-bold text-slate-900 text-sm uppercase tracking-wider">Aanvraag Historie</h3>
-           </div>
-           <div className="overflow-x-auto">
-             <table className="w-full text-left">
-               <thead className="bg-white border-b border-slate-100">
-                 <tr>
-                   <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Type</th>
-                   <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Periode</th>
-                   <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Dagen</th>
-                   <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Status</th>
-                 </tr>
-               </thead>
-               <tbody className="divide-y divide-slate-50">
-                  {employee.leaveRequests.length > 0 ? (
-                    employee.leaveRequests.map(req => (
-                      <tr key={req.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-6 py-4 text-sm font-bold text-slate-700">{req.type}</td>
-                        <td className="px-6 py-4 text-sm text-slate-600">{req.startDate} - {req.endDate}</td>
-                        <td className="px-6 py-4 text-sm text-slate-600">{req.amount}</td>
-                        <td className="px-6 py-4">
-                          <span className={`px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide ${
-                            req.status === 'Approved' ? 'bg-green-50 text-green-700' :
-                            req.status === 'Pending' ? 'bg-amber-50 text-amber-700' :
-                            'bg-red-50 text-red-700'
-                          }`}>
-                            {req.status === 'Approved' ? 'Goedgekeurd' : req.status === 'Pending' ? 'In Behandeling' : 'Geweigerd'}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={4} className="px-6 py-8 text-center text-slate-400 italic">
-                        Geen aanvragen gevonden.
-                      </td>
-                    </tr>
-                  )}
-               </tbody>
-             </table>
-           </div>
-        </div>
-      </div>
-    );
-  };
-
   const renderDocumentsContent = () => (
     <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
        <div className="px-6 py-5 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
@@ -708,7 +537,20 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
      const hasActiveTasks = employee.onboardingTasks && employee.onboardingTasks.length > 0;
      const hasHistory = employee.onboardingHistory && employee.onboardingHistory.length > 0;
 
-     if (!hasActiveTasks && !hasHistory) return null;
+     // Even if no active/history, show personalization message
+     if (!hasActiveTasks && !hasHistory) {
+         return (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-12 text-center flex flex-col items-center animate-in fade-in slide-in-from-bottom-4">
+                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-400 mb-4">
+                    <PlayCircle size={32} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">Nog geen programma</h3>
+                <p className="text-slate-500 mt-2">
+                    Momenteel volg je nog geen introductieprogramma.
+                </p>
+            </div>
+         );
+     }
      
      const totalTasks = employee.onboardingTasks.length;
      const completedTasks = employee.onboardingTasks.filter(t => t.score === 100).length;
@@ -719,7 +561,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
 
      return (
         <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {hasActiveTasks ? (
+            {hasActiveTasks && (
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
                     <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                         <div>
@@ -801,18 +643,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                         </div>
                     </div>
                 </div>
-            ) : (
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 flex flex-col md:flex-row items-center justify-between gap-6">
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400">
-                            <PlayCircle size={24} />
-                        </div>
-                        <div>
-                            <h3 className="font-bold text-slate-900">Geen actief onboarding traject</h3>
-                            <p className="text-sm text-slate-500">De medewerker volgt momenteel geen programma.</p>
-                        </div>
-                    </div>
-                </div>
             )}
 
             {hasHistory && (
@@ -856,20 +686,22 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
 
       {/* Profile Header Card */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8 relative group/header">
-        <div className="h-48 md:h-64 relative overflow-hidden bg-slate-900">
+        <div className="h-48 md:h-64 relative overflow-hidden bg-slate-100">
           {employee.banner ? (
             <img src={employee.banner} alt="Banner" className="w-full h-full object-cover opacity-90 transition-transform duration-1000 group-hover/header:scale-105" />
           ) : (
-             <div className="w-full h-full bg-slate-800 relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-l from-teal-900/40 to-slate-900/40"></div>
+             <div className="w-full h-full bg-slate-200 relative overflow-hidden">
+                  {/* Light gradient placeholder if no banner */}
+                  <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-slate-100 to-slate-200"></div>
              </div>
           )}
           
-          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/0 to-black/0"></div>
+          {/* Subtle dark overlay only for text contrast if needed, but keeping it very light now */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent"></div>
           
           <button 
             onClick={() => bannerInputRef.current?.click()}
-            className="absolute top-4 right-4 px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md text-white text-xs font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all flex items-center gap-2 opacity-0 group-hover/header:opacity-100"
+            className="absolute top-4 right-4 px-4 py-2 bg-white/80 hover:bg-white backdrop-blur-md text-slate-700 text-xs font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all flex items-center gap-2 opacity-0 group-hover/header:opacity-100"
           >
             <ImageIcon size={14} />
             <span className="hidden sm:inline">Cover Wijzigen</span>
@@ -938,71 +770,9 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       {/* Content Area */}
       {activeTab === 'Overzicht' && renderDashboardOverview()}
       {activeTab === 'Carrière' && renderCareerDetails()}
-      {activeTab === 'Verlof' && renderTimeOffContent()}
       {activeTab === 'Documenten' && renderDocumentsContent()}
       {activeTab === 'Evaluatie' && renderPerformanceReport()}
       {activeTab === 'Onboarding' && renderOnboardingContent()}
-
-      <Modal 
-        isOpen={isLeaveModalOpen} 
-        onClose={() => setIsLeaveModalOpen(false)}
-        title={`Verlof aanvragen`}
-      >
-        <form onSubmit={handleRecordLeave} className="space-y-5">
-           <div>
-               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Type Verlof</label>
-               <select 
-                 className="w-full rounded-xl border border-slate-200 p-3 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-teal-500"
-                 value={leaveType}
-                 onChange={(e) => setLeaveType(e.target.value as any)}
-               >
-                   <option value="Annual Leave">Vakantie (Annual Leave)</option>
-                   <option value="Sick Leave">Ziekte (Sick Leave)</option>
-                   <option value="Without Pay">Onbetaald Verlof</option>
-               </select>
-           </div>
-           
-           <div className="grid grid-cols-2 gap-4">
-               <div>
-                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Van</label>
-                   <input 
-                     type="date" 
-                     required
-                     className="w-full rounded-xl border border-slate-200 p-3 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-teal-500"
-                     value={startDate}
-                     onChange={(e) => setStartDate(e.target.value)}
-                   />
-               </div>
-               <div>
-                   <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Tot en met</label>
-                   <input 
-                     type="date" 
-                     required
-                     className="w-full rounded-xl border border-slate-200 p-3 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-teal-500"
-                     value={endDate}
-                     onChange={(e) => setEndDate(e.target.value)}
-                   />
-               </div>
-           </div>
-
-           <div>
-               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Aantal Dagen</label>
-               <input 
-                 type="number" 
-                 step="0.5"
-                 min="0.5"
-                 required
-                 className="w-full rounded-xl border border-slate-200 p-3 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-teal-500"
-                 value={amount}
-                 onChange={(e) => setAmount(Number(e.target.value))}
-               />
-           </div>
-
-           <button type="submit" className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl shadow-md hover:bg-slate-800 transition-colors">
-               Aanvraag Versturen
-           </button>
-        </form>
-      </Modal>
 
       <Modal
         isOpen={isNoteModalOpen}
