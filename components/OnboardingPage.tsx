@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, CheckCircle2, User, ChevronDown, MessageSquare, Save, PlayCircle, Eye, EyeOff, Calendar, Clock, Trophy, Check, ArrowRight, Circle, Settings, Plus, Trash2, Edit2, Copy, Archive, XCircle, History } from 'lucide-react';
+import { Search, CheckCircle2, User, ChevronDown, MessageSquare, Save, PlayCircle, Eye, EyeOff, Calendar, Clock, Trophy, Check, ArrowRight, Circle, Settings, Plus, Trash2, Edit2, Copy, Archive, XCircle, History, FileText, BarChart3 } from 'lucide-react';
 import { Employee, OnboardingTask, Notification, ViewState, OnboardingWeekData, OnboardingTemplate, OnboardingHistoryEntry } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
@@ -86,6 +86,9 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
   // Template Manager State
   const [editingTemplate, setEditingTemplate] = useState<OnboardingTemplate | null>(null);
   const [isEditingTemplate, setIsEditingTemplate] = useState(false);
+
+  // History Report State
+  const [viewingHistoryEntry, setViewingHistoryEntry] = useState<OnboardingHistoryEntry | null>(null);
 
   useEffect(() => {
     // Fetch Templates
@@ -359,6 +362,86 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
       }
   };
 
+  const renderHistoryReport = (entry: OnboardingHistoryEntry) => {
+      // Aggregate notes from tasks
+      const tasksWithNotes = entry.tasks.filter(t => t.notes && t.notes.trim() !== '');
+      const totalTasks = entry.tasks.length;
+      const completedTasks = entry.tasks.filter(t => t.score === 100).length;
+
+      return (
+          <div className="space-y-8 animate-in fade-in duration-300">
+              {/* Header Stats */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <div className="text-xs font-bold text-slate-500 uppercase mb-1">Traject Score</div>
+                      <div className="flex items-center gap-2">
+                         <span className={`text-2xl font-bold ${entry.finalScore >= 80 ? 'text-green-600' : 'text-slate-800'}`}>{entry.finalScore}%</span>
+                         {entry.finalScore === 100 && <Trophy size={20} className="text-yellow-500"/>}
+                      </div>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <div className="text-xs font-bold text-slate-500 uppercase mb-1">Duur</div>
+                      <div className="flex items-center gap-2">
+                          <Calendar size={18} className="text-slate-400"/>
+                          <span className="text-sm font-bold text-slate-800">{entry.startDate} - {entry.endDate}</span>
+                      </div>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <div className="text-xs font-bold text-slate-500 uppercase mb-1">Status</div>
+                      <div className="flex items-center gap-2">
+                          <CheckCircle2 size={18} className="text-slate-400"/>
+                          <span className="text-sm font-bold text-slate-800">
+                              {completedTasks} / {totalTasks} Taken
+                          </span>
+                      </div>
+                  </div>
+              </div>
+
+              {/* Aggregated Feedback / Notes Section */}
+              <div className="space-y-4">
+                  <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                      <FileText size={18} className="text-teal-600"/>
+                      <h3 className="font-bold text-slate-900">Genoteerde Feedback & Opmerkingen</h3>
+                  </div>
+                  
+                  {tasksWithNotes.length > 0 ? (
+                      <div className="space-y-4 relative before:absolute before:inset-0 before:ml-2.5 before:-translate-x-px before:h-full before:w-0.5 before:bg-slate-200">
+                          {tasksWithNotes.map((task, idx) => (
+                              <div key={idx} className="relative pl-8">
+                                  {/* Timeline Dot */}
+                                  <div className="absolute left-0 top-1 w-5 h-5 rounded-full bg-white border-2 border-teal-500 z-10"></div>
+                                  
+                                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                      <div className="flex justify-between items-start mb-2">
+                                          <div>
+                                              <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded uppercase tracking-wide">
+                                                  Week {task.week} - {task.category}
+                                              </span>
+                                              <h4 className="font-bold text-slate-900 text-sm mt-1">{task.title}</h4>
+                                          </div>
+                                          {task.score !== undefined && (
+                                              <div className={`px-2 py-1 rounded text-xs font-bold ${task.score === 100 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
+                                                  {task.score}%
+                                              </div>
+                                          )}
+                                      </div>
+                                      <div className="bg-amber-50/50 p-3 rounded-lg border border-amber-100 mt-2">
+                                          <p className="text-sm text-slate-700 italic">"{task.notes}"</p>
+                                      </div>
+                                  </div>
+                              </div>
+                          ))}
+                      </div>
+                  ) : (
+                      <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                          <p className="text-sm text-slate-500 italic">Er zijn geen specifieke notities gemaakt tijdens dit traject.</p>
+                      </div>
+                  )}
+              </div>
+          </div>
+      );
+  };
+
   // --- RENDER ---
 
   return (
@@ -576,13 +659,17 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                              </div>
                              <div className="divide-y divide-slate-100">
                                  {selectedEmployee.onboardingHistory.map(entry => (
-                                     <div key={entry.id} className="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                                     <div 
+                                        key={entry.id} 
+                                        onClick={() => setViewingHistoryEntry(entry)}
+                                        className="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer group"
+                                     >
                                          <div className="flex items-center gap-4">
-                                             <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500">
+                                             <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 group-hover:bg-teal-50 group-hover:text-teal-600 transition-colors">
                                                  <CheckCircle2 size={20}/>
                                              </div>
                                              <div>
-                                                 <h4 className="font-bold text-slate-900">{entry.templateTitle}</h4>
+                                                 <h4 className="font-bold text-slate-900 group-hover:text-teal-700 transition-colors">{entry.templateTitle}</h4>
                                                  <p className="text-xs text-slate-500">{entry.startDate} - {entry.endDate}</p>
                                              </div>
                                          </div>
@@ -591,7 +678,7 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                                  <div className="text-xs font-bold text-slate-400 uppercase">Score</div>
                                                  <div className="font-bold text-teal-600">{entry.finalScore}%</div>
                                              </div>
-                                             <button className="text-slate-400 hover:text-slate-700">
+                                             <button className="text-slate-400 group-hover:text-teal-600 transition-colors">
                                                  <Eye size={20} />
                                              </button>
                                          </div>
@@ -866,6 +953,15 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   </button>
               </div>
           )}
+      </Modal>
+
+      {/* History Report Modal */}
+      <Modal 
+        isOpen={!!viewingHistoryEntry} 
+        onClose={() => setViewingHistoryEntry(null)} 
+        title="Traject Rapportage"
+      >
+         {viewingHistoryEntry && renderHistoryReport(viewingHistoryEntry)}
       </Modal>
 
     </div>
