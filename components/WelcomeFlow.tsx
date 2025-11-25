@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { ChevronRight, Check, ArrowRight, ShieldCheck, Sparkles, Lock, Calendar, FileText, Users, Trophy, LayoutDashboard, BookOpen } from 'lucide-react';
+import { ChevronRight, Check, ArrowRight, ShieldCheck, Sparkles, Lock, Calendar, FileText, Users, Trophy, LayoutDashboard, BookOpen, Loader2 } from 'lucide-react';
 import { Employee } from '../types';
 
 interface WelcomeFlowProps {
   employee: Employee;
-  onComplete: (updatedEmployee: Employee) => void;
+  onComplete: (updatedEmployee: Employee) => Promise<void> | void;
 }
 
 const WELCOME_IMAGES = [
@@ -20,6 +20,7 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Rotate background images
   useEffect(() => {
@@ -42,6 +43,17 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
     }
     setError('');
     setStep(prev => prev + 1);
+  };
+
+  const handleFinish = async () => {
+      setIsProcessing(true);
+      try {
+          const updated = { ...employee, password: password || employee.password };
+          await onComplete(updated);
+      } catch (e) {
+          console.error("Error completing welcome flow", e);
+          setIsProcessing(false);
+      }
   };
 
   return (
@@ -240,13 +252,19 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
                         </div>
 
                         <button 
-                            onClick={() => {
-                                const updated = { ...employee, password: password || employee.password };
-                                onComplete(updated);
-                            }}
-                            className="w-full py-4 bg-teal-600 text-white rounded-xl font-bold shadow-lg hover:bg-teal-700 transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5"
+                            onClick={handleFinish}
+                            disabled={isProcessing}
+                            className="w-full py-4 bg-teal-600 text-white rounded-xl font-bold shadow-lg hover:bg-teal-700 transition-all flex items-center justify-center gap-2 hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed"
                         >
-                            Naar Dashboard <ArrowRight size={18} />
+                            {isProcessing ? (
+                                <>
+                                    <Loader2 size={18} className="animate-spin" /> Verwerken...
+                                </>
+                            ) : (
+                                <>
+                                    Naar Dashboard <ArrowRight size={18} />
+                                </>
+                            )}
                         </button>
                     </div>
                 )}

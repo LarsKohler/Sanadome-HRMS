@@ -294,10 +294,18 @@ const App: React.FC = () => {
       return (
           <WelcomeFlow 
             employee={currentUser} 
-            onComplete={(updated) => {
+            onComplete={async (updated) => {
+                // Explicitly wait for the database save to complete
                 const finalEmp = { ...updated, accountStatus: 'Active' as const };
-                handleUpdateEmployee(finalEmp);
+                
+                // Save via API and Wait
+                await api.saveEmployee(finalEmp);
+                
+                // Update Local State
+                setEmployees(prev => prev.map(emp => emp.id === finalEmp.id ? finalEmp : emp));
+                setCurrentUser(finalEmp);
                 setSetupUser(null);
+                
                 // Clear the URL to avoid re-triggering welcome flow on refresh
                 if (window.location.pathname.startsWith('/welcome/')) {
                     window.history.pushState({}, '', '/');
