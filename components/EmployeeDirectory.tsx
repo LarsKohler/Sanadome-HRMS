@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { Search, Filter, MoreHorizontal, Mail, Phone, UserPlus, Pencil, Trash2, Lock, Copy, ExternalLink, Check, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { Employee } from '../types';
 import { Modal } from './Modal';
+import { hasPermission } from '../utils/permissions';
 
 interface EmployeeDirectoryProps {
   employees: Employee[];
@@ -44,7 +45,8 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
     employmentType: 'Full-Time'
   });
 
-  const isManager = currentUser.role === 'Manager';
+  // Check Permission
+  const canManage = hasPermission(currentUser, 'MANAGE_EMPLOYEES');
 
   useEffect(() => {
     const handleClickOutside = () => setActiveActionId(null);
@@ -179,7 +181,6 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       const targetId = id || recentlyAddedEmployee?.id;
       if (!targetId) return;
 
-      // Use window.location.origin to get the current base URL (local or Vercel)
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://sanadome-hrms.vercel.app';
       const link = `${baseUrl}/welcome/${targetId.substring(0,8)}`;
       
@@ -207,7 +208,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
            <p className="text-slate-500 mt-1">Beheer het team van Sanadome.</p>
         </div>
         
-        {isManager && (
+        {canManage && (
           <button 
             onClick={() => {
                resetForm();
@@ -256,7 +257,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                 <th className="px-6 py-4 text-slate-700">Afdeling</th>
                 <th className="px-6 py-4 text-slate-700">Locatie</th>
                 <th className="px-6 py-4 text-slate-700">Contact</th>
-                {isManager && <th className="px-6 py-4 text-right text-slate-700">Acties</th>}
+                {canManage && <th className="px-6 py-4 text-right text-slate-700">Acties</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -319,7 +320,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                     </div>
                   </td>
                   
-                  {isManager && (
+                  {canManage && (
                     <td className="px-6 py-4 text-right relative">
                       <button 
                         onClick={(e) => {
@@ -389,12 +390,14 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
         </div>
       </div>
 
-      {isManager && (
+      {canManage && (
+        <>
         <Modal 
           isOpen={isAddModalOpen} 
           onClose={() => setIsAddModalOpen(false)} 
           title="Nieuwe medewerker"
         >
+          {/* Form content same as before */}
           <form onSubmit={handleAddSubmit} className="space-y-5">
             <div className="grid grid-cols-2 gap-5">
               <div>
@@ -540,10 +543,8 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
             </div>
           </form>
         </Modal>
-      )}
 
-      {isManager && (
-          <Modal 
+        <Modal 
              isOpen={isSuccessModalOpen}
              onClose={() => setIsSuccessModalOpen(false)}
              title="Medewerker toegevoegd"
@@ -593,15 +594,12 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                  </div>
              </div>
           </Modal>
-      )}
 
-      {isManager && (
         <Modal 
           isOpen={isEditModalOpen} 
           onClose={() => setIsEditModalOpen(false)} 
           title="Bewerk medewerker"
         >
-          {/* Form content identical to Add, assumed responsive */}
           <form onSubmit={handleEditSubmit} className="space-y-5">
              <div className="grid grid-cols-2 gap-5">
               <div>
@@ -669,9 +667,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
             </div>
           </form>
         </Modal>
-      )}
 
-      {isManager && (
         <Modal
           isOpen={isDeleteModalOpen}
           onClose={() => setIsDeleteModalOpen(false)}
@@ -707,6 +703,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
               </div>
            </div>
         </Modal>
+        </>
       )}
       
       {toastMessage && (

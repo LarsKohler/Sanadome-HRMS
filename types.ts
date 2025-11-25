@@ -12,7 +12,35 @@ export enum ViewState {
   EVALUATIONS = 'EVALUATIONS', 
   WELCOME = 'WELCOME',
   SYSTEM_STATUS = 'SYSTEM_STATUS',
+  SETTINGS = 'SETTINGS', // New View
 }
+
+// --- PERMISSIONS SYSTEM ---
+
+export type Permission = 
+  | 'VIEW_REPORTS'
+  | 'MANAGE_EMPLOYEES' // Add/Edit/Delete employees
+  | 'MANAGE_DOCUMENTS' // Upload/Delete documents for others
+  | 'VIEW_ALL_DOCUMENTS' // See documents of other users
+  | 'CREATE_NEWS'
+  | 'MANAGE_ONBOARDING' // Edit templates, change status
+  | 'MANAGE_SURVEYS' // Create/Delete surveys
+  | 'VIEW_SYSTEM_STATUS'
+  | 'MANAGE_SETTINGS' // Access to permission settings
+  | 'MANAGE_EVALUATIONS'; // Create cycles, finalize reports
+
+export const PERMISSION_LABELS: Record<Permission, string> = {
+  'VIEW_REPORTS': 'Rapportages Inzien',
+  'MANAGE_EMPLOYEES': 'Medewerkers Beheren',
+  'MANAGE_DOCUMENTS': 'Documenten Beheren (Upload/Delete)',
+  'VIEW_ALL_DOCUMENTS': 'Inzage Alle Dossiers',
+  'CREATE_NEWS': 'Nieuwsberichten Plaatsen',
+  'MANAGE_ONBOARDING': 'Onboarding Trajecten Beheren',
+  'MANAGE_SURVEYS': 'Surveys Maken & Beheren',
+  'VIEW_SYSTEM_STATUS': 'Systeemstatus Bekijken',
+  'MANAGE_SETTINGS': 'Rechten & Instellingen Beheren',
+  'MANAGE_EVALUATIONS': 'Evaluaties Beheren'
+};
 
 export interface Notification {
   id: string;
@@ -178,6 +206,9 @@ export interface Employee {
   
   // Account Status
   accountStatus?: 'Active' | 'Inactive' | 'Pending';
+
+  // Permissions (New)
+  customPermissions?: Permission[]; // Overrides role defaults
 
   // Onboarding Specifics
   mentor?: string; // Name of the buddy/mentor

@@ -3,23 +3,24 @@ import React from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
   UserPlus, Trophy, FileText, PieChart, 
-  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity
+  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield
 } from 'lucide-react';
-import { ViewState } from '../types';
+import { ViewState, Employee } from '../types';
+import { hasPermission } from '../utils/permissions';
 
 interface SidebarProps {
   currentView: ViewState;
   onChangeView: (view: ViewState) => void;
-  userRole?: string;
+  user?: Employee; // Changed from userRole to user object for permission check
   isOpen: boolean;
   onClose: () => void;
-  systemVersion?: string; // New Prop
+  systemVersion?: string;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userRole, isOpen, onClose, systemVersion = 'v1.0' }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOpen, onClose, systemVersion = 'v1.0' }) => {
   // Define all items
   const allItems = [
-    { icon: User, label: 'Mijn Profiel', id: ViewState.HOME }, // Home is now Profile
+    { icon: User, label: 'Mijn Profiel', id: ViewState.HOME },
     { icon: Newspaper, label: 'Nieuws', id: ViewState.NEWS }, 
     { icon: UserCheck, label: 'Onboarding', id: ViewState.ONBOARDING },
     { icon: ClipboardList, label: 'Surveys', id: ViewState.SURVEYS },
@@ -32,14 +33,16 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userRole, 
     { icon: Calendar, label: 'Aanwezigheid', id: 'attendance' },
     { icon: FileText, label: 'Documenten', id: ViewState.DOCUMENTS }, 
     { icon: FileBarChart, label: 'Cases', id: 'cases' },
-    { icon: PieChart, label: 'Rapportages', id: ViewState.REPORTS, restricted: true },
-    { icon: Activity, label: 'Systeemstatus', id: ViewState.SYSTEM_STATUS, restricted: true },
+    { icon: PieChart, label: 'Rapportages', id: ViewState.REPORTS, permission: 'VIEW_REPORTS' },
+    { icon: Activity, label: 'Systeemstatus', id: ViewState.SYSTEM_STATUS, permission: 'VIEW_SYSTEM_STATUS' },
+    { icon: Shield, label: 'Instellingen', id: ViewState.SETTINGS, permission: 'MANAGE_SETTINGS' },
   ];
 
   // Filter items based on permissions
   const menuItems = allItems.filter(item => {
-    if (item.restricted && userRole !== 'Manager') {
-      return false;
+    if (item.permission) {
+        // Explicit permission check
+        return hasPermission(user || null, item.permission as any);
     }
     return true;
   });
@@ -106,9 +109,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, userRole, 
           </ul>
           
           <div className="mt-8 pt-6 border-t border-slate-100 px-2 space-y-1">
+             {/* Regular Settings link if needed, or merge with Permission settings */}
              <button className="w-full flex items-center px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors">
                <Settings size={20} className="mr-3 text-slate-400" />
-               Instellingen
+               Voorkeuren
              </button>
              <button className="w-full flex items-center px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors">
                <ChevronLeft size={20} className="mr-3 text-slate-400" />

@@ -8,6 +8,7 @@ import {
 import { Employee, EmployeeNote, EmployeeDocument, Notification, ViewState } from '../types';
 import { Modal } from './Modal';
 import { api } from '../utils/api';
+import { hasPermission } from '../utils/permissions';
 
 interface DocumentsPageProps {
   employees: Employee[];
@@ -59,18 +60,21 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isManager = currentUser.role === 'Manager';
+  // Permissions
+  const canManageDocs = hasPermission(currentUser, 'MANAGE_DOCUMENTS');
+  const canViewAll = hasPermission(currentUser, 'VIEW_ALL_DOCUMENTS');
+
   const selectorRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
     if (!selectedEmployeeId) {
-       if (isManager) {
+       if (canViewAll) {
          if (employees.length > 0) onSelectEmployee(employees[0].id);
        } else {
          onSelectEmployee(currentUser.id);
        }
     }
-  }, [selectedEmployeeId, isManager, employees, currentUser.id, onSelectEmployee]);
+  }, [selectedEmployeeId, canViewAll, employees, currentUser.id, onSelectEmployee]);
 
   const selectedEmployee = employees.find(e => e.id === selectedEmployeeId) || currentUser;
 
@@ -98,9 +102,9 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
 
   const visibleNotes = useMemo(() => {
     if (!selectedEmployee?.notes) return [];
-    if (isManager) return selectedEmployee.notes;
+    if (canManageDocs) return selectedEmployee.notes;
     return selectedEmployee.notes.filter(n => n.visibleToEmployee);
-  }, [selectedEmployee, isManager]);
+  }, [selectedEmployee, canManageDocs]);
 
   const handleOpenAddNote = () => {
     setNoteTitle('');
@@ -309,7 +313,7 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
            <p className="text-slate-500 mt-1">Beheer personeelsdossiers, contracten en notities.</p>
         </div>
 
-        {isManager && (
+        {canViewAll && (
           <div className="relative z-20" ref={selectorRef}>
              <button 
                 onClick={() => setIsEmployeeSelectorOpen(!isEmployeeSelectorOpen)}
@@ -393,15 +397,17 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
 
               <div className="flex gap-3">
                  {activeTab === 'files' ? (
-                     <button 
-                        onClick={handleOpenUpload}
-                        className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 text-sm font-bold transition-all shadow-sm"
-                     >
-                        <Upload size={16} />
-                        Uploaden
-                     </button>
+                     canManageDocs && (
+                        <button 
+                            onClick={handleOpenUpload}
+                            className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 text-sm font-bold transition-all shadow-sm"
+                        >
+                            <Upload size={16} />
+                            Uploaden
+                        </button>
+                     )
                  ) : (
-                    isManager && (
+                    canManageDocs && (
                         <button 
                             onClick={handleOpenAddNote}
                             className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 text-sm font-bold transition-all shadow-sm"
@@ -448,7 +454,7 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
                                                 </div>
                                                 <h3 className="font-bold text-slate-900">{note.title}</h3>
                                             </div>
-                                            {isManager && (
+                                            {canManageDocs && (
                                                 <div className="relative">
                                                      <button 
                                                         onClick={(e) => {
@@ -483,7 +489,7 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
 
                                         <div className="mt-4 pt-3 border-t border-slate-50/50 flex justify-between items-center">
                                             <span className="text-xs font-bold text-slate-400 flex items-center gap-1"><User size={12}/> {note.author}</span>
-                                            {isManager && (
+                                            {canManageDocs && (
                                                 <div className="flex items-center gap-1.5" title={note.visibleToEmployee ? 'Zichtbaar voor medewerker' : 'Privé'}>
                                                     {note.visibleToEmployee ? <Eye size={12} className="text-green-500"/> : <EyeOff size={12} className="text-amber-500"/>}
                                                 </div>
@@ -500,7 +506,7 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
                              </div>
                              <h3 className="text-lg font-bold text-slate-900">Geen notities</h3>
                              <p className="text-slate-500 text-sm mt-1">Er zijn nog geen notities toegevoegd aan dit dossier.</p>
-                             {isManager && (
+                             {canManageDocs && (
                                 <button onClick={handleOpenAddNote} className="mt-4 text-teal-600 text-sm font-bold hover:underline">
                                     Voeg eerste notitie toe
                                 </button>
@@ -541,7 +547,9 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"><Download size={16}/></button>
-                                            <button onClick={() => handleOpenDeleteDoc(doc)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                                            {canManageDocs && (
+                                                <button onClick={() => handleOpenDeleteDoc(doc)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                                            )}
                                         </div>
                                     </td>
                                 </tr>
@@ -650,7 +658,7 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
             />
           </div>
           
-          {isManager && (
+          {canManageDocs && (
             <div className="flex items-center gap-3 p-4 bg-slate-50 rounded-xl border border-slate-200">
               <input 
                 type="checkbox"

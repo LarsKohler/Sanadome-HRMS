@@ -13,6 +13,7 @@ import EvaluationsPage from './components/EvaluationsPage';
 import SurveyTakingFlow from './components/SurveyTakingFlow';
 import WelcomeFlow from './components/WelcomeFlow';
 import SystemStatusPage from './components/SystemStatusPage';
+import SettingsPage from './components/SettingsPage'; // Import new page
 import Login from './components/Login';
 import { Toast } from './components/Toast';
 import { ViewState, Employee, Notification, NewsPost, Survey, SurveyResponse } from './types';
@@ -318,7 +319,7 @@ const App: React.FC = () => {
       <Sidebar 
         currentView={currentView} 
         onChangeView={setCurrentView} 
-        userRole={currentUser.role}
+        user={currentUser} // Changed from userRole to full user
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         systemVersion={LATEST_SYSTEM_UPDATE.version}
@@ -429,6 +430,15 @@ const App: React.FC = () => {
 
           {currentView === ViewState.SYSTEM_STATUS && (
             <SystemStatusPage currentUser={currentUser} />
+          )}
+
+          {currentView === ViewState.SETTINGS && (
+            <SettingsPage 
+               employees={employees}
+               currentUser={currentUser}
+               onUpdateEmployee={handleUpdateEmployee}
+               onShowToast={showToast}
+            />
           )}
 
         </main>

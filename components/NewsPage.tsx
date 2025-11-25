@@ -4,6 +4,7 @@ import { Heart, MessageSquare, Share2, Send, Image as ImageIcon, X, User, Bold, 
 import { Employee, NewsPost } from '../types';
 import { Modal } from './Modal';
 import { api } from '../utils/api';
+import { hasPermission } from '../utils/permissions';
 
 interface NewsPageProps {
   currentUser: Employee;
@@ -24,7 +25,8 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const canPost = currentUser.role === 'Manager' || currentUser.role === 'Senior Medewerker';
+  // Check Permission instead of role
+  const canPost = hasPermission(currentUser, 'CREATE_NEWS');
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

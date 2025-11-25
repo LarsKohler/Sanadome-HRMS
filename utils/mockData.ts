@@ -2,22 +2,18 @@
 import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog } from '../types';
 
 // --- AUTO UPDATE LOGGER ---
-// This object is updated by the AI with every code generation.
-// The App checks this ID on startup. If not in DB, it logs it.
 export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
-    id: 'update-v3.0.0-profile-redesign-light', 
-    version: 'v3.0.0',
+    id: 'update-v3.1.0-permissions-module', 
+    version: 'v3.1.0',
     date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
     timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
     author: 'AI Assistant',
     type: 'Feature',
     impact: 'High',
-    affectedArea: 'Profiel Pagina',
-    description: `- DESIGN: Profielpagina verlicht (Light Theme) voor betere leesbaarheid.
-- Feature: "Volgende Actie" vervangen door dynamisch "Openstaande Acties" blok.
-- Removal: Verlof functionaliteit volledig verwijderd uit profiel (tab en saldo).
-- UX: Onboarding tekst gepersonaliseerd ("Momenteel volg je nog geen...").
-- Improvement: Dashboard grid geoptimaliseerd.`,
+    affectedArea: 'Systeembeheer',
+    description: `- Feature: Geavanceerd Rechtenbeheer toegevoegd. Managers kunnen nu specifieke permissies per gebruiker instellen.
+- Security: Action buttons (Edit/Delete/Post) nu gekoppeld aan permissie checks in plaats van vaste rollen.
+- UI: Nieuwe instellingen pagina toegevoegd voor beheerders.`,
     status: 'Success'
 };
 
