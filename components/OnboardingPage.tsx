@@ -246,10 +246,16 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
               ...selectedEmployee,
               onboardingTasks: newTasks,
               onboardingStatus: 'Active',
-              activeTemplateId: template.id,
+              activeTemplateId: template.id, // This ID is crucial for tracking
               onboardingWeeks: [] // Reset weekly data for new track
           };
+          
+          // Immediately update parent state and persist to database
           onUpdateEmployee(updatedEmployee);
+          
+          // Also explicit save call to ensure consistency
+          api.saveEmployee(updatedEmployee);
+
           onShowToast(`Traject "${template.title}" gestart voor ${selectedEmployee.name}`);
       }
   };
@@ -272,11 +278,12 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
           onboardingHistory: [...(selectedEmployee.onboardingHistory || []), historyEntry],
           onboardingTasks: [], // Clear current
           onboardingWeeks: [],
-          onboardingStatus: 'Completed',
+          onboardingStatus: 'Completed', // Or reset to Pending if you want it fully cleared
           activeTemplateId: undefined
       };
 
       onUpdateEmployee(updatedEmployee);
+      api.saveEmployee(updatedEmployee);
       onShowToast(status === 'Completed' ? 'Traject succesvol afgerond en gearchiveerd.' : 'Traject stopgezet en gearchiveerd.');
   };
 
