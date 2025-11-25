@@ -59,6 +59,7 @@ export interface Debtor {
   address: string;
   amount: number; // "Balance of companions"
   status: DebtorStatus;
+  statusDate?: string; // New: When was the status last changed?
   lastUpdated: string;
   importedAt: string;
 }

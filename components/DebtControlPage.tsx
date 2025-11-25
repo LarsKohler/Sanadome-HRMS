@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit } from 'lucide-react';
 import { Debtor, DebtorStatus } from '../types';
 import { api } from '../utils/api';
+import { Modal } from './Modal';
 import * as XLSX from 'xlsx';
 
 interface DebtControlPageProps {
@@ -16,21 +17,62 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   
+  // Contact Edit State
+  const [editingDebtor, setEditingDebtor] = useState<Debtor | null>(null);
+  const [contactForm, setContactForm] = useState({ email: '', phone: '' });
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
+
+  // Helper to check 2 week rule
+  const isActionRequired = (debtor: Debtor) => {
+      if (debtor.status === 'Paid' || debtor.status === 'Blacklist' || debtor.status === 'New') return false;
+      if (!debtor.statusDate) return false; // Should generally allow new ones time
+
+      const statusDate = new Date(debtor.statusDate);
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - statusDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      return diffDays > 14;
+  };
+
+  const getDaysOverdue = (debtor: Debtor) => {
+      if (!debtor.statusDate) return 0;
+      const statusDate = new Date(debtor.statusDate);
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - statusDate.getTime());
+      return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  // Sorting Logic
+  const sortDebtors = (list: Debtor[]) => {
+      return list.sort((a, b) => {
+          // 1. Action Required (Top Priority)
+          const aAction = isActionRequired(a);
+          const bAction = isActionRequired(b);
+          if (aAction && !bAction) return -1;
+          if (!aAction && bAction) return 1;
+
+          // 2. Blacklist
+          if (a.status === 'Blacklist' && b.status !== 'Blacklist') return -1;
+          if (b.status === 'Blacklist' && a.status !== 'Blacklist') return 1;
+
+          // 3. New
+          if (a.status === 'New' && b.status !== 'New') return -1;
+          if (b.status === 'New' && a.status !== 'New') return 1;
+
+          // 4. Date Descending
+          return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
+      });
+  };
 
   useEffect(() => {
     loadDebtors();
     
     // Subscribe to realtime changes
     const unsubscribe = api.subscribeToDebtors((updatedDebtors) => {
-        setDebtors(updatedDebtors.sort((a, b) => {
-            if (a.status === 'Blacklist' && b.status !== 'Blacklist') return -1;
-            if (b.status === 'Blacklist' && a.status !== 'Blacklist') return 1;
-            if (a.status === 'New' && b.status !== 'New') return -1;
-            if (b.status === 'New' && a.status !== 'New') return 1;
-            return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
-        }));
+        setDebtors(sortDebtors(updatedDebtors));
     });
 
     // Close dropdown on outside click
@@ -50,14 +92,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
     setIsLoading(true);
     try {
       const data = await api.getDebtors();
-      // Sort: Blacklist first, then New, then Date
-      setDebtors(data.sort((a, b) => {
-          if (a.status === 'Blacklist' && b.status !== 'Blacklist') return -1;
-          if (b.status === 'Blacklist' && a.status !== 'Blacklist') return 1;
-          if (a.status === 'New' && b.status !== 'New') return -1;
-          if (b.status === 'New' && a.status !== 'New') return 1;
-          return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
-      }));
+      setDebtors(sortDebtors(data));
     } catch (e) {
       console.error("Failed to load debtors", e);
     } finally {
@@ -77,21 +112,16 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
             const bstr = evt.target?.result;
             const wb = XLSX.read(bstr, { type: 'binary' });
             
-            // SPECIFIC LOGIC: Target "Reservations" sheet, or fallback to first
             let ws = wb.Sheets['Reservations'];
             if (!ws) {
-                console.warn("Sheet 'Reservations' not found, defaulting to first sheet.");
                 ws = wb.Sheets[wb.SheetNames[0]];
             }
 
-            // Use header: 'A' to get column letters as keys (A, B, C...)
-            // defval: '' ensures empty cells are empty strings, not undefined
             const data = XLSX.utils.sheet_to_json(ws, { header: 'A', defval: '' }) as any[];
-
             processImportedData(data);
         } catch (error) {
             console.error("Parsing error", error);
-            onShowToast("Fout bij inlezen bestand. Controleer of het tabblad 'Reservations' bestaat.");
+            onShowToast("Fout bij inlezen bestand.");
             setIsUploading(false);
         }
     };
@@ -106,29 +136,20 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
           const currentDebtorsMap = new Map<string, Debtor>(debtors.map(d => [d.reservationNumber, d]));
           const updatedDebtorsList = [...debtors];
 
-          // Skip header row (usually index 0)
           for (let i = 1; i < data.length; i++) {
               const row = data[i];
-              
-              // Column AO is the Balance. 
               const balanceStr = row['AO'];
               
-              // Ensure we have a number
               let balance = 0;
-              if (typeof balanceStr === 'number') {
-                  balance = balanceStr;
-              } else if (typeof balanceStr === 'string') {
-                  balance = parseFloat(balanceStr.replace(',', '.'));
-              }
+              if (typeof balanceStr === 'number') balance = balanceStr;
+              else if (typeof balanceStr === 'string') balance = parseFloat(balanceStr.replace(',', '.'));
 
-              // FILTER: Only processing items with Positive Balance (> 0)
               if (balance > 0) {
                   const reservationNumber = String(row['A'] || '').trim();
                   if (!reservationNumber) continue; 
 
                   const groupName = String(row['B'] || '');
                   const lastName = groupName.split('-')[0].trim() || 'Onbekend';
-
                   const firstName = String(row['D'] || '').trim();
                   const email = String(row['E'] || '').trim();
                   const phone = String(row['F'] || '').trim();
@@ -145,7 +166,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                               email: email || existing.email,
                               phone: phone || existing.phone,
                               address: address || existing.address,
-                              lastUpdated: new Date().toLocaleDateString('nl-NL'),
+                              lastUpdated: new Date().toLocaleDateString('en-US'), // Use standard format for sorting
                           };
                           updateCount++;
                       }
@@ -160,7 +181,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                           address,
                           amount: balance,
                           status: 'New',
-                          lastUpdated: new Date().toLocaleDateString('nl-NL'),
+                          statusDate: new Date().toISOString(), // Initialize status date
+                          lastUpdated: new Date().toISOString(),
                           importedAt: new Date().toLocaleDateString('nl-NL')
                       };
                       updatedDebtorsList.push(newDebtor);
@@ -170,13 +192,9 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
               }
           }
 
-          if (newCount === 0 && updateCount === 0) {
-              onShowToast("Geen openstaande posten (> 0) gevonden in kolom AO.");
-          } else {
-              await api.saveDebtors(updatedDebtorsList);
-              setDebtors(updatedDebtorsList);
-              onShowToast(`Import voltooid: ${newCount} nieuwe, ${updateCount} geüpdatet.`);
-          }
+          await api.saveDebtors(updatedDebtorsList);
+          setDebtors(sortDebtors(updatedDebtorsList));
+          onShowToast(`Import voltooid: ${newCount} nieuwe, ${updateCount} geüpdatet.`);
 
       } catch (e) {
           console.error("Processing error", e);
@@ -188,11 +206,64 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
   };
 
   const handleStatusChange = async (id: string, newStatus: DebtorStatus) => {
-      const updatedList = debtors.map(d => d.id === id ? { ...d, status: newStatus } : d);
-      setDebtors(updatedList);
+      const updatedList = debtors.map(d => 
+          d.id === id ? { 
+              ...d, 
+              status: newStatus, 
+              statusDate: new Date().toISOString() // Update timestamp on change
+          } : d
+      );
+      setDebtors(sortDebtors(updatedList)); // Re-sort immediately
       await api.saveDebtors(updatedList);
       setOpenDropdownId(null);
       onShowToast("Status bijgewerkt");
+  };
+
+  const handleDeleteDebtor = async (id: string) => {
+      if(confirm("Weet je zeker dat je dit dossier wilt verwijderen?")) {
+          const updatedList = debtors.filter(d => d.id !== id);
+          setDebtors(updatedList);
+          await api.saveDebtors(updatedList);
+          onShowToast("Dossier verwijderd");
+      }
+  };
+
+  // --- Contact Editing ---
+  const openEditContact = (debtor: Debtor) => {
+      setEditingDebtor(debtor);
+      setContactForm({ 
+          email: debtor.email === 'N.v.t.' ? '' : (debtor.email || ''), 
+          phone: debtor.phone === 'N.v.t.' ? '' : (debtor.phone || '') 
+      });
+  };
+
+  const saveContact = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!editingDebtor) return;
+
+      const updatedList = debtors.map(d => d.id === editingDebtor.id ? {
+          ...d,
+          email: contactForm.email,
+          phone: contactForm.phone
+      } : d);
+
+      setDebtors(updatedList);
+      await api.saveDebtors(updatedList);
+      setEditingDebtor(null);
+      onShowToast("Contactgegevens bijgewerkt");
+  };
+
+  const markContactUnavailable = async () => {
+      if (!editingDebtor) return;
+      const updatedList = debtors.map(d => d.id === editingDebtor.id ? {
+          ...d,
+          email: d.email || 'N.v.t.',
+          phone: d.phone || 'N.v.t.'
+      } : d);
+      setDebtors(updatedList);
+      await api.saveDebtors(updatedList);
+      setEditingDebtor(null);
+      onShowToast("Gemarkeerd als niet beschikbaar");
   };
 
   const toggleDropdown = (id: string, e: React.MouseEvent) => {
@@ -207,10 +278,9 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
   );
 
   const totalDebt = debtors.filter(d => d.status !== 'Paid').reduce((acc, curr) => acc + curr.amount, 0);
-  const blacklistedCount = debtors.filter(d => d.status === 'Blacklist').length;
+  const actionRequiredCount = debtors.filter(d => isActionRequired(d)).length;
 
   const getStatusBadge = (status: DebtorStatus) => {
-      // Use fixed border (border-1) for all to prevent layout shifts
       const base = "border";
       switch(status) {
           case 'New': return `${base} bg-blue-50 text-blue-700 border-blue-200`;
@@ -223,11 +293,13 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
       }
   };
 
-  // Helper for missing data badge
-  const MissingBadge = () => (
-      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 whitespace-nowrap">
+  const MissingBadge = ({ onClick }: { onClick: () => void }) => (
+      <button 
+        onClick={(e) => { e.stopPropagation(); onClick(); }}
+        className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 whitespace-nowrap hover:bg-amber-100 transition-colors"
+      >
           <AlertTriangle size={10} /> Invullen
-      </span>
+      </button>
   );
 
   return (
@@ -240,7 +312,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
              <Euro className="text-teal-600" size={32} />
              Debiteuren Beheer
            </h1>
-           <p className="text-slate-500 mt-1">Beheer openstaande rekeningen en opvolging.</p>
+           <p className="text-slate-500 mt-1">Workflow: Herinnering 1 &rarr; 2 &rarr; Aanmaning &rarr; Blacklist (2 weken interval).</p>
         </div>
         
         <div className="flex gap-3">
@@ -273,10 +345,11 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
           </div>
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
               <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-slate-900 text-white rounded-lg"><AlertCircle size={20}/></div>
-                  <h3 className="font-bold text-slate-500 text-xs uppercase tracking-wider">Blacklist</h3>
+                  <div className="p-2 bg-amber-50 text-amber-600 rounded-lg"><Clock size={20}/></div>
+                  <h3 className="font-bold text-slate-500 text-xs uppercase tracking-wider">Actie Vereist</h3>
               </div>
-              <div className="text-3xl font-bold text-slate-900">{blacklistedCount}</div>
+              <div className="text-3xl font-bold text-amber-600">{actionRequiredCount}</div>
+              <p className="text-xs text-slate-500 mt-1">Dossiers > 14 dagen in huidige status</p>
           </div>
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
               <div className="flex items-center gap-3 mb-2">
@@ -299,14 +372,10 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
           </div>
-          <button className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-300 rounded-lg text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors">
-            <Filter size={16} /> Filteren
-          </button>
       </div>
 
       {/* Table */}
-      {/* Removed overflow-hidden from container to allow dropdowns to escape if needed, using min-h instead */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm pb-12" ref={tableContainerRef}>
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm pb-12 min-h-[500px]" ref={tableContainerRef}>
           <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                   <thead className="bg-slate-50 border-b border-slate-200">
@@ -322,42 +391,68 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                       {filteredDebtors.map((debtor, index) => {
-                          // Determine if we should open upwards (if in the last 3 items of a list larger than 4)
                           const openUpwards = filteredDebtors.length > 4 && index > filteredDebtors.length - 3;
+                          const needsAction = isActionRequired(debtor);
+                          const daysOverdue = getDaysOverdue(debtor);
 
                           return (
                           <tr 
                             key={debtor.id} 
-                            className={`transition-colors group 
-                                ${debtor.status === 'Paid' ? 'bg-green-50/30 hover:bg-green-50/60' : 
-                                  debtor.status === 'Blacklist' ? 'bg-red-50/30 hover:bg-red-50/60' : 
-                                  'hover:bg-slate-50'}`
-                            }
+                            className={`transition-colors group relative ${needsAction ? 'bg-red-50/30' : 'hover:bg-slate-50'}`}
                           >
                               <td className="px-6 py-4 text-sm font-mono text-slate-600 align-top">
+                                  {needsAction && (
+                                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
+                                  )}
                                   {debtor.reservationNumber}
                               </td>
                               <td className="px-6 py-4 align-top">
-                                  <div className="font-bold text-slate-900">{debtor.lastName}, {debtor.firstName}</div>
+                                  <div className="font-bold text-slate-900 flex items-center gap-2">
+                                      {debtor.lastName}, {debtor.firstName}
+                                      {needsAction && (
+                                          <span title="Actie Vereist!">
+                                              <Clock size={14} className="text-red-500 animate-pulse"/>
+                                          </span>
+                                      )}
+                                  </div>
                                   <div className="text-xs text-slate-400">Import: {debtor.importedAt}</div>
                               </td>
                               <td className="px-6 py-4 text-sm align-top">
                                   <div className="flex flex-col gap-1.5">
-                                      {debtor.email ? (
-                                          <div className="flex items-center gap-1.5 text-slate-600" title={debtor.email}>
-                                              <Mail size={12}/> <span className="text-xs truncate max-w-[150px]">{debtor.email}</span>
-                                          </div>
-                                      ) : <MissingBadge />}
+                                      <div className="flex items-center gap-1.5 text-slate-600">
+                                          <Mail size={12} className="text-slate-400"/> 
+                                          {debtor.email && debtor.email !== 'N.v.t.' ? (
+                                              <span className="text-xs truncate max-w-[150px]" title={debtor.email}>{debtor.email}</span>
+                                          ) : debtor.email === 'N.v.t.' ? (
+                                              <span className="text-xs text-slate-400 italic">N.v.t.</span>
+                                          ) : (
+                                              <MissingBadge onClick={() => openEditContact(debtor)} />
+                                          )}
+                                      </div>
                                       
-                                      {debtor.phone ? (
-                                          <div className="flex items-center gap-1.5 text-slate-600" title={debtor.phone}>
-                                              <Phone size={12}/> <span className="text-xs">{debtor.phone}</span>
-                                          </div>
-                                      ) : <MissingBadge />}
+                                      <div className="flex items-center gap-1.5 text-slate-600">
+                                          <Phone size={12} className="text-slate-400"/> 
+                                          {debtor.phone && debtor.phone !== 'N.v.t.' ? (
+                                              <span className="text-xs">{debtor.phone}</span>
+                                          ) : debtor.phone === 'N.v.t.' ? (
+                                              <span className="text-xs text-slate-400 italic">N.v.t.</span>
+                                          ) : (
+                                              <MissingBadge onClick={() => openEditContact(debtor)} />
+                                          )}
+                                      </div>
+                                      
+                                      {(debtor.email || debtor.phone) && (
+                                          <button 
+                                            onClick={() => openEditContact(debtor)} 
+                                            className="text-[10px] text-teal-600 hover:underline font-bold text-left"
+                                          >
+                                              Bewerken
+                                          </button>
+                                      )}
                                   </div>
                               </td>
                               <td className="px-6 py-4 text-sm text-slate-600 max-w-[200px] align-top">
-                                  {debtor.address ? <span className="line-clamp-2" title={debtor.address}>{debtor.address}</span> : <MissingBadge />}
+                                  {debtor.address ? <span className="line-clamp-2" title={debtor.address}>{debtor.address}</span> : <span className="text-xs text-slate-400 italic">Onbekend</span>}
                               </td>
                               <td className="px-6 py-4 align-top">
                                   <span className="font-bold text-slate-900">€ {debtor.amount.toLocaleString('nl-NL', {minimumFractionDigits: 2})}</span>
@@ -375,7 +470,12 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                                           {openDropdownId === debtor.id ? <ChevronUp size={12} /> : <ChevronDown size={12}/>}
                                       </button>
                                       
-                                      {/* Status Dropdown with Click Behavior and Smart Positioning */}
+                                      {debtor.status !== 'Paid' && debtor.status !== 'New' && debtor.statusDate && (
+                                          <div className={`text-[10px] font-bold mt-1 ${needsAction ? 'text-red-600' : 'text-slate-400'}`}>
+                                              {daysOverdue} dagen geleden {needsAction && '(Actie!)'}
+                                          </div>
+                                      )}
+                                      
                                       {openDropdownId === debtor.id && (
                                           <div 
                                             className={`absolute left-0 w-48 bg-white rounded-xl shadow-2xl border border-slate-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100
@@ -401,9 +501,15 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                                   </div>
                               </td>
                               <td className="px-6 py-4 text-right align-top">
-                                  <button className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
-                                      <MoreHorizontal size={18} />
-                                  </button>
+                                  <div className="flex justify-end gap-2">
+                                      <button 
+                                        onClick={() => handleDeleteDebtor(debtor.id)}
+                                        className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                        title="Verwijderen"
+                                      >
+                                          <Trash2 size={16} />
+                                      </button>
+                                  </div>
                               </td>
                           </tr>
                       )})}
@@ -418,6 +524,53 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
               </table>
           </div>
       </div>
+
+      <Modal
+        isOpen={!!editingDebtor}
+        onClose={() => setEditingDebtor(null)}
+        title="Contactgegevens Bewerken"
+      >
+          <form onSubmit={saveContact} className="space-y-5">
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">E-mailadres</label>
+                  <input 
+                    type="email" 
+                    value={contactForm.email} 
+                    onChange={(e) => setContactForm({...contactForm, email: e.target.value})}
+                    className="w-full p-3 border border-slate-200 rounded-xl text-sm"
+                    placeholder="naam@email.com"
+                  />
+              </div>
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Telefoonnummer</label>
+                  <input 
+                    type="text" 
+                    value={contactForm.phone} 
+                    onChange={(e) => setContactForm({...contactForm, phone: e.target.value})}
+                    className="w-full p-3 border border-slate-200 rounded-xl text-sm"
+                    placeholder="+31 6..."
+                  />
+              </div>
+              
+              <div className="flex flex-col gap-3">
+                  <button type="submit" className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors">
+                      Opslaan
+                  </button>
+                  <div className="relative flex items-center py-1">
+                      <div className="flex-grow border-t border-slate-200"></div>
+                      <span className="flex-shrink-0 mx-4 text-xs text-slate-400">OF</span>
+                      <div className="flex-grow border-t border-slate-200"></div>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={markContactUnavailable}
+                    className="w-full py-3 bg-white border border-slate-200 text-slate-500 font-bold rounded-xl hover:bg-slate-50 transition-colors"
+                  >
+                      Markeren als niet beschikbaar
+                  </button>
+              </div>
+          </form>
+      </Modal>
     </div>
   );
 };
