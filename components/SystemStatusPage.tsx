@@ -43,6 +43,7 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
       version: 'v',
       type: 'Feature' as 'Feature' | 'Bugfix' | 'Maintenance' | 'Security',
       impact: 'Low' as 'High' | 'Medium' | 'Low',
+      affectedArea: '',
       description: ''
   });
 
@@ -120,6 +121,7 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
           version: newLog.version,
           type: newLog.type,
           impact: newLog.impact,
+          affectedArea: newLog.affectedArea || 'Algemeen',
           description: newLog.description,
           author: currentUser ? currentUser.name : 'System Admin',
           date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -130,7 +132,7 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
       await api.saveSystemLog(logEntry);
       setIsLogModalOpen(false);
       fetchStats(); // Refresh list
-      setNewLog({ version: 'v', type: 'Feature', impact: 'Low', description: '' });
+      setNewLog({ version: 'v', type: 'Feature', impact: 'Low', affectedArea: '', description: '' });
   };
 
   const toggleExpandLog = (id: string) => {
@@ -260,6 +262,7 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
                           <tr>
                               <th className="px-6 py-4">Versie & Datum</th>
                               <th className="px-6 py-4">Type</th>
+                              <th className="px-6 py-4">Onderdeel</th>
                               <th className="px-6 py-4">Impact</th>
                               <th className="px-6 py-4 w-1/3">Beschrijving</th>
                               <th className="px-6 py-4 text-right">Auteur</th>
@@ -285,6 +288,9 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
                                         }`}>
                                             {log.type}
                                         </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-slate-600 font-medium">
+                                        {log.affectedArea || 'Algemeen'}
                                     </td>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-2">
@@ -324,7 +330,7 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
                           })}
                           {updateLogs.length === 0 && (
                               <tr>
-                                  <td colSpan={5} className="px-6 py-10 text-center text-slate-400 italic">
+                                  <td colSpan={6} className="px-6 py-10 text-center text-slate-400 italic">
                                       Nog geen updates geregistreerd.
                                   </td>
                               </tr>
@@ -413,6 +419,17 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
                           <option value="Security">Security</option>
                       </select>
                   </div>
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Betrokken Onderdeel</label>
+                  <input 
+                    type="text" 
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium"
+                    value={newLog.affectedArea}
+                    onChange={(e) => setNewLog({...newLog, affectedArea: e.target.value})}
+                    placeholder="bv. Profiel Pagina, Onboarding, Database..."
+                  />
               </div>
 
               <div>

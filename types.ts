@@ -261,6 +261,7 @@ export interface SystemUpdateLog {
   author: string;
   type: 'Feature' | 'Bugfix' | 'Maintenance' | 'Security';
   impact: 'High' | 'Medium' | 'Low';
+  affectedArea: string; // New field: Which part of the website is affected
   description: string;
   status: 'Success' | 'Pending' | 'Failed';
 }

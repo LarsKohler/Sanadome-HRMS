@@ -5,18 +5,18 @@ import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog
 // This object is updated by the AI with every code generation.
 // The App checks this ID on startup. If not in DB, it logs it.
 export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
-    id: 'update-v2.6.0-pagination-footer', 
-    version: 'v2.6.0',
+    id: 'update-v2.7.0-affected-area-log', 
+    version: 'v2.7.0',
     date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
     timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
     author: 'Lars Kohler',
     type: 'Feature',
-    impact: 'Medium',
-    description: `- Implementatie van paginering op de Systeemstatus pagina (maximaal 5 updates per pagina).
-- Toevoeging van 'Lees meer' functionaliteit voor lange update beschrijvingen om de leesbaarheid te vergroten.
-- Nieuwe footer toegevoegd aan de linker menubalk met copyright en dynamische systeemversie.
-- Automatische auteur voor systeemupdates gewijzigd naar Lars Kohler.
-- Visuele verbeteringen aan de logboek tabel.`,
+    impact: 'Low',
+    affectedArea: 'Systeemstatus & Database',
+    description: `- Toegevoegd: 'Betrokken Onderdeel' (Affected Area) veld aan systeem updates.
+- Update van logboek tabel om te tonen welk onderdeel van de website is gewijzigd.
+- Database schema uitgebreid via JSONB voor flexibele opslag van metadata.
+- Formulier voor handmatige updates bijgewerkt met selectie voor onderdeel.`,
     status: 'Success'
 };
 
@@ -89,35 +89,38 @@ export const EVALUATION_TEMPLATES = {
 export const MOCK_SYSTEM_LOGS: SystemUpdateLog[] = [
     {
         id: 'log-1',
-        version: 'v2.4.0',
+        version: 'v2.6.0',
         date: '24 Okt 2023',
         timestamp: '14:30',
-        author: 'GitHub Actions',
+        author: 'Lars Kohler',
         type: 'Feature',
         impact: 'Medium',
-        description: 'Nieuwe Onboarding Module live gezet. Templates nu beschikbaar voor beheer.',
+        affectedArea: 'Systeemstatus',
+        description: 'Implementatie van paginering en footer updates.',
         status: 'Success'
     },
     {
         id: 'log-2',
-        version: 'v2.3.5',
-        date: '22 Okt 2023',
-        timestamp: '09:15',
-        author: 'Dennis de Manager',
-        type: 'Bugfix',
-        impact: 'Low',
-        description: 'Correctie profielweergave op mobiele apparaten. CSS Grid fix.',
+        version: 'v2.5.0',
+        date: '24 Okt 2023',
+        timestamp: '12:15',
+        author: 'AI Assistant',
+        type: 'Feature',
+        impact: 'Medium',
+        affectedArea: 'Core System',
+        description: 'Automatisch log-systeem geïmplementeerd.',
         status: 'Success'
     },
     {
         id: 'log-3',
-        version: 'v2.3.0',
-        date: '20 Okt 2023',
-        timestamp: '11:00',
-        author: 'System Admin',
-        type: 'Security',
-        impact: 'High',
-        description: 'Supabase Row Level Security policies geüpdatet voor documenten.',
+        version: 'v2.4.0',
+        date: '24 Okt 2023',
+        timestamp: '10:00',
+        author: 'Lars Kohler',
+        type: 'Feature',
+        impact: 'Medium',
+        affectedArea: 'Onboarding',
+        description: 'Nieuwe Onboarding Module live gezet. Templates nu beschikbaar voor beheer.',
         status: 'Success'
     }
 ];
