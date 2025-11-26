@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar, Sparkles } from 'lucide-react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar, Sparkles, Edit2 } from 'lucide-react';
 import { Debtor, DebtorStatus, Employee } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
@@ -16,6 +16,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [activeTab, setActiveTab] = useState<'ALL' | 'ACTION' | 'NEW' | 'ONGOING' | 'URGENT' | 'DONE'>('ALL');
   
   // Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -31,6 +32,10 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   // WIK Letter State
   const [wikTarget, setWikTarget] = useState<Debtor | null>(null);
   const [wikDateInput, setWikDateInput] = useState('');
+
+  // Date Edit State
+  const [dateEditTarget, setDateEditTarget] = useState<Debtor | null>(null);
+  const [newDateValue, setNewDateValue] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -280,20 +285,38 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       }
   };
 
-  // --- SELECTION LOGIC ---
-  const filteredDebtors = debtors.filter(d => {
-      const term = searchTerm.toLowerCase();
-      return (
-          d.lastName.toLowerCase().includes(term) ||
-          d.firstName.toLowerCase().includes(term) ||
-          d.reservationNumber.toLowerCase().includes(term) ||
-          (d.email && d.email.toLowerCase().includes(term)) ||
-          (d.phone && d.phone.toLowerCase().includes(term)) ||
-          d.address.toLowerCase().includes(term) ||
-          d.status.toLowerCase().includes(term) ||
-          d.amount.toString().includes(term)
-      );
-  });
+  // --- SELECTION & FILTERING LOGIC ---
+  const filteredDebtors = useMemo(() => {
+      let list = debtors.filter(d => {
+          const term = searchTerm.toLowerCase();
+          return (
+              d.lastName.toLowerCase().includes(term) ||
+              d.firstName.toLowerCase().includes(term) ||
+              d.reservationNumber.toLowerCase().includes(term) ||
+              (d.email && d.email.toLowerCase().includes(term)) ||
+              (d.phone && d.phone.toLowerCase().includes(term)) ||
+              d.address.toLowerCase().includes(term) ||
+              d.status.toLowerCase().includes(term) ||
+              d.amount.toString().includes(term)
+          );
+      });
+
+      // Tab Filtering
+      switch (activeTab) {
+          case 'ACTION':
+              return list.filter(d => isActionRequired(d));
+          case 'NEW':
+              return list.filter(d => d.status === 'New');
+          case 'ONGOING':
+              return list.filter(d => d.status === '1st Reminder' || d.status === '2nd Reminder');
+          case 'URGENT':
+              return list.filter(d => d.status === 'Final Notice' || d.status === 'Blacklist');
+          case 'DONE':
+              return list.filter(d => d.status === 'Paid');
+          default:
+              return list;
+      }
+  }, [debtors, searchTerm, activeTab]);
 
   const toggleSelectAll = () => {
       if (selectedIds.size === filteredDebtors.length) {
@@ -366,6 +389,11 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const applyStatusChange = async (newStatus: DebtorStatus) => {
       if (statusTargetIds.length === 0) return;
 
+      // Added Confirmation
+      if (!window.confirm(`Weet je zeker dat je de status wilt wijzigen naar '${newStatus}'?`)) {
+          return;
+      }
+
       const updatedList = debtors.map(d => {
           if (statusTargetIds.includes(d.id)) {
               return { ...d, status: newStatus, statusDate: new Date().toISOString() };
@@ -380,6 +408,31 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       setStatusTargetIds([]);
       setSelectedIds(new Set()); // Clear selection after action
       onShowToast("Status succesvol aangepast");
+  };
+
+  // --- DATE EDITING LOGIC ---
+  const openDateEdit = (debtor: Debtor) => {
+      setDateEditTarget(debtor);
+      // Set current date or default to now
+      const current = debtor.statusDate ? new Date(debtor.statusDate) : new Date();
+      setNewDateValue(current.toISOString().split('T')[0]);
+  };
+
+  const handleDateSave = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!dateEditTarget || !newDateValue) return;
+
+      const updatedList = debtors.map(d => {
+          if (d.id === dateEditTarget.id) {
+              return { ...d, statusDate: new Date(newDateValue).toISOString() };
+          }
+          return d;
+      });
+
+      setDebtors(sortDebtors(updatedList));
+      await api.saveDebtors(updatedList);
+      setDateEditTarget(null);
+      onShowToast("Datum succesvol aangepast");
   };
 
   // --- Contact Editing ---
@@ -438,9 +491,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       let cityLine = '';
       
       // Regex to find Dutch Zipcode (e.g. 1234 AB) or just 4 digits at start of a part
-      // Looks for pattern: [Anything] [Space] [4 Digits] [Space?] [Letters] [Space] [City]
       const addressMatch = streetLine.match(/^(.*?)\s+(\d{4}\s?[a-zA-Z]{2}\s+.*)$/) || 
-                           streetLine.match(/^(.*?)\s+(\d{4}\s+.*)$/); // Fallback for just 4 digits
+                           streetLine.match(/^(.*?)\s+(\d{4}\s+.*)$/); 
 
       if (addressMatch) {
           streetLine = addressMatch[1];
@@ -578,7 +630,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
              <Euro className="text-teal-600" size={32} />
              Debiteuren Beheer
            </h1>
-           <p className="text-slate-500 mt-1">Workflow: Herinnering 1 &rarr; 2 &rarr; Aanmaning &rarr; Blacklist (2 weken interval).</p>
+           <p className="text-slate-500 mt-1">Beheer openstaande posten, aanmaningen en incasso's.</p>
         </div>
         
         <div className="flex gap-3">
@@ -600,7 +652,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
               <div className="flex items-center gap-3 mb-2">
@@ -615,7 +667,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                   <h3 className="font-bold text-slate-500 text-xs uppercase tracking-wider">Actie Vereist</h3>
               </div>
               <div className="text-3xl font-bold text-amber-600">{actionRequiredCount}</div>
-              <p className="text-xs text-slate-500 mt-1">Dossiers &gt; 14 dagen in huidige status</p>
+              <p className="text-xs text-slate-500 mt-1">Dossiers &gt; 14 dagen zonder statuswijziging</p>
           </div>
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
               <div className="flex items-center gap-3 mb-2">
@@ -626,13 +678,38 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           </div>
       </div>
 
+      {/* Tab Navigation */}
+      <div className="mb-6 border-b border-slate-200 flex gap-6 overflow-x-auto no-scrollbar">
+          {[
+              { id: 'ALL', label: 'Overzicht', icon: null },
+              { id: 'ACTION', label: 'Actie Vereist', icon: AlertTriangle, color: 'text-red-600' },
+              { id: 'NEW', label: 'Nieuw', icon: Sparkles, color: 'text-blue-600' },
+              { id: 'ONGOING', label: 'Lopend', icon: Clock },
+              { id: 'URGENT', label: 'Urgent', icon: AlertCircle, color: 'text-orange-600' },
+              { id: 'DONE', label: 'Afgerond', icon: CheckCircle2, color: 'text-green-600' },
+          ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={`pb-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
+                    activeTab === tab.id 
+                    ? 'border-slate-900 text-slate-900' 
+                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                }`}
+              >
+                  {tab.icon && <tab.icon size={16} className={tab.color || 'text-slate-400'} />}
+                  {tab.label}
+              </button>
+          ))}
+      </div>
+
       {/* Toolbar */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row justify-between gap-4">
           <div className="relative w-full md:w-96">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input 
                 type="text" 
-                placeholder="Zoek op naam, nummer, adres, bedrag, contact..." 
+                placeholder="Zoek op naam, nummer, adres, bedrag..." 
                 className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -656,7 +733,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact</th>
                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Adres</th>
                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Bedrag</th>
-                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status & Tijd</th>
                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Acties</th>
                       </tr>
                   </thead>
@@ -745,7 +822,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                                   <span className="font-bold text-slate-900">€ {debtor.amount.toLocaleString('nl-NL', {minimumFractionDigits: 2})}</span>
                               </td>
                               <td className="px-6 py-4 align-top" onClick={(e) => e.stopPropagation()}>
-                                  {/* Clickable Status Badge instead of Dropdown */}
+                                  {/* Clickable Status Badge */}
                                   <button 
                                     onClick={() => openSingleStatusModal(debtor.id)}
                                     className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide w-full md:w-auto justify-between shadow-sm ${getStatusBadge(debtor.status)}`}
@@ -758,8 +835,18 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                                   </button>
                                   
                                   {debtor.status !== 'Paid' && debtor.status !== 'New' && debtor.statusDate && (
-                                      <div className={`text-[10px] font-bold mt-1 ml-1 ${needsAction ? 'text-red-600' : 'text-slate-400'}`}>
-                                          {daysOverdue} dagen geleden {needsAction && '(Actie!)'}
+                                      <div className="flex items-center gap-2 mt-1.5">
+                                          <div className={`text-[10px] font-bold ${needsAction ? 'text-red-600' : 'text-slate-400'}`}>
+                                              {daysOverdue} dagen geleden
+                                          </div>
+                                          {/* Edit Date Button */}
+                                          <button 
+                                            onClick={() => openDateEdit(debtor)}
+                                            className="p-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
+                                            title="Pas datum handmatig aan"
+                                          >
+                                              <Edit2 size={10} />
+                                          </button>
                                       </div>
                                   )}
                               </td>
@@ -786,7 +873,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                       {filteredDebtors.length === 0 && (
                           <tr>
                               <td colSpan={8} className="px-6 py-12 text-center text-slate-400 italic">
-                                  Geen dossiers gevonden.
+                                  Geen dossiers gevonden in deze categorie.
                               </td>
                           </tr>
                       )}
@@ -924,6 +1011,38 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                       Markeren als niet beschikbaar
                   </button>
               </div>
+          </form>
+      </Modal>
+
+      {/* Date Edit Modal */}
+      <Modal
+        isOpen={!!dateEditTarget}
+        onClose={() => setDateEditTarget(null)}
+        title="Datum Wijzigen"
+      >
+          <form onSubmit={handleDateSave} className="space-y-5">
+              <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 text-amber-800 text-sm">
+                  <p className="font-bold mb-1">Let op:</p>
+                  <p>Door de datum handmatig aan te passen naar meer dan 14 dagen geleden, wordt automatisch de 'Actie Vereist' markering geactiveerd.</p>
+              </div>
+              
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Status Datum</label>
+                  <input 
+                    type="date" 
+                    className="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-900"
+                    value={newDateValue}
+                    onChange={(e) => setNewDateValue(e.target.value)}
+                    required
+                  />
+              </div>
+
+              <button 
+                type="submit" 
+                className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors"
+              >
+                  Datum Opslaan
+              </button>
           </form>
       </Modal>
 
