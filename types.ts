@@ -14,6 +14,7 @@ export enum ViewState {
   SYSTEM_STATUS = 'SYSTEM_STATUS',
   SETTINGS = 'SETTINGS', // New View
   DEBT_CONTROL = 'DEBT_CONTROL', // New: Debiteuren Beheer
+  TICKETS = 'TICKETS', // New: Ticket System
 }
 
 // --- PERMISSIONS SYSTEM ---
@@ -33,7 +34,8 @@ export type Permission =
   | 'MANAGE_RECRUITMENT' // New: Access Recruitment module
   | 'VIEW_CALENDAR' // Access Calendar
   | 'MANAGE_ATTENDANCE' // Access Attendance/Rooster
-  | 'MANAGE_CASES'; // Access Arbo/Verzuim cases
+  | 'MANAGE_CASES' // Access Arbo/Verzuim cases
+  | 'MANAGE_TICKETS'; // Access Ticket Dashboard
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_REPORTS': 'Rapportages Inzien',
@@ -50,8 +52,29 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'MANAGE_RECRUITMENT': 'Recruitment & Vacatures',
   'VIEW_CALENDAR': 'Kalender Inzien',
   'MANAGE_ATTENDANCE': 'Aanwezigheid & Roosters',
-  'MANAGE_CASES': 'Cases & Verzuim Dossiers'
+  'MANAGE_CASES': 'Cases & Verzuim Dossiers',
+  'MANAGE_TICKETS': 'Ticket Systeem Beheer'
 };
+
+// --- TICKET SYSTEM TYPES ---
+
+export type TicketType = 'Bug' | 'Idea' | 'Fix' | 'Other';
+export type TicketPriority = 'Low' | 'Medium' | 'High';
+export type TicketStatus = 'Open' | 'In Progress' | 'Resolved' | 'Closed';
+
+export interface Ticket {
+  id: string;
+  title: string;
+  description: string;
+  type: TicketType;
+  priority: TicketPriority;
+  status: TicketStatus;
+  submittedBy: string; // Name of employee
+  submittedById: string; // ID of employee
+  submittedAt: string;
+  resolvedAt?: string;
+  adminNotes?: string;
+}
 
 // --- DEBT CONTROL TYPES ---
 
@@ -77,7 +100,7 @@ export interface Notification {
   id: string;
   recipientId: string;
   senderName: string;
-  type: 'LeaveRequest' | 'Document' | 'Note' | 'System' | 'News' | 'Onboarding' | 'Survey' | 'Evaluation';
+  type: 'LeaveRequest' | 'Document' | 'Note' | 'System' | 'News' | 'Onboarding' | 'Survey' | 'Evaluation' | 'Evaluation' | 'Ticket';
   title: string;
   message: string;
   date: string;

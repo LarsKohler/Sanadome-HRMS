@@ -1,7 +1,7 @@
 
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Bell, Plus, ChevronDown, Lock, LogOut, CheckCircle2, Pin, Menu, Cloud, Database, Shield, User, Briefcase } from 'lucide-react';
+import { Search, Bell, Plus, ChevronDown, Lock, LogOut, CheckCircle2, Pin, Menu, Cloud, Database, Shield, User, Briefcase, Ticket } from 'lucide-react';
 import { Employee, Notification, ViewState } from '../types';
 
 interface TopNavProps {
@@ -14,7 +14,7 @@ interface TopNavProps {
   onToggleMobileMenu: () => void;
   onNavigate: (view: ViewState) => void;
   isLive: boolean;
-  onDebugRoleSwitch?: (role: string) => void; // Kept for type compatibility but unused in UI
+  onOpenFeedbackModal: () => void; // New Prop
 }
 
 const TopNav: React.FC<TopNavProps> = ({ 
@@ -26,7 +26,8 @@ const TopNav: React.FC<TopNavProps> = ({
   onMarkSingleRead,
   onToggleMobileMenu,
   onNavigate,
-  isLive
+  isLive,
+  onOpenFeedbackModal
 }) => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -177,14 +178,25 @@ const TopNav: React.FC<TopNavProps> = ({
               <ChevronDown size={14} className="text-slate-400 hidden lg:block group-hover:text-slate-600 transition-colors ml-1" />
             </div>
 
-            <div className="absolute right-0 top-14 w-48 bg-white rounded-xl shadow-xl border border-slate-100 py-1 hidden group-hover:block animate-in fade-in slide-in-from-top-2 duration-150">
+            <div className="absolute right-0 top-14 w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-1 hidden group-hover:block animate-in fade-in slide-in-from-top-2 duration-150">
               <div className="px-4 py-3 border-b border-slate-50 md:hidden bg-slate-50/50">
                 <p className="text-sm font-bold text-slate-900">{user?.name}</p>
                 <p className="text-xs text-slate-500 truncate">{user?.email}</p>
               </div>
+              
+              <button 
+                onClick={onOpenFeedbackModal}
+                className="w-full text-left px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-3 transition-colors border-b border-slate-50"
+              >
+                <div className="bg-purple-50 text-purple-600 p-1 rounded-md">
+                    <Ticket size={14} />
+                </div>
+                Feedback / Bug melden
+              </button>
+
               <button 
                 onClick={onLogout}
-                className="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:bg-red-50 hover:text-red-600 flex items-center gap-2 transition-colors first:rounded-t-xl last:rounded-b-xl"
+                className="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:bg-red-50 hover:text-red-600 flex items-center gap-2 transition-colors last:rounded-b-xl"
               >
                 <LogOut size={16} />
                 Uitloggen

@@ -1,26 +1,62 @@
 
 
+import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog, Ticket } from '../types';
 
-
-
-import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog } from '../types';
+// --- MOCK TICKETS ---
+export const MOCK_TICKETS: Ticket[] = [
+    {
+        id: 'ticket-1',
+        title: 'Login pagina laadt traag',
+        description: 'Bij het inloggen in de ochtend duurt het soms 10 seconden voordat de pagina reageert.',
+        type: 'Bug',
+        priority: 'High',
+        status: 'Open',
+        submittedBy: 'Mark de Medewerker',
+        submittedById: 'employee-user',
+        submittedAt: new Date(Date.now() - 86400000 * 2).toISOString() // 2 days ago
+    },
+    {
+        id: 'ticket-2',
+        title: 'Suggestie: Donkere modus',
+        description: 'Het zou fijn zijn om een donkere modus te hebben voor de nachtdienst.',
+        type: 'Idea',
+        priority: 'Low',
+        status: 'In Progress',
+        submittedBy: 'Emily Watson',
+        submittedById: 'emp-emily',
+        submittedAt: new Date(Date.now() - 86400000 * 5).toISOString(), // 5 days ago
+        adminNotes: 'Staat op de roadmap voor Q4.'
+    },
+    {
+        id: 'ticket-3',
+        title: 'Verlof aanvraag knop werkt niet op mobiel',
+        description: 'Als ik op mijn iPhone op verlof aanvragen klik, gebeurt er niets.',
+        type: 'Fix',
+        priority: 'Medium',
+        status: 'Resolved',
+        submittedBy: 'Mark de Medewerker',
+        submittedById: 'employee-user',
+        submittedAt: new Date(Date.now() - 86400000 * 10).toISOString(),
+        resolvedAt: new Date(Date.now() - 86400000 * 1).toISOString(),
+        adminNotes: 'Opgelost in update v3.2.1'
+    }
+];
 
 // --- AUTO UPDATE LOGGER ---
 export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
-    id: 'update-v3.4.0-super-dashboard', 
-    version: 'v3.4.0',
+    id: 'update-v3.5.0-tickets', 
+    version: 'v3.5.0',
     date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
     timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
     author: 'AI Assistant',
     type: 'Feature',
-    impact: 'High',
-    affectedArea: 'Dashboard & Structuur',
-    description: `- 'Super Dashboard' redesign voor profielpagina.
-- Locatie verwijderd uit systeem.
-- Afdelingen ondersteunen nu meervoudige selectie.
-- Layout optimalisaties header en sidebar.
-- Verwijdering testknoppen.
-- Uitgebreide permissies voor Recruitment & Cases.`,
+    impact: 'Medium',
+    affectedArea: 'Ticket Systeem',
+    description: `
+- Nieuw Ticket Systeem geïntroduceerd voor bugs, ideeën en fixes.
+- Medewerkers kunnen feedback insturen via profielmenu.
+- Managers hebben een nieuw dashboard voor ticket beheer.
+- Supabase database integratie voor ticket opslag.`,
     status: 'Success'
 };
 

@@ -19,7 +19,8 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'MANAGE_RECRUITMENT',
     'VIEW_CALENDAR',
     'MANAGE_ATTENDANCE',
-    'MANAGE_CASES'
+    'MANAGE_CASES',
+    'MANAGE_TICKETS'
   ],
   'Senior Medewerker': [
     'CREATE_NEWS',

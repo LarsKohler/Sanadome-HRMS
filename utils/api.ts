@@ -1,12 +1,9 @@
 
 
-
-
-
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor } from '../types';
-import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS } from './mockData';
+import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, Ticket } from '../types';
+import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_TICKETS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
 // We explicitely check if supabase is not null
@@ -119,7 +116,8 @@ export const api = {
             'VIEW_ALL_DOCUMENTS', 'CREATE_NEWS', 'MANAGE_ONBOARDING', 
             'MANAGE_SURVEYS', 'VIEW_SYSTEM_STATUS', 'MANAGE_SETTINGS', 
             'MANAGE_EVALUATIONS', 'MANAGE_DEBTORS', 'MANAGE_RECRUITMENT',
-            'VIEW_CALENDAR', 'MANAGE_ATTENDANCE', 'MANAGE_CASES'
+            'VIEW_CALENDAR', 'MANAGE_ATTENDANCE', 'MANAGE_CASES',
+            'MANAGE_TICKETS'
           ] : undefined
       };
 
@@ -183,6 +181,16 @@ export const api = {
             MOCK_SYSTEM_LOGS.map(l => ({ id: l.id, data: l }))
         );
         if (error) console.error("Error seeding logs:", error);
+    }
+
+    // 6. Seed Tickets
+    const { count: ticketCount } = await supabase.from('tickets').select('*', { count: 'exact', head: true });
+    if (ticketCount === 0) {
+        console.log("Seeding tickets...");
+        const { error } = await supabase.from('tickets').insert(
+            MOCK_TICKETS.map(t => ({ id: t.id, data: t }))
+        );
+        if (error) console.error("Error seeding tickets:", error);
     }
     
     console.log("Database seed completed.");
@@ -267,8 +275,6 @@ export const api = {
   saveEmployee: async (employee: Employee): Promise<boolean> => {
     if (isLive && supabase) {
       try {
-          // Important: Supabase might block updates via RLS if policies aren't set up for Anon key.
-          // We attempt the update.
           const { data, error } = await supabase
             .from('employees')
             .upsert({ id: employee.id, data: employee })
@@ -281,7 +287,6 @@ export const api = {
           }
           
           if (!data) {
-              console.error("Update failed: No data returned. Likely RLS blocking update.");
               return false;
           }
 
@@ -471,7 +476,6 @@ export const api = {
             if (!error && data && data.length > 0) return data.map((row: any) => row.data);
             return [];
         } catch (e) {
-            // If table doesn't exist yet or error, return local
             const local = localStorage.getItem('hrms_debtors');
             return local ? JSON.parse(local) : [];
         }
@@ -497,12 +501,8 @@ export const api = {
   deleteDebtor: async (id: string): Promise<boolean> => {
       if (isLive && supabase) {
           const { error } = await supabase.from('debtors').delete().eq('id', id);
-          if (error) {
-              console.error("Error deleting debtor:", error);
-              return false;
-          }
+          if (error) return false;
       }
-      // Also remove from local storage to stay in sync/fallback
       const local = localStorage.getItem('hrms_debtors');
       if (local) {
           const parsed = JSON.parse(local);
@@ -515,12 +515,8 @@ export const api = {
   deleteDebtors: async (ids: string[]): Promise<boolean> => {
       if (isLive && supabase) {
           const { error } = await supabase.from('debtors').delete().in('id', ids);
-          if (error) {
-              console.error("Error deleting debtors:", error);
-              return false;
-          }
+          if (error) return false;
       }
-      // Also remove from local storage
       const local = localStorage.getItem('hrms_debtors');
       if (local) {
           const parsed = JSON.parse(local) as Debtor[];
@@ -530,7 +526,6 @@ export const api = {
       return true;
   },
 
-  // Subscribe to debtors specifically
   subscribeToDebtors: (onUpdate: (debtors: Debtor[]) => void) => {
     if (isLive && supabase) {
       const channel = supabase.channel('debtors_realtime')
@@ -542,6 +537,47 @@ export const api = {
       return () => { supabase.removeChannel(channel); };
     }
     return () => {};
+  },
+
+  // --- TICKETS (New) ---
+  getTickets: async (): Promise<Ticket[]> => {
+      if (isLive && supabase) {
+          try {
+              const { data, error } = await supabase.from('tickets').select('data');
+              if (!error && data && data.length > 0) return data.map((row: any) => row.data);
+              return MOCK_TICKETS;
+          } catch (e) {
+              return MOCK_TICKETS;
+          }
+      }
+      const local = localStorage.getItem('hrms_tickets');
+      return local ? JSON.parse(local) : MOCK_TICKETS;
+  },
+
+  saveTicket: async (ticket: Ticket) => {
+      if (isLive && supabase) {
+          await supabase.from('tickets').upsert({ id: ticket.id, data: ticket });
+      } else {
+          const current = localStorage.getItem('hrms_tickets');
+          const parsed = current ? JSON.parse(current) : MOCK_TICKETS;
+          const index = parsed.findIndex((t: Ticket) => t.id === ticket.id);
+          if (index >= 0) parsed[index] = ticket;
+          else parsed.unshift(ticket);
+          localStorage.setItem('hrms_tickets', JSON.stringify(parsed));
+      }
+  },
+
+  deleteTicket: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('tickets').delete().eq('id', id);
+      } else {
+          const current = localStorage.getItem('hrms_tickets');
+          if (current) {
+              const parsed = JSON.parse(current);
+              const filtered = parsed.filter((t: Ticket) => t.id !== id);
+              localStorage.setItem('hrms_tickets', JSON.stringify(filtered));
+          }
+      }
   },
 
   // --- SYSTEM LOGS ---

@@ -15,10 +15,12 @@ import SurveyTakingFlow from './components/SurveyTakingFlow';
 import WelcomeFlow from './components/WelcomeFlow';
 import SystemStatusPage from './components/SystemStatusPage';
 import SettingsPage from './components/SettingsPage'; 
-import DebtControlPage from './components/DebtControlPage'; // New Import
+import DebtControlPage from './components/DebtControlPage'; 
+import TicketDashboard from './components/TicketDashboard'; // New Import
 import Login from './components/Login';
 import { Toast } from './components/Toast';
-import { ViewState, Employee, Notification, NewsPost, Survey, SurveyResponse } from './types';
+import { Modal } from './components/Modal'; // For Feedback
+import { ViewState, Employee, Notification, NewsPost, Survey, SurveyResponse, Ticket, TicketType, TicketPriority } from './types';
 import { api, isLive } from './utils/api';
 import { Loader2 } from 'lucide-react';
 import { LATEST_SYSTEM_UPDATE } from './utils/mockData';
@@ -40,6 +42,15 @@ const App: React.FC = () => {
   const [newsItems, setNewsItems] = useState<NewsPost[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [surveys, setSurveys] = useState<Survey[]>([]);
+
+  // --- FEEDBACK MODAL STATE ---
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [feedbackForm, setFeedbackForm] = useState({
+      title: '',
+      description: '',
+      type: 'Bug' as TicketType,
+      priority: 'Medium' as TicketPriority
+  });
 
   // --- INITIAL DATA FETCH & SUBSCRIPTION ---
   useEffect(() => {
@@ -165,6 +176,30 @@ const App: React.FC = () => {
     if (window.location.pathname.startsWith('/welcome/')) {
         window.history.pushState({}, '', '/');
     }
+  };
+
+  // --- FEEDBACK SUBMISSION ---
+  const handleSubmitFeedback = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!currentUser) return;
+
+      const newTicket: Ticket = {
+          id: Math.random().toString(36).substr(2, 9),
+          title: feedbackForm.title,
+          description: feedbackForm.description,
+          type: feedbackForm.type,
+          priority: feedbackForm.priority,
+          status: 'Open',
+          submittedBy: currentUser.name,
+          submittedById: currentUser.id,
+          submittedAt: new Date().toISOString()
+      };
+
+      await api.saveTicket(newTicket);
+      
+      setIsFeedbackModalOpen(false);
+      setFeedbackForm({ title: '', description: '', type: 'Bug', priority: 'Medium' });
+      showToast('Bedankt! Je melding is ontvangen.');
   };
 
   // --- DATA MUTATION HANDLERS (Using API Layer) ---
@@ -338,7 +373,7 @@ const App: React.FC = () => {
       <Sidebar 
         currentView={currentView} 
         onChangeView={setCurrentView} 
-        user={currentUser} // Changed from userRole to full user
+        user={currentUser} 
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
         systemVersion={LATEST_SYSTEM_UPDATE.version}
@@ -362,6 +397,7 @@ const App: React.FC = () => {
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           onNavigate={(view) => setCurrentView(view)}
           isLive={isLive}
+          onOpenFeedbackModal={() => setIsFeedbackModalOpen(true)}
         />
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto no-scrollbar scroll-smooth">
@@ -467,6 +503,12 @@ const App: React.FC = () => {
             />
           )}
 
+          {currentView === ViewState.TICKETS && (
+            <TicketDashboard 
+                onShowToast={showToast}
+            />
+          )}
+
         </main>
       </div>
       
@@ -475,6 +517,75 @@ const App: React.FC = () => {
         isVisible={isToastVisible} 
         onClose={() => setIsToastVisible(false)} 
       />
+
+      {/* FEEDBACK MODAL */}
+      <Modal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
+        title="Feedback & Support"
+      >
+          <form onSubmit={handleSubmitFeedback} className="space-y-5">
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Soort melding</label>
+                  <div className="grid grid-cols-3 gap-2">
+                      {['Bug', 'Idea', 'Fix'].map(type => (
+                          <button 
+                            type="button"
+                            key={type}
+                            onClick={() => setFeedbackForm({...feedbackForm, type: type as any})}
+                            className={`py-2 rounded-lg text-sm font-bold border transition-all ${feedbackForm.type === type ? 'bg-slate-900 text-white border-slate-900' : 'bg-white border-slate-200 text-slate-500'}`}
+                          >
+                              {type === 'Bug' && '🐛 Bug'}
+                              {type === 'Idea' && '💡 Idee'}
+                              {type === 'Fix' && '🔧 Fix'}
+                          </button>
+                      ))}
+                  </div>
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Onderwerp</label>
+                  <input 
+                    type="text" 
+                    required
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium"
+                    placeholder="Korte samenvatting..."
+                    value={feedbackForm.title}
+                    onChange={(e) => setFeedbackForm({...feedbackForm, title: e.target.value})}
+                  />
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Omschrijving</label>
+                  <textarea 
+                    required
+                    rows={4}
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium"
+                    placeholder="Beschrijf het probleem of je idee zo duidelijk mogelijk..."
+                    value={feedbackForm.description}
+                    onChange={(e) => setFeedbackForm({...feedbackForm, description: e.target.value})}
+                  />
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Prioriteit (Jouw inschatting)</label>
+                  <select 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium"
+                    value={feedbackForm.priority}
+                    onChange={(e) => setFeedbackForm({...feedbackForm, priority: e.target.value as any})}
+                  >
+                      <option value="Low">Laag - Heeft geen haast</option>
+                      <option value="Medium">Normaal - Graag oplossen</option>
+                      <option value="High">Hoog - Blokkeert mijn werk</option>
+                  </select>
+              </div>
+
+              <button type="submit" className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-slate-800 transition-all">
+                  Versturen
+              </button>
+          </form>
+      </Modal>
+
     </div>
   );
 };
