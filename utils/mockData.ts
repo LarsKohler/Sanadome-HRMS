@@ -8,6 +8,7 @@ export const MOCK_TICKETS: Ticket[] = [
         id: 'ticket-1',
         title: 'Login pagina laadt traag',
         description: 'Bij het inloggen in de ochtend duurt het soms 10 seconden voordat de pagina reageert.',
+        page: 'Login / Startscherm',
         type: 'Bug',
         priority: 'High',
         status: 'Open',
@@ -19,6 +20,7 @@ export const MOCK_TICKETS: Ticket[] = [
         id: 'ticket-2',
         title: 'Suggestie: Donkere modus',
         description: 'Het zou fijn zijn om een donkere modus te hebben voor de nachtdienst.',
+        page: 'Algemeen',
         type: 'Idea',
         priority: 'Low',
         status: 'In Progress',
@@ -31,6 +33,7 @@ export const MOCK_TICKETS: Ticket[] = [
         id: 'ticket-3',
         title: 'Verlof aanvraag knop werkt niet op mobiel',
         description: 'Als ik op mijn iPhone op verlof aanvragen klik, gebeurt er niets.',
+        page: 'Profiel / Verlof',
         type: 'Fix',
         priority: 'Medium',
         status: 'Resolved',
@@ -44,8 +47,8 @@ export const MOCK_TICKETS: Ticket[] = [
 
 // --- AUTO UPDATE LOGGER ---
 export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
-    id: 'update-v3.5.0-tickets', 
-    version: 'v3.5.0',
+    id: 'update-v3.6.0-tracking', 
+    version: 'v3.6.0',
     date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
     timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
     author: 'AI Assistant',
@@ -53,10 +56,10 @@ export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
     impact: 'Medium',
     affectedArea: 'Ticket Systeem',
     description: `
-- Nieuw Ticket Systeem geïntroduceerd voor bugs, ideeën en fixes.
-- Medewerkers kunnen feedback insturen via profielmenu.
-- Managers hebben een nieuw dashboard voor ticket beheer.
-- Supabase database integratie voor ticket opslag.`,
+- Nieuwe 'Meldingen' tab in Profiel voor status updates.
+- Automatische pagina-detectie bij aanmaken ticket.
+- Notificaties voor managers bij nieuw ticket.
+- Notificaties voor medewerkers bij statuswijziging.`,
     status: 'Success'
 };
 

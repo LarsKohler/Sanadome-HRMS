@@ -66,6 +66,7 @@ export interface Ticket {
   id: string;
   title: string;
   description: string;
+  page?: string; // New: Context of where the issue occurred
   type: TicketType;
   priority: TicketPriority;
   status: TicketStatus;

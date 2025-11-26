@@ -48,6 +48,7 @@ const App: React.FC = () => {
   const [feedbackForm, setFeedbackForm] = useState({
       title: '',
       description: '',
+      page: '',
       type: 'Bug' as TicketType,
       priority: 'Medium' as TicketPriority
   });
@@ -100,7 +101,7 @@ const App: React.FC = () => {
         }
 
       } catch (error) {
-        console.error("Error loading data", error);
+          console.error("Error loading data", error);
       } finally {
         setIsLoading(false);
       }
@@ -178,6 +179,25 @@ const App: React.FC = () => {
     }
   };
 
+  // --- HELPER FOR VIEW NAMES ---
+  const getViewName = (view: ViewState) => {
+      switch(view) {
+          case ViewState.HOME: return 'Profiel / Home';
+          case ViewState.DIRECTORY: return 'Collega\'s';
+          case ViewState.REPORTS: return 'Rapportages';
+          case ViewState.DOCUMENTS: return 'Documenten';
+          case ViewState.NEWS: return 'Nieuws';
+          case ViewState.ONBOARDING: return 'Onboarding';
+          case ViewState.SURVEYS: return 'Surveys';
+          case ViewState.EVALUATIONS: return 'Evaluaties';
+          case ViewState.DEBT_CONTROL: return 'Debiteuren';
+          case ViewState.TICKETS: return 'Ticket Systeem';
+          case ViewState.SETTINGS: return 'Instellingen';
+          case ViewState.SYSTEM_STATUS: return 'Status';
+          default: return 'Algemeen';
+      }
+  };
+
   // --- FEEDBACK SUBMISSION ---
   const handleSubmitFeedback = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -187,6 +207,7 @@ const App: React.FC = () => {
           id: Math.random().toString(36).substr(2, 9),
           title: feedbackForm.title,
           description: feedbackForm.description,
+          page: feedbackForm.page || getViewName(currentView),
           type: feedbackForm.type,
           priority: feedbackForm.priority,
           status: 'Open',
@@ -197,9 +218,33 @@ const App: React.FC = () => {
 
       await api.saveTicket(newTicket);
       
+      // Notify Managers
+      const managers = employees.filter(e => e.role === 'Manager');
+      for (const manager of managers) {
+          if (manager.id === currentUser.id) continue; // Don't notify self if manager
+          const notif: Notification = {
+              id: Math.random().toString(36).substr(2, 9),
+              recipientId: manager.id,
+              senderName: 'System',
+              type: 'Ticket',
+              title: 'Nieuw Ticket',
+              message: `${currentUser.name} heeft een ${newTicket.type} gemeld: "${newTicket.title}"`,
+              date: 'Zojuist',
+              read: false,
+              targetView: ViewState.TICKETS,
+              isPinned: true
+          };
+          handleAddNotification(notif);
+      }
+
       setIsFeedbackModalOpen(false);
-      setFeedbackForm({ title: '', description: '', type: 'Bug', priority: 'Medium' });
+      setFeedbackForm({ title: '', description: '', page: '', type: 'Bug', priority: 'Medium' });
       showToast('Bedankt! Je melding is ontvangen.');
+  };
+
+  const openFeedback = () => {
+      setFeedbackForm(prev => ({ ...prev, page: getViewName(currentView) }));
+      setIsFeedbackModalOpen(true);
   };
 
   // --- DATA MUTATION HANDLERS (Using API Layer) ---
@@ -397,7 +442,7 @@ const App: React.FC = () => {
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           onNavigate={(view) => setCurrentView(view)}
           isLive={isLive}
-          onOpenFeedbackModal={() => setIsFeedbackModalOpen(true)}
+          onOpenFeedbackModal={openFeedback}
         />
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto no-scrollbar scroll-smooth">
@@ -506,6 +551,8 @@ const App: React.FC = () => {
           {currentView === ViewState.TICKETS && (
             <TicketDashboard 
                 onShowToast={showToast}
+                currentUser={currentUser}
+                onAddNotification={handleAddNotification}
             />
           )}
 
@@ -541,6 +588,17 @@ const App: React.FC = () => {
                           </button>
                       ))}
                   </div>
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Pagina / Onderdeel</label>
+                  <input 
+                    type="text" 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium"
+                    placeholder="Waar gaat dit over?"
+                    value={feedbackForm.page}
+                    onChange={(e) => setFeedbackForm({...feedbackForm, page: e.target.value})}
+                  />
               </div>
 
               <div>

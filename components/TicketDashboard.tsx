@@ -1,14 +1,17 @@
+
 import React, { useState, useEffect } from 'react';
-import { Ticket, Search, Filter, CheckCircle2, Circle, Clock, AlertTriangle, MessageSquare, ChevronRight, RefreshCw, AlertCircle, Lightbulb, Bug, Wrench } from 'lucide-react';
-import { Ticket as TicketType, TicketStatus, TicketPriority, TicketType as TT } from '../types';
+import { Ticket, Search, Filter, CheckCircle2, Circle, Clock, AlertTriangle, MessageSquare, ChevronRight, RefreshCw, AlertCircle, Lightbulb, Bug, Wrench, MapPin } from 'lucide-react';
+import { Ticket as TicketType, TicketStatus, TicketPriority, TicketType as TT, Employee, Notification, ViewState } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
 
 interface TicketDashboardProps {
     onShowToast: (message: string) => void;
+    currentUser?: Employee; // Added for notification logic
+    onAddNotification?: (notification: Notification) => void; // Added
 }
 
-const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast }) => {
+const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentUser, onAddNotification }) => {
     const [tickets, setTickets] = useState<TicketType[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
@@ -51,6 +54,23 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast }) => {
 
         await api.saveTicket(updatedTicket);
         onShowToast(`Status gewijzigd naar ${newStatus}`);
+
+        // NOTIFY EMPLOYEE
+        if (onAddNotification && currentUser && updatedTicket.submittedById !== currentUser.id) {
+            const notif: Notification = {
+                id: Math.random().toString(36).substr(2, 9),
+                recipientId: updatedTicket.submittedById,
+                senderName: 'Support Team',
+                type: 'Ticket',
+                title: 'Update over je melding',
+                message: `De status van je ticket "${updatedTicket.title}" is gewijzigd naar: ${newStatus}.`,
+                date: 'Zojuist',
+                read: false,
+                targetView: ViewState.PROFILE, // Navigate to profile to see "Meldingen" tab
+                isPinned: false
+            };
+            onAddNotification(notif);
+        }
     };
 
     const filteredTickets = tickets.filter(t => {
@@ -182,6 +202,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast }) => {
                                         {getTypeIcon(ticket.type)} {ticket.type}
                                     </span>
                                     <span className="text-xs text-slate-400">• {new Date(ticket.submittedAt).toLocaleDateString('nl-NL')}</span>
+                                    {ticket.page && <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{ticket.page}</span>}
                                 </div>
                                 <h3 className="font-bold text-slate-900 text-base mb-1">{ticket.title}</h3>
                                 <p className="text-sm text-slate-500 line-clamp-1">{ticket.description}</p>
@@ -228,17 +249,22 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast }) => {
                 {selectedTicket && (
                     <div className="space-y-6">
                         <div>
-                            <div className="flex items-center gap-2 mb-2">
+                            <div className="flex flex-wrap items-center gap-2 mb-2">
                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 border ${getPriorityColor(selectedTicket.priority)}`}>
                                     {selectedTicket.priority} Priority
                                 </span>
                                 <span className="flex items-center gap-1 text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
                                     {getTypeIcon(selectedTicket.type)} {selectedTicket.type}
                                 </span>
+                                {selectedTicket.page && (
+                                    <span className="flex items-center gap-1 text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                                        <MapPin size={12}/> {selectedTicket.page}
+                                    </span>
+                                )}
                             </div>
                             <h2 className="text-xl font-bold text-slate-900">{selectedTicket.title}</h2>
                             <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
-                                <span>Inediend door <strong>{selectedTicket.submittedBy}</strong></span>
+                                <span>Ingediend door <strong>{selectedTicket.submittedBy}</strong></span>
                                 <span>•</span>
                                 <span>{new Date(selectedTicket.submittedAt).toLocaleString('nl-NL')}</span>
                             </div>
@@ -252,14 +278,15 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast }) => {
                             <h3 className="text-sm font-bold text-slate-900 mb-3">Beheer</h3>
                             
                             <div className="mb-4">
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Notities (Intern)</label>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Notities (Intern & Feedback)</label>
                                 <textarea 
                                     className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none"
                                     rows={3}
-                                    placeholder="Notities voor jezelf of andere admins..."
+                                    placeholder="Notities..."
                                     value={adminNote}
                                     onChange={(e) => setAdminNote(e.target.value)}
                                 />
+                                <p className="text-[10px] text-slate-400 mt-1">Deze notities zijn zichtbaar voor de medewerker bij 'Opgelost'.</p>
                             </div>
 
                             <div className="grid grid-cols-2 gap-3">
