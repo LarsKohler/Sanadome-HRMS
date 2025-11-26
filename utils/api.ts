@@ -483,8 +483,6 @@ export const api = {
           const updates = debtors.map(d => ({ id: d.id, data: d }));
           const { error } = await supabase.from('debtors').upsert(updates);
           if (error) {
-              // If table 'debtors' does not exist, we might need to create it or fallback.
-              // Assuming table exists for this feature.
               console.error("Error saving debtors:", error);
           }
       } 
@@ -505,6 +503,24 @@ export const api = {
       if (local) {
           const parsed = JSON.parse(local);
           const filtered = parsed.filter((d: Debtor) => d.id !== id);
+          localStorage.setItem('hrms_debtors', JSON.stringify(filtered));
+      }
+      return true;
+  },
+
+  deleteDebtors: async (ids: string[]): Promise<boolean> => {
+      if (isLive && supabase) {
+          const { error } = await supabase.from('debtors').delete().in('id', ids);
+          if (error) {
+              console.error("Error deleting debtors:", error);
+              return false;
+          }
+      }
+      // Also remove from local storage
+      const local = localStorage.getItem('hrms_debtors');
+      if (local) {
+          const parsed = JSON.parse(local) as Debtor[];
+          const filtered = parsed.filter(d => !ids.includes(d.id));
           localStorage.setItem('hrms_debtors', JSON.stringify(filtered));
       }
       return true;

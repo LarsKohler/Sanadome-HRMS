@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit } from 'lucide-react';
+import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square } from 'lucide-react';
 import { Debtor, DebtorStatus } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
@@ -15,12 +15,18 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   
+  // Selection State
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   // Contact Edit State
   const [editingDebtor, setEditingDebtor] = useState<Debtor | null>(null);
   const [contactForm, setContactForm] = useState({ email: '', phone: '' });
   
+  // Status Modal State
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [statusTargetIds, setStatusTargetIds] = useState<string[]>([]); // Which IDs are we changing?
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
@@ -75,18 +81,10 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
         setDebtors(sortDebtors(updatedDebtors));
     });
 
-    // Close dropdown on outside click
-    const handleClickOutside = (event: MouseEvent) => {
-        if (openDropdownId && !(event.target as Element).closest('.status-dropdown-trigger')) {
-            setOpenDropdownId(null);
-        }
-    };
-    document.addEventListener('click', handleClickOutside);
     return () => {
-        document.removeEventListener('click', handleClickOutside);
         unsubscribe();
     };
-  }, [openDropdownId]);
+  }, []);
 
   const loadDebtors = async () => {
     setIsLoading(true);
@@ -205,20 +203,60 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
       }
   };
 
-  const handleStatusChange = async (id: string, newStatus: DebtorStatus) => {
-      const updatedList = debtors.map(d => 
-          d.id === id ? { 
-              ...d, 
-              status: newStatus, 
-              statusDate: new Date().toISOString() // Update timestamp on change
-          } : d
-      );
-      setDebtors(sortDebtors(updatedList)); // Re-sort immediately
-      await api.saveDebtors(updatedList);
-      setOpenDropdownId(null);
-      onShowToast("Status bijgewerkt");
+  // --- SELECTION LOGIC ---
+  const filteredDebtors = debtors.filter(d => 
+      d.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      d.reservationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      d.firstName.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const toggleSelectAll = () => {
+      if (selectedIds.size === filteredDebtors.length) {
+          setSelectedIds(new Set());
+      } else {
+          setSelectedIds(new Set(filteredDebtors.map(d => d.id)));
+      }
   };
 
+  const toggleSelectOne = (id: string) => {
+      const newSet = new Set(selectedIds);
+      if (newSet.has(id)) {
+          newSet.delete(id);
+      } else {
+          newSet.add(id);
+      }
+      setSelectedIds(newSet);
+  };
+
+  // --- BULK ACTIONS ---
+  const handleBulkDelete = async () => {
+      const count = selectedIds.size;
+      if (count === 0) return;
+      
+      if(confirm(`Weet je zeker dat je ${count} dossier(s) wilt verwijderen?`)) {
+          const idsToDelete = Array.from(selectedIds) as string[];
+          const previousDebtors = [...debtors];
+          const updatedList = debtors.filter(d => !selectedIds.has(d.id));
+          setDebtors(updatedList); // Optimistic
+          setSelectedIds(new Set()); // Clear selection
+
+          const success = await api.deleteDebtors(idsToDelete);
+          if (success) {
+              onShowToast(`${count} dossiers verwijderd.`);
+          } else {
+              setDebtors(previousDebtors);
+              onShowToast("Fout bij verwijderen.");
+          }
+      }
+  };
+
+  const openBulkStatusModal = () => {
+      if (selectedIds.size === 0) return;
+      setStatusTargetIds(Array.from(selectedIds) as string[]);
+      setIsStatusModalOpen(true);
+  };
+
+  // --- INDIVIDUAL ACTIONS ---
   const handleDeleteDebtor = async (id: string) => {
       if(confirm("Weet je zeker dat je dit dossier wilt verwijderen?")) {
           const previousDebtors = [...debtors];
@@ -233,6 +271,30 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
               onShowToast("Fout bij verwijderen. Controleer de database rechten.");
           }
       }
+  };
+
+  const openSingleStatusModal = (id: string) => {
+      setStatusTargetIds([id]);
+      setIsStatusModalOpen(true);
+  };
+
+  const applyStatusChange = async (newStatus: DebtorStatus) => {
+      if (statusTargetIds.length === 0) return;
+
+      const updatedList = debtors.map(d => {
+          if (statusTargetIds.includes(d.id)) {
+              return { ...d, status: newStatus, statusDate: new Date().toISOString() };
+          }
+          return d;
+      });
+
+      setDebtors(sortDebtors(updatedList));
+      await api.saveDebtors(updatedList);
+      
+      setIsStatusModalOpen(false);
+      setStatusTargetIds([]);
+      setSelectedIds(new Set()); // Clear selection after action
+      onShowToast("Status succesvol aangepast");
   };
 
   // --- Contact Editing ---
@@ -273,29 +335,18 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
       onShowToast("Gemarkeerd als niet beschikbaar");
   };
 
-  const toggleDropdown = (id: string, e: React.MouseEvent) => {
-      e.stopPropagation();
-      setOpenDropdownId(openDropdownId === id ? null : id);
-  };
-
-  const filteredDebtors = debtors.filter(d => 
-      d.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.reservationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.firstName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
   const totalDebt = debtors.filter(d => d.status !== 'Paid').reduce((acc, curr) => acc + curr.amount, 0);
   const actionRequiredCount = debtors.filter(d => isActionRequired(d)).length;
 
   const getStatusBadge = (status: DebtorStatus) => {
-      const base = "border";
+      const base = "border transition-all active:scale-95";
       switch(status) {
-          case 'New': return `${base} bg-blue-50 text-blue-700 border-blue-200`;
-          case '1st Reminder': return `${base} bg-amber-50 text-amber-700 border-amber-200`;
-          case '2nd Reminder': return `${base} bg-orange-50 text-orange-700 border-orange-200`;
-          case 'Final Notice': return `${base} bg-red-50 text-red-700 border-red-200`;
-          case 'Paid': return `${base} bg-green-50 text-green-700 border-green-200`;
-          case 'Blacklist': return `${base} bg-slate-900 text-white border-slate-700`;
+          case 'New': return `${base} bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100`;
+          case '1st Reminder': return `${base} bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100`;
+          case '2nd Reminder': return `${base} bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100`;
+          case 'Final Notice': return `${base} bg-red-50 text-red-700 border-red-200 hover:bg-red-100`;
+          case 'Paid': return `${base} bg-green-50 text-green-700 border-green-200 hover:bg-green-100`;
+          case 'Blacklist': return `${base} bg-slate-900 text-white border-slate-700 hover:bg-slate-800`;
           default: return `${base} bg-slate-100 text-slate-600 border-slate-200`;
       }
   };
@@ -309,8 +360,23 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
       </button>
   );
 
+  const StatusOptionCard = ({ status, label, description, colorClass, onClick }: any) => (
+      <button 
+        onClick={onClick}
+        className={`p-4 rounded-xl border text-left hover:shadow-md transition-all group flex flex-col gap-2 h-full ${colorClass}`}
+      >
+          <div className="flex items-center justify-between w-full">
+              <span className="font-bold text-sm uppercase tracking-wider">{label}</span>
+              <div className="w-5 h-5 rounded-full border-2 border-current opacity-30 group-hover:opacity-100 flex items-center justify-center">
+                  <div className="w-2.5 h-2.5 rounded-full bg-current opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              </div>
+          </div>
+          <p className="text-xs opacity-80 font-medium">{description}</p>
+      </button>
+  );
+
   return (
-    <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 min-h-[calc(100vh-80px)]">
+    <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 min-h-[calc(100vh-80px)] pb-24">
       
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6">
@@ -387,6 +453,11 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
               <table className="w-full text-left border-collapse">
                   <thead className="bg-slate-50 border-b border-slate-200">
                       <tr>
+                          <th className="px-4 py-4 w-12 text-center">
+                              <button onClick={toggleSelectAll} className="text-slate-400 hover:text-slate-600 transition-colors">
+                                  {selectedIds.size > 0 && selectedIds.size === filteredDebtors.length ? <CheckSquare size={20}/> : <Square size={20}/>}
+                              </button>
+                          </th>
                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Nr.</th>
                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Naam</th>
                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact</th>
@@ -398,15 +469,21 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                   </thead>
                   <tbody className="divide-y divide-slate-100">
                       {filteredDebtors.map((debtor, index) => {
-                          const openUpwards = filteredDebtors.length > 4 && index > filteredDebtors.length - 3;
                           const needsAction = isActionRequired(debtor);
                           const daysOverdue = getDaysOverdue(debtor);
+                          const isSelected = selectedIds.has(debtor.id);
 
                           return (
                           <tr 
                             key={debtor.id} 
-                            className={`transition-colors group relative ${needsAction ? 'bg-red-50/30' : 'hover:bg-slate-50'}`}
+                            onClick={() => toggleSelectOne(debtor.id)}
+                            className={`transition-colors group relative cursor-pointer ${isSelected ? 'bg-blue-50/50' : needsAction ? 'bg-red-50/30 hover:bg-red-50/50' : 'hover:bg-slate-50'}`}
                           >
+                              <td className="px-4 py-4 text-center align-top" onClick={(e) => e.stopPropagation()}>
+                                  <button onClick={() => toggleSelectOne(debtor.id)} className={`transition-colors ${isSelected ? 'text-teal-600' : 'text-slate-300 hover:text-slate-400'}`}>
+                                      {isSelected ? <CheckSquare size={20}/> : <Square size={20}/>}
+                                  </button>
+                              </td>
                               <td className="px-6 py-4 text-sm font-mono text-slate-600 align-top">
                                   {needsAction && (
                                       <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
@@ -424,7 +501,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                                   </div>
                                   <div className="text-xs text-slate-400">Import: {debtor.importedAt}</div>
                               </td>
-                              <td className="px-6 py-4 text-sm align-top">
+                              <td className="px-6 py-4 text-sm align-top" onClick={(e) => e.stopPropagation()}>
                                   <div className="flex flex-col gap-1.5">
                                       <div className="flex items-center gap-1.5 text-slate-600">
                                           <Mail size={12} className="text-slate-400"/> 
@@ -464,50 +541,26 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                               <td className="px-6 py-4 align-top">
                                   <span className="font-bold text-slate-900">€ {debtor.amount.toLocaleString('nl-NL', {minimumFractionDigits: 2})}</span>
                               </td>
-                              <td className="px-6 py-4 align-top">
-                                  <div className="relative status-dropdown-trigger">
-                                      <button 
-                                        onClick={(e) => toggleDropdown(debtor.id, e)}
-                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors w-full md:w-auto justify-between ${getStatusBadge(debtor.status)}`}
-                                      >
-                                          <span className="flex items-center gap-1.5">
-                                            {debtor.status === 'Paid' && <CheckCircle2 size={12} />}
-                                            {debtor.status}
-                                          </span>
-                                          {openDropdownId === debtor.id ? <ChevronUp size={12} /> : <ChevronDown size={12}/>}
-                                      </button>
-                                      
-                                      {debtor.status !== 'Paid' && debtor.status !== 'New' && debtor.statusDate && (
-                                          <div className={`text-[10px] font-bold mt-1 ${needsAction ? 'text-red-600' : 'text-slate-400'}`}>
-                                              {daysOverdue} dagen geleden {needsAction && '(Actie!)'}
-                                          </div>
-                                      )}
-                                      
-                                      {openDropdownId === debtor.id && (
-                                          <div 
-                                            className={`absolute left-0 w-48 bg-white rounded-xl shadow-2xl border border-slate-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100
-                                                ${openUpwards ? 'bottom-full mb-2' : 'top-full mt-2'}
-                                            `}
-                                          >
-                                              {(['New', '1st Reminder', '2nd Reminder', 'Final Notice', 'Paid', 'Blacklist'] as DebtorStatus[]).map(status => (
-                                                  <button 
-                                                    key={status}
-                                                    onClick={() => handleStatusChange(debtor.id, status)}
-                                                    className={`w-full text-left px-4 py-3 text-xs font-bold hover:bg-slate-50 flex items-center gap-2 border-b border-slate-50 last:border-0
-                                                        ${status === 'Paid' ? 'text-green-600' : 
-                                                          status === 'Blacklist' ? 'text-red-600' : 'text-slate-600'}
-                                                        ${debtor.status === status ? 'bg-slate-50' : ''}
-                                                    `}
-                                                  >
-                                                      {status === debtor.status && <CheckCircle2 size={12} className="flex-shrink-0"/>}
-                                                      {status}
-                                                  </button>
-                                              ))}
-                                          </div>
-                                      )}
-                                  </div>
+                              <td className="px-6 py-4 align-top" onClick={(e) => e.stopPropagation()}>
+                                  {/* Clickable Status Badge instead of Dropdown */}
+                                  <button 
+                                    onClick={() => openSingleStatusModal(debtor.id)}
+                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide w-full md:w-auto justify-between shadow-sm ${getStatusBadge(debtor.status)}`}
+                                  >
+                                      <span className="flex items-center gap-1.5">
+                                        {debtor.status === 'Paid' && <CheckCircle2 size={12} />}
+                                        {debtor.status}
+                                      </span>
+                                      <Edit size={12} className="opacity-50"/>
+                                  </button>
+                                  
+                                  {debtor.status !== 'Paid' && debtor.status !== 'New' && debtor.statusDate && (
+                                      <div className={`text-[10px] font-bold mt-1 ml-1 ${needsAction ? 'text-red-600' : 'text-slate-400'}`}>
+                                          {daysOverdue} dagen geleden {needsAction && '(Actie!)'}
+                                      </div>
+                                  )}
                               </td>
-                              <td className="px-6 py-4 text-right align-top">
+                              <td className="px-6 py-4 text-right align-top" onClick={(e) => e.stopPropagation()}>
                                   <div className="flex justify-end gap-2">
                                       <button 
                                         onClick={() => handleDeleteDebtor(debtor.id)}
@@ -522,7 +575,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                       )})}
                       {filteredDebtors.length === 0 && (
                           <tr>
-                              <td colSpan={7} className="px-6 py-12 text-center text-slate-400 italic">
+                              <td colSpan={8} className="px-6 py-12 text-center text-slate-400 italic">
                                   Geen dossiers gevonden.
                               </td>
                           </tr>
@@ -531,6 +584,90 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
               </table>
           </div>
       </div>
+
+      {/* Bulk Actions Floating Bar */}
+      {selectedIds.size > 0 && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl z-40 flex items-center gap-6 animate-in slide-in-from-bottom-10 duration-300">
+              <div className="flex items-center gap-2 font-bold border-r border-slate-700 pr-6">
+                  <div className="bg-teal-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">
+                      {selectedIds.size}
+                  </div>
+                  <span>Geselecteerd</span>
+              </div>
+              <div className="flex items-center gap-2">
+                  <button 
+                    onClick={openBulkStatusModal}
+                    className="flex items-center gap-2 px-4 py-2 hover:bg-slate-800 rounded-xl transition-colors text-sm font-bold"
+                  >
+                      <Edit size={16}/> Status Wijzigen
+                  </button>
+                  <button 
+                    onClick={handleBulkDelete}
+                    className="flex items-center gap-2 px-4 py-2 hover:bg-red-600/80 bg-red-600 text-white rounded-xl transition-colors text-sm font-bold"
+                  >
+                      <Trash2 size={16}/> Verwijderen
+                  </button>
+              </div>
+              <button onClick={() => setSelectedIds(new Set())} className="ml-2 p-1 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white">
+                  <X size={16}/>
+              </button>
+          </div>
+      )}
+
+      {/* Visual Status Picker Modal */}
+      <Modal
+        isOpen={isStatusModalOpen}
+        onClose={() => setIsStatusModalOpen(false)}
+        title="Status Wijzigen"
+      >
+          <div className="p-2">
+              <p className="text-sm text-slate-500 mb-6">Kies de nieuwe status voor {statusTargetIds.length} dossier(s).</p>
+              <div className="grid grid-cols-2 gap-4">
+                  <StatusOptionCard 
+                    status="New" 
+                    label="Nieuw" 
+                    description="Nog geen actie ondernomen."
+                    colorClass="bg-blue-50 border-blue-200 text-blue-700 hover:border-blue-400"
+                    onClick={() => applyStatusChange('New')}
+                  />
+                  <StatusOptionCard 
+                    status="1st Reminder" 
+                    label="1e Herinnering" 
+                    description="Eerste mail/brief verstuurd."
+                    colorClass="bg-amber-50 border-amber-200 text-amber-700 hover:border-amber-400"
+                    onClick={() => applyStatusChange('1st Reminder')}
+                  />
+                  <StatusOptionCard 
+                    status="2nd Reminder" 
+                    label="2e Herinnering" 
+                    description="Tweede waarschuwing (+14 dagen)."
+                    colorClass="bg-orange-50 border-orange-200 text-orange-700 hover:border-orange-400"
+                    onClick={() => applyStatusChange('2nd Reminder')}
+                  />
+                  <StatusOptionCard 
+                    status="Final Notice" 
+                    label="Aanmaning" 
+                    description="Laatste waarschuwing voor blacklist."
+                    colorClass="bg-red-50 border-red-200 text-red-700 hover:border-red-400"
+                    onClick={() => applyStatusChange('Final Notice')}
+                  />
+                  <StatusOptionCard 
+                    status="Paid" 
+                    label="Betaald" 
+                    description="Dossier succesvol afgerond."
+                    colorClass="bg-green-50 border-green-200 text-green-700 hover:border-green-400"
+                    onClick={() => applyStatusChange('Paid')}
+                  />
+                  <StatusOptionCard 
+                    status="Blacklist" 
+                    label="Blacklist" 
+                    description="Geen toegang meer tot hotel."
+                    colorClass="bg-slate-100 border-slate-300 text-slate-900 hover:border-slate-500"
+                    onClick={() => applyStatusChange('Blacklist')}
+                  />
+              </div>
+          </div>
+      </Modal>
 
       <Modal
         isOpen={!!editingDebtor}
