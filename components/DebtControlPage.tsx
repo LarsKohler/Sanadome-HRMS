@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar } from 'lucide-react';
 import { Debtor, DebtorStatus, Employee } from '../types';
@@ -357,7 +358,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
         <head>
             <title>WIK Brief - ${wikTarget.lastName}</title>
             <style>
-                body { font-family: 'Calibri', 'Segoe UI', sans-serif; padding: 40px; padding-top: 100px; font-size: 12pt; line-height: 1.5; color: #000; }
+                body { font-family: 'Calibri', 'Segoe UI', sans-serif; padding: 40px; padding-top: 100px; font-size: 11pt; line-height: 1.3; color: #000; }
                 .header { display: flex; justify-content: space-between; margin-bottom: 60px; }
                 .recipient { width: 50%; }
                 .sender { width: 40%; text-align: left; font-size: 11pt; }
@@ -366,7 +367,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                 .subject { font-weight: bold; text-decoration: underline; margin-bottom: 20px; }
                 .content { margin-bottom: 40px; text-align: justify; }
                 .signature { margin-top: 40px; }
-                .signature strong { display: block; margin-top: 50px; }
+                .signature strong { display: block; margin-top: 0px; } /* Adjusted: No gap for signature */
                 @media print {
                     @page { margin: 2cm; margin-top: 0; }
                     body { padding: 0; padding-top: 50mm; } /* Specific for Window Envelope when printing */
