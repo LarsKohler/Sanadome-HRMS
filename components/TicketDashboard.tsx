@@ -13,6 +13,22 @@ interface TicketDashboardProps {
     onOpenFeedbackModal: () => void; // Kept for external triggers if needed
 }
 
+const LOCATIONS = [
+    'Dashboard', 
+    'Profiel', 
+    'Collega\'s', 
+    'Rooster', 
+    'Verlof', 
+    'Documenten', 
+    'Nieuws', 
+    'Onboarding', 
+    'Surveys', 
+    'Evaluaties', 
+    'Instellingen', 
+    'Ticket Systeem',
+    'Overig'
+];
+
 const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentUser, onAddNotification, onOpenFeedbackModal }) => {
     const [tickets, setTickets] = useState<TicketType[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -27,12 +43,11 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
         description: '',
         type: 'Bug' as TT,
         priority: 'Medium' as TicketPriority,
-        page: ''
+        page: 'Dashboard'
     });
-
-    // AI Assist State
-    const [isAiGenerating, setIsAiGenerating] = useState(false);
-    const [aiSuggestion, setAiSuggestion] = useState<string | null>(null);
+    
+    // Page Selection State
+    const [selectedLocation, setSelectedLocation] = useState('Dashboard');
 
     // Filter State
     const [filterStatus, setFilterStatus] = useState<TicketStatus | 'All'>('All');
@@ -53,6 +68,15 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
     useEffect(() => {
         chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [selectedTicketId, tickets]);
+
+    // Update newTicket.page when location dropdown changes
+    useEffect(() => {
+        if (selectedLocation !== 'Overig') {
+            setNewTicket(prev => ({ ...prev, page: selectedLocation }));
+        } else {
+            setNewTicket(prev => ({ ...prev, page: '' })); // Clear for manual input
+        }
+    }, [selectedLocation]);
 
     const loadTickets = async () => {
         setIsLoading(true);
@@ -80,56 +104,29 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
     const handleStartCreate = () => {
         setSelectedTicketId(null);
         setIsCreating(true);
+        setSelectedLocation('Dashboard');
         setNewTicket({
             title: '',
             description: '',
             type: 'Bug',
             priority: 'Medium',
-            page: 'Dashboard' // Default, user can edit
+            page: 'Dashboard'
         });
-        setAiSuggestion(null);
     };
 
     const handleCancelCreate = () => {
         setIsCreating(false);
-        setAiSuggestion(null);
-    };
-
-    const handleAiGenerate = async () => {
-        if (!newTicket.description.trim()) {
-            onShowToast("Vul eerst een korte omschrijving in.");
-            return;
-        }
-        setIsAiGenerating(true);
-        
-        // Simulate AI Latency
-        await new Promise(r => setTimeout(r, 1500));
-
-        let suggestion = "";
-        const original = newTicket.description;
-
-        if (newTicket.type === 'Bug') {
-            suggestion = `**Probleem:**\n${original}\n\n**Stappen om te reproduceren:**\n1. Ga naar [Pagina]\n2. Voer actie uit...\n3. Fout treedt op.\n\n**Verwacht resultaat:**\nHet systeem zou moeten werken zonder foutmelding.\n\n**Technische Context:**\nBrowser: Chrome / OS: Windows`;
-        } else if (newTicket.type === 'Idea') {
-            suggestion = `**Voorstel:**\n${original}\n\n**Waarom is dit nodig?**\nDit zou de efficiëntie verbeteren doordat...\n\n**Voorgestelde oplossing:**\nImplementeer een functie die...`;
-        } else {
-            suggestion = `**Omschrijving:**\n${original}\n\n**Details:**\n- Locatie: ${newTicket.page || 'Onbekend'}\n- Prioriteit: ${newTicket.priority}\n\n**Gewenste Actie:**\nGraag z.s.m. oppakken.`;
-        }
-
-        setAiSuggestion(suggestion);
-        setIsAiGenerating(false);
-    };
-
-    const handleApplyAiSuggestion = () => {
-        if (aiSuggestion) {
-            setNewTicket(prev => ({ ...prev, description: aiSuggestion }));
-            setAiSuggestion(null);
-            onShowToast("AI suggestie toegepast!");
-        }
     };
 
     const handleSubmitTicket = async () => {
-        if (!newTicket.title || !newTicket.description) return;
+        if (!newTicket.title || !newTicket.description) {
+            onShowToast("Vul alle verplichte velden in.");
+            return;
+        }
+        if (!newTicket.page) {
+            onShowToast("Geef een locatie op.");
+            return;
+        }
         if (!currentUser) return;
 
         const ticket: TicketType = {
@@ -154,10 +151,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
         setSelectedTicketId(ticket.id);
         onShowToast("Melding succesvol aangemaakt.");
 
-        // Notify Managers (Mock)
-        if (onAddNotification) {
-             // Find managers logic would go here in real app
-        }
+        // Notify Managers logic omitted for brevity in this specific component
     };
 
     const handleSendMessage = async () => {
@@ -182,8 +176,6 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
         
         // Save to DB
         await api.saveTicket(updatedTicket);
-
-        // Notify logic (omitted for brevity)
     };
 
     const handleStatusChange = async (newStatus: TicketStatus) => {
@@ -445,13 +437,26 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
                                         </div>
                                         <div>
                                             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Pagina / Context</label>
-                                            <input 
-                                                type="text" 
-                                                value={newTicket.page}
-                                                onChange={e => setNewTicket({...newTicket, page: e.target.value})}
+                                            <select 
+                                                value={selectedLocation}
+                                                onChange={e => setSelectedLocation(e.target.value)}
                                                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-purple-500 outline-none"
-                                                placeholder="Waar gebeurt dit?"
-                                            />
+                                            >
+                                                {LOCATIONS.map(loc => (
+                                                    <option key={loc} value={loc}>{loc}</option>
+                                                ))}
+                                            </select>
+                                            
+                                            {selectedLocation === 'Overig' && (
+                                                <input 
+                                                    type="text" 
+                                                    value={newTicket.page}
+                                                    onChange={e => setNewTicket({...newTicket, page: e.target.value})}
+                                                    className="w-full mt-2 p-3 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-purple-500 outline-none animate-in fade-in slide-in-from-top-1"
+                                                    placeholder="Typ de locatie..."
+                                                    autoFocus
+                                                />
+                                            )}
                                         </div>
                                     </div>
 
@@ -476,49 +481,15 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
                                         </div>
                                     </div>
 
-                                    {/* Description with AI */}
                                     <div>
-                                        <div className="flex justify-between items-center mb-2">
-                                            <label className="block text-xs font-bold text-slate-500 uppercase">Omschrijving</label>
-                                            <button 
-                                                onClick={handleAiGenerate}
-                                                disabled={isAiGenerating}
-                                                className="text-xs font-bold text-purple-600 hover:text-purple-700 flex items-center gap-1 disabled:opacity-50"
-                                            >
-                                                <Sparkles size={12} />
-                                                {isAiGenerating ? 'Analyseren...' : 'Verbeteren met AI'}
-                                            </button>
-                                        </div>
-                                        <div className="relative">
-                                            <textarea 
-                                                rows={6}
-                                                value={newTicket.description}
-                                                onChange={e => setNewTicket({...newTicket, description: e.target.value})}
-                                                className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-purple-500 outline-none resize-none leading-relaxed"
-                                                placeholder="Beschrijf het probleem of idee zo uitgebreid mogelijk..."
-                                            />
-                                            {aiSuggestion && (
-                                                <div className="absolute inset-0 bg-white/95 backdrop-blur-sm rounded-xl border-2 border-purple-200 p-4 overflow-y-auto animate-in fade-in zoom-in-95">
-                                                    <div className="flex justify-between items-start mb-3">
-                                                        <h4 className="text-sm font-bold text-purple-900 flex items-center gap-2">
-                                                            <Sparkles size={14} /> AI Suggestie
-                                                        </h4>
-                                                        <button onClick={() => setAiSuggestion(null)} className="text-slate-400 hover:text-slate-600"><X size={16}/></button>
-                                                    </div>
-                                                    <div className="text-sm text-slate-700 whitespace-pre-wrap mb-4 bg-purple-50 p-3 rounded-lg border border-purple-100">
-                                                        {aiSuggestion}
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        <button onClick={handleApplyAiSuggestion} className="flex-1 py-2 bg-purple-600 text-white rounded-lg text-xs font-bold hover:bg-purple-700 transition-colors flex items-center justify-center gap-2">
-                                                            <Check size={14} /> Overnemen
-                                                        </button>
-                                                        <button onClick={() => setAiSuggestion(null)} className="flex-1 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-50 transition-colors">
-                                                            Afwijzen
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Omschrijving</label>
+                                        <textarea 
+                                            rows={6}
+                                            value={newTicket.description}
+                                            onChange={e => setNewTicket({...newTicket, description: e.target.value})}
+                                            className="w-full p-4 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-purple-500 outline-none resize-none leading-relaxed"
+                                            placeholder="Beschrijf het probleem of idee zo uitgebreid mogelijk..."
+                                        />
                                     </div>
 
                                     <div className="pt-4 flex gap-4">

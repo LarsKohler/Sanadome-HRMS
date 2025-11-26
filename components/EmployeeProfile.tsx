@@ -5,9 +5,9 @@ import {
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Ticket, Circle
+  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Ticket, Circle, Newspaper
 } from 'lucide-react';
-import { Employee, LeaveRequest, EmployeeNote, EmployeeDocument, Notification, ViewState, Ticket as TicketType } from '../types';
+import { Employee, LeaveRequest, EmployeeNote, EmployeeDocument, Notification, ViewState, Ticket as TicketType, NewsPost } from '../types';
 import { Modal } from './Modal';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { api } from '../utils/api';
@@ -22,6 +22,7 @@ interface EmployeeProfileProps {
   onAddNotification: (notification: Notification) => void;
   onShowToast: (message: string) => void;
   managers: Employee[];
+  latestNews?: NewsPost | null;
 }
 
 const EmployeeProfile: React.FC<EmployeeProfileProps> = ({ 
@@ -32,7 +33,8 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   onUpdateEmployee,
   onAddNotification,
   onShowToast,
-  managers
+  managers,
+  latestNews
 }) => {
   const [activeTab, setActiveTab] = useState('Overzicht');
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
@@ -368,6 +370,26 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                               </button>
                           </div>
                       </div>
+
+                      {/* Latest News Widget */}
+                      {latestNews && (
+                          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm group cursor-pointer" onClick={() => onChangeView(ViewState.NEWS)}>
+                              <h3 className="font-bold text-slate-900 mb-3 text-sm uppercase tracking-wider flex items-center gap-2">
+                                  <Newspaper size={16} /> Laatste Nieuws
+                              </h3>
+                              <div className="relative rounded-xl overflow-hidden mb-3">
+                                  {latestNews.image && <img src={latestNews.image} className="w-full h-32 object-cover" />}
+                                  <div className={`absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-3 ${!latestNews.image ? 'bg-slate-100' : ''}`}>
+                                     {!latestNews.image && <div className="absolute inset-0 flex items-center justify-center text-slate-300"><Newspaper size={40}/></div>}
+                                  </div>
+                              </div>
+                              <h4 className="font-bold text-slate-900 leading-tight mb-1 line-clamp-2 group-hover:text-teal-600 transition-colors">{latestNews.title}</h4>
+                              <p className="text-xs text-slate-500 line-clamp-2">{latestNews.shortDescription}</p>
+                              <div className="mt-3 flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase">
+                                  <span>{latestNews.date}</span>
+                              </div>
+                          </div>
+                      )}
 
                       {/* My Team / Contacts */}
                       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">

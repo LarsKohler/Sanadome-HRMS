@@ -1,3 +1,4 @@
+
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
 import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, Ticket } from '../types';
@@ -344,6 +345,15 @@ export const api = {
       const current = storage.getNews();
       const updated = current.map(n => n.id === post.id ? post : n);
       storage.saveNews(updated);
+    }
+  },
+
+  deleteNewsPost: async (id: string) => {
+    if (isLive && supabase) {
+        await supabase.from('news').delete().eq('id', id);
+    } else {
+        const current = storage.getNews();
+        storage.saveNews(current.filter(n => n.id !== id));
     }
   },
 

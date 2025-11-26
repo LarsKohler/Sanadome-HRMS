@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { Heart, MessageSquare, Share2, Send, Image as ImageIcon, X, User, Bold, Italic, List, Maximize2, ChevronRight } from 'lucide-react';
+import { Heart, MessageSquare, Share2, Send, Image as ImageIcon, X, User, Bold, Italic, List, Maximize2, ChevronRight, Edit2, Trash2 } from 'lucide-react';
 import { Employee, NewsPost } from '../types';
 import { Modal } from './Modal';
 import { api } from '../utils/api';
@@ -10,18 +10,23 @@ interface NewsPageProps {
   currentUser: Employee;
   newsItems: NewsPost[];
   onAddNews: (post: NewsPost) => void;
+  onUpdateNews?: (post: NewsPost) => void; // Optional to support incremental adoption
+  onDeleteNews?: (id: string) => void;     // Optional to support incremental adoption
   onLikeNews: (postId: string, userId: string) => void;
 }
 
-const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, onLikeNews }) => {
+const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, onUpdateNews, onDeleteNews, onLikeNews }) => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<NewsPost | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   
+  // Form State
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [title, setTitle] = useState('');
   const [shortDescription, setShortDescription] = useState('');
   const [content, setContent] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -73,30 +78,64 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
     }, 0);
   };
 
+  const handleOpenCreate = () => {
+      setEditingId(null);
+      setTitle('');
+      setShortDescription('');
+      setContent('');
+      setImageUrl('');
+      setIsCreateModalOpen(true);
+  };
+
+  const handleOpenEdit = (post: NewsPost) => {
+      setEditingId(post.id);
+      setTitle(post.title);
+      setShortDescription(post.shortDescription);
+      setContent(post.content);
+      setImageUrl(post.image || '');
+      setIsCreateModalOpen(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const newPost: NewsPost = {
-      id: Math.random().toString(36).substr(2, 9),
-      authorName: currentUser.name,
-      authorAvatar: currentUser.avatar,
-      authorRole: currentUser.role,
-      date: new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' }),
-      title,
-      shortDescription,
-      content,
-      image: imageUrl || undefined,
-      likes: 0,
-      likedBy: []
-    };
+    if (editingId && onUpdateNews) {
+        const original = newsItems.find(n => n.id === editingId);
+        if (!original) return;
 
-    onAddNews(newPost);
+        const updatedPost: NewsPost = {
+            ...original,
+            title,
+            shortDescription,
+            content,
+            image: imageUrl || undefined,
+        };
+        onUpdateNews(updatedPost);
+    } else {
+        const newPost: NewsPost = {
+          id: Math.random().toString(36).substr(2, 9),
+          authorName: currentUser.name,
+          authorAvatar: currentUser.avatar,
+          authorRole: currentUser.role,
+          date: new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' }),
+          title,
+          shortDescription,
+          content,
+          image: imageUrl || undefined,
+          likes: 0,
+          likedBy: []
+        };
+        onAddNews(newPost);
+    }
     
-    setTitle('');
-    setShortDescription('');
-    setContent('');
-    setImageUrl('');
     setIsCreateModalOpen(false);
+  };
+
+  const handleDelete = (id: string) => {
+      if (confirm("Weet je zeker dat je dit nieuwsbericht wilt verwijderen?") && onDeleteNews) {
+          onDeleteNews(id);
+          if (selectedPost?.id === id) setSelectedPost(null);
+      }
   };
 
   const renderFormattedText = (text: string) => {
@@ -131,7 +170,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
         
         {canPost && (
           <button 
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={handleOpenCreate}
             className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all w-full md:w-auto justify-center"
           >
             <Send size={18} />
@@ -158,10 +197,45 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                     className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" 
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  
+                  {/* Quick Actions on Card for Authors/Admins */}
+                  {canPost && (
+                      <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleOpenEdit(post); }}
+                            className="p-2 bg-white/90 backdrop-blur rounded-lg text-slate-700 hover:text-teal-600 shadow-sm"
+                          >
+                              <Edit2 size={16} />
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleDelete(post.id); }}
+                            className="p-2 bg-white/90 backdrop-blur rounded-lg text-slate-700 hover:text-red-600 shadow-sm"
+                          >
+                              <Trash2 size={16} />
+                          </button>
+                      </div>
+                  )}
                 </div>
               )}
 
-              <div className="p-6 flex flex-col flex-1">
+              <div className="p-6 flex flex-col flex-1 relative">
+                {!post.image && canPost && (
+                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button 
+                        onClick={(e) => { e.stopPropagation(); handleOpenEdit(post); }}
+                        className="p-2 bg-slate-100 rounded-lg text-slate-500 hover:bg-white hover:text-teal-600 shadow-sm border border-slate-200"
+                        >
+                            <Edit2 size={16} />
+                        </button>
+                        <button 
+                        onClick={(e) => { e.stopPropagation(); handleDelete(post.id); }}
+                        className="p-2 bg-slate-100 rounded-lg text-slate-500 hover:bg-white hover:text-red-600 shadow-sm border border-slate-200"
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                    </div>
+                )}
+
                 <div className="flex items-center justify-between mb-5">
                   <div className="flex items-center gap-3">
                     <img 
@@ -174,9 +248,6 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                        <div className="text-xs text-slate-400 font-medium uppercase tracking-wide">{post.date}</div>
                     </div>
                   </div>
-                  <button className="text-slate-300 hover:text-slate-500 transition-colors">
-                    <Maximize2 size={16} />
-                  </button>
                 </div>
 
                 <h2 className="text-xl font-bold text-slate-900 mb-3 leading-tight group-hover:text-teal-700 transition-colors">{post.title}</h2>
@@ -225,7 +296,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
       <Modal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
-        title="Nieuwsbericht opstellen"
+        title={editingId ? "Nieuwsbericht bewerken" : "Nieuwsbericht opstellen"}
       >
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
@@ -342,7 +413,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
               className="px-6 py-3 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-colors shadow-lg flex items-center gap-2 disabled:opacity-50"
             >
               <Send size={16} />
-              Publiceren
+              {editingId ? 'Opslaan' : 'Publiceren'}
             </button>
           </div>
         </form>

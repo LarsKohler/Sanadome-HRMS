@@ -297,6 +297,18 @@ const App: React.FC = () => {
     showToast('Nieuwsbericht gepubliceerd');
   };
 
+  const handleUpdateNews = (post: NewsPost) => {
+      setNewsItems(prev => prev.map(n => n.id === post.id ? post : n));
+      api.updateNewsPost(post);
+      showToast('Nieuwsbericht bijgewerkt');
+  };
+
+  const handleDeleteNews = (id: string) => {
+      setNewsItems(prev => prev.filter(n => n.id !== id));
+      api.deleteNewsPost(id);
+      showToast('Nieuwsbericht verwijderd');
+  };
+
   const handleLikeNews = (postId: string, userId: string) => {
       const post = newsItems.find(n => n.id === postId);
       if (post) {
@@ -488,6 +500,7 @@ const App: React.FC = () => {
               onAddNotification={handleAddNotification}
               onShowToast={showToast}
               managers={employees.filter(e => e.role === 'Manager')}
+              latestNews={newsItems.length > 0 ? newsItems[0] : null}
             />
           )}
 
@@ -496,6 +509,8 @@ const App: React.FC = () => {
                 currentUser={currentUser}
                 newsItems={newsItems}
                 onAddNews={handleAddNews}
+                onUpdateNews={handleUpdateNews}
+                onDeleteNews={handleDeleteNews}
                 onLikeNews={handleLikeNews}
              />
           )}
