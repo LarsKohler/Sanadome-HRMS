@@ -55,6 +55,9 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
 
   // Debt Control State (for Dashboard)
   const [urgentDebtCount, setUrgentDebtCount] = useState(0);
+  
+  // Tickets State
+  const [myTickets, setMyTickets] = useState<TicketType[]>([]);
 
   // Load Template Name correctly
   useEffect(() => {
@@ -80,9 +83,10 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       }
   }, [employee.activeTemplateId, employee.onboardingStatus, employee.onboardingTasks]);
 
-  // Fetch Debt Control Stats if user has permission
+  // Fetch Data for Dashboard
   useEffect(() => {
-      const checkDebtors = async () => {
+      const loadDashboardData = async () => {
+          // Debtors
           if (hasPermission(employee, 'MANAGE_DEBTORS')) {
               try {
                   const debtors = await api.getDebtors();
@@ -99,8 +103,20 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                   console.error("Failed to fetch dashboard debt stats", e);
               }
           }
+
+          // Tickets
+          try {
+              const allTickets = await api.getTickets();
+              const mine = allTickets
+                  .filter(t => t.submittedById === employee.id && t.status !== 'Closed')
+                  .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
+                  .slice(0, 3);
+              setMyTickets(mine);
+          } catch (e) {
+              console.error("Failed to load tickets", e);
+          }
       };
-      checkDebtors();
+      loadDashboardData();
   }, [employee]);
 
   const tabs = useMemo(() => {
@@ -193,29 +209,35 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       const annualLeave = employee.leaveBalances?.find(b => b.type === 'Annual Leave');
       const leavePercentage = annualLeave ? Math.round(((annualLeave.entitled - annualLeave.taken) / annualLeave.entitled) * 100) : 0;
 
-      const departmentDisplay = employee.departments ? employee.departments.join(', ') : 'Geen afdeling';
+      const totalActions = openOnboardingTasks.length + pendingEvaluations.length + urgentDebtCount;
 
       return (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               
-              {/* VITAL STATS ROW */}
+              {/* VITAL STATS ROW - Refined */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   
-                  {/* Tenure */}
                   <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-                      <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
-                          <Award size={24} />
+                      <div className={`p-3 rounded-lg ${totalActions > 0 ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-600'}`}>
+                          <ListTodo size={22} />
                       </div>
                       <div>
-                          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Dienstverband</div>
-                          <div className="text-lg font-bold text-slate-900">
-                              {diffYears > 0 ? `${diffYears} Jaar, ${diffMonths} mnd` : `${diffMonths} Maanden`}
-                          </div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Open Taken</div>
+                          <div className="text-lg font-bold text-slate-900">{totalActions}</div>
                       </div>
                   </div>
 
-                  {/* Leave Balance */}
-                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4 group cursor-pointer" onClick={() => onShowToast('Verlof module binnenkort beschikbaar')}>
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                      <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
+                          <Ticket size={22} />
+                      </div>
+                      <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mijn Tickets</div>
+                          <div className="text-lg font-bold text-slate-900">{myTickets.length}</div>
+                      </div>
+                  </div>
+
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4 cursor-pointer hover:border-teal-300 transition-colors" onClick={() => onShowToast('Verlof module binnenkort beschikbaar')}>
                       <div className="relative w-12 h-12 flex-shrink-0">
                            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                                 <path className="text-slate-100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
@@ -224,33 +246,19 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-teal-700">{annualLeave ? annualLeave.entitled - annualLeave.taken : 0}d</div>
                       </div>
                       <div>
-                          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Verlof Saldo</div>
-                          <div className="text-sm text-slate-600 font-medium">Beschikbaar</div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Verlof Saldo</div>
+                          <div className="text-xs text-slate-500">Beschikbaar</div>
                       </div>
                   </div>
 
-                  {/* Open Actions Count */}
-                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-                      <div className={`p-3 rounded-lg ${openOnboardingTasks.length + pendingEvaluations.length > 0 ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600'}`}>
-                          <ListTodo size={24} />
-                      </div>
-                      <div>
-                          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Open Acties</div>
-                          <div className="text-lg font-bold text-slate-900">
-                              {openOnboardingTasks.length + pendingEvaluations.length + urgentDebtCount}
-                          </div>
-                      </div>
-                  </div>
-
-                  {/* Team/Manager */}
                   <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
                       <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-                          <Users size={24} />
+                          <Award size={22} />
                       </div>
                       <div>
-                          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Mijn Team</div>
-                          <div className="text-sm font-bold text-slate-900 truncate max-w-[120px]" title={departmentDisplay}>
-                              {departmentDisplay}
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dienstverband</div>
+                          <div className="text-lg font-bold text-slate-900">
+                              {diffYears > 0 ? `${diffYears}j, ${diffMonths}m` : `${diffMonths} Mnd`}
                           </div>
                       </div>
                   </div>
@@ -258,83 +266,119 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   
-                  {/* MAIN COLUMN: ACTION CENTER & FEED */}
+                  {/* MAIN COLUMN: ACTION CENTER & FEEDS */}
                   <div className="lg:col-span-2 space-y-6">
                       
-                      {/* Urgent Actions Block */}
+                      {/* Unified Action Center */}
                       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                           <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                              <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                                  <Zap size={18} className="text-amber-500" fill="currentColor" /> Actie Centrum
+                              <h3 className="font-bold text-slate-900 flex items-center gap-2 text-sm uppercase tracking-wide">
+                                  <Zap size={16} className="text-amber-500" fill="currentColor" /> Actie Centrum
                               </h3>
-                              <span className="text-xs font-bold bg-white border border-slate-200 px-2 py-1 rounded-md text-slate-500">
-                                  Prioriteit
-                              </span>
                           </div>
                           
                           <div className="divide-y divide-slate-50">
                               {urgentDebtCount > 0 && (
                                   <div className="p-4 hover:bg-red-50/30 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.DEBT_CONTROL)}>
-                                      <div className="p-2 bg-red-100 text-red-600 rounded-lg group-hover:scale-110 transition-transform">
-                                          <AlertTriangle size={20} />
+                                      <div className="p-2 bg-red-100 text-red-600 rounded-lg">
+                                          <AlertTriangle size={18} />
                                       </div>
                                       <div className="flex-1">
                                           <div className="text-sm font-bold text-red-900">Debiteuren Beheer</div>
                                           <div className="text-xs text-red-700">{urgentDebtCount} dossiers vereisen directe opvolging.</div>
                                       </div>
-                                      <button className="px-3 py-1.5 bg-white border border-red-200 text-red-700 text-xs font-bold rounded-lg group-hover:bg-red-600 group-hover:text-white transition-all">
-                                          Bekijken
-                                      </button>
+                                      <ChevronRight size={16} className="text-slate-300 group-hover:text-red-600" />
                                   </div>
                               )}
 
                               {pendingEvaluations.map(ev => (
                                   <div key={ev.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.EVALUATIONS)}>
                                       <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
-                                          <ClipboardCheck size={20} />
+                                          <ClipboardCheck size={18} />
                                       </div>
                                       <div className="flex-1">
                                           <div className="text-sm font-bold text-slate-900">Evaluatie: {ev.type}</div>
-                                          <div className="text-xs text-slate-500">Jouw input wordt verwacht voor het gesprek.</div>
+                                          <div className="text-xs text-slate-500">Jouw input wordt verwacht.</div>
                                       </div>
-                                      <ChevronRight size={18} className="text-slate-300 group-hover:text-purple-600 transition-colors" />
+                                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                                   </div>
                               ))}
 
                               {openOnboardingTasks.slice(0, 3).map(task => (
                                   <div key={task.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.ONBOARDING)}>
                                       <div className="p-2 bg-teal-100 text-teal-600 rounded-lg">
-                                          <ListTodo size={20} />
+                                          <ListTodo size={18} />
                                       </div>
                                       <div className="flex-1">
                                           <div className="text-sm font-bold text-slate-900">{task.title}</div>
-                                          <div className="text-xs text-slate-500">Onboarding Week {task.week} • {task.category}</div>
+                                          <div className="text-xs text-slate-500">Onboarding Week {task.week}</div>
                                       </div>
-                                      <div className="w-5 h-5 rounded-full border-2 border-slate-300 group-hover:border-teal-500 transition-colors"></div>
+                                      <ChevronRight size={16} className="text-slate-300 group-hover:text-teal-600" />
                                   </div>
                               ))}
 
-                              {urgentDebtCount === 0 && pendingEvaluations.length === 0 && openOnboardingTasks.length === 0 && (
+                              {totalActions === 0 && (
                                   <div className="p-8 text-center">
-                                      <div className="w-12 h-12 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3">
-                                          <CheckCircle2 size={24} />
+                                      <div className="w-10 h-10 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                                          <CheckCircle2 size={20} />
                                       </div>
-                                      <p className="text-sm font-bold text-slate-900">Je bent helemaal bij!</p>
-                                      <p className="text-xs text-slate-500">Geen openstaande acties op dit moment.</p>
+                                      <p className="text-sm font-bold text-slate-900">Alles is bijgewerkt!</p>
+                                      <p className="text-xs text-slate-500">Geen openstaande acties.</p>
                                   </div>
                               )}
                           </div>
                       </div>
 
-                      {/* Recent Updates / Timeline Condensed */}
+                      {/* Personal Tickets Widget */}
+                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                              <h3 className="font-bold text-slate-900 text-sm uppercase tracking-wide flex items-center gap-2">
+                                  <Ticket size={16} /> Mijn Lopende Tickets
+                              </h3>
+                              <button onClick={() => onChangeView(ViewState.TICKETS)} className="text-xs font-bold text-slate-500 hover:text-slate-900">Bekijk Alles</button>
+                          </div>
+                          <div className="divide-y divide-slate-50">
+                              {myTickets.length > 0 ? myTickets.map(t => (
+                                  <div key={t.id} className="p-4 hover:bg-slate-50 flex items-center gap-3 group cursor-pointer" onClick={() => onChangeView(ViewState.TICKETS)}>
+                                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                                          t.status === 'Open' ? 'bg-blue-500' : 
+                                          t.status === 'In Progress' ? 'bg-amber-500' : 'bg-green-500'
+                                      }`}></div>
+                                      <div className="flex-1 min-w-0">
+                                          <div className="text-sm font-bold text-slate-900 truncate">{t.title}</div>
+                                          <div className="text-xs text-slate-500 flex gap-2">
+                                              <span>{t.status}</span>
+                                              <span>•</span>
+                                              <span>{new Date(t.submittedAt).toLocaleDateString()}</span>
+                                          </div>
+                                      </div>
+                                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                                          t.priority === 'High' ? 'bg-red-50 text-red-600 border-red-100' : 
+                                          'bg-slate-50 text-slate-500 border-slate-100'
+                                      }`}>
+                                          {t.priority}
+                                      </span>
+                                  </div>
+                              )) : (
+                                  <div className="p-6 text-center text-xs text-slate-400">
+                                      Geen lopende tickets.
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+
+                      {/* Recent Documents / Activity */}
                       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                          <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider">Recente Activiteit</h3>
+                          <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider flex items-center gap-2">
+                              <FileText size={16}/> Recente Bestanden
+                          </h3>
                           <div className="relative border-l-2 border-slate-100 ml-2 space-y-6 pl-6">
                               {employee.documents.slice(0, 2).map((doc, i) => (
-                                  <div key={i} className="relative">
-                                      <div className="absolute -left-[31px] top-0 w-3 h-3 bg-blue-500 rounded-full ring-4 ring-white"></div>
+                                  <div key={i} className="relative group cursor-pointer" onClick={() => onChangeView(ViewState.DOCUMENTS)}>
+                                      <div className="absolute -left-[31px] top-0 w-3 h-3 bg-blue-500 rounded-full ring-4 ring-white group-hover:scale-125 transition-transform"></div>
                                       <p className="text-xs text-slate-400 font-bold mb-0.5">{doc.date}</p>
-                                      <p className="text-sm font-bold text-slate-800">Nieuw document: {doc.name}</p>
+                                      <p className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{doc.name}</p>
+                                      <p className="text-xs text-slate-500">{doc.category}</p>
                                   </div>
                               ))}
                               <div className="relative">
@@ -343,16 +387,45 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                   <p className="text-sm font-bold text-slate-800">In dienst getreden</p>
                               </div>
                           </div>
-                          <button onClick={() => setActiveTab('Documenten')} className="w-full mt-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-lg transition-colors">
-                              Bekijk volledige tijdlijn
-                          </button>
                       </div>
                   </div>
 
                   {/* SIDEBAR COLUMN */}
                   <div className="space-y-6">
                       
-                      {/* Quick Shortcuts */}
+                      {/* Latest News Widget - Moved to top & Styled */}
+                      {latestNews && (
+                          <div className="bg-white rounded-2xl border border-slate-200 border-t-4 border-t-teal-500 shadow-sm group cursor-pointer overflow-hidden hover:shadow-md transition-shadow" onClick={() => onChangeView(ViewState.NEWS)}>
+                              <div className="p-5">
+                                  <div className="flex items-center justify-between mb-3">
+                                      <h3 className="font-bold text-slate-900 text-sm uppercase tracking-wider flex items-center gap-2">
+                                          <Newspaper size={16} className="text-teal-600" /> Nieuws
+                                      </h3>
+                                      <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">Nieuw</span>
+                                  </div>
+                                  
+                                  {latestNews.image && (
+                                      <div className="relative rounded-xl overflow-hidden mb-3 border border-slate-100">
+                                          <img src={latestNews.image} className="w-full h-32 object-cover group-hover:scale-105 transition-transform duration-500" />
+                                      </div>
+                                  )}
+                                  
+                                  <h4 className="font-bold text-slate-900 leading-tight mb-1 line-clamp-2 group-hover:text-teal-600 transition-colors">
+                                      {latestNews.title}
+                                  </h4>
+                                  <p className="text-xs text-slate-500 line-clamp-2 mb-2 leading-relaxed">
+                                      {latestNews.shortDescription}
+                                  </p>
+                                  <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase mt-3 pt-3 border-t border-slate-50">
+                                      <span>{latestNews.date}</span>
+                                      <span>•</span>
+                                      <span>Lees meer <ChevronRight size={10} className="inline"/></span>
+                                  </div>
+                              </div>
+                          </div>
+                      )}
+
+                      {/* Shortcuts Grid */}
                       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                           <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider">Snelmenu</h3>
                           <div className="grid grid-cols-2 gap-3">
@@ -371,29 +444,9 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                           </div>
                       </div>
 
-                      {/* Latest News Widget */}
-                      {latestNews && (
-                          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm group cursor-pointer" onClick={() => onChangeView(ViewState.NEWS)}>
-                              <h3 className="font-bold text-slate-900 mb-3 text-sm uppercase tracking-wider flex items-center gap-2">
-                                  <Newspaper size={16} /> Laatste Nieuws
-                              </h3>
-                              <div className="relative rounded-xl overflow-hidden mb-3">
-                                  {latestNews.image && <img src={latestNews.image} className="w-full h-32 object-cover" />}
-                                  <div className={`absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-3 ${!latestNews.image ? 'bg-slate-100' : ''}`}>
-                                     {!latestNews.image && <div className="absolute inset-0 flex items-center justify-center text-slate-300"><Newspaper size={40}/></div>}
-                                  </div>
-                              </div>
-                              <h4 className="font-bold text-slate-900 leading-tight mb-1 line-clamp-2 group-hover:text-teal-600 transition-colors">{latestNews.title}</h4>
-                              <p className="text-xs text-slate-500 line-clamp-2">{latestNews.shortDescription}</p>
-                              <div className="mt-3 flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase">
-                                  <span>{latestNews.date}</span>
-                              </div>
-                          </div>
-                      )}
-
-                      {/* My Team / Contacts */}
+                      {/* Team & Contact */}
                       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                          <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider">Mijn Netwerk</h3>
+                          <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider">Mijn Team</h3>
                           <div className="space-y-4">
                               <div className="flex items-center gap-3 group">
                                   <img src="https://ui-avatars.com/api/?name=Dennis+Manager&background=0d9488&color=fff" className="w-10 h-10 rounded-full border border-slate-100" alt="Manager"/>
@@ -420,17 +473,12 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                   </div>
                               )}
                           </div>
-                      </div>
-
-                      {/* Contact Info Condensed */}
-                      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
-                          <h3 className="font-bold text-slate-900 mb-3 text-xs uppercase tracking-wider">Mijn Gegevens</h3>
-                          <div className="space-y-2 text-sm">
-                              <div className="flex items-center gap-2 text-slate-600">
-                                  <Mail size={14} className="text-slate-400"/> <span className="truncate">{employee.email}</span>
-                              </div>
-                              <div className="flex items-center gap-2 text-slate-600">
-                                  <Phone size={14} className="text-slate-400"/> <span>{employee.phone}</span>
+                          
+                          <div className="mt-6 pt-4 border-t border-slate-100">
+                              <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Mijn Gegevens</h4>
+                              <div className="space-y-1 text-xs text-slate-600 font-medium">
+                                  <div className="flex items-center gap-2 truncate"><Mail size={12}/> {employee.email}</div>
+                                  <div className="flex items-center gap-2"><Phone size={12}/> {employee.phone}</div>
                               </div>
                           </div>
                       </div>

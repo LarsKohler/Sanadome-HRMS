@@ -20,7 +20,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [isCreatingDemo, setIsCreatingDemo] = useState(false);
 
   // Rotate images
   useEffect(() => {
@@ -49,26 +48,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         setError('Er is een technische fout opgetreden.');
         setIsLoading(false);
     }
-  };
-
-  const handleCreateDemo = async (role: 'Manager' | 'Medewerker') => {
-      setIsCreatingDemo(true);
-      try {
-          const { email: newEmail, password: newPass } = await api.createDemoUser(role);
-          setEmail(newEmail);
-          setPassword(newPass);
-          
-          // Auto login
-          const success = await onLogin(newEmail, newPass);
-          if (!success) {
-              setError('Demo account aangemaakt, maar inloggen mislukt. Probeer het opnieuw.');
-              setIsCreatingDemo(false);
-          }
-      } catch (e) {
-          console.error(e);
-          setError('Kon geen demo account aanmaken.');
-          setIsCreatingDemo(false);
-      }
   };
 
   return (
@@ -211,10 +190,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 <div>
                 <button
                     type="submit"
-                    disabled={isLoading || isCreatingDemo}
+                    disabled={isLoading}
                     className="group relative flex w-full justify-center rounded-xl bg-slate-900 px-3 py-4 text-sm font-bold text-white text-lg shadow-lg hover:bg-slate-800 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 transition-all transform hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                    {isLoading && !isCreatingDemo ? (
+                    {isLoading ? (
                         <div className="flex items-center gap-2">
                             <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -230,33 +209,6 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </button>
                 </div>
             </form>
-
-            {/* Demo Account Section */}
-            <div className="mt-10 pt-8 border-t border-slate-200">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 text-center">
-                    Geen account? Test het platform direct.
-                </p>
-                <div className="grid grid-cols-2 gap-4">
-                    <button 
-                        type="button"
-                        onClick={() => handleCreateDemo('Manager')}
-                        disabled={isCreatingDemo || isLoading}
-                        className="flex items-center justify-center gap-2 py-3 bg-purple-50 text-purple-700 hover:bg-purple-100 hover:text-purple-800 rounded-xl text-xs font-bold transition-colors border border-purple-100 disabled:opacity-50"
-                    >
-                        {isCreatingDemo ? <span className="animate-spin w-3 h-3 border-2 border-current rounded-full border-t-transparent"></span> : <Shield size={14}/>}
-                        Demo Manager
-                    </button>
-                    <button 
-                        type="button"
-                        onClick={() => handleCreateDemo('Medewerker')}
-                        disabled={isCreatingDemo || isLoading}
-                        className="flex items-center justify-center gap-2 py-3 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:text-blue-800 rounded-xl text-xs font-bold transition-colors border border-blue-100 disabled:opacity-50"
-                    >
-                        {isCreatingDemo ? <span className="animate-spin w-3 h-3 border-2 border-current rounded-full border-t-transparent"></span> : <UserPlus size={14}/>}
-                        Demo Medewerker
-                    </button>
-                </div>
-            </div>
 
             </div>
         )}

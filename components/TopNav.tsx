@@ -61,11 +61,6 @@ const TopNav: React.FC<TopNavProps> = ({
         >
           <Menu size={24} />
         </button>
-
-        {/* Breadcrumb or Page Title Placeholder (Optional, kept minimal) */}
-        <div className="hidden md:block text-slate-400 font-medium text-sm">
-            Welkom terug, <span className="text-slate-900 font-bold">{user?.name.split(' ')[0]}</span>
-        </div>
       </div>
 
       <div className="flex items-center gap-2 lg:gap-5">
