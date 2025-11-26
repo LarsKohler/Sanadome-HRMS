@@ -1,5 +1,6 @@
 
 
+
 import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog, Ticket } from '../types';
 
 // --- MOCK TICKETS ---
@@ -14,7 +15,25 @@ export const MOCK_TICKETS: Ticket[] = [
         status: 'Open',
         submittedBy: 'Mark de Medewerker',
         submittedById: 'employee-user',
-        submittedAt: new Date(Date.now() - 86400000 * 2).toISOString() // 2 days ago
+        submittedAt: new Date(Date.now() - 86400000 * 2).toISOString(), // 2 days ago
+        messages: [
+            {
+                id: 'msg-1',
+                senderId: 'employee-user',
+                senderName: 'Mark de Medewerker',
+                content: 'Het gebeurt vooral rond 09:00 uur als iedereen inlogt.',
+                timestamp: new Date(Date.now() - 86400000 * 2 + 3600000).toISOString(),
+                type: 'public'
+            },
+            {
+                id: 'msg-2',
+                senderId: 'manager-user',
+                senderName: 'Manager',
+                content: 'Lijkt op een database lock probleem. Ik ga IT vragen de logs te checken.',
+                timestamp: new Date(Date.now() - 86400000 * 1.5).toISOString(),
+                type: 'internal' // Hidden from Mark
+            }
+        ]
     },
     {
         id: 'ticket-2',
@@ -27,7 +46,24 @@ export const MOCK_TICKETS: Ticket[] = [
         submittedBy: 'Emily Watson',
         submittedById: 'emp-emily',
         submittedAt: new Date(Date.now() - 86400000 * 5).toISOString(), // 5 days ago
-        adminNotes: 'Staat op de roadmap voor Q4.'
+        messages: [
+            {
+                id: 'msg-3',
+                senderId: 'manager-user',
+                senderName: 'System',
+                content: 'Status gewijzigd naar: In Progress',
+                timestamp: new Date(Date.now() - 86400000 * 3).toISOString(),
+                type: 'system'
+            },
+            {
+                id: 'msg-4',
+                senderId: 'manager-user',
+                senderName: 'Manager',
+                content: 'Goed idee Emily! We zetten dit op de roadmap voor Q4.',
+                timestamp: new Date(Date.now() - 86400000 * 3).toISOString(),
+                type: 'public'
+            }
+        ]
     },
     {
         id: 'ticket-3',
@@ -41,25 +77,42 @@ export const MOCK_TICKETS: Ticket[] = [
         submittedById: 'employee-user',
         submittedAt: new Date(Date.now() - 86400000 * 10).toISOString(),
         resolvedAt: new Date(Date.now() - 86400000 * 1).toISOString(),
-        adminNotes: 'Opgelost in update v3.2.1'
+        messages: [
+            {
+                id: 'msg-5',
+                senderId: 'manager-user',
+                senderName: 'System',
+                content: 'Status gewijzigd naar: Resolved',
+                timestamp: new Date(Date.now() - 86400000 * 1).toISOString(),
+                type: 'system'
+            },
+            {
+                id: 'msg-6',
+                senderId: 'manager-user',
+                senderName: 'Manager',
+                content: 'Dit is opgelost in update v3.2.1. Graag even je cache legen.',
+                timestamp: new Date(Date.now() - 86400000 * 1).toISOString(),
+                type: 'public'
+            }
+        ]
     }
 ];
 
 // --- AUTO UPDATE LOGGER ---
 export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
-    id: 'update-v3.6.0-tracking', 
-    version: 'v3.6.0',
+    id: 'update-v3.7.0-tickets', 
+    version: 'v3.7.0',
     date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
     timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
     author: 'AI Assistant',
     type: 'Feature',
-    impact: 'Medium',
+    impact: 'High',
     affectedArea: 'Ticket Systeem',
     description: `
-- Nieuwe 'Meldingen' tab in Profiel voor status updates.
-- Automatische pagina-detectie bij aanmaken ticket.
-- Notificaties voor managers bij nieuw ticket.
-- Notificaties voor medewerkers bij statuswijziging.`,
+- Compleet vernieuwd ticketsysteem (Service Desk).
+- Chat-interface voor communicatie over tickets.
+- Interne notities voor managers toegevoegd.
+- Verbeterde detailweergave en tijdlijn.`,
     status: 'Success'
 };
 

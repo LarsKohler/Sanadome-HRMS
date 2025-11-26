@@ -235,7 +235,8 @@ const App: React.FC = () => {
           status: 'Open',
           submittedBy: currentUser.name,
           submittedById: currentUser.id,
-          submittedAt: new Date().toISOString()
+          submittedAt: new Date().toISOString(),
+          messages: []
       };
 
       await api.saveTicket(newTicket);

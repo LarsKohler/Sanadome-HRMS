@@ -62,19 +62,36 @@ export type TicketType = 'Bug' | 'Idea' | 'Fix' | 'Other';
 export type TicketPriority = 'Low' | 'Medium' | 'High';
 export type TicketStatus = 'Open' | 'In Progress' | 'Resolved' | 'Closed';
 
+export interface TicketMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  content: string; // The actual message or system log
+  timestamp: string;
+  type: 'public' | 'internal' | 'system'; // 'internal' only visible to managers, 'system' for status changes
+  avatar?: string;
+}
+
 export interface Ticket {
   id: string;
   title: string;
-  description: string;
-  page?: string; // New: Context of where the issue occurred
+  description: string; // The initial description
+  page?: string; 
   type: TicketType;
   priority: TicketPriority;
   status: TicketStatus;
-  submittedBy: string; // Name of employee
-  submittedById: string; // ID of employee
+  
+  submittedBy: string; 
+  submittedById: string; 
   submittedAt: string;
+  
   resolvedAt?: string;
-  adminNotes?: string;
+  
+  // New Threaded Communication
+  messages: TicketMessage[];
+  
+  // Metadata
+  tags?: string[];
 }
 
 // --- DEBT CONTROL TYPES ---
