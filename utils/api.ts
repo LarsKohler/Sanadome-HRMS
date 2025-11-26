@@ -1,5 +1,3 @@
-
-
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
 import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, Ticket } from '../types';
@@ -369,6 +367,16 @@ export const api = {
       const current = storage.getNotifications();
       storage.saveNotifications([notification, ...current]);
     }
+  },
+
+  deleteNotification: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('notifications').delete().eq('id', id);
+      } else {
+          const current = storage.getNotifications();
+          const filtered = current.filter(n => n.id !== id);
+          storage.saveNotifications(filtered);
+      }
   },
 
   markNotificationRead: async (id: string, allNotifications: Notification[]) => {

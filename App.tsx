@@ -52,6 +52,29 @@ const App: React.FC = () => {
       priority: 'Medium' as TicketPriority
   });
 
+  // --- PERMISSION MIGRATION & FIXES ---
+  useEffect(() => {
+      if (currentUser && currentUser.role === 'Manager') {
+          const requiredPerms = ['MANAGE_TICKETS', 'MANAGE_DEBTORS'];
+          let hasChanged = false;
+          let newPerms = currentUser.customPermissions ? [...currentUser.customPermissions] : [];
+          
+          requiredPerms.forEach(perm => {
+              if (!newPerms.includes(perm as any)) {
+                  newPerms.push(perm as any);
+                  hasChanged = true;
+              }
+          });
+
+          if (hasChanged) {
+              console.log("Applying missing permissions to Manager account...");
+              const updatedUser = { ...currentUser, customPermissions: newPerms };
+              setCurrentUser(updatedUser);
+              api.saveEmployee(updatedUser);
+          }
+      }
+  }, [currentUser]);
+
   // --- INITIAL DATA FETCH & SUBSCRIPTION ---
   useEffect(() => {
     const fetchData = async () => {
@@ -307,15 +330,11 @@ const App: React.FC = () => {
   };
 
   const handleRemoveNotification = (id: string) => {
-      // Optimistic Remove from view (we are deleting it effectively for the user)
-      // In a real app you might just mark it as 'deleted' or remove it from DB. 
-      // For now we remove it from local state and assume API handles persistence if implemented.
-      // Since API doesn't have explicit deleteNotification, we will treat it as marking read + hiding locally or extend API.
-      // Here we simulate "Dismiss" by removing from state.
+      // Optimistic Remove from view
       setNotifications(prev => prev.filter(n => n.id !== id));
       
-      // Also mark as read in backend to be safe
-      api.markNotificationRead(id, notifications);
+      // Permanently delete from backend so it doesn't return
+      api.deleteNotification(id);
   };
 
   const handleAddSurvey = (survey: Survey) => {
