@@ -243,7 +243,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                               </div>
                                               <div>
                                                   <div className="text-sm font-bold text-red-800">Debiteuren Beheer</div>
-                                                  <div className="text-xs text-red-600">{urgentDebtCount} dossiers vereisen direct actie (>14 dgn)</div>
+                                                  <div className="text-xs text-red-600">{urgentDebtCount} dossiers vereisen direct actie ({'>'}14 dgn)</div>
                                               </div>
                                           </div>
                                           <button 
