@@ -281,11 +281,19 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   };
 
   // --- SELECTION LOGIC ---
-  const filteredDebtors = debtors.filter(d => 
-      d.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.reservationNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      d.firstName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredDebtors = debtors.filter(d => {
+      const term = searchTerm.toLowerCase();
+      return (
+          d.lastName.toLowerCase().includes(term) ||
+          d.firstName.toLowerCase().includes(term) ||
+          d.reservationNumber.toLowerCase().includes(term) ||
+          (d.email && d.email.toLowerCase().includes(term)) ||
+          (d.phone && d.phone.toLowerCase().includes(term)) ||
+          d.address.toLowerCase().includes(term) ||
+          d.status.toLowerCase().includes(term) ||
+          d.amount.toString().includes(term)
+      );
+  });
 
   const toggleSelectAll = () => {
       if (selectedIds.size === filteredDebtors.length) {
@@ -624,7 +632,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input 
                 type="text" 
-                placeholder="Zoek op naam of nummer..." 
+                placeholder="Zoek op naam, nummer, adres, bedrag, contact..." 
                 className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
