@@ -5,7 +5,7 @@ import {
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle
+  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck
 } from 'lucide-react';
 import { Employee, LeaveRequest, EmployeeNote, EmployeeDocument, Notification, ViewState } from '../types';
 import { Modal } from './Modal';
@@ -113,7 +113,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
         baseTabs.push('Onboarding');
     }
     
-    // Removed 'Verlof' as requested
     baseTabs.push('Documenten');
     return baseTabs;
   }, [employee.onboardingStatus, employee.onboardingHistory, employee.onboardingTasks]);
@@ -185,204 +184,233 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       const diffYears = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 365));
       const diffMonths = Math.floor((diffTime % (1000 * 60 * 60 * 24 * 365)) / (1000 * 60 * 60 * 24 * 30));
 
-      // Open Actions Logic
+      // Task & Stats Calculation
       const openOnboardingTasks = employee.onboardingTasks?.filter(t => t.score !== 100) || [];
       const pendingEvaluations = employee.evaluations?.filter(ev => ev.status === 'EmployeeInput' || ev.status === 'ManagerInput') || [];
-      
-      const hasOpenActions = openOnboardingTasks.length > 0 || pendingEvaluations.length > 0 || urgentDebtCount > 0;
+      const annualLeave = employee.leaveBalances?.find(b => b.type === 'Annual Leave');
+      const leavePercentage = annualLeave ? Math.round(((annualLeave.entitled - annualLeave.taken) / annualLeave.entitled) * 100) : 0;
 
       return (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               
-              {/* Light Hero Welcome */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-sm relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-teal-50 rounded-full mix-blend-multiply filter blur-3xl opacity-50 -mr-16 -mt-16"></div>
-                  <div className="relative z-10">
-                      <h2 className="text-3xl font-serif font-bold mb-2 text-slate-900">Welkom terug, {employee.name.split(' ')[0]}</h2>
-                      <p className="text-slate-500 mb-6 max-w-xl leading-relaxed">
-                          Fijn dat je er bent. Hier is een overzicht van jouw actuele status, taken en voortgang binnen Sanadome.
-                      </p>
-                      <div className="flex gap-3">
-                          <button onClick={() => onChangeView(ViewState.DOCUMENTS)} className="px-5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl font-bold text-sm transition-all shadow-sm flex items-center gap-2">
-                              <FileText size={16} /> Mijn Dossier
+              {/* VITAL STATS ROW */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  
+                  {/* Tenure */}
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                      <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
+                          <Award size={24} />
+                      </div>
+                      <div>
+                          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Dienstverband</div>
+                          <div className="text-lg font-bold text-slate-900">
+                              {diffYears > 0 ? `${diffYears} Jaar, ${diffMonths} mnd` : `${diffMonths} Maanden`}
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* Leave Balance */}
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4 group cursor-pointer" onClick={() => onShowToast('Verlof module binnenkort beschikbaar')}>
+                      <div className="relative w-12 h-12 flex-shrink-0">
+                           <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                <path className="text-slate-100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                                <path className="text-teal-500" strokeDasharray={`${leavePercentage}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                           </svg>
+                           <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-teal-700">{annualLeave ? annualLeave.entitled - annualLeave.taken : 0}d</div>
+                      </div>
+                      <div>
+                          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Verlof Saldo</div>
+                          <div className="text-sm text-slate-600 font-medium">Beschikbaar</div>
+                      </div>
+                  </div>
+
+                  {/* Open Actions Count */}
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                      <div className={`p-3 rounded-lg ${openOnboardingTasks.length + pendingEvaluations.length > 0 ? 'bg-amber-50 text-amber-600' : 'bg-green-50 text-green-600'}`}>
+                          <ListTodo size={24} />
+                      </div>
+                      <div>
+                          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Open Acties</div>
+                          <div className="text-lg font-bold text-slate-900">
+                              {openOnboardingTasks.length + pendingEvaluations.length + urgentDebtCount}
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* Team/Manager */}
+                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                      <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
+                          <Users size={24} />
+                      </div>
+                      <div>
+                          <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Mijn Team</div>
+                          <div className="text-sm font-bold text-slate-900 truncate max-w-[120px]">{employee.department}</div>
+                      </div>
+                  </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  
+                  {/* MAIN COLUMN: ACTION CENTER & FEED */}
+                  <div className="lg:col-span-2 space-y-6">
+                      
+                      {/* Urgent Actions Block */}
+                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                              <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                                  <Zap size={18} className="text-amber-500" fill="currentColor" /> Actie Centrum
+                              </h3>
+                              <span className="text-xs font-bold bg-white border border-slate-200 px-2 py-1 rounded-md text-slate-500">
+                                  Prioriteit
+                              </span>
+                          </div>
+                          
+                          <div className="divide-y divide-slate-50">
+                              {urgentDebtCount > 0 && (
+                                  <div className="p-4 hover:bg-red-50/30 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.DEBT_CONTROL)}>
+                                      <div className="p-2 bg-red-100 text-red-600 rounded-lg group-hover:scale-110 transition-transform">
+                                          <AlertTriangle size={20} />
+                                      </div>
+                                      <div className="flex-1">
+                                          <div className="text-sm font-bold text-red-900">Debiteuren Beheer</div>
+                                          <div className="text-xs text-red-700">{urgentDebtCount} dossiers vereisen directe opvolging.</div>
+                                      </div>
+                                      <button className="px-3 py-1.5 bg-white border border-red-200 text-red-700 text-xs font-bold rounded-lg group-hover:bg-red-600 group-hover:text-white transition-all">
+                                          Bekijken
+                                      </button>
+                                  </div>
+                              )}
+
+                              {pendingEvaluations.map(ev => (
+                                  <div key={ev.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.EVALUATIONS)}>
+                                      <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
+                                          <ClipboardCheck size={20} />
+                                      </div>
+                                      <div className="flex-1">
+                                          <div className="text-sm font-bold text-slate-900">Evaluatie: {ev.type}</div>
+                                          <div className="text-xs text-slate-500">Jouw input wordt verwacht voor het gesprek.</div>
+                                      </div>
+                                      <ChevronRight size={18} className="text-slate-300 group-hover:text-purple-600 transition-colors" />
+                                  </div>
+                              ))}
+
+                              {openOnboardingTasks.slice(0, 3).map(task => (
+                                  <div key={task.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.ONBOARDING)}>
+                                      <div className="p-2 bg-teal-100 text-teal-600 rounded-lg">
+                                          <ListTodo size={20} />
+                                      </div>
+                                      <div className="flex-1">
+                                          <div className="text-sm font-bold text-slate-900">{task.title}</div>
+                                          <div className="text-xs text-slate-500">Onboarding Week {task.week} • {task.category}</div>
+                                      </div>
+                                      <div className="w-5 h-5 rounded-full border-2 border-slate-300 group-hover:border-teal-500 transition-colors"></div>
+                                  </div>
+                              ))}
+
+                              {urgentDebtCount === 0 && pendingEvaluations.length === 0 && openOnboardingTasks.length === 0 && (
+                                  <div className="p-8 text-center">
+                                      <div className="w-12 h-12 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                                          <CheckCircle2 size={24} />
+                                      </div>
+                                      <p className="text-sm font-bold text-slate-900">Je bent helemaal bij!</p>
+                                      <p className="text-xs text-slate-500">Geen openstaande acties op dit moment.</p>
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+
+                      {/* Recent Updates / Timeline Condensed */}
+                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                          <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider">Recente Activiteit</h3>
+                          <div className="relative border-l-2 border-slate-100 ml-2 space-y-6 pl-6">
+                              {employee.documents.slice(0, 2).map((doc, i) => (
+                                  <div key={i} className="relative">
+                                      <div className="absolute -left-[31px] top-0 w-3 h-3 bg-blue-500 rounded-full ring-4 ring-white"></div>
+                                      <p className="text-xs text-slate-400 font-bold mb-0.5">{doc.date}</p>
+                                      <p className="text-sm font-bold text-slate-800">Nieuw document: {doc.name}</p>
+                                  </div>
+                              ))}
+                              <div className="relative">
+                                  <div className="absolute -left-[31px] top-0 w-3 h-3 bg-slate-300 rounded-full ring-4 ring-white"></div>
+                                  <p className="text-xs text-slate-400 font-bold mb-0.5">{employee.hiredOn}</p>
+                                  <p className="text-sm font-bold text-slate-800">In dienst getreden</p>
+                              </div>
+                          </div>
+                          <button onClick={() => setActiveTab('Documenten')} className="w-full mt-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-lg transition-colors">
+                              Bekijk volledige tijdlijn
                           </button>
                       </div>
                   </div>
-              </div>
 
-              {/* Stats Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  
-                  {/* Open Actions Block - Replaces 'Next Action' */}
-                  <div className="md:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col group hover:border-teal-200 transition-colors">
-                      <div className="flex justify-between items-center mb-4">
-                          <div className="flex items-center gap-2">
-                              <div className="p-2 bg-teal-50 text-teal-600 rounded-lg">
-                                  <ListTodo size={20} />
-                              </div>
-                              <div>
-                                  <div className="text-sm font-bold text-slate-900">Openstaande Acties</div>
-                              </div>
-                          </div>
-                          {hasOpenActions && (
-                              <span className="bg-teal-100 text-teal-700 text-xs font-bold px-2 py-1 rounded-full">
-                                  {openOnboardingTasks.length + pendingEvaluations.length + (urgentDebtCount > 0 ? 1 : 0)}
-                              </span>
-                          )}
-                      </div>
-                      
-                      <div className="flex-1">
-                          {hasOpenActions ? (
-                              <div className="space-y-3">
-                                  {/* DEBT CONTROL ALERT */}
-                                  {urgentDebtCount > 0 && (
-                                      <div className="flex items-center justify-between p-3 bg-red-50 rounded-xl border border-red-100 animate-pulse">
-                                          <div className="flex items-center gap-3">
-                                              <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600">
-                                                  <AlertTriangle size={16} />
-                                              </div>
-                                              <div>
-                                                  <div className="text-sm font-bold text-red-800">Debiteuren Beheer</div>
-                                                  <div className="text-xs text-red-600">{urgentDebtCount} dossiers vereisen direct actie ({'>'}14 dgn)</div>
-                                              </div>
-                                          </div>
-                                          <button 
-                                            onClick={() => onChangeView(ViewState.DEBT_CONTROL)} 
-                                            className="text-xs font-bold text-white bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg transition-colors"
-                                          >
-                                              Bekijken
-                                          </button>
-                                      </div>
-                                  )}
-
-                                  {pendingEvaluations.slice(0, 2).map(ev => (
-                                      <div key={ev.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                          <div className="flex items-center gap-3">
-                                              <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
-                                              <div>
-                                                  <div className="text-sm font-bold text-slate-800">Evaluatie: {ev.type}</div>
-                                                  <div className="text-xs text-slate-500">Jouw input wordt verwacht</div>
-                                              </div>
-                                          </div>
-                                          <button onClick={() => onChangeView(ViewState.EVALUATIONS)} className="text-xs font-bold text-teal-600 hover:underline">Starten</button>
-                                      </div>
-                                  ))}
-                                  {openOnboardingTasks.slice(0, 3).map(task => (
-                                      <div key={task.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
-                                          <div className="flex items-center gap-3">
-                                              <div className="w-2 h-2 bg-teal-500 rounded-full"></div>
-                                              <div>
-                                                  <div className="text-sm font-bold text-slate-800">{task.title}</div>
-                                                  <div className="text-xs text-slate-500">Week {task.week} • {task.category}</div>
-                                              </div>
-                                          </div>
-                                          <button onClick={() => onChangeView(ViewState.ONBOARDING)} className="text-xs font-bold text-slate-400 hover:text-teal-600">Bekijken</button>
-                                      </div>
-                                  ))}
-                                  {(openOnboardingTasks.length + pendingEvaluations.length) > 4 && (
-                                      <div className="text-center text-xs text-slate-400 pt-1">En meer...</div>
-                                  )}
-                              </div>
-                          ) : (
-                              <div className="h-full flex flex-col items-center justify-center text-center py-4">
-                                  <div className="w-10 h-10 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-2">
-                                      <CheckCircle2 size={20} />
-                                  </div>
-                                  <p className="text-slate-900 font-bold text-sm">Er staan geen open acties.</p>
-                                  <p className="text-slate-500 text-xs">Je bent helemaal bij!</p>
-                              </div>
-                          )}
-                      </div>
-                  </div>
-
-                  {/* Tenure Stat */}
-                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between group hover:border-purple-200 transition-colors">
-                      <div className="flex justify-between items-start">
-                          <div>
-                              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Dienstverband</div>
-                              <div className="text-3xl font-bold text-slate-900 mt-1">
-                                  {diffYears > 0 ? `${diffYears} Jaar` : `${diffMonths} Maanden`}
-                              </div>
-                          </div>
-                          <div className="p-3 bg-purple-50 text-purple-600 rounded-xl group-hover:scale-110 transition-transform">
-                              <Award size={24} />
-                          </div>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-4">Startdatum: {employee.hiredOn}</p>
-                  </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  {/* Recent Activity / Timeline */}
-                  <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                      <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                          <h3 className="font-bold text-slate-900">Activiteiten Tijdlijn</h3>
-                          <button className="text-xs font-bold text-teal-600 hover:underline">Bekijk alles</button>
-                      </div>
-                      <div className="p-6">
-                          <div className="relative border-l-2 border-slate-100 ml-3 space-y-8">
-                              {/* Mock Activity Items based on profile data */}
-                              {employee.documents.slice(0, 2).map((doc, idx) => (
-                                  <div key={`doc-${idx}`} className="relative pl-8">
-                                      <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-blue-100 border-2 border-white ring-1 ring-blue-200"></div>
-                                      <div>
-                                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">{doc.date}</span>
-                                          <p className="text-sm font-bold text-slate-900">Nieuw document toegevoegd</p>
-                                          <p className="text-sm text-slate-500 mt-0.5">"{doc.name}" is toegevoegd aan je dossier.</p>
-                                      </div>
-                                  </div>
-                              ))}
-                              {employee.onboardingStatus === 'Completed' && (
-                                  <div className="relative pl-8">
-                                      <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-green-100 border-2 border-white ring-1 ring-green-200"></div>
-                                      <div>
-                                          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">Recent</span>
-                                          <p className="text-sm font-bold text-slate-900">Onboarding Afgerond</p>
-                                          <p className="text-sm text-slate-500 mt-0.5">Gefeliciteerd met het afronden van je introductie!</p>
-                                      </div>
-                                  </div>
-                              )}
-                              <div className="relative pl-8">
-                                  <div className="absolute -left-[9px] top-0 w-4 h-4 rounded-full bg-slate-100 border-2 border-white ring-1 ring-slate-200"></div>
-                                  <div>
-                                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide block mb-1">{employee.hiredOn}</span>
-                                      <p className="text-sm font-bold text-slate-900">Start Dienstverband</p>
-                                      <p className="text-sm text-slate-500 mt-0.5">Eerste werkdag bij Sanadome.</p>
-                                  </div>
-                              </div>
-                          </div>
-                      </div>
-                  </div>
-
-                  {/* Sidebar Info */}
+                  {/* SIDEBAR COLUMN */}
                   <div className="space-y-6">
-                      {/* Contact Card */}
-                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                          <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider">Contactgegevens</h3>
+                      
+                      {/* Quick Shortcuts */}
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                          <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider">Snelmenu</h3>
+                          <div className="grid grid-cols-2 gap-3">
+                              <button className="p-3 bg-slate-50 hover:bg-teal-50 hover:text-teal-700 rounded-xl text-xs font-bold text-slate-600 transition-colors flex flex-col items-center gap-2 border border-slate-100 hover:border-teal-200">
+                                  <Plane size={20} /> Verlof
+                              </button>
+                              <button className="p-3 bg-slate-50 hover:bg-rose-50 hover:text-rose-700 rounded-xl text-xs font-bold text-slate-600 transition-colors flex flex-col items-center gap-2 border border-slate-100 hover:border-rose-200">
+                                  <HeartPulse size={20} /> Ziekte
+                              </button>
+                              <button onClick={() => onChangeView(ViewState.DIRECTORY)} className="p-3 bg-slate-50 hover:bg-blue-50 hover:text-blue-700 rounded-xl text-xs font-bold text-slate-600 transition-colors flex flex-col items-center gap-2 border border-slate-100 hover:border-blue-200">
+                                  <Users size={20} /> Collega's
+                              </button>
+                              <button onClick={() => onChangeView(ViewState.DOCUMENTS)} className="p-3 bg-slate-50 hover:bg-purple-50 hover:text-purple-700 rounded-xl text-xs font-bold text-slate-600 transition-colors flex flex-col items-center gap-2 border border-slate-100 hover:border-purple-200">
+                                  <FileText size={20} /> Dossier
+                              </button>
+                          </div>
+                      </div>
+
+                      {/* My Team / Contacts */}
+                      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
+                          <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider">Mijn Netwerk</h3>
                           <div className="space-y-4">
                               <div className="flex items-center gap-3 group">
-                                  <div className="p-2 bg-slate-50 text-slate-400 rounded-lg group-hover:text-teal-600 transition-colors"><Mail size={16}/></div>
-                                  <div className="overflow-hidden">
-                                      <div className="text-xs text-slate-400 font-bold uppercase">Email</div>
-                                      <div className="text-sm font-medium text-slate-900 truncate">{employee.email}</div>
+                                  <img src="https://ui-avatars.com/api/?name=Dennis+Manager&background=0d9488&color=fff" className="w-10 h-10 rounded-full border border-slate-100" alt="Manager"/>
+                                  <div className="flex-1 min-w-0">
+                                      <div className="text-sm font-bold text-slate-900 truncate">Dennis de Manager</div>
+                                      <div className="text-xs text-slate-500">Leidinggevende</div>
                                   </div>
+                                  <a href="mailto:manager@sanadome.nl" className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors">
+                                      <Mail size={16} />
+                                  </a>
                               </div>
-                              <div className="flex items-center gap-3 group">
-                                  <div className="p-2 bg-slate-50 text-slate-400 rounded-lg group-hover:text-teal-600 transition-colors"><Phone size={16}/></div>
-                                  <div>
-                                      <div className="text-xs text-slate-400 font-bold uppercase">Telefoon</div>
-                                      <div className="text-sm font-medium text-slate-900">{employee.phone}</div>
+                              {employee.mentor && (
+                                  <div className="flex items-center gap-3 group">
+                                      <div className="w-10 h-10 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center font-bold text-sm border border-purple-200">
+                                          {employee.mentor.charAt(0)}
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                          <div className="text-sm font-bold text-slate-900 truncate">{employee.mentor}</div>
+                                          <div className="text-xs text-slate-500">Mentor / Buddy</div>
+                                      </div>
+                                      <button className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors">
+                                          <MessageSquare size={16} />
+                                      </button>
                                   </div>
+                              )}
+                          </div>
+                      </div>
+
+                      {/* Contact Info Condensed */}
+                      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200">
+                          <h3 className="font-bold text-slate-900 mb-3 text-xs uppercase tracking-wider">Mijn Gegevens</h3>
+                          <div className="space-y-2 text-sm">
+                              <div className="flex items-center gap-2 text-slate-600">
+                                  <Mail size={14} className="text-slate-400"/> <span className="truncate">{employee.email}</span>
                               </div>
-                              <div className="flex items-center gap-3 group">
-                                  <div className="p-2 bg-slate-50 text-slate-400 rounded-lg group-hover:text-teal-600 transition-colors"><MapPin size={16}/></div>
-                                  <div>
-                                      <div className="text-xs text-slate-400 font-bold uppercase">Locatie</div>
-                                      <div className="text-sm font-medium text-slate-900">{employee.location}</div>
-                                  </div>
+                              <div className="flex items-center gap-2 text-slate-600">
+                                  <Phone size={14} className="text-slate-400"/> <span>{employee.phone}</span>
+                              </div>
+                              <div className="flex items-center gap-2 text-slate-600">
+                                  <MapPin size={14} className="text-slate-400"/> <span className="truncate">{employee.location}</span>
                               </div>
                           </div>
                       </div>
+
                   </div>
               </div>
           </div>
@@ -739,12 +767,10 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
             <img src={employee.banner} alt="Banner" className="w-full h-full object-cover opacity-90 transition-transform duration-1000 group-hover/header:scale-105" />
           ) : (
              <div className="w-full h-full bg-slate-200 relative overflow-hidden">
-                  {/* Light gradient placeholder if no banner */}
                   <div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-slate-100 to-slate-200"></div>
              </div>
           )}
           
-          {/* Subtle dark overlay only for text contrast if needed, but keeping it very light now */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent"></div>
           
           <button 
