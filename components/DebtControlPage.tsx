@@ -29,6 +29,21 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [statusTargetIds, setStatusTargetIds] = useState<string[]>([]); // Which IDs are we changing?
 
+  // Custom Confirm Modal State
+  const [confirmModalState, setConfirmModalState] = useState<{
+      isOpen: boolean;
+      title: string;
+      message: string;
+      type: 'warning' | 'danger';
+      onConfirm: () => void;
+  }>({
+      isOpen: false,
+      title: '',
+      message: '',
+      type: 'warning',
+      onConfirm: () => {}
+  });
+
   // WIK Letter State
   const [wikTarget, setWikTarget] = useState<Debtor | null>(null);
   const [wikDateInput, setWikDateInput] = useState('');
@@ -167,11 +182,12 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const processImportedData = async (data: any[]) => {
       try {
           let newCount = 0;
-          let updateCount = 0;
+          let skippedCount = 0;
           let enrichedCount = 0;
           
-          const currentDebtorsMap = new Map<string, Debtor>(debtors.map(d => [d.reservationNumber, d]));
-          const updatedDebtorsList = [...debtors];
+          // Create a set of existing reservation numbers for fast lookup
+          const existingNumbers = new Set(debtors.map(d => d.reservationNumber));
+          const newDebtorsList: Debtor[] = [];
 
           for (let i = 1; i < data.length; i++) {
               const row = data[i];
@@ -184,6 +200,12 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
               if (balance > 0) {
                   const reservationNumber = String(row['A'] || '').trim();
                   if (!reservationNumber) continue; 
+
+                  // DUPLICATE CHECK: If already exists, skip it.
+                  if (existingNumbers.has(reservationNumber)) {
+                      skippedCount++;
+                      continue;
+                  }
 
                   const groupName = String(row['B'] || '');
                   const lastName = groupName.split('-')[0].trim() || 'Onbekend';
@@ -224,49 +246,34 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                       }
                   }
 
-                  const existing = currentDebtorsMap.get(reservationNumber);
-
-                  if (existing) {
-                      const updatedIndex = updatedDebtorsList.findIndex(d => d.id === existing.id);
-                      if (updatedIndex >= 0) {
-                          updatedDebtorsList[updatedIndex] = {
-                              ...existing,
-                              amount: balance, 
-                              email: email || existing.email,
-                              phone: phone || existing.phone,
-                              address: address || existing.address, 
-                              isEnriched: isEnriched || existing.isEnriched,
-                              lastUpdated: new Date().toISOString(),
-                          };
-                          updateCount++;
-                      }
-                  } else {
-                      const newDebtor: Debtor = {
-                          id: Math.random().toString(36).substr(2, 9),
-                          reservationNumber,
-                          firstName,
-                          lastName,
-                          email, 
-                          phone,
-                          address,
-                          amount: balance,
-                          status: 'New',
-                          statusDate: new Date().toISOString(),
-                          lastUpdated: new Date().toISOString(),
-                          importedAt: new Date().toLocaleDateString('nl-NL'),
-                          isEnriched: isEnriched
-                      };
-                      updatedDebtorsList.push(newDebtor);
-                      currentDebtorsMap.set(reservationNumber, newDebtor);
-                      newCount++;
-                  }
+                  const newDebtor: Debtor = {
+                      id: Math.random().toString(36).substr(2, 9),
+                      reservationNumber,
+                      firstName,
+                      lastName,
+                      email, 
+                      phone,
+                      address,
+                      amount: balance,
+                      status: 'New',
+                      statusDate: new Date().toISOString(),
+                      lastUpdated: new Date().toISOString(),
+                      importedAt: new Date().toLocaleDateString('nl-NL'),
+                      isEnriched: isEnriched
+                  };
+                  
+                  newDebtorsList.push(newDebtor);
+                  newCount++;
+                  existingNumbers.add(reservationNumber);
               }
           }
 
-          await api.saveDebtors(updatedDebtorsList);
-          setDebtors(sortDebtors(updatedDebtorsList));
+          // Combine existing with new
+          const finalDebtorsList = [...debtors, ...newDebtorsList];
+          await api.saveDebtors(finalDebtorsList);
+          setDebtors(sortDebtors(finalDebtorsList));
           
-          let msg = `Import voltooid: ${newCount} nieuwe, ${updateCount} geüpdatet.`;
+          let msg = `Import voltooid: ${newCount} nieuwe dossiers. ${skippedCount} dubbele overgeslagen.`;
           if (enrichedCount > 0) msg += ` ${enrichedCount} adressen aangevuld.`;
           onShowToast(msg);
 
@@ -329,26 +336,37 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       setSelectedIds(newSet);
   };
 
+  const closeConfirmModal = () => {
+      setConfirmModalState(prev => ({ ...prev, isOpen: false }));
+  };
+
   // --- BULK ACTIONS ---
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
       const count = selectedIds.size;
       if (count === 0) return;
       
-      if(confirm(`Weet je zeker dat je ${count} dossier(s) wilt verwijderen?`)) {
-          const idsToDelete = Array.from(selectedIds) as string[];
-          const previousDebtors = [...debtors];
-          const updatedList = debtors.filter(d => !selectedIds.has(d.id));
-          setDebtors(updatedList); // Optimistic
-          setSelectedIds(new Set()); 
-
-          const success = await api.deleteDebtors(idsToDelete);
-          if (success) {
-              onShowToast(`${count} dossiers verwijderd.`);
-          } else {
-              setDebtors(previousDebtors);
-              onShowToast("Fout bij verwijderen.");
+      setConfirmModalState({
+          isOpen: true,
+          title: 'Dossiers verwijderen',
+          message: `Weet je zeker dat je ${count} geselecteerde dossier(s) wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`,
+          type: 'danger',
+          onConfirm: async () => {
+              const idsToDelete = Array.from(selectedIds) as string[];
+              const previousDebtors = [...debtors];
+              const updatedList = debtors.filter(d => !selectedIds.has(d.id));
+              setDebtors(updatedList); // Optimistic
+              setSelectedIds(new Set()); 
+    
+              const success = await api.deleteDebtors(idsToDelete);
+              if (success) {
+                  onShowToast(`${count} dossiers verwijderd.`);
+              } else {
+                  setDebtors(previousDebtors);
+                  onShowToast("Fout bij verwijderen.");
+              }
+              closeConfirmModal();
           }
-      }
+      });
   };
 
   const openBulkStatusModal = () => {
@@ -358,20 +376,27 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   };
 
   // --- INDIVIDUAL ACTIONS ---
-  const handleDeleteDebtor = async (id: string) => {
-      if(confirm("Weet je zeker dat je dit dossier wilt verwijderen?")) {
-          const previousDebtors = [...debtors];
-          const updatedList = debtors.filter(d => d.id !== id);
-          setDebtors(updatedList);
-          
-          const success = await api.deleteDebtor(id);
-          if (success) {
-              onShowToast("Dossier verwijderd");
-          } else {
-              setDebtors(previousDebtors);
-              onShowToast("Fout bij verwijderen.");
+  const handleDeleteDebtor = (id: string) => {
+      setConfirmModalState({
+          isOpen: true,
+          title: 'Dossier verwijderen',
+          message: 'Weet je zeker dat je dit dossier definitief wilt verwijderen?',
+          type: 'danger',
+          onConfirm: async () => {
+              const previousDebtors = [...debtors];
+              const updatedList = debtors.filter(d => d.id !== id);
+              setDebtors(updatedList);
+              
+              const success = await api.deleteDebtor(id);
+              if (success) {
+                  onShowToast("Dossier verwijderd");
+              } else {
+                  setDebtors(previousDebtors);
+                  onShowToast("Fout bij verwijderen.");
+              }
+              closeConfirmModal();
           }
-      }
+      });
   };
 
   const openSingleStatusModal = (id: string) => {
@@ -379,27 +404,34 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       setIsStatusModalOpen(true);
   };
 
-  const applyStatusChange = async (newStatus: DebtorStatus) => {
+  const applyStatusChange = (newStatus: DebtorStatus) => {
       if (statusTargetIds.length === 0) return;
 
-      if (!window.confirm(`Weet je zeker dat je de status wilt wijzigen naar '${newStatus}'?`)) {
-          return;
-      }
-
-      const updatedList = debtors.map(d => {
-          if (statusTargetIds.includes(d.id)) {
-              return { ...d, status: newStatus, statusDate: new Date().toISOString() };
-          }
-          return d;
-      });
-
-      setDebtors(sortDebtors(updatedList));
-      await api.saveDebtors(updatedList);
-      
+      // Close Status Selection Modal first
       setIsStatusModalOpen(false);
-      setStatusTargetIds([]);
-      setSelectedIds(new Set());
-      onShowToast("Status succesvol aangepast");
+
+      setConfirmModalState({
+          isOpen: true,
+          title: 'Status wijzigen',
+          message: `Weet je zeker dat je de status wilt wijzigen naar '${newStatus}'?`,
+          type: 'warning',
+          onConfirm: async () => {
+              const updatedList = debtors.map(d => {
+                  if (statusTargetIds.includes(d.id)) {
+                      return { ...d, status: newStatus, statusDate: new Date().toISOString() };
+                  }
+                  return d;
+              });
+        
+              setDebtors(sortDebtors(updatedList));
+              await api.saveDebtors(updatedList);
+              
+              setStatusTargetIds([]);
+              setSelectedIds(new Set());
+              onShowToast("Status succesvol aangepast");
+              closeConfirmModal();
+          }
+      });
   };
 
   // --- DATE EDITING LOGIC ---
@@ -1082,6 +1114,24 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                   <Printer size={18} /> Genereer & Print Brief
               </button>
           </div>
+      </Modal>
+
+      {/* Confirm Modal */}
+      <Modal 
+        isOpen={confirmModalState.isOpen} 
+        onClose={closeConfirmModal} 
+        title={confirmModalState.title}
+      >
+         <div className="space-y-4">
+            <div className={`p-4 rounded-xl flex items-start gap-3 ${confirmModalState.type === 'danger' ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'}`}>
+               {confirmModalState.type === 'danger' ? <AlertTriangle size={20} className="shrink-0" /> : <AlertCircle size={20} className="shrink-0" />}
+               <p className="text-sm font-medium">{confirmModalState.message}</p>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+               <button onClick={closeConfirmModal} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors">Annuleren</button>
+               <button onClick={confirmModalState.onConfirm} className={`px-4 py-2 text-white rounded-lg font-bold text-sm shadow-sm transition-colors ${confirmModalState.type === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-slate-900 hover:bg-slate-800'}`}>Bevestigen</button>
+            </div>
+         </div>
       </Modal>
 
     </div>
