@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import { 
   ResponsiveContainer, ComposedChart, Line, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, PieChart, Pie 
@@ -34,16 +36,11 @@ const ReportsDashboard: React.FC = () => {
   const recentData = fullData.slice(10); 
   const data = filterActive ? recentData : fullData;
 
+  // Mock data logic - assuming array based departments in real data
   const pieDataDivisions = [
-    { name: 'Engineering', value: 400, color: '#0f172a' }, // Slate 900
-    { name: 'Sales', value: 300, color: '#0d9488' }, // Teal 600
-    { name: 'Marketing', value: 300, color: '#94a3b8' }, // Slate 400
-  ];
-
-  const pieDataLocations = [
-    { name: 'London', value: 200, color: '#0d9488' },
-    { name: 'New York', value: 300, color: '#0f172a' },
-    { name: 'Remote', value: 100, color: '#cbd5e1' },
+    { name: 'Front Office', value: 450, color: '#0f172a' }, // Slate 900
+    { name: 'Reserveringen', value: 300, color: '#0d9488' }, // Teal 600
+    { name: 'Management', value: 50, color: '#94a3b8' }, // Slate 400
   ];
 
   const CustomXAxisTick = (props: any) => {
@@ -194,33 +191,6 @@ const ReportsDashboard: React.FC = () => {
                   cornerRadius={4}
                 >
                   {pieDataDivisions.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
-                  ))}
-                </Pie>
-                <Tooltip />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 md:p-8 h-96">
-          <h2 className="text-xl font-bold text-slate-900 mb-6">Verdeling Locaties</h2>
-          <div className="h-64 w-full flex items-end justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieDataLocations}
-                  cx="50%"
-                  cy="100%"
-                  startAngle={180}
-                  endAngle={0}
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={2}
-                  dataKey="value"
-                  cornerRadius={4}
-                >
-                  {pieDataLocations.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
                   ))}
                 </Pie>

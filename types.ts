@@ -216,8 +216,7 @@ export interface Employee {
   id: string;
   name: string;
   role: string;
-  department: string;
-  location: string;
+  departments: string[]; // Changed from single string to array
   avatar: string;
   banner?: string; // Custom profile banner
   email: string;

@@ -1,4 +1,5 @@
 
+
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
 import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor } from '../types';
@@ -89,8 +90,7 @@ export const api = {
           id: `demo-${rand}`,
           name: name,
           role: role,
-          department: role === 'Manager' ? 'Management' : 'Front Office',
-          location: 'Nijmegen',
+          departments: role === 'Manager' ? ['Management', 'Front Office'] : ['Front Office'],
           avatar: `https://ui-avatars.com/api/?name=${name.replace(' ', '+')}&background=${role === 'Manager' ? '0d9488' : '2563eb'}&color=fff`,
           email: email,
           password: password,

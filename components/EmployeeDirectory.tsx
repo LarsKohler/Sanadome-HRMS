@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, MoreHorizontal, Mail, Phone, UserPlus, Pencil, Trash2, Lock, Copy, ExternalLink, Check, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { Employee } from '../types';
@@ -39,8 +38,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
     email: '',
     phone: '',
     role: 'Medewerker',
-    department: 'Engineering',
-    location: 'London',
+    departments: [] as string[],
     hiredOn: '',
     employmentType: 'Full-Time'
   });
@@ -66,6 +64,15 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleDepartmentChange = (dept: string) => {
+      setFormData(prev => {
+          const newDepts = prev.departments.includes(dept)
+              ? prev.departments.filter(d => d !== dept)
+              : [...prev.departments, dept];
+          return { ...prev, departments: newDepts };
+      });
+  };
+
   const openEditModal = (employee: Employee) => {
     const nameParts = employee.name.split(' ');
     const lastName = nameParts.pop() || '';
@@ -78,8 +85,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       email: employee.email,
       phone: employee.phone || '',
       role: employee.role,
-      department: employee.department,
-      location: employee.location,
+      departments: employee.departments || [],
       hiredOn: '', 
       employmentType: employee.employmentType || 'Full-Time'
     });
@@ -103,8 +109,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       email: formData.email,
       phone: formData.phone,
       role: formData.role,
-      department: formData.department,
-      location: formData.location,
+      departments: formData.departments,
       employmentType: formData.employmentType,
       hiredOn: formData.hiredOn ? new Date(formData.hiredOn).toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }) : selectedEmployee.hiredOn
     };
@@ -130,8 +135,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       email: '',
       phone: '',
       role: 'Medewerker',
-      department: 'Engineering',
-      location: 'London',
+      departments: [],
       hiredOn: '',
       employmentType: 'Full-Time'
     });
@@ -149,8 +153,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       id: newId,
       name: fullName,
       role: formData.role,
-      department: formData.department,
-      location: formData.location,
+      departments: formData.departments,
       email: formData.email,
       phone: formData.phone, 
       linkedin: fullName,
@@ -227,7 +230,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input 
             type="text" 
-            placeholder="Zoek op naam, rol..." 
+            placeholder="Zoek op naam, rol, afdeling..." 
             className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all placeholder:text-slate-400"
           />
         </div>
@@ -238,11 +241,8 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
           </button>
           <select className="px-4 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-colors">
             <option>Alle afdelingen</option>
-            <option>Engineering</option>
-            <option>Product</option>
-            <option>UX</option>
-            <option>Sales</option>
-            <option>Marketing</option>
+            <option>Front Office</option>
+            <option>Reserveringen</option>
           </select>
         </div>
       </div>
@@ -254,8 +254,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
               <tr className="bg-slate-50/80 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
                 <th className="px-6 py-4 text-slate-700">Medewerker</th>
                 <th className="px-6 py-4 text-slate-700">Rol & Status</th>
-                <th className="px-6 py-4 text-slate-700">Afdeling</th>
-                <th className="px-6 py-4 text-slate-700">Locatie</th>
+                <th className="px-6 py-4 text-slate-700">Afdelingen</th>
                 <th className="px-6 py-4 text-slate-700">Contact</th>
                 {canManage && <th className="px-6 py-4 text-right text-slate-700">Acties</th>}
               </tr>
@@ -300,12 +299,16 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                     )}
                   </td>
                   <td className="px-6 py-4">
-                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
-                      {employee.department}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-slate-600 font-medium">
-                    {employee.location}
+                    <div className="flex flex-wrap gap-1">
+                        {employee.departments && employee.departments.map(dept => (
+                            <span key={dept} className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-slate-100 text-slate-700 border border-slate-200">
+                                {dept}
+                            </span>
+                        ))}
+                        {(!employee.departments || employee.departments.length === 0) && (
+                            <span className="text-slate-400 text-xs italic">Geen</span>
+                        )}
+                    </div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
@@ -397,7 +400,6 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
           onClose={() => setIsAddModalOpen(false)} 
           title="Nieuwe medewerker"
         >
-          {/* Form content same as before */}
           <form onSubmit={handleAddSubmit} className="space-y-5">
             <div className="grid grid-cols-2 gap-5">
               <div>
@@ -482,6 +484,31 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
             </div>
 
             <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Afdeling(en)</label>
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-3">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            checked={formData.departments.includes('Front Office')}
+                            onChange={() => handleDepartmentChange('Front Office')}
+                            className="w-5 h-5 text-teal-600 rounded focus:ring-teal-500 border-gray-300"
+                        />
+                        <span className="text-sm font-medium text-slate-700">Front Office</span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            checked={formData.departments.includes('Reserveringen')}
+                            onChange={() => handleDepartmentChange('Reserveringen')}
+                            className="w-5 h-5 text-teal-600 rounded focus:ring-teal-500 border-gray-300"
+                        />
+                        <span className="text-sm font-medium text-slate-700">Reserveringen</span>
+                    </label>
+                </div>
+                {formData.departments.length === 0 && <p className="text-xs text-amber-600 mt-1 font-medium">Selecteer minstens één afdeling.</p>}
+            </div>
+
+            <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Startdatum</label>
               <input 
                 type="date" 
@@ -491,39 +518,6 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                 onChange={handleInputChange}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
               />
-            </div>
-
-            <div className="grid grid-cols-2 gap-5">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Afdeling</label>
-                <select 
-                  name="department"
-                  value={formData.department}
-                  onChange={handleInputChange}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
-                >
-                  <option value="Engineering">Engineering</option>
-                  <option value="Product">Product</option>
-                  <option value="UX">UX</option>
-                  <option value="Sales">Sales</option>
-                  <option value="Marketing">Marketing</option>
-                  <option value="HR">HR</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Kantoorlocatie</label>
-                <select 
-                  name="location"
-                  value={formData.location}
-                  onChange={handleInputChange}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
-                >
-                  <option value="London">London</option>
-                  <option value="New York">New York</option>
-                  <option value="Berlin">Berlin</option>
-                  <option value="Remote">Remote</option>
-                </select>
-              </div>
             </div>
 
             <div className="pt-6 flex justify-end gap-3">
@@ -648,6 +642,30 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
                 />
               </div>
+            </div>
+
+            <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Afdeling(en)</label>
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-3">
+                    <label className="flex items-center gap-3 cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            checked={formData.departments.includes('Front Office')}
+                            onChange={() => handleDepartmentChange('Front Office')}
+                            className="w-5 h-5 text-teal-600 rounded focus:ring-teal-500 border-gray-300"
+                        />
+                        <span className="text-sm font-medium text-slate-700">Front Office</span>
+                    </label>
+                    <label className="flex items-center gap-3 cursor-pointer">
+                        <input 
+                            type="checkbox" 
+                            checked={formData.departments.includes('Reserveringen')}
+                            onChange={() => handleDepartmentChange('Reserveringen')}
+                            className="w-5 h-5 text-teal-600 rounded focus:ring-teal-500 border-gray-300"
+                        />
+                        <span className="text-sm font-medium text-slate-700">Reserveringen</span>
+                    </label>
+                </div>
             </div>
 
             <div className="pt-6 flex justify-end gap-3">

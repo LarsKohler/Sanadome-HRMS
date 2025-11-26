@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Shield, Search, Check, AlertTriangle, User, Save, RefreshCcw, Lock, Unlock, ToggleLeft, ToggleRight, Briefcase } from 'lucide-react';
 import { Employee, Permission, PERMISSION_LABELS } from '../types';
@@ -239,7 +241,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                                     <div className="flex items-center gap-3 mt-1 text-sm text-slate-500 font-medium">
                                         <span className="bg-slate-100 px-2.5 py-0.5 rounded-md text-slate-600 border border-slate-200">{selectedEmployee.role}</span>
                                         <span>•</span>
-                                        <span>{selectedEmployee.department}</span>
+                                        <span>{selectedEmployee.departments ? selectedEmployee.departments.join(', ') : 'Geen afdeling'}</span>
                                     </div>
                                 </div>
                             </div>

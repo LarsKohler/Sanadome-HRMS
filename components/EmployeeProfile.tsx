@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { 
   Briefcase, MapPin, 
@@ -190,6 +192,8 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       const annualLeave = employee.leaveBalances?.find(b => b.type === 'Annual Leave');
       const leavePercentage = annualLeave ? Math.round(((annualLeave.entitled - annualLeave.taken) / annualLeave.entitled) * 100) : 0;
 
+      const departmentDisplay = employee.departments ? employee.departments.join(', ') : 'Geen afdeling';
+
       return (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               
@@ -244,7 +248,9 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                       </div>
                       <div>
                           <div className="text-xs font-bold text-slate-400 uppercase tracking-wider">Mijn Team</div>
-                          <div className="text-sm font-bold text-slate-900 truncate max-w-[120px]">{employee.department}</div>
+                          <div className="text-sm font-bold text-slate-900 truncate max-w-[120px]" title={departmentDisplay}>
+                              {departmentDisplay}
+                          </div>
                       </div>
                   </div>
               </div>
@@ -405,9 +411,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                               <div className="flex items-center gap-2 text-slate-600">
                                   <Phone size={14} className="text-slate-400"/> <span>{employee.phone}</span>
                               </div>
-                              <div className="flex items-center gap-2 text-slate-600">
-                                  <MapPin size={14} className="text-slate-400"/> <span className="truncate">{employee.location}</span>
-                              </div>
                           </div>
                       </div>
 
@@ -418,6 +421,8 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   };
 
   const renderCareerDetails = () => {
+      const departmentDisplay = employee.departments ? employee.departments.join(', ') : 'Geen afdeling';
+
       return (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {/* Career Header */}
@@ -425,15 +430,17 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                   <div className="flex-1">
                       <h2 className="text-2xl font-bold text-slate-900 mb-2">{employee.role}</h2>
                       <div className="flex flex-wrap gap-3 mb-6">
-                          <span className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold uppercase tracking-wide border border-slate-200">
-                              {employee.department}
-                          </span>
+                          {employee.departments?.map(dept => (
+                              <span key={dept} className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold uppercase tracking-wide border border-slate-200">
+                                  {dept}
+                              </span>
+                          ))}
                           <span className="px-3 py-1 bg-slate-100 text-slate-700 rounded-full text-xs font-bold uppercase tracking-wide border border-slate-200">
                               {employee.employmentType}
                           </span>
                       </div>
                       <p className="text-slate-500 text-sm leading-relaxed max-w-2xl">
-                          Als {employee.role} ben je verantwoordelijk voor de dagelijkse operatie binnen {employee.department}. 
+                          Als {employee.role} ben je verantwoordelijk voor de dagelijkse operatie binnen {departmentDisplay}. 
                           Je rapporteert direct aan de afdelingsmanager.
                       </p>
                   </div>
@@ -810,12 +817,8 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                   <span>{employee.role}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <MapPin size={16} className="text-slate-400" />
-                  <span>{employee.location}</span>
-                </div>
-                <div className="flex items-center gap-2">
                   <Building2 size={16} className="text-slate-400" />
-                  <span>{employee.department}</span>
+                  <span>{employee.departments ? employee.departments.join(', ') : 'Geen afdeling'}</span>
                 </div>
               </div>
             </div>
