@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Bell, Plus, ChevronDown, Lock, LogOut, CheckCircle2, Pin, Menu, Cloud, Database } from 'lucide-react';
+import { Search, Bell, Plus, ChevronDown, Lock, LogOut, CheckCircle2, Pin, Menu, Cloud, Database, Shield, User, Briefcase } from 'lucide-react';
 import { Employee, Notification, ViewState } from '../types';
 
 interface TopNavProps {
@@ -12,7 +12,8 @@ interface TopNavProps {
   onMarkSingleRead: (id: string) => void;
   onToggleMobileMenu: () => void;
   onNavigate: (view: ViewState) => void;
-  isLive: boolean; // New prop for status
+  isLive: boolean;
+  onDebugRoleSwitch?: (role: string) => void; // New prop for debug
 }
 
 const TopNav: React.FC<TopNavProps> = ({ 
@@ -24,7 +25,8 @@ const TopNav: React.FC<TopNavProps> = ({
   onMarkSingleRead,
   onToggleMobileMenu,
   onNavigate,
-  isLive
+  isLive,
+  onDebugRoleSwitch
 }) => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
@@ -58,23 +60,42 @@ const TopNav: React.FC<TopNavProps> = ({
           <Menu size={24} />
         </button>
 
-        {/* LOGO */}
-        <div className="flex items-center gap-2 lg:gap-3 group cursor-pointer" onClick={() => onNavigate(ViewState.HOME)}>
-            <div className="w-8 h-8 lg:w-10 lg:h-10 bg-slate-900 text-teal-400 rounded-xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-300 group-hover:scale-105">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5 lg:w-6 lg:h-6">
+        {/* LOGO - Cleaned up, removed gray background block */}
+        <div className="flex items-center gap-2 cursor-pointer group" onClick={() => onNavigate(ViewState.HOME)}>
+            <div className="text-teal-600 transition-transform duration-300 group-hover:scale-110">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
                     <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
                 </svg>
             </div>
             <div className="flex flex-col justify-center">
-                <span className="text-lg lg:text-xl font-bold tracking-tight text-slate-900 leading-none">Mijn<span className="text-teal-600">Sanadome</span></span>
+                <span className="text-xl font-bold tracking-tight text-slate-900 leading-none">Mijn<span className="text-teal-600">Sanadome</span></span>
             </div>
         </div>
         
-        {/* Status Indicator */}
-        <div className={`hidden xl:flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold border transition-colors ml-4 ${isLive ? 'bg-green-50 text-green-700 border-green-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
-            {isLive ? <Cloud size={12} className="text-green-600"/> : <Database size={12} className="text-slate-400"/>}
-            {isLive ? 'Live (Supabase)' : 'Lokaal (Offline)'}
-        </div>
+        {/* DEBUG TOOLS - Show for Manager Role OR the specific demo manager account (to allow switching back) */}
+        {( (user?.role === 'Manager') || (user?.id === 'manager-user') ) && onDebugRoleSwitch && (
+            <div className="hidden md:flex items-center gap-2 ml-8 p-1 bg-slate-100 rounded-lg border border-slate-200">
+                <span className="text-[10px] font-bold text-slate-400 px-2 uppercase">Test Modus:</span>
+                <button 
+                    onClick={() => onDebugRoleSwitch('Manager')}
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition-colors ${user?.role === 'Manager' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-white'}`}
+                >
+                    MGR
+                </button>
+                <button 
+                    onClick={() => onDebugRoleSwitch('Senior Medewerker')}
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition-colors ${user?.role === 'Senior Medewerker' ? 'bg-purple-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white'}`}
+                >
+                    SNR
+                </button>
+                <button 
+                    onClick={() => onDebugRoleSwitch('Medewerker')}
+                    className={`px-3 py-1 rounded-md text-xs font-bold transition-colors ${user?.role === 'Medewerker' ? 'bg-teal-600 text-white shadow-sm' : 'text-slate-600 hover:bg-white'}`}
+                >
+                    MDW
+                </button>
+            </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2 lg:gap-5">

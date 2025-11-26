@@ -1,5 +1,7 @@
 
 
+
+
 import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog } from '../types';
 
 // --- AUTO UPDATE LOGGER ---
@@ -116,7 +118,7 @@ export const MOCK_SYSTEM_LOGS: SystemUpdateLog[] = [
         version: 'v2.4.0',
         date: '24 Okt 2023',
         timestamp: '10:00',
-        author: 'Lars Kohler',
+        author: 'Manager',
         type: 'Feature',
         impact: 'Medium',
         affectedArea: 'Onboarding',
@@ -128,8 +130,8 @@ export const MOCK_SYSTEM_LOGS: SystemUpdateLog[] = [
 export const MOCK_NEWS: NewsPost[] = [
   {
     id: 'news-1',
-    authorName: 'Dennis de Manager',
-    authorAvatar: 'https://ui-avatars.com/api/?name=Dennis+Manager&background=0d9488&color=fff',
+    authorName: 'Manager',
+    authorAvatar: 'https://ui-avatars.com/api/?name=Manager&background=0d9488&color=fff',
     authorRole: 'Manager',
     date: '20 Okt 2023',
     title: 'Welkom bij het nieuwe portaal!',
@@ -156,15 +158,15 @@ export const MOCK_NEWS: NewsPost[] = [
 export const MOCK_EMPLOYEES: Employee[] = [
   {
     id: 'manager-user',
-    name: 'Dennis de Manager',
+    name: 'Manager',
     role: 'Manager',
     departments: ['Front Office', 'Management'],
-    avatar: 'https://ui-avatars.com/api/?name=Dennis+Manager&background=0d9488&color=fff',
+    avatar: 'https://ui-avatars.com/api/?name=Manager&background=0d9488&color=fff',
     banner: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?ixlib=rb-4.0.3&auto=format&fit=crop&w=2070&q=80',
     email: 'manager@sanadome.nl',
     password: 'demo',
     phone: '+31 24 359 7200',
-    linkedin: 'Dennis Manager',
+    linkedin: 'Manager',
     hiredOn: '01 Jan 2018',
     employmentType: 'Full-Time',
     accountStatus: 'Active',
@@ -209,13 +211,13 @@ export const MOCK_EMPLOYEES: Employee[] = [
        { id: 'req-1', type: 'Annual Leave', startDate: '10 Aug 23', endDate: '20 Aug 23', amount: 10.0, status: 'Approved' }
     ],
     documents: [
-      { id: 'd3', name: 'Contract_Mark.pdf', type: 'PDF', category: 'Contract', date: '15 Mrt 2022', size: '1.8 MB', uploadedBy: 'Dennis de Manager' },
+      { id: 'd3', name: 'Contract_Mark.pdf', type: 'PDF', category: 'Contract', date: '15 Mrt 2022', size: '1.8 MB', uploadedBy: 'Manager' },
       { id: 'd4', name: 'Loonstrook_Mei_2023.pdf', type: 'PDF', category: 'Loonstrook', date: '25 Mei 2023', size: '0.5 MB', uploadedBy: 'Finance' }
     ],
     notes: [
       { 
         id: 'n1', 
-        author: 'Dennis de Manager', 
+        author: 'Manager', 
         date: '20 Sep 2023', 
         category: 'Performance', 
         title: 'Compliment Gastvrijheid', 
@@ -227,7 +229,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
       }
     ],
     onboardingStatus: 'Active',
-    mentor: 'Dennis de Manager',
+    mentor: 'Manager',
     onboardingWeeks: [
         { week: 1, status: 'Completed', managerNotes: 'Mark heeft een sterke start gemaakt. Pakt systemen snel op.'},
         { week: 2, status: 'Open' }
@@ -236,7 +238,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
         if (i < 6) return { 
           ...t, 
           completed: true, 
-          completedBy: 'Dennis de Manager', 
+          completedBy: 'Manager', 
           completedDate: '20 Mrt 2022',
           score: 100,
           notesVisibleToEmployee: true,
