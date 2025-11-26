@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar } from 'lucide-react';
 import { Debtor, DebtorStatus, Employee } from '../types';
@@ -353,24 +352,38 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       const currentDate = new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
       const amountFormatted = wikTarget.amount.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+      // Split address into Street and City parts
+      let streetLine = wikTarget.address || '';
+      let cityLine = '';
+      
+      // Regex to find Dutch Zipcode (e.g. 1234 AB) or just 4 digits at start of a part
+      // Looks for pattern: [Anything] [Space] [4 Digits] [Space?] [Letters] [Space] [City]
+      const addressMatch = streetLine.match(/^(.*?)\s+(\d{4}\s?[a-zA-Z]{2}\s+.*)$/) || 
+                           streetLine.match(/^(.*?)\s+(\d{4}\s+.*)$/); // Fallback for just 4 digits
+
+      if (addressMatch) {
+          streetLine = addressMatch[1];
+          cityLine = addressMatch[2];
+      }
+
       const letterContent = `
         <html>
         <head>
             <title>WIK Brief - ${wikTarget.lastName}</title>
             <style>
-                body { font-family: 'Calibri', 'Segoe UI', sans-serif; padding: 40px; padding-top: 100px; font-size: 11pt; line-height: 1.3; color: #000; }
+                body { font-family: 'Calibri', 'Segoe UI', sans-serif; padding: 40px; padding-top: 60mm; font-size: 11pt; line-height: 1.3; color: #000; }
                 .header { display: flex; justify-content: space-between; margin-bottom: 60px; }
                 .recipient { width: 50%; }
-                .sender { width: 40%; text-align: left; font-size: 11pt; }
+                .sender { width: 35%; text-align: left; font-size: 11pt; margin-left: auto; }
                 .sender-bold { font-weight: bold; }
                 .meta { margin-bottom: 40px; }
                 .subject { font-weight: bold; text-decoration: underline; margin-bottom: 20px; }
                 .content { margin-bottom: 40px; text-align: justify; }
-                .signature { margin-top: 40px; }
-                .signature strong { display: block; margin-top: 0px; } /* Adjusted: No gap for signature */
+                .signature { margin-top: 0px; }
+                .signature strong { display: block; margin-top: 0px; }
                 @media print {
                     @page { margin: 2cm; margin-top: 0; }
-                    body { padding: 0; padding-top: 50mm; } /* Specific for Window Envelope when printing */
+                    body { padding: 0; padding-top: 60mm; }
                 }
             </style>
         </head>
@@ -378,8 +391,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
             <div class="header">
                 <div class="recipient">
                     <strong>${wikTarget.firstName} ${wikTarget.lastName}</strong><br>
-                    ${wikTarget.address || '(Adres Onbekend)'}<br>
-                    (Postcode Plaats)
+                    ${streetLine}<br>
+                    ${cityLine || '&nbsp;'}
                 </div>
                 <div class="sender">
                     <span class="sender-bold">Sanadome Hotel & Spa</span><br>
