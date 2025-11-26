@@ -108,15 +108,20 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       try {
           // Using PDOK Locatieserver (Free Dutch Government API)
           const cleanZip = zipcode.replace(/\s/g, '');
-          const response = await fetch(`https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?q=${cleanZip}+${houseNumber}&rows=1`);
+          // We encode the whole number part to handle suffixes like 13a safely, though API prefers spaces sometimes
+          const cleanNumber = houseNumber.trim();
+          
+          const response = await fetch(`https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?q=${cleanZip}+${encodeURIComponent(cleanNumber)}&rows=1`);
           const data = await response.json();
           
           if (data.response && data.response.docs && data.response.docs.length > 0) {
               const doc = data.response.docs[0];
-              return {
-                  street: doc.straatnaam,
-                  city: doc.woonplaatsnaam
-              };
+              if (doc.straatnaam && doc.woonplaatsnaam) {
+                  return {
+                      street: doc.straatnaam,
+                      city: doc.woonplaatsnaam
+                  };
+              }
           }
           return null;
       } catch (e) {
@@ -183,21 +188,40 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                   let isEnriched = false;
 
                   // --- ADDRESS ENRICHMENT CHECK ---
-                  // Regex: Looks for "1234 AB 12" or "1234 AB 12b" or "1234AB 12"
-                  // Group 1: Zipcode (4 digits + optional space + 2 letters)
-                  // Group 2: House number + suffix
-                  const zipMatch = address.match(/^(\d{4}\s?[a-zA-Z]{2})\s+(\d+.*)$/);
+                  let zipToEnrich = '';
+                  let numberToEnrich = '';
+
+                  // Pattern 1: Starts with Zip (e.g. "1234 AB 12")
+                  // Matches Zip at start, then optional comma/space, then number
+                  const matchZipFirst = address.match(/^(\d{4}\s?[a-zA-Z]{2})\s*[,]?\s*(\d+[\w-]*)/);
                   
-                  if (zipMatch) {
-                      const zip = zipMatch[1];
-                      const number = zipMatch[2];
-                      
-                      // Only enrich if it looks strictly like zip+number without street name
-                      const enriched = await enrichAddress(zip, number);
+                  // Pattern 2: Ends with Zip (e.g. "Ruiterweg 13, 1251 ZX")
+                  // Matches number, then optional comma/space, then Zip at end
+                  const matchZipLast = address.match(/(\d+[\w-]*)\s*[,]?\s*(\d{4}\s?[a-zA-Z]{2})\s*$/);
+
+                  if (matchZipFirst) {
+                      zipToEnrich = matchZipFirst[1];
+                      numberToEnrich = matchZipFirst[2];
+                  } else if (matchZipLast) {
+                      numberToEnrich = matchZipLast[1];
+                      zipToEnrich = matchZipLast[2];
+                  }
+                  
+                  if (zipToEnrich && numberToEnrich) {
+                      const enriched = await enrichAddress(zipToEnrich, numberToEnrich);
                       if (enriched) {
-                          address = `${enriched.street} ${number}, ${zip} ${enriched.city}`;
-                          isEnriched = true;
-                          enrichedCount++;
+                          // Format: Street Number, Zip City
+                          const cleanZip = zipToEnrich.replace(/\s/g, '');
+                          const formattedZip = `${cleanZip.slice(0,4)} ${cleanZip.slice(4).toUpperCase()}`;
+                          
+                          const newAddress = `${enriched.street} ${numberToEnrich}, ${formattedZip} ${enriched.city}`;
+                          
+                          // Only update if it actually adds information (city) or standardizes format significantly
+                          if (address !== newAddress) {
+                              address = newAddress;
+                              isEnriched = true;
+                              enrichedCount++;
+                          }
                       }
                   }
 
@@ -211,9 +235,9 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                               amount: balance, 
                               email: email || existing.email,
                               phone: phone || existing.phone,
-                              address: address || existing.address,
-                              isEnriched: isEnriched || existing.isEnriched, // Keep existing enrichment if valid
-                              lastUpdated: new Date().toLocaleDateString('en-US'), // Use standard format for sorting
+                              address: address || existing.address, // Use new address if enriched
+                              isEnriched: isEnriched || existing.isEnriched,
+                              lastUpdated: new Date().toLocaleDateString('en-US'),
                           };
                           updateCount++;
                       }
@@ -228,7 +252,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                           address,
                           amount: balance,
                           status: 'New',
-                          statusDate: new Date().toISOString(), // Initialize status date
+                          statusDate: new Date().toISOString(),
                           lastUpdated: new Date().toISOString(),
                           importedAt: new Date().toLocaleDateString('nl-NL'),
                           isEnriched: isEnriched
