@@ -1,16 +1,16 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar } from 'lucide-react';
-import { Debtor, DebtorStatus } from '../types';
+import { Debtor, DebtorStatus, Employee } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
 import * as XLSX from 'xlsx';
 
 interface DebtControlPageProps {
+  currentUser: Employee;
   onShowToast: (message: string) => void;
 }
 
-const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
+const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowToast }) => {
   const [debtors, setDebtors] = useState<Debtor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
@@ -357,7 +357,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
         <head>
             <title>WIK Brief - ${wikTarget.lastName}</title>
             <style>
-                body { font-family: 'Times New Roman', Times, serif; padding: 40px; font-size: 12pt; line-height: 1.5; color: #000; }
+                body { font-family: 'Calibri', 'Segoe UI', sans-serif; padding: 40px; padding-top: 100px; font-size: 12pt; line-height: 1.5; color: #000; }
                 .header { display: flex; justify-content: space-between; margin-bottom: 60px; }
                 .recipient { width: 50%; }
                 .sender { width: 40%; text-align: left; font-size: 11pt; }
@@ -368,8 +368,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                 .signature { margin-top: 40px; }
                 .signature strong { display: block; margin-top: 50px; }
                 @media print {
-                    @page { margin: 2cm; }
-                    body { padding: 0; }
+                    @page { margin: 2cm; margin-top: 0; }
+                    body { padding: 0; padding-top: 50mm; } /* Specific for Window Envelope when printing */
                 }
             </style>
         </head>
@@ -413,7 +413,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
 
             <div class="signature">
                 Met hartelijke groet | With kind regards,<br>
-                <strong>Lars Kohler | Front Office Manager</strong>
+                <strong>${currentUser.name} | ${currentUser.role}</strong>
             </div>
         </body>
         </html>
