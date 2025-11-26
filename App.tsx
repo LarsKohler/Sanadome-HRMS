@@ -584,6 +584,7 @@ const App: React.FC = () => {
                 onShowToast={showToast}
                 currentUser={currentUser}
                 onAddNotification={handleAddNotification}
+                onOpenFeedbackModal={openFeedback}
             />
           )}
 

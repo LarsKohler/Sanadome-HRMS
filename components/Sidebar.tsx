@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
@@ -21,6 +20,10 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOpen, onClose, systemVersion = 'v1.0' }) => {
   // Define all items
   const allItems = [
+    // Highlighted Item at the top
+    { icon: Ticket, label: 'Support & Tickets', id: ViewState.TICKETS, highlight: true },
+    
+    // Regular Items
     { icon: User, label: 'Mijn Profiel', id: ViewState.HOME },
     { icon: Newspaper, label: 'Nieuws', id: ViewState.NEWS }, 
     { icon: UserCheck, label: 'Onboarding', id: ViewState.ONBOARDING },
@@ -36,7 +39,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
     { icon: Euro, label: 'Debiteuren', id: ViewState.DEBT_CONTROL, permission: 'MANAGE_DEBTORS' },
     { icon: FileBarChart, label: 'Cases', id: 'cases', permission: 'MANAGE_CASES' },
     { icon: PieChart, label: 'Rapportages', id: ViewState.REPORTS, permission: 'VIEW_REPORTS' },
-    { icon: Ticket, label: 'Ticket Systeem', id: ViewState.TICKETS, permission: 'MANAGE_TICKETS' },
     { icon: Activity, label: 'Systeemstatus', id: ViewState.SYSTEM_STATUS, permission: 'VIEW_SYSTEM_STATUS' },
     { icon: Shield, label: 'Instellingen', id: ViewState.SETTINGS, permission: 'MANAGE_SETTINGS' },
   ];
@@ -94,6 +96,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
             {menuItems.map((item) => {
               const isActive = currentView === item.id;
               const isClickable = Object.values(ViewState).includes(item.id as ViewState);
+              
+              // Highlight style for Ticket System
+              const isHighlight = item.highlight;
 
               return (
                 <li key={item.label}>
@@ -107,11 +112,21 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
                     className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group ${
                       isActive
                         ? 'text-teal-900 bg-teal-50 border border-teal-100 shadow-sm'
-                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
+                        : isHighlight 
+                            ? 'bg-purple-50/50 text-purple-900 border border-purple-100 hover:bg-purple-100'
+                            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
                     }`}
                   >
-                    <item.icon size={20} className={`mr-3 transition-colors ${isActive ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'}`} strokeWidth={isActive ? 2.5 : 2} />
-                    <span className={isActive ? 'font-bold' : ''}>{item.label}</span>
+                    <item.icon 
+                        size={20} 
+                        className={`mr-3 transition-colors ${
+                            isActive ? 'text-teal-600' : 
+                            isHighlight ? 'text-purple-600' :
+                            'text-slate-400 group-hover:text-slate-600'
+                        }`} 
+                        strokeWidth={isActive ? 2.5 : 2} 
+                    />
+                    <span className={isActive || isHighlight ? 'font-bold' : ''}>{item.label}</span>
                     {item.badge && (
                       <span className={`ml-auto py-0.5 px-2 rounded-md text-[10px] font-bold ${isActive ? 'bg-teal-200/50 text-teal-800' : 'bg-slate-100 text-slate-500'}`}>
                         {item.badge}

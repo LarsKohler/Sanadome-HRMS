@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { 
   Briefcase, MapPin, 
@@ -55,9 +54,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   // Debt Control State (for Dashboard)
   const [urgentDebtCount, setUrgentDebtCount] = useState(0);
 
-  // My Tickets State
-  const [myTickets, setMyTickets] = useState<TicketType[]>([]);
-
   // Load Template Name correctly
   useEffect(() => {
       const fetchTemplateName = async () => {
@@ -105,23 +101,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       checkDebtors();
   }, [employee]);
 
-  // Fetch My Tickets if user is viewing their own profile
-  useEffect(() => {
-      const fetchMyTickets = async () => {
-          try {
-              const allTickets = await api.getTickets();
-              const mine = allTickets.filter(t => t.submittedById === employee.id);
-              // Sort by date desc
-              mine.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
-              setMyTickets(mine);
-          } catch (e) {
-              console.error("Failed to load tickets", e);
-          }
-      };
-      // Assuming we are viewing our own profile if no "managers" prop or handled via App state (here simplified check)
-      fetchMyTickets();
-  }, [employee.id]);
-
   const tabs = useMemo(() => {
     const baseTabs = ['Overzicht', 'Carrière', 'Evaluatie'];
     
@@ -135,8 +114,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
     }
     
     baseTabs.push('Documenten');
-    // Only show "Meldingen" if viewing own profile (context usually handled by parent, but for now assume we show it)
-    baseTabs.push('Meldingen');
     
     return baseTabs;
   }, [employee.onboardingStatus, employee.onboardingHistory, employee.onboardingTasks]);
@@ -638,60 +615,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
      </div>
   );
 
-  const renderTicketsContent = () => {
-      return (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="px-6 py-5 border-b border-slate-100 bg-slate-50/50">
-                      <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                          <Ticket size={18} className="text-purple-500"/> Mijn Meldingen
-                      </h3>
-                  </div>
-                  
-                  <div className="divide-y divide-slate-50">
-                      {myTickets.length === 0 ? (
-                          <div className="p-8 text-center text-slate-400 italic">
-                              Nog geen tickets ingediend.
-                          </div>
-                      ) : (
-                          myTickets.map(ticket => (
-                              <div key={ticket.id} className="p-5 hover:bg-slate-50 transition-colors">
-                                  <div className="flex items-start justify-between mb-2">
-                                      <h4 className="font-bold text-slate-900 text-sm">{ticket.title}</h4>
-                                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
-                                          ticket.status === 'Open' ? 'bg-blue-50 text-blue-700 border-blue-100' :
-                                          ticket.status === 'In Progress' ? 'bg-amber-50 text-amber-700 border-amber-100' :
-                                          ticket.status === 'Resolved' ? 'bg-green-50 text-green-700 border-green-100' :
-                                          'bg-slate-100 text-slate-500 border-slate-200'
-                                      }`}>
-                                          {ticket.status}
-                                      </span>
-                                  </div>
-                                  <p className="text-xs text-slate-500 line-clamp-2 mb-3">{ticket.description}</p>
-                                  
-                                  <div className="flex items-center justify-between text-xs text-slate-400">
-                                      <span className="flex items-center gap-1">
-                                          <Calendar size={12}/> {new Date(ticket.submittedAt).toLocaleDateString('nl-NL')}
-                                      </span>
-                                      {ticket.page && <span className="bg-slate-100 px-1.5 py-0.5 rounded">{ticket.page}</span>}
-                                  </div>
-
-                                  {/* Feedback from Admin */}
-                                  {ticket.adminNotes && ticket.status === 'Resolved' && (
-                                      <div className="mt-3 bg-green-50/50 p-3 rounded-lg border border-green-100 text-xs">
-                                          <span className="font-bold text-green-700 block mb-1">Oplossing:</span>
-                                          <span className="text-slate-700">{ticket.adminNotes}</span>
-                                      </div>
-                                  )}
-                              </div>
-                          ))
-                      )}
-                  </div>
-              </div>
-          </div>
-      );
-  };
-
   const renderOnboardingContent = () => {
      const hasActiveTasks = employee.onboardingTasks && employee.onboardingTasks.length > 0;
      const hasHistory = employee.onboardingHistory && employee.onboardingHistory.length > 0;
@@ -926,7 +849,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       {activeTab === 'Documenten' && renderDocumentsContent()}
       {activeTab === 'Evaluatie' && renderPerformanceReport()}
       {activeTab === 'Onboarding' && renderOnboardingContent()}
-      {activeTab === 'Meldingen' && renderTicketsContent()}
 
       <Modal
         isOpen={isNoteModalOpen}

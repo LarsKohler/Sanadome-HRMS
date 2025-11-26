@@ -1,17 +1,19 @@
 
 import React, { useState, useEffect } from 'react';
-import { Ticket, Search, Filter, CheckCircle2, Circle, Clock, AlertTriangle, MessageSquare, ChevronRight, RefreshCw, AlertCircle, Lightbulb, Bug, Wrench, MapPin, Save, Send } from 'lucide-react';
+import { Ticket, Search, Filter, CheckCircle2, Circle, Clock, AlertTriangle, MessageSquare, ChevronRight, RefreshCw, AlertCircle, Lightbulb, Bug, Wrench, MapPin, Save, Send, Plus, User } from 'lucide-react';
 import { Ticket as TicketType, TicketStatus, TicketPriority, TicketType as TT, Employee, Notification, ViewState } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
+import { hasPermission } from '../utils/permissions';
 
 interface TicketDashboardProps {
     onShowToast: (message: string) => void;
-    currentUser?: Employee; // Added for notification logic
-    onAddNotification?: (notification: Notification) => void; // Added
+    currentUser?: Employee;
+    onAddNotification?: (notification: Notification) => void;
+    onOpenFeedbackModal: () => void; // Added prop to trigger the global creation modal (or we can implement here)
 }
 
-const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentUser, onAddNotification }) => {
+const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentUser, onAddNotification, onOpenFeedbackModal }) => {
     const [tickets, setTickets] = useState<TicketType[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
@@ -20,18 +22,26 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
     
     // Update State
     const [adminNote, setAdminNote] = useState('');
-    const [notifyEmployee, setNotifyEmployee] = useState(false); // Default to false (internal note)
+    const [notifyEmployee, setNotifyEmployee] = useState(false);
+
+    // Check Permission
+    const isManager = hasPermission(currentUser || null, 'MANAGE_TICKETS');
 
     useEffect(() => {
         loadTickets();
-    }, []);
+    }, [currentUser]); // Reload if user changes
 
     const loadTickets = async () => {
         setIsLoading(true);
         try {
             const data = await api.getTickets();
-            // Sort by date desc
-            const sorted = data.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+            let sorted = data.sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime());
+            
+            // If not a manager, filter to show ONLY own tickets
+            if (!isManager && currentUser) {
+                sorted = sorted.filter(t => t.submittedById === currentUser.id);
+            }
+
             setTickets(sorted);
         } catch (e) {
             console.error("Error loading tickets", e);
@@ -45,38 +55,41 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
         
         const updatedTicket: TicketType = {
             ...selectedTicket,
-            status: newStatus || selectedTicket.status, // Use new status or keep existing
+            status: newStatus || selectedTicket.status, 
             adminNotes: adminNote,
             resolvedAt: newStatus === 'Resolved' ? new Date().toISOString() : selectedTicket.resolvedAt
         };
 
-        // Optimistic update
         setTickets(prev => prev.map(t => t.id === updatedTicket.id ? updatedTicket : t));
         setSelectedTicket(updatedTicket);
 
         await api.saveTicket(updatedTicket);
-        onShowToast(newStatus ? `Status gewijzigd naar ${newStatus}` : 'Ticket update opgeslagen');
+        
+        if (newStatus) {
+            onShowToast(`Status gewijzigd naar ${newStatus}`);
+        } else {
+            onShowToast('Update verstuurd');
+        }
 
-        // NOTIFY EMPLOYEE (Only if checkbox is checked)
+        // Notify Employee logic
         if (notifyEmployee && onAddNotification && currentUser && updatedTicket.submittedById !== currentUser.id) {
             const notif: Notification = {
                 id: Math.random().toString(36).substr(2, 9),
                 recipientId: updatedTicket.submittedById,
                 senderName: 'Support Team',
                 type: 'Ticket',
-                title: newStatus ? `Status gewijzigd: ${updatedTicket.title}` : `Nieuwe reactie op: ${updatedTicket.title}`,
+                title: newStatus ? `Status gewijzigd: ${updatedTicket.title}` : `Nieuwe update: ${updatedTicket.title}`,
                 message: newStatus 
                     ? `De status is gewijzigd naar: ${newStatus}. ${adminNote ? `Opmerking: "${adminNote}"` : ''}`
                     : `Er is een update geplaatst: "${adminNote}"`,
                 date: 'Zojuist',
                 read: false,
-                targetView: ViewState.PROFILE, // Navigate to profile to see "Meldingen" tab
+                targetView: ViewState.TICKETS, // Direct them back to the ticket dashboard
                 isPinned: false
             };
             onAddNotification(notif);
         }
         
-        // Reset checkbox after save
         setNotifyEmployee(false);
     };
 
@@ -114,50 +127,65 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
                         <div className="p-2.5 bg-purple-50 rounded-xl">
                             <Ticket className="text-purple-600" size={32} />
                         </div>
-                        Ticket Systeem
+                        {isManager ? 'Ticket Systeem & Support' : 'Mijn Meldingen & Support'}
                     </h1>
-                    <p className="text-slate-500 mt-2 text-lg">Beheer feedback, bugs en ideeën van medewerkers.</p>
+                    <p className="text-slate-500 mt-2 text-lg">
+                        {isManager ? 'Beheer feedback, bugs en ideeën van medewerkers.' : 'Meld bugs, ideeën of vraag om ondersteuning.'}
+                    </p>
                 </div>
                 
-                <button 
-                    onClick={loadTickets} 
-                    className="p-2 bg-white border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 transition-colors shadow-sm"
-                >
-                    <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''}/>
-                </button>
+                <div className="flex gap-3">
+                    {!isManager && (
+                        <button 
+                            onClick={onOpenFeedbackModal}
+                            className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white font-bold rounded-xl shadow-md hover:bg-purple-700 transition-all hover:-translate-y-0.5"
+                        >
+                            <Plus size={20} /> Nieuwe Melding
+                        </button>
+                    )}
+                    <button 
+                        onClick={loadTickets} 
+                        className="p-3 bg-white border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 transition-colors shadow-sm"
+                        title="Verversen"
+                    >
+                        <RefreshCw size={20} className={isLoading ? 'animate-spin' : ''}/>
+                    </button>
+                </div>
             </div>
 
-            {/* Stats Row */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 rounded-full bg-blue-50 text-blue-600"><Ticket size={24}/></div>
-                    <div>
-                        <div className="text-2xl font-bold text-slate-900">{tickets.filter(t => t.status === 'Open').length}</div>
-                        <div className="text-xs font-bold text-slate-400 uppercase">Open Tickets</div>
+            {/* Manager Stats Row */}
+            {isManager && (
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div className="p-3 rounded-full bg-blue-50 text-blue-600"><Ticket size={24}/></div>
+                        <div>
+                            <div className="text-2xl font-bold text-slate-900">{tickets.filter(t => t.status === 'Open').length}</div>
+                            <div className="text-xs font-bold text-slate-400 uppercase">Open Tickets</div>
+                        </div>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div className="p-3 rounded-full bg-amber-50 text-amber-600"><Clock size={24}/></div>
+                        <div>
+                            <div className="text-2xl font-bold text-slate-900">{tickets.filter(t => t.status === 'In Progress').length}</div>
+                            <div className="text-xs font-bold text-slate-400 uppercase">In Behandeling</div>
+                        </div>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div className="p-3 rounded-full bg-red-50 text-red-600"><AlertTriangle size={24}/></div>
+                        <div>
+                            <div className="text-2xl font-bold text-slate-900">{tickets.filter(t => t.type === 'Bug' && t.status !== 'Resolved').length}</div>
+                            <div className="text-xs font-bold text-slate-400 uppercase">Open Bugs</div>
+                        </div>
+                    </div>
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                        <div className="p-3 rounded-full bg-green-50 text-green-600"><CheckCircle2 size={24}/></div>
+                        <div>
+                            <div className="text-2xl font-bold text-slate-900">{tickets.filter(t => t.status === 'Resolved').length}</div>
+                            <div className="text-xs font-bold text-slate-400 uppercase">Opgelost</div>
+                        </div>
                     </div>
                 </div>
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 rounded-full bg-amber-50 text-amber-600"><Clock size={24}/></div>
-                    <div>
-                        <div className="text-2xl font-bold text-slate-900">{tickets.filter(t => t.status === 'In Progress').length}</div>
-                        <div className="text-xs font-bold text-slate-400 uppercase">In Behandeling</div>
-                    </div>
-                </div>
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 rounded-full bg-red-50 text-red-600"><AlertTriangle size={24}/></div>
-                    <div>
-                        <div className="text-2xl font-bold text-slate-900">{tickets.filter(t => t.type === 'Bug' && t.status !== 'Resolved').length}</div>
-                        <div className="text-xs font-bold text-slate-400 uppercase">Open Bugs</div>
-                    </div>
-                </div>
-                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-                    <div className="p-3 rounded-full bg-green-50 text-green-600"><CheckCircle2 size={24}/></div>
-                    <div>
-                        <div className="text-2xl font-bold text-slate-900">{tickets.filter(t => t.status === 'Resolved').length}</div>
-                        <div className="text-xs font-bold text-slate-400 uppercase">Opgelost</div>
-                    </div>
-                </div>
-            </div>
+            )}
 
             {/* Filters & Search */}
             <div className="flex flex-col md:flex-row gap-4 mb-6">
@@ -165,7 +193,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                     <input 
                         type="text" 
-                        placeholder="Zoek op titel, omschrijving of medewerker..." 
+                        placeholder={isManager ? "Zoek op titel, omschrijving of medewerker..." : "Zoek in mijn meldingen..."}
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none font-medium"
@@ -210,19 +238,21 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
                                         {getTypeIcon(ticket.type)} {ticket.type}
                                     </span>
                                     <span className="text-xs text-slate-400">• {new Date(ticket.submittedAt).toLocaleDateString('nl-NL')}</span>
-                                    {ticket.page && <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">{ticket.page}</span>}
+                                    {ticket.page && <span className="text-xs text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded hidden sm:inline-block">{ticket.page}</span>}
                                 </div>
                                 <h3 className="font-bold text-slate-900 text-base mb-1">{ticket.title}</h3>
                                 <p className="text-sm text-slate-500 line-clamp-1">{ticket.description}</p>
                             </div>
                             
                             <div className="flex items-center gap-4 md:w-64 justify-between md:justify-end">
-                                <div className="flex items-center gap-2">
-                                    <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-xs font-bold">
-                                        {ticket.submittedBy.charAt(0)}
+                                {isManager && (
+                                    <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 text-xs font-bold">
+                                            {ticket.submittedBy.charAt(0)}
+                                        </div>
+                                        <span className="text-xs font-bold text-slate-600 truncate max-w-[100px]">{ticket.submittedBy}</span>
                                     </div>
-                                    <span className="text-xs font-bold text-slate-600 truncate max-w-[100px]">{ticket.submittedBy}</span>
-                                </div>
+                                )}
                                 
                                 <div className={`px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 ${
                                     ticket.status === 'Open' ? 'bg-blue-100 text-blue-700' :
@@ -241,8 +271,26 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
                     ))}
                     {filteredTickets.length === 0 && (
                         <div className="p-12 text-center text-slate-400">
-                            <Ticket size={48} className="mx-auto mb-4 opacity-20"/>
-                            <p className="font-medium">Geen tickets gevonden.</p>
+                            {isManager ? (
+                                <>
+                                    <Ticket size={48} className="mx-auto mb-4 opacity-20"/>
+                                    <p className="font-medium">Geen tickets gevonden.</p>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="bg-purple-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4">
+                                        <Plus size={32} className="text-purple-300" />
+                                    </div>
+                                    <h3 className="text-lg font-bold text-slate-900 mb-2">Nog geen meldingen</h3>
+                                    <p className="text-slate-500 mb-6 max-w-xs mx-auto">Heb je een idee, een bug gevonden of iets anders te melden? Maak hier je eerste ticket aan.</p>
+                                    <button 
+                                        onClick={onOpenFeedbackModal}
+                                        className="px-6 py-2.5 bg-purple-600 text-white font-bold rounded-xl shadow-md hover:bg-purple-700 transition-all"
+                                    >
+                                        Nieuwe Melding
+                                    </button>
+                                </>
+                            )}
                         </div>
                     )}
                 </div>
@@ -252,7 +300,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
             <Modal
                 isOpen={!!selectedTicket}
                 onClose={() => setSelectedTicket(null)}
-                title="Ticket Beheer"
+                title={isManager ? "Ticket Beheer" : "Details Melding"}
             >
                 {selectedTicket && (
                     <div className="space-y-6">
@@ -279,68 +327,98 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
                         </div>
 
                         <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm text-slate-700 leading-relaxed">
+                            <span className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Omschrijving</span>
                             {selectedTicket.description}
                         </div>
 
-                        <div className="pt-2">
-                            <h3 className="text-sm font-bold text-slate-900 mb-3">Interne Notities & Feedback</h3>
-                            
-                            <div className="mb-4">
-                                <textarea 
-                                    className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none"
-                                    rows={3}
-                                    placeholder="Typ hier een update of oplossing..."
-                                    value={adminNote}
-                                    onChange={(e) => setAdminNote(e.target.value)}
-                                />
-                                <div className="flex items-center mt-2">
-                                    <label className="flex items-center gap-2 cursor-pointer">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={notifyEmployee}
-                                            onChange={(e) => setNotifyEmployee(e.target.checked)}
-                                            className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500"
-                                        />
-                                        <span className="text-xs font-bold text-slate-600 select-none">Informeer medewerker via notificatie</span>
-                                    </label>
+                        {/* Manager Controls */}
+                        {isManager ? (
+                            <div className="pt-2 bg-purple-50/50 p-4 rounded-xl border border-purple-100">
+                                <h3 className="text-sm font-bold text-slate-900 mb-3 flex items-center gap-2">
+                                    <MessageSquare size={16} className="text-purple-600"/>
+                                    Update & Communicatie
+                                </h3>
+                                
+                                <div className="mb-4">
+                                    <textarea 
+                                        className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none"
+                                        rows={3}
+                                        placeholder="Typ hier een update, vraag of oplossing..."
+                                        value={adminNote}
+                                        onChange={(e) => setAdminNote(e.target.value)}
+                                    />
+                                    <div className="flex items-center mt-2">
+                                        <label className="flex items-center gap-2 cursor-pointer group">
+                                            <input 
+                                                type="checkbox" 
+                                                checked={notifyEmployee}
+                                                onChange={(e) => setNotifyEmployee(e.target.checked)}
+                                                className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500"
+                                            />
+                                            <span className="text-xs font-bold text-slate-600 group-hover:text-purple-700 transition-colors">Stuur notificatie naar medewerker</span>
+                                        </label>
+                                    </div>
+                                </div>
+
+                                <div className="flex gap-3 mb-4">
+                                    <button 
+                                        onClick={() => handleUpdateTicket()} 
+                                        className="flex-1 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-lg text-sm transition-colors flex items-center justify-center gap-2 shadow-sm"
+                                    >
+                                        <Send size={14}/> Update versturen (Status behouden)
+                                    </button>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 border-t border-purple-100 pt-4">
+                                    <button 
+                                        onClick={() => handleUpdateTicket('In Progress')}
+                                        disabled={selectedTicket.status === 'In Progress'}
+                                        className="py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold rounded-lg text-sm transition-colors border border-amber-200 disabled:opacity-50"
+                                    >
+                                        Zet 'In Behandeling'
+                                    </button>
+                                    <button 
+                                        onClick={() => handleUpdateTicket('Resolved')}
+                                        disabled={selectedTicket.status === 'Resolved'}
+                                        className="py-2.5 bg-green-50 hover:bg-green-100 text-green-700 font-bold rounded-lg text-sm transition-colors border border-green-200 disabled:opacity-50"
+                                    >
+                                        Markeer 'Opgelost'
+                                    </button>
+                                </div>
+                                
+                                {selectedTicket.status !== 'Closed' && (
+                                    <button 
+                                        onClick={() => handleUpdateTicket('Closed')}
+                                        className="w-full mt-3 py-2 text-xs font-bold text-slate-400 hover:text-slate-600 text-center"
+                                    >
+                                        Ticket sluiten (zonder oplossing)
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
+                            /* Employee View of Admin Notes */
+                            <div className="pt-2">
+                                <h3 className="text-sm font-bold text-slate-900 mb-3">Status & Updates</h3>
+                                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="text-xs font-bold text-slate-400 uppercase">Huidige Status</span>
+                                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide ${
+                                            selectedTicket.status === 'Resolved' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600'
+                                        }`}>
+                                            {selectedTicket.status}
+                                        </span>
+                                    </div>
+                                    {selectedTicket.adminNotes ? (
+                                        <div className="mt-3 pt-3 border-t border-slate-100">
+                                            <span className="block text-[10px] font-bold text-purple-600 uppercase mb-1">Laatste reactie van support</span>
+                                            <p className="text-sm text-slate-700 italic">"{selectedTicket.adminNotes}"</p>
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-slate-400 italic mt-2">Nog geen reacties.</p>
+                                    )}
                                 </div>
                             </div>
-
-                            <div className="flex gap-3 mb-4">
-                                <button 
-                                    onClick={() => handleUpdateTicket()} // Save without status change
-                                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
-                                >
-                                    <Save size={16}/> Opslaan (Geen status wijziging)
-                                </button>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
-                                <button 
-                                    onClick={() => handleUpdateTicket('In Progress')}
-                                    disabled={selectedTicket.status === 'In Progress'}
-                                    className="py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold rounded-lg text-sm transition-colors border border-amber-200 disabled:opacity-50"
-                                >
-                                    Zet 'In Behandeling'
-                                </button>
-                                <button 
-                                    onClick={() => handleUpdateTicket('Resolved')}
-                                    disabled={selectedTicket.status === 'Resolved'}
-                                    className="py-2.5 bg-green-50 hover:bg-green-100 text-green-700 font-bold rounded-lg text-sm transition-colors border border-green-200 disabled:opacity-50"
-                                >
-                                    Markeer 'Opgelost'
-                                </button>
-                            </div>
-                            
-                            {selectedTicket.status !== 'Closed' && (
-                                <button 
-                                    onClick={() => handleUpdateTicket('Closed')}
-                                    className="w-full mt-3 py-2 text-xs font-bold text-slate-400 hover:text-slate-600 text-center"
-                                >
-                                    Ticket sluiten (zonder oplossing)
-                                </button>
-                            )}
-                        </div>
+                        )}
                     </div>
                 )}
             </Modal>

@@ -197,18 +197,8 @@ const TopNav: React.FC<TopNavProps> = ({
               </div>
               
               <button 
-                onClick={onOpenFeedbackModal}
-                className="w-full text-left px-4 py-3 text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-900 flex items-center gap-3 transition-colors border-b border-slate-50"
-              >
-                <div className="bg-purple-50 text-purple-600 p-1 rounded-md">
-                    <Ticket size={14} />
-                </div>
-                Feedback / Bug melden
-              </button>
-
-              <button 
                 onClick={onLogout}
-                className="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:bg-red-50 hover:text-red-600 flex items-center gap-2 transition-colors last:rounded-b-xl"
+                className="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:bg-red-50 hover:text-red-600 flex items-center gap-2 transition-colors"
               >
                 <LogOut size={16} />
                 Uitloggen
