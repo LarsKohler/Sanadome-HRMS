@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square } from 'lucide-react';
+import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar } from 'lucide-react';
 import { Debtor, DebtorStatus } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
@@ -26,6 +26,10 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
   // Status Modal State
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [statusTargetIds, setStatusTargetIds] = useState<string[]>([]); // Which IDs are we changing?
+
+  // WIK Letter State
+  const [wikTarget, setWikTarget] = useState<Debtor | null>(null);
+  const [wikDateInput, setWikDateInput] = useState('');
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
@@ -335,6 +339,100 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
       onShowToast("Gemarkeerd als niet beschikbaar");
   };
 
+  // --- WIK LETTER GENERATION ---
+  const openWikModal = (debtor: Debtor) => {
+      setWikTarget(debtor);
+      setWikDateInput(''); // Reset
+  };
+
+  const generateWIKLetter = () => {
+      if (!wikTarget || !wikDateInput) return;
+
+      const formattedDateInput = new Date(wikDateInput).toLocaleDateString('nl-NL');
+      const currentDate = new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
+      const amountFormatted = wikTarget.amount.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+      const letterContent = `
+        <html>
+        <head>
+            <title>WIK Brief - ${wikTarget.lastName}</title>
+            <style>
+                body { font-family: 'Times New Roman', Times, serif; padding: 40px; font-size: 12pt; line-height: 1.5; color: #000; }
+                .header { display: flex; justify-content: space-between; margin-bottom: 60px; }
+                .recipient { width: 50%; }
+                .sender { width: 40%; text-align: left; font-size: 11pt; }
+                .sender-bold { font-weight: bold; }
+                .meta { margin-bottom: 40px; }
+                .subject { font-weight: bold; text-decoration: underline; margin-bottom: 20px; }
+                .content { margin-bottom: 40px; text-align: justify; }
+                .signature { margin-top: 40px; }
+                .signature strong { display: block; margin-top: 50px; }
+                @media print {
+                    @page { margin: 2cm; }
+                    body { padding: 0; }
+                }
+            </style>
+        </head>
+        <body>
+            <div class="header">
+                <div class="recipient">
+                    <strong>${wikTarget.firstName} ${wikTarget.lastName}</strong><br>
+                    ${wikTarget.address || '(Adres Onbekend)'}<br>
+                    (Postcode Plaats)
+                </div>
+                <div class="sender">
+                    <span class="sender-bold">Sanadome Hotel & Spa</span><br>
+                    Weg door Jonkerbos 90<br>
+                    6532 SZ Nijmegen
+                </div>
+            </div>
+
+            <div class="meta">
+                Nijmegen, ${currentDate}
+            </div>
+
+            <div class="subject">
+                Betalingsherinnering – Laatste aanmaning
+            </div>
+
+            <div class="content">
+                <p>Beste ${wikTarget.lastName},</p>
+                
+                <p>Hierbij herinneren wij u aan de openstaande factuur met reserveringsnummer <strong>${wikTarget.reservationNumber}</strong> van <strong>${formattedDateInput}</strong> met een bedrag van <strong>€${amountFormatted}</strong>.</p>
+                
+                <p>Helaas hebben wij, ondanks meerdere herinneringen, tot op heden nog geen betaling van u mogen ontvangen. Wij verzoeken u vriendelijk het verschuldigde bedrag binnen 14 dagen over te maken naar ons rekeningnummer <strong>NL52 RABO 0181 6526 68</strong>, ten name van Sanadome Hotel & Spa Nijmegen, onder vermelding van het reserveringsnummer.</p>
+                
+                <p>Wij wijzen u erop dat wij bij uitblijven van tijdige betaling genoodzaakt zijn de vordering over te dragen aan een externe incassopartij. In dat geval worden incassokosten en wettelijke rente in rekening gebracht, conform de geldende wettelijke regelingen.</p>
+                
+                <p>Mocht u inmiddels wel betaald hebben, dan kunt u deze aanmaning als niet verzonden beschouwen.</p>
+                
+                <p>Indien u vragen, of opmerkingen met betrekking tot deze factuur heeft, kunt u ten allertijden contact opnemen met ons via de contactgegevens onderstaand deze brief.</p>
+                
+                <p>Wij vertrouwen erop dat u de betaling alsnog tijdig zult voldoen en hopen hiermee verdere incassomaatregelen te voorkomen.</p>
+            </div>
+
+            <div class="signature">
+                Met hartelijke groet | With kind regards,<br>
+                <strong>Lars Kohler | Front Office Manager</strong>
+            </div>
+        </body>
+        </html>
+      `;
+
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+          printWindow.document.write(letterContent);
+          printWindow.document.close();
+          printWindow.focus();
+          setTimeout(() => {
+              printWindow.print();
+              printWindow.close();
+          }, 250);
+      }
+      
+      setWikTarget(null); // Close modal
+  };
+
   const totalDebt = debtors.filter(d => d.status !== 'Paid').reduce((acc, curr) => acc + curr.amount, 0);
   const actionRequiredCount = debtors.filter(d => isActionRequired(d)).length;
 
@@ -563,6 +661,13 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
                               <td className="px-6 py-4 text-right align-top" onClick={(e) => e.stopPropagation()}>
                                   <div className="flex justify-end gap-2">
                                       <button 
+                                        onClick={() => openWikModal(debtor)}
+                                        className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                                        title="WIK Brief Genereren"
+                                      >
+                                          <Printer size={16} />
+                                      </button>
+                                      <button 
                                         onClick={() => handleDeleteDebtor(debtor.id)}
                                         className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                         title="Verwijderen"
@@ -669,6 +774,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
           </div>
       </Modal>
 
+      {/* Contact Edit Modal */}
       <Modal
         isOpen={!!editingDebtor}
         onClose={() => setEditingDebtor(null)}
@@ -715,6 +821,46 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ onShowToast }) => {
               </div>
           </form>
       </Modal>
+
+      {/* WIK Letter Date Modal */}
+      <Modal
+        isOpen={!!wikTarget}
+        onClose={() => setWikTarget(null)}
+        title="WIK Brief Genereren"
+      >
+          <div className="space-y-6">
+              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-sm">
+                  <p>Je staat op het punt een officiële aanmaning te genereren voor <strong>{wikTarget?.firstName} {wikTarget?.lastName}</strong>.</p>
+              </div>
+              
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                      Datum van incheck / Factuurdatum
+                  </label>
+                  <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                      <input 
+                        type="date" 
+                        className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
+                        value={wikDateInput}
+                        onChange={(e) => setWikDateInput(e.target.value)}
+                      />
+                  </div>
+                  <p className="text-xs text-slate-400 mt-1.5">
+                      Deze datum wordt gebruikt in de zin: "...factuur met reserveringsnummer {wikTarget?.reservationNumber} van [DATUM]..."
+                  </p>
+              </div>
+
+              <button 
+                onClick={generateWIKLetter}
+                disabled={!wikDateInput}
+                className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                  <Printer size={18} /> Genereer & Print Brief
+              </button>
+          </div>
+      </Modal>
+
     </div>
   );
 };
