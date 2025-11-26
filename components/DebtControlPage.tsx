@@ -70,13 +70,15 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           if (aAction && !bAction) return -1;
           if (!aAction && bAction) return 1;
 
-          // 2. Blacklist
+          // 2. Blacklist (Keep urgent matters high)
           if (a.status === 'Blacklist' && b.status !== 'Blacklist') return -1;
           if (b.status === 'Blacklist' && a.status !== 'Blacklist') return 1;
 
-          // 3. New
-          if (a.status === 'New' && b.status !== 'New') return -1;
-          if (b.status === 'New' && a.status !== 'New') return 1;
+          // 3. Status Progression (Final Notice higher than Reminder)
+          const statusWeight = { 'Final Notice': 3, '2nd Reminder': 2, '1st Reminder': 1, 'New': 0, 'Paid': -1 };
+          const wA = statusWeight[a.status as keyof typeof statusWeight] || 0;
+          const wB = statusWeight[b.status as keyof typeof statusWeight] || 0;
+          if (wA !== wB) return wB - wA;
 
           // 4. Date Descending
           return new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime();
@@ -113,7 +115,6 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       try {
           // Using PDOK Locatieserver (Free Dutch Government API)
           const cleanZip = zipcode.replace(/\s/g, '');
-          // We encode the whole number part to handle suffixes like 13a safely, though API prefers spaces sometimes
           const cleanNumber = houseNumber.trim();
           
           const response = await fetch(`https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?q=${cleanZip}+${encodeURIComponent(cleanNumber)}&rows=1`);
@@ -196,12 +197,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                   let zipToEnrich = '';
                   let numberToEnrich = '';
 
-                  // Pattern 1: Starts with Zip (e.g. "1234 AB 12")
-                  // Matches Zip at start, then optional comma/space, then number
                   const matchZipFirst = address.match(/^(\d{4}\s?[a-zA-Z]{2})\s*[,]?\s*(\d+[\w-]*)/);
-                  
-                  // Pattern 2: Ends with Zip (e.g. "Ruiterweg 13, 1251 ZX")
-                  // Matches number, then optional comma/space, then Zip at end
                   const matchZipLast = address.match(/(\d+[\w-]*)\s*[,]?\s*(\d{4}\s?[a-zA-Z]{2})\s*$/);
 
                   if (matchZipFirst) {
@@ -215,13 +211,11 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                   if (zipToEnrich && numberToEnrich) {
                       const enriched = await enrichAddress(zipToEnrich, numberToEnrich);
                       if (enriched) {
-                          // Format: Street Number, Zip City
                           const cleanZip = zipToEnrich.replace(/\s/g, '');
                           const formattedZip = `${cleanZip.slice(0,4)} ${cleanZip.slice(4).toUpperCase()}`;
                           
                           const newAddress = `${enriched.street} ${numberToEnrich}, ${formattedZip} ${enriched.city}`;
                           
-                          // Only update if it actually adds information (city) or standardizes format significantly
                           if (address !== newAddress) {
                               address = newAddress;
                               isEnriched = true;
@@ -240,9 +234,9 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                               amount: balance, 
                               email: email || existing.email,
                               phone: phone || existing.phone,
-                              address: address || existing.address, // Use new address if enriched
+                              address: address || existing.address, 
                               isEnriched: isEnriched || existing.isEnriched,
-                              lastUpdated: new Date().toLocaleDateString('en-US'),
+                              lastUpdated: new Date().toISOString(),
                           };
                           updateCount++;
                       }
@@ -301,7 +295,6 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           );
       });
 
-      // Tab Filtering
       switch (activeTab) {
           case 'ACTION':
               return list.filter(d => isActionRequired(d));
@@ -346,7 +339,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           const previousDebtors = [...debtors];
           const updatedList = debtors.filter(d => !selectedIds.has(d.id));
           setDebtors(updatedList); // Optimistic
-          setSelectedIds(new Set()); // Clear selection
+          setSelectedIds(new Set()); 
 
           const success = await api.deleteDebtors(idsToDelete);
           if (success) {
@@ -369,14 +362,14 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       if(confirm("Weet je zeker dat je dit dossier wilt verwijderen?")) {
           const previousDebtors = [...debtors];
           const updatedList = debtors.filter(d => d.id !== id);
-          setDebtors(updatedList); // Optimistic update
+          setDebtors(updatedList);
           
           const success = await api.deleteDebtor(id);
           if (success) {
               onShowToast("Dossier verwijderd");
           } else {
-              setDebtors(previousDebtors); // Revert if failed
-              onShowToast("Fout bij verwijderen. Controleer de database rechten.");
+              setDebtors(previousDebtors);
+              onShowToast("Fout bij verwijderen.");
           }
       }
   };
@@ -389,7 +382,6 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const applyStatusChange = async (newStatus: DebtorStatus) => {
       if (statusTargetIds.length === 0) return;
 
-      // Added Confirmation
       if (!window.confirm(`Weet je zeker dat je de status wilt wijzigen naar '${newStatus}'?`)) {
           return;
       }
@@ -406,14 +398,13 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       
       setIsStatusModalOpen(false);
       setStatusTargetIds([]);
-      setSelectedIds(new Set()); // Clear selection after action
+      setSelectedIds(new Set());
       onShowToast("Status succesvol aangepast");
   };
 
   // --- DATE EDITING LOGIC ---
   const openDateEdit = (debtor: Debtor) => {
       setDateEditTarget(debtor);
-      // Set current date or default to now
       const current = debtor.statusDate ? new Date(debtor.statusDate) : new Date();
       setNewDateValue(current.toISOString().split('T')[0]);
   };
@@ -476,7 +467,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   // --- WIK LETTER GENERATION ---
   const openWikModal = (debtor: Debtor) => {
       setWikTarget(debtor);
-      setWikDateInput(''); // Reset
+      setWikDateInput('');
   };
 
   const generateWIKLetter = () => {
@@ -486,11 +477,9 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       const currentDate = new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
       const amountFormatted = wikTarget.amount.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-      // Split address into Street and City parts
       let streetLine = wikTarget.address || '';
       let cityLine = '';
       
-      // Regex to find Dutch Zipcode (e.g. 1234 AB) or just 4 digits at start of a part
       const addressMatch = streetLine.match(/^(.*?)\s+(\d{4}\s?[a-zA-Z]{2}\s+.*)$/) || 
                            streetLine.match(/^(.*?)\s+(\d{4}\s+.*)$/); 
 
@@ -584,53 +573,46 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const actionRequiredCount = debtors.filter(d => isActionRequired(d)).length;
 
   const getStatusBadge = (status: DebtorStatus) => {
-      const base = "border transition-all active:scale-95";
+      const base = "border transition-all active:scale-95 shadow-sm";
       switch(status) {
-          case 'New': return `${base} bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100`;
-          case '1st Reminder': return `${base} bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100`;
-          case '2nd Reminder': return `${base} bg-orange-50 text-orange-700 border-orange-200 hover:bg-orange-100`;
-          case 'Final Notice': return `${base} bg-red-50 text-red-700 border-red-200 hover:bg-red-100`;
-          case 'Paid': return `${base} bg-green-50 text-green-700 border-green-200 hover:bg-green-100`;
-          case 'Blacklist': return `${base} bg-slate-900 text-white border-slate-700 hover:bg-slate-800`;
+          case 'New': return `${base} bg-blue-100/50 text-blue-700 border-blue-200 hover:bg-blue-100`;
+          case '1st Reminder': return `${base} bg-amber-100/50 text-amber-700 border-amber-200 hover:bg-amber-100`;
+          case '2nd Reminder': return `${base} bg-orange-100/50 text-orange-700 border-orange-200 hover:bg-orange-100`;
+          case 'Final Notice': return `${base} bg-red-100/50 text-red-700 border-red-200 hover:bg-red-100`;
+          case 'Paid': return `${base} bg-green-100/50 text-green-700 border-green-200 hover:bg-green-100`;
+          case 'Blacklist': return `${base} bg-slate-800 text-white border-slate-700 hover:bg-slate-700`;
           default: return `${base} bg-slate-100 text-slate-600 border-slate-200`;
       }
   };
 
-  const MissingBadge = ({ onClick }: { onClick: () => void }) => (
-      <button 
-        onClick={(e) => { e.stopPropagation(); onClick(); }}
-        className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 whitespace-nowrap hover:bg-amber-100 transition-colors"
-      >
-          <AlertTriangle size={10} /> Invullen
-      </button>
-  );
-
   const StatusOptionCard = ({ status, label, description, colorClass, onClick }: any) => (
       <button 
         onClick={onClick}
-        className={`p-4 rounded-xl border text-left hover:shadow-md transition-all group flex flex-col gap-2 h-full ${colorClass}`}
+        className={`p-4 rounded-xl border text-left hover:shadow-lg transition-all group flex flex-col gap-2 h-full transform hover:-translate-y-1 ${colorClass}`}
       >
           <div className="flex items-center justify-between w-full">
               <span className="font-bold text-sm uppercase tracking-wider">{label}</span>
-              <div className="w-5 h-5 rounded-full border-2 border-current opacity-30 group-hover:opacity-100 flex items-center justify-center">
-                  <div className="w-2.5 h-2.5 rounded-full bg-current opacity-0 group-hover:opacity-100 transition-opacity"></div>
+              <div className="w-6 h-6 rounded-full border-2 border-current opacity-30 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                  <div className="w-3 h-3 rounded-full bg-current opacity-0 group-hover:opacity-100 transition-opacity"></div>
               </div>
           </div>
-          <p className="text-xs opacity-80 font-medium">{description}</p>
+          <p className="text-xs opacity-80 font-medium leading-relaxed">{description}</p>
       </button>
   );
 
   return (
-    <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 min-h-[calc(100vh-80px)] pb-24">
+    <div className="p-6 lg:p-10 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 min-h-[calc(100vh-80px)] pb-24 bg-slate-50">
       
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6">
+      {/* Premium Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-6">
         <div>
-           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
-             <Euro className="text-teal-600" size={32} />
+           <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
+             <div className="p-2.5 bg-teal-50 rounded-xl">
+               <Euro className="text-teal-600" size={32} />
+             </div>
              Debiteuren Beheer
            </h1>
-           <p className="text-slate-500 mt-1">Beheer openstaande posten, aanmaningen en incasso's.</p>
+           <p className="text-slate-500 mt-2 text-lg">Financieel overzicht & invordering.</p>
         </div>
         
         <div className="flex gap-3">
@@ -644,101 +626,116 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
              <button 
                onClick={() => fileInputRef.current?.click()}
                disabled={isUploading}
-               className="flex items-center gap-2 px-6 py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-slate-800 transition-all hover:-translate-y-0.5 disabled:opacity-70"
+               className="flex items-center gap-3 px-6 py-3.5 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-slate-800 transition-all hover:-translate-y-0.5 disabled:opacity-70 hover:shadow-xl"
              >
-               {isUploading ? <RefreshCw className="animate-spin" size={18}/> : <Upload size={18}/>}
-               {isUploading ? 'Verwerken...' : 'Upload Rapportage'}
+               {isUploading ? <RefreshCw className="animate-spin" size={20}/> : <Upload size={20}/>}
+               {isUploading ? 'Verwerken...' : 'Importeer Rapportage'}
              </button>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-              <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-red-50 text-red-600 rounded-lg"><Euro size={20}/></div>
-                  <h3 className="font-bold text-slate-500 text-xs uppercase tracking-wider">Totaal Openstaand</h3>
+      {/* Glassmorphism Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          <div className="relative overflow-hidden bg-gradient-to-br from-white to-slate-50 p-6 rounded-2xl border border-slate-200 shadow-sm group hover:shadow-md transition-all">
+              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><Euro size={80}/></div>
+              <div className="relative z-10">
+                  <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                      <h3 className="font-bold text-slate-500 text-xs uppercase tracking-wider">Totaal Openstaand</h3>
+                  </div>
+                  <div className="text-3xl xl:text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-900 to-slate-700">
+                      € {totalDebt.toLocaleString('nl-NL', {minimumFractionDigits: 2})}
+                  </div>
               </div>
-              <div className="text-3xl font-bold text-slate-900">€ {totalDebt.toLocaleString('nl-NL', {minimumFractionDigits: 2})}</div>
           </div>
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-              <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-amber-50 text-amber-600 rounded-lg"><Clock size={20}/></div>
-                  <h3 className="font-bold text-slate-500 text-xs uppercase tracking-wider">Actie Vereist</h3>
+
+          <div className="relative overflow-hidden bg-gradient-to-br from-white to-amber-50/30 p-6 rounded-2xl border border-slate-200 shadow-sm group hover:shadow-md transition-all hover:border-amber-200">
+              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><Clock size={80}/></div>
+              <div className="relative z-10">
+                  <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+                      <h3 className="font-bold text-slate-500 text-xs uppercase tracking-wider">Actie Vereist</h3>
+                  </div>
+                  <div className="text-3xl xl:text-4xl font-bold text-amber-600">{actionRequiredCount}</div>
+                  <p className="text-xs text-slate-400 mt-1 font-medium">Dossiers &gt; 14 dagen stil</p>
               </div>
-              <div className="text-3xl font-bold text-amber-600">{actionRequiredCount}</div>
-              <p className="text-xs text-slate-500 mt-1">Dossiers &gt; 14 dagen zonder statuswijziging</p>
           </div>
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-              <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><FileSpreadsheet size={20}/></div>
-                  <h3 className="font-bold text-slate-500 text-xs uppercase tracking-wider">Aantal Dossiers</h3>
+
+          <div className="relative overflow-hidden bg-gradient-to-br from-white to-blue-50/30 p-6 rounded-2xl border border-slate-200 shadow-sm group hover:shadow-md transition-all">
+              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><FileSpreadsheet size={80}/></div>
+              <div className="relative z-10">
+                  <div className="flex items-center gap-2 mb-2">
+                      <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                      <h3 className="font-bold text-slate-500 text-xs uppercase tracking-wider">Actieve Dossiers</h3>
+                  </div>
+                  <div className="text-3xl xl:text-4xl font-bold text-slate-900">{debtors.length}</div>
               </div>
-              <div className="text-3xl font-bold text-slate-900">{debtors.length}</div>
           </div>
       </div>
 
-      {/* Tab Navigation */}
-      <div className="mb-6 border-b border-slate-200 flex gap-6 overflow-x-auto no-scrollbar">
+      {/* Navigation Tabs */}
+      <div className="flex items-center gap-4 overflow-x-auto no-scrollbar mb-6 pb-2">
           {[
               { id: 'ALL', label: 'Overzicht', icon: null },
-              { id: 'ACTION', label: 'Actie Vereist', icon: AlertTriangle, color: 'text-red-600' },
-              { id: 'NEW', label: 'Nieuw', icon: Sparkles, color: 'text-blue-600' },
-              { id: 'ONGOING', label: 'Lopend', icon: Clock },
-              { id: 'URGENT', label: 'Urgent', icon: AlertCircle, color: 'text-orange-600' },
-              { id: 'DONE', label: 'Afgerond', icon: CheckCircle2, color: 'text-green-600' },
+              { id: 'ACTION', label: 'Actie Vereist', icon: AlertTriangle, activeClass: 'bg-red-100 text-red-800 border-red-200' },
+              { id: 'NEW', label: 'Nieuw', icon: Sparkles, activeClass: 'bg-blue-100 text-blue-800 border-blue-200' },
+              { id: 'ONGOING', label: 'Lopend', icon: Clock, activeClass: 'bg-amber-100 text-amber-800 border-amber-200' },
+              { id: 'URGENT', label: 'Urgent', icon: AlertCircle, activeClass: 'bg-orange-100 text-orange-800 border-orange-200' },
+              { id: 'DONE', label: 'Afgerond', icon: CheckCircle2, activeClass: 'bg-green-100 text-green-800 border-green-200' },
           ].map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`pb-3 text-sm font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-2 ${
+                className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all flex items-center gap-2 border whitespace-nowrap ${
                     activeTab === tab.id 
-                    ? 'border-slate-900 text-slate-900' 
-                    : 'border-transparent text-slate-500 hover:text-slate-700'
+                    ? (tab.activeClass || 'bg-slate-900 text-white border-slate-900 shadow-md')
+                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50 hover:text-slate-700'
                 }`}
               >
-                  {tab.icon && <tab.icon size={16} className={tab.color || 'text-slate-400'} />}
+                  {tab.icon && <tab.icon size={16} className={activeTab === tab.id ? 'opacity-100' : 'opacity-50'} />}
                   {tab.label}
               </button>
           ))}
       </div>
 
-      {/* Toolbar */}
-      <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row justify-between gap-4">
-          <div className="relative w-full md:w-96">
+      {/* Search Toolbar */}
+      <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm mb-6 flex items-center gap-4">
+          <div className="relative flex-1">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input 
                 type="text" 
                 placeholder="Zoek op naam, nummer, adres, bedrag..." 
-                className="w-full pl-11 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                className="w-full pl-11 pr-4 py-3 bg-transparent rounded-xl text-sm focus:outline-none text-slate-700 placeholder:text-slate-400 font-medium"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
           </div>
+          <div className="h-8 w-px bg-slate-100 mx-2 hidden md:block"></div>
+          <div className="hidden md:flex items-center gap-4 pr-4 text-xs font-bold text-slate-400 uppercase tracking-wider">
+              <span>{filteredDebtors.length} Resultaten</span>
+          </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm pb-12 min-h-[500px]" ref={tableContainerRef}>
-          <div className="overflow-x-auto">
+      {/* Main Table */}
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-lg overflow-hidden flex flex-col relative" style={{ maxHeight: 'calc(100vh - 350px)' }} ref={tableContainerRef}>
+          <div className="overflow-auto flex-1 custom-scrollbar">
               <table className="w-full text-left border-collapse">
-                  <thead className="bg-slate-50 border-b border-slate-200">
+                  <thead className="bg-slate-50/90 backdrop-blur-sm sticky top-0 z-20 border-b border-slate-200">
                       <tr>
-                          <th className="px-4 py-4 w-12 text-center">
+                          <th className="px-4 py-5 w-16 text-center">
                               <button onClick={toggleSelectAll} className="text-slate-400 hover:text-slate-600 transition-colors">
                                   {selectedIds.size > 0 && selectedIds.size === filteredDebtors.length ? <CheckSquare size={20}/> : <Square size={20}/>}
                               </button>
                           </th>
-                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Nr.</th>
-                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Naam</th>
-                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact</th>
-                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Adres</th>
-                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Bedrag</th>
-                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status & Tijd</th>
-                          <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Acties</th>
+                          <th className="px-6 py-5 text-xs font-bold text-slate-500 uppercase tracking-wider">Dossier</th>
+                          <th className="px-6 py-5 text-xs font-bold text-slate-500 uppercase tracking-wider">Contact & Adres</th>
+                          <th className="px-6 py-5 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
+                          <th className="px-6 py-5 text-xs font-bold text-slate-500 uppercase tracking-wider">Bedrag</th>
+                          <th className="px-6 py-5 text-xs font-bold text-slate-500 uppercase tracking-wider text-right">Acties</th>
                       </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100">
-                      {filteredDebtors.map((debtor, index) => {
+                  <tbody className="divide-y divide-slate-50">
+                      {filteredDebtors.map((debtor) => {
                           const needsAction = isActionRequired(debtor);
                           const daysOverdue = getDaysOverdue(debtor);
                           const isSelected = selectedIds.has(debtor.id);
@@ -747,121 +744,122 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                           <tr 
                             key={debtor.id} 
                             onClick={() => toggleSelectOne(debtor.id)}
-                            className={`transition-colors group relative cursor-pointer ${isSelected ? 'bg-blue-50/50' : needsAction ? 'bg-red-50/30 hover:bg-red-50/50' : 'hover:bg-slate-50'}`}
+                            className={`transition-all group relative cursor-pointer ${
+                                isSelected ? 'bg-blue-50/40' : needsAction ? 'bg-red-50/20 hover:bg-red-50/40' : 'hover:bg-slate-50/50'
+                            }`}
                           >
-                              <td className="px-4 py-4 text-center align-top" onClick={(e) => e.stopPropagation()}>
+                              {/* Selection Checkbox */}
+                              <td className="px-4 py-5 text-center align-top" onClick={(e) => e.stopPropagation()}>
                                   <button onClick={() => toggleSelectOne(debtor.id)} className={`transition-colors ${isSelected ? 'text-teal-600' : 'text-slate-300 hover:text-slate-400'}`}>
                                       {isSelected ? <CheckSquare size={20}/> : <Square size={20}/>}
                                   </button>
                               </td>
-                              <td className="px-6 py-4 text-sm font-mono text-slate-600 align-top">
-                                  {needsAction && (
-                                      <div className="absolute left-0 top-0 bottom-0 w-1 bg-red-500"></div>
-                                  )}
-                                  {debtor.reservationNumber}
-                              </td>
-                              <td className="px-6 py-4 align-top">
-                                  <div className="font-bold text-slate-900 flex items-center gap-2">
-                                      {debtor.lastName}, {debtor.firstName}
-                                      {needsAction && (
-                                          <span title="Actie Vereist!">
-                                              <Clock size={14} className="text-red-500 animate-pulse"/>
-                                          </span>
-                                      )}
-                                  </div>
-                                  <div className="text-xs text-slate-400">Import: {debtor.importedAt}</div>
-                              </td>
-                              <td className="px-6 py-4 text-sm align-top" onClick={(e) => e.stopPropagation()}>
-                                  <div className="flex flex-col gap-1.5">
-                                      <div className="flex items-center gap-1.5 text-slate-600">
-                                          <Mail size={12} className="text-slate-400"/> 
-                                          {debtor.email && debtor.email !== 'N.v.t.' ? (
-                                              <span className="text-xs truncate max-w-[150px]" title={debtor.email}>{debtor.email}</span>
-                                          ) : debtor.email === 'N.v.t.' ? (
-                                              <span className="text-xs text-slate-400 italic">N.v.t.</span>
-                                          ) : (
-                                              <MissingBadge onClick={() => openEditContact(debtor)} />
-                                          )}
-                                      </div>
-                                      
-                                      <div className="flex items-center gap-1.5 text-slate-600">
-                                          <Phone size={12} className="text-slate-400"/> 
-                                          {debtor.phone && debtor.phone !== 'N.v.t.' ? (
-                                              <span className="text-xs">{debtor.phone}</span>
-                                          ) : debtor.phone === 'N.v.t.' ? (
-                                              <span className="text-xs text-slate-400 italic">N.v.t.</span>
-                                          ) : (
-                                              <MissingBadge onClick={() => openEditContact(debtor)} />
-                                          )}
-                                      </div>
-                                      
-                                      {(debtor.email || debtor.phone) && (
-                                          <button 
-                                            onClick={() => openEditContact(debtor)} 
-                                            className="text-[10px] text-teal-600 hover:underline font-bold text-left"
-                                          >
-                                              Bewerken
-                                          </button>
-                                      )}
-                                  </div>
-                              </td>
-                              <td className="px-6 py-4 text-sm text-slate-600 max-w-[200px] align-top">
-                                  <div className="flex items-start gap-1">
-                                      {debtor.isEnriched && (
-                                          <Sparkles size={14} className="text-indigo-500 mt-0.5 flex-shrink-0" fill="currentColor" fillOpacity={0.2} />
-                                      )}
-                                      <span 
-                                          className={debtor.isEnriched ? "text-indigo-700 font-medium" : "line-clamp-2"} 
-                                          title={debtor.isEnriched ? "Adres automatisch aangevuld door systeem" : debtor.address}
-                                      >
-                                          {debtor.address || <span className="text-xs text-slate-400 italic">Onbekend</span>}
-                                      </span>
-                                  </div>
-                              </td>
-                              <td className="px-6 py-4 align-top">
-                                  <span className="font-bold text-slate-900">€ {debtor.amount.toLocaleString('nl-NL', {minimumFractionDigits: 2})}</span>
-                              </td>
-                              <td className="px-6 py-4 align-top" onClick={(e) => e.stopPropagation()}>
-                                  {/* Clickable Status Badge */}
-                                  <button 
-                                    onClick={() => openSingleStatusModal(debtor.id)}
-                                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide w-full md:w-auto justify-between shadow-sm ${getStatusBadge(debtor.status)}`}
-                                  >
-                                      <span className="flex items-center gap-1.5">
-                                        {debtor.status === 'Paid' && <CheckCircle2 size={12} />}
-                                        {debtor.status}
-                                      </span>
-                                      <Edit size={12} className="opacity-50"/>
-                                  </button>
+
+                              {/* Dossier Info */}
+                              <td className="px-6 py-5 align-top relative">
+                                  {needsAction && <div className="absolute left-0 top-4 bottom-4 w-1 bg-red-500 rounded-r-full"></div>}
                                   
-                                  {debtor.status !== 'Paid' && debtor.status !== 'New' && debtor.statusDate && (
-                                      <div className="flex items-center gap-2 mt-1.5">
-                                          <div className={`text-[10px] font-bold ${needsAction ? 'text-red-600' : 'text-slate-400'}`}>
-                                              {daysOverdue} dagen geleden
-                                          </div>
-                                          {/* Edit Date Button */}
-                                          <button 
-                                            onClick={() => openDateEdit(debtor)}
-                                            className="p-1 rounded bg-slate-100 hover:bg-slate-200 text-slate-500 transition-colors"
-                                            title="Pas datum handmatig aan"
-                                          >
-                                              <Edit2 size={10} />
-                                          </button>
+                                  <div className="flex flex-col gap-1">
+                                      <div className="font-bold text-slate-900 flex items-center gap-2 text-base">
+                                          {debtor.lastName}, {debtor.firstName}
                                       </div>
-                                  )}
+                                      <div className="flex items-center gap-2 text-xs text-slate-500 font-mono bg-slate-100 w-fit px-2 py-0.5 rounded">
+                                          #{debtor.reservationNumber}
+                                      </div>
+                                      {needsAction && (
+                                          <div className="flex items-center gap-1 text-[10px] font-bold text-red-600 mt-1 animate-pulse">
+                                              <Clock size={12} /> Actie Vereist
+                                          </div>
+                                      )}
+                                  </div>
                               </td>
-                              <td className="px-6 py-4 text-right align-top" onClick={(e) => e.stopPropagation()}>
-                                  <div className="flex justify-end gap-2">
+
+                              {/* Contact Info */}
+                              <td className="px-6 py-5 align-top text-sm">
+                                  <div className="space-y-2 max-w-[250px]">
+                                      <div className="flex items-start gap-2 text-slate-600">
+                                          <Mail size={14} className="text-slate-400 mt-0.5 flex-shrink-0"/> 
+                                          <span className="truncate text-xs font-medium" title={debtor.email || ''}>
+                                              {debtor.email && debtor.email !== 'N.v.t.' ? debtor.email : <span className="text-slate-400 italic">Geen email</span>}
+                                          </span>
+                                      </div>
+                                      <div className="flex items-start gap-2 text-slate-600">
+                                          <Phone size={14} className="text-slate-400 mt-0.5 flex-shrink-0"/> 
+                                          <span className="text-xs font-medium">
+                                              {debtor.phone && debtor.phone !== 'N.v.t.' ? debtor.phone : <span className="text-slate-400 italic">Geen tel</span>}
+                                          </span>
+                                      </div>
+                                      <div className="flex items-start gap-2 text-slate-600 pt-1 border-t border-slate-100 mt-1">
+                                          {debtor.isEnriched ? (
+                                              <Sparkles size={14} className="text-indigo-500 mt-0.5 flex-shrink-0" />
+                                          ) : (
+                                              <div className="w-3.5"></div>
+                                          )}
+                                          <span className={`text-xs leading-tight ${debtor.isEnriched ? 'text-indigo-700' : ''}`}>
+                                              {debtor.address || <span className="italic text-slate-400">Adres onbekend</span>}
+                                          </span>
+                                      </div>
+                                      <button 
+                                        onClick={(e) => { e.stopPropagation(); openEditContact(debtor); }} 
+                                        className="text-[10px] font-bold text-teal-600 hover:underline flex items-center gap-1 pt-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      >
+                                          <Edit2 size={10}/> Wijzigen
+                                      </button>
+                                  </div>
+                              </td>
+
+                              {/* Status */}
+                              <td className="px-6 py-5 align-top" onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex flex-col items-start gap-2">
+                                      <button 
+                                        onClick={() => openSingleStatusModal(debtor.id)}
+                                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide shadow-sm w-full md:w-auto justify-between ${getStatusBadge(debtor.status)}`}
+                                      >
+                                          <span className="flex items-center gap-1.5 truncate">
+                                            {debtor.status === 'Paid' && <CheckCircle2 size={12} />}
+                                            {debtor.status === 'Blacklist' && <AlertCircle size={12} />}
+                                            {debtor.status}
+                                          </span>
+                                          <ChevronDown size={12} className="opacity-50"/>
+                                      </button>
+                                      
+                                      {debtor.status !== 'Paid' && debtor.status !== 'New' && debtor.statusDate && (
+                                          <div className="flex items-center gap-2 pl-1">
+                                              <div className={`text-[10px] font-bold ${needsAction ? 'text-red-600 bg-red-50 px-2 py-0.5 rounded' : 'text-slate-400'}`}>
+                                                  {daysOverdue} dagen geleden
+                                              </div>
+                                              <button 
+                                                onClick={() => openDateEdit(debtor)}
+                                                className="p-1 rounded-full hover:bg-slate-100 text-slate-400 transition-colors opacity-0 group-hover:opacity-100"
+                                                title="Pas datum aan"
+                                              >
+                                                  <Edit2 size={10} />
+                                              </button>
+                                          </div>
+                                      )}
+                                  </div>
+                              </td>
+
+                              {/* Amount */}
+                              <td className="px-6 py-5 align-top">
+                                  <div className="font-bold text-slate-900 text-base">
+                                      € {debtor.amount.toLocaleString('nl-NL', {minimumFractionDigits: 2})}
+                                  </div>
+                              </td>
+
+                              {/* Actions */}
+                              <td className="px-6 py-5 text-right align-top" onClick={(e) => e.stopPropagation()}>
+                                  <div className="flex justify-end gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all translate-x-4 lg:group-hover:translate-x-0">
                                       <button 
                                         onClick={() => openWikModal(debtor)}
-                                        className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                                        className="p-2.5 bg-white border border-slate-200 text-slate-500 hover:text-teal-600 hover:border-teal-200 rounded-xl shadow-sm transition-all"
                                         title="WIK Brief Genereren"
                                       >
                                           <Printer size={16} />
                                       </button>
                                       <button 
                                         onClick={() => handleDeleteDebtor(debtor.id)}
-                                        className="p-2 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                        className="p-2.5 bg-white border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-200 rounded-xl shadow-sm transition-all"
                                         title="Verwijderen"
                                       >
                                           <Trash2 size={16} />
@@ -872,8 +870,11 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                       )})}
                       {filteredDebtors.length === 0 && (
                           <tr>
-                              <td colSpan={8} className="px-6 py-12 text-center text-slate-400 italic">
-                                  Geen dossiers gevonden in deze categorie.
+                              <td colSpan={7} className="px-6 py-20 text-center text-slate-400 italic">
+                                  <div className="flex flex-col items-center gap-2">
+                                      <Search size={40} className="opacity-20 mb-2"/>
+                                      <p>Geen dossiers gevonden.</p>
+                                  </div>
                               </td>
                           </tr>
                       )}
@@ -884,34 +885,34 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
 
       {/* Bulk Actions Floating Bar */}
       {selectedIds.size > 0 && (
-          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-2xl shadow-2xl z-40 flex items-center gap-6 animate-in slide-in-from-bottom-10 duration-300">
-              <div className="flex items-center gap-2 font-bold border-r border-slate-700 pr-6">
-                  <div className="bg-teal-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">
+          <div className="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-2 py-2 rounded-2xl shadow-2xl z-40 flex items-center gap-2 animate-in slide-in-from-bottom-10 duration-300 border border-slate-700/50 backdrop-blur-xl bg-opacity-95">
+              <div className="flex items-center gap-3 font-bold px-4 py-2">
+                  <div className="bg-teal-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs shadow-sm">
                       {selectedIds.size}
                   </div>
-                  <span>Geselecteerd</span>
+                  <span className="text-sm">Geselecteerd</span>
               </div>
-              <div className="flex items-center gap-2">
-                  <button 
-                    onClick={openBulkStatusModal}
-                    className="flex items-center gap-2 px-4 py-2 hover:bg-slate-800 rounded-xl transition-colors text-sm font-bold"
-                  >
-                      <Edit size={16}/> Status Wijzigen
-                  </button>
-                  <button 
-                    onClick={handleBulkDelete}
-                    className="flex items-center gap-2 px-4 py-2 hover:bg-red-600/80 bg-red-600 text-white rounded-xl transition-colors text-sm font-bold"
-                  >
-                      <Trash2 size={16}/> Verwijderen
-                  </button>
-              </div>
-              <button onClick={() => setSelectedIds(new Set())} className="ml-2 p-1 hover:bg-slate-800 rounded-full text-slate-400 hover:text-white">
-                  <X size={16}/>
+              <div className="h-8 w-px bg-slate-700"></div>
+              <button 
+                onClick={openBulkStatusModal}
+                className="flex items-center gap-2 px-4 py-2 hover:bg-slate-800 rounded-xl transition-colors text-sm font-bold"
+              >
+                  <Edit size={16}/> Status Wijzigen
+              </button>
+              <button 
+                onClick={handleBulkDelete}
+                className="flex items-center gap-2 px-4 py-2 hover:bg-red-600/20 text-red-400 hover:text-red-300 rounded-xl transition-colors text-sm font-bold"
+              >
+                  <Trash2 size={16}/> Verwijderen
+              </button>
+              <div className="h-8 w-px bg-slate-700"></div>
+              <button onClick={() => setSelectedIds(new Set())} className="p-2 hover:bg-slate-800 rounded-xl text-slate-400 hover:text-white transition-colors">
+                  <X size={18}/>
               </button>
           </div>
       )}
 
-      {/* Visual Status Picker Modal */}
+      {/* Status Picker Modal */}
       <Modal
         isOpen={isStatusModalOpen}
         onClose={() => setIsStatusModalOpen(false)}
@@ -924,35 +925,35 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                     status="New" 
                     label="Nieuw" 
                     description="Nog geen actie ondernomen."
-                    colorClass="bg-blue-50 border-blue-200 text-blue-700 hover:border-blue-400"
+                    colorClass="bg-blue-50/50 border-blue-200 text-blue-700 hover:border-blue-400"
                     onClick={() => applyStatusChange('New')}
                   />
                   <StatusOptionCard 
                     status="1st Reminder" 
                     label="1e Herinnering" 
                     description="Eerste mail/brief verstuurd."
-                    colorClass="bg-amber-50 border-amber-200 text-amber-700 hover:border-amber-400"
+                    colorClass="bg-amber-50/50 border-amber-200 text-amber-700 hover:border-amber-400"
                     onClick={() => applyStatusChange('1st Reminder')}
                   />
                   <StatusOptionCard 
                     status="2nd Reminder" 
                     label="2e Herinnering" 
                     description="Tweede waarschuwing (+14 dagen)."
-                    colorClass="bg-orange-50 border-orange-200 text-orange-700 hover:border-orange-400"
+                    colorClass="bg-orange-50/50 border-orange-200 text-orange-700 hover:border-orange-400"
                     onClick={() => applyStatusChange('2nd Reminder')}
                   />
                   <StatusOptionCard 
                     status="Final Notice" 
                     label="Aanmaning" 
                     description="Laatste waarschuwing voor blacklist."
-                    colorClass="bg-red-50 border-red-200 text-red-700 hover:border-red-400"
+                    colorClass="bg-red-50/50 border-red-200 text-red-700 hover:border-red-400"
                     onClick={() => applyStatusChange('Final Notice')}
                   />
                   <StatusOptionCard 
                     status="Paid" 
                     label="Betaald" 
                     description="Dossier succesvol afgerond."
-                    colorClass="bg-green-50 border-green-200 text-green-700 hover:border-green-400"
+                    colorClass="bg-green-50/50 border-green-200 text-green-700 hover:border-green-400"
                     onClick={() => applyStatusChange('Paid')}
                   />
                   <StatusOptionCard 
@@ -979,7 +980,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                     type="email" 
                     value={contactForm.email} 
                     onChange={(e) => setContactForm({...contactForm, email: e.target.value})}
-                    className="w-full p-3 border border-slate-200 rounded-xl text-sm"
+                    className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-colors"
                     placeholder="naam@email.com"
                   />
               </div>
@@ -989,20 +990,15 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                     type="text" 
                     value={contactForm.phone} 
                     onChange={(e) => setContactForm({...contactForm, phone: e.target.value})}
-                    className="w-full p-3 border border-slate-200 rounded-xl text-sm"
+                    className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-colors"
                     placeholder="+31 6..."
                   />
               </div>
               
-              <div className="flex flex-col gap-3">
-                  <button type="submit" className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors">
+              <div className="flex flex-col gap-3 pt-2">
+                  <button type="submit" className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors shadow-lg">
                       Opslaan
                   </button>
-                  <div className="relative flex items-center py-1">
-                      <div className="flex-grow border-t border-slate-200"></div>
-                      <span className="flex-shrink-0 mx-4 text-xs text-slate-400">OF</span>
-                      <div className="flex-grow border-t border-slate-200"></div>
-                  </div>
                   <button 
                     type="button" 
                     onClick={markContactUnavailable}
@@ -1021,9 +1017,12 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
         title="Datum Wijzigen"
       >
           <form onSubmit={handleDateSave} className="space-y-5">
-              <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 text-amber-800 text-sm">
-                  <p className="font-bold mb-1">Let op:</p>
-                  <p>Door de datum handmatig aan te passen naar meer dan 14 dagen geleden, wordt automatisch de 'Actie Vereist' markering geactiveerd.</p>
+              <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 text-amber-800 text-sm flex gap-3">
+                  <AlertTriangle className="flex-shrink-0 mt-0.5" size={18} />
+                  <div>
+                      <p className="font-bold mb-1">Let op:</p>
+                      <p>Door de datum handmatig aan te passen naar meer dan 14 dagen geleden, wordt automatisch de 'Actie Vereist' markering geactiveerd.</p>
+                  </div>
               </div>
               
               <div>
@@ -1039,7 +1038,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
 
               <button 
                 type="submit" 
-                className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors"
+                className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors shadow-lg"
               >
                   Datum Opslaan
               </button>
@@ -1053,8 +1052,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
         title="WIK Brief Genereren"
       >
           <div className="space-y-6">
-              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-sm">
-                  <p>Je staat op het punt een officiële aanmaning te genereren voor <strong>{wikTarget?.firstName} {wikTarget?.lastName}</strong>.</p>
+              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-sm font-medium">
+                  <p>Je staat op het punt een officiële aanmaning te genereren voor <br/><span className="text-slate-900 text-base block mt-1">{wikTarget?.firstName} {wikTarget?.lastName}</span></p>
               </div>
               
               <div>
@@ -1071,14 +1070,14 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                       />
                   </div>
                   <p className="text-xs text-slate-400 mt-1.5">
-                      Deze datum wordt gebruikt in de zin: "...factuur met reserveringsnummer {wikTarget?.reservationNumber} van [DATUM]..."
+                      Wordt gebruikt in de aanhef van de brief.
                   </p>
               </div>
 
               <button 
                 onClick={generateWIKLetter}
                 disabled={!wikDateInput}
-                className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg"
               >
                   <Printer size={18} /> Genereer & Print Brief
               </button>

@@ -5,12 +5,13 @@ import {
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo
+  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle
 } from 'lucide-react';
 import { Employee, LeaveRequest, EmployeeNote, EmployeeDocument, Notification, ViewState } from '../types';
 import { Modal } from './Modal';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
 import { api } from '../utils/api';
+import { hasPermission } from '../utils/permissions';
 
 interface EmployeeProfileProps {
   employee: Employee;
@@ -50,6 +51,9 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   // Onboarding Template State
   const [templateTitle, setTemplateTitle] = useState<string>('');
 
+  // Debt Control State (for Dashboard)
+  const [urgentDebtCount, setUrgentDebtCount] = useState(0);
+
   // Load Template Name correctly
   useEffect(() => {
       const fetchTemplateName = async () => {
@@ -73,6 +77,29 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
           fetchTemplateName();
       }
   }, [employee.activeTemplateId, employee.onboardingStatus, employee.onboardingTasks]);
+
+  // Fetch Debt Control Stats if user has permission
+  useEffect(() => {
+      const checkDebtors = async () => {
+          if (hasPermission(employee, 'MANAGE_DEBTORS')) {
+              try {
+                  const debtors = await api.getDebtors();
+                  const urgent = debtors.filter(d => {
+                      if (d.status === 'Paid' || d.status === 'Blacklist' || d.status === 'New') return false;
+                      if (!d.statusDate) return false;
+                      const statusDate = new Date(d.statusDate);
+                      const diffTime = Math.abs(new Date().getTime() - statusDate.getTime());
+                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                      return diffDays > 14;
+                  });
+                  setUrgentDebtCount(urgent.length);
+              } catch (e) {
+                  console.error("Failed to fetch dashboard debt stats", e);
+              }
+          }
+      };
+      checkDebtors();
+  }, [employee]);
 
   const tabs = useMemo(() => {
     const baseTabs = ['Overzicht', 'Carrière', 'Evaluatie'];
@@ -162,7 +189,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       const openOnboardingTasks = employee.onboardingTasks?.filter(t => t.score !== 100) || [];
       const pendingEvaluations = employee.evaluations?.filter(ev => ev.status === 'EmployeeInput' || ev.status === 'ManagerInput') || [];
       
-      const hasOpenActions = openOnboardingTasks.length > 0 || pendingEvaluations.length > 0;
+      const hasOpenActions = openOnboardingTasks.length > 0 || pendingEvaluations.length > 0 || urgentDebtCount > 0;
 
       return (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -199,7 +226,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                           </div>
                           {hasOpenActions && (
                               <span className="bg-teal-100 text-teal-700 text-xs font-bold px-2 py-1 rounded-full">
-                                  {openOnboardingTasks.length + pendingEvaluations.length}
+                                  {openOnboardingTasks.length + pendingEvaluations.length + (urgentDebtCount > 0 ? 1 : 0)}
                               </span>
                           )}
                       </div>
@@ -207,6 +234,27 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                       <div className="flex-1">
                           {hasOpenActions ? (
                               <div className="space-y-3">
+                                  {/* DEBT CONTROL ALERT */}
+                                  {urgentDebtCount > 0 && (
+                                      <div className="flex items-center justify-between p-3 bg-red-50 rounded-xl border border-red-100 animate-pulse">
+                                          <div className="flex items-center gap-3">
+                                              <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center text-red-600">
+                                                  <AlertTriangle size={16} />
+                                              </div>
+                                              <div>
+                                                  <div className="text-sm font-bold text-red-800">Debiteuren Beheer</div>
+                                                  <div className="text-xs text-red-600">{urgentDebtCount} dossiers vereisen direct actie (>14 dgn)</div>
+                                              </div>
+                                          </div>
+                                          <button 
+                                            onClick={() => onChangeView(ViewState.DEBT_CONTROL)} 
+                                            className="text-xs font-bold text-white bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg transition-colors"
+                                          >
+                                              Bekijken
+                                          </button>
+                                      </div>
+                                  )}
+
                                   {pendingEvaluations.slice(0, 2).map(ev => (
                                       <div key={ev.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100">
                                           <div className="flex items-center gap-3">
