@@ -1,7 +1,6 @@
 
-
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Bell, Plus, ChevronDown, Lock, LogOut, CheckCircle2, Pin, Menu, Cloud, Database, Shield, User, Briefcase, Ticket } from 'lucide-react';
+import { Search, Bell, Plus, ChevronDown, Lock, LogOut, CheckCircle2, Pin, Menu, Cloud, Database, Shield, User, Briefcase, Ticket, X } from 'lucide-react';
 import { Employee, Notification, ViewState } from '../types';
 
 interface TopNavProps {
@@ -11,10 +10,11 @@ interface TopNavProps {
   onNotificationClick: (notification: Notification) => void;
   onMarkAllRead: () => void;
   onMarkSingleRead: (id: string) => void;
+  onRemoveNotification?: (id: string) => void; // Added prop for dismissing
   onToggleMobileMenu: () => void;
   onNavigate: (view: ViewState) => void;
   isLive: boolean;
-  onOpenFeedbackModal: () => void; // New Prop
+  onOpenFeedbackModal: () => void;
 }
 
 const TopNav: React.FC<TopNavProps> = ({ 
@@ -24,6 +24,7 @@ const TopNav: React.FC<TopNavProps> = ({
   onNotificationClick,
   onMarkAllRead,
   onMarkSingleRead,
+  onRemoveNotification,
   onToggleMobileMenu,
   onNavigate,
   isLive,
@@ -126,11 +127,22 @@ const TopNav: React.FC<TopNavProps> = ({
                                     <div className={`w-2.5 h-2.5 mt-2 rounded-full ${!notif.read ? 'bg-teal-500 shadow-sm shadow-teal-200' : 'bg-slate-200'}`}></div>
                                 )}
                             </div>
-                            <div className="flex-1">
+                            <div className="flex-1 min-w-0">
                               <div className="flex justify-between items-start">
-                                <p className={`text-sm ${!notif.read || notif.isPinned ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
+                                <p className={`text-sm truncate ${!notif.read || notif.isPinned ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
                                   {notif.title}
                                 </p>
+                                {onRemoveNotification && (
+                                    <button 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onRemoveNotification(notif.id);
+                                        }}
+                                        className="text-slate-300 hover:text-slate-500 p-1 -mr-2 -mt-1 rounded-full hover:bg-slate-100 transition-colors"
+                                    >
+                                        <X size={14} />
+                                    </button>
+                                )}
                               </div>
                               <p className="text-xs text-slate-500 mt-1 line-clamp-2 pr-2 leading-relaxed font-medium">
                                 {notif.message}

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Ticket, Search, Filter, CheckCircle2, Circle, Clock, AlertTriangle, MessageSquare, ChevronRight, RefreshCw, AlertCircle, Lightbulb, Bug, Wrench, MapPin } from 'lucide-react';
+import { Ticket, Search, Filter, CheckCircle2, Circle, Clock, AlertTriangle, MessageSquare, ChevronRight, RefreshCw, AlertCircle, Lightbulb, Bug, Wrench, MapPin, Save, Send } from 'lucide-react';
 import { Ticket as TicketType, TicketStatus, TicketPriority, TicketType as TT, Employee, Notification, ViewState } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
@@ -17,11 +17,13 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
     const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
     const [filterStatus, setFilterStatus] = useState<TicketStatus | 'All'>('All');
     const [searchTerm, setSearchTerm] = useState('');
+    
+    // Update State
     const [adminNote, setAdminNote] = useState('');
+    const [notifyEmployee, setNotifyEmployee] = useState(false); // Default to false (internal note)
 
     useEffect(() => {
         loadTickets();
-        // Subscribe to realtime updates? If api supports it
     }, []);
 
     const loadTickets = async () => {
@@ -38,14 +40,14 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
         }
     };
 
-    const handleStatusChange = async (newStatus: TicketStatus) => {
+    const handleUpdateTicket = async (newStatus?: TicketStatus) => {
         if (!selectedTicket) return;
         
         const updatedTicket: TicketType = {
             ...selectedTicket,
-            status: newStatus,
+            status: newStatus || selectedTicket.status, // Use new status or keep existing
             adminNotes: adminNote,
-            resolvedAt: newStatus === 'Resolved' ? new Date().toISOString() : undefined
+            resolvedAt: newStatus === 'Resolved' ? new Date().toISOString() : selectedTicket.resolvedAt
         };
 
         // Optimistic update
@@ -53,17 +55,19 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
         setSelectedTicket(updatedTicket);
 
         await api.saveTicket(updatedTicket);
-        onShowToast(`Status gewijzigd naar ${newStatus}`);
+        onShowToast(newStatus ? `Status gewijzigd naar ${newStatus}` : 'Ticket update opgeslagen');
 
-        // NOTIFY EMPLOYEE
-        if (onAddNotification && currentUser && updatedTicket.submittedById !== currentUser.id) {
+        // NOTIFY EMPLOYEE (Only if checkbox is checked)
+        if (notifyEmployee && onAddNotification && currentUser && updatedTicket.submittedById !== currentUser.id) {
             const notif: Notification = {
                 id: Math.random().toString(36).substr(2, 9),
                 recipientId: updatedTicket.submittedById,
                 senderName: 'Support Team',
                 type: 'Ticket',
-                title: 'Update over je melding',
-                message: `De status van je ticket "${updatedTicket.title}" is gewijzigd naar: ${newStatus}.`,
+                title: newStatus ? `Status gewijzigd: ${updatedTicket.title}` : `Nieuwe reactie op: ${updatedTicket.title}`,
+                message: newStatus 
+                    ? `De status is gewijzigd naar: ${newStatus}. ${adminNote ? `Opmerking: "${adminNote}"` : ''}`
+                    : `Er is een update geplaatst: "${adminNote}"`,
                 date: 'Zojuist',
                 read: false,
                 targetView: ViewState.PROFILE, // Navigate to profile to see "Meldingen" tab
@@ -71,6 +75,9 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
             };
             onAddNotification(notif);
         }
+        
+        // Reset checkbox after save
+        setNotifyEmployee(false);
     };
 
     const filteredTickets = tickets.filter(t => {
@@ -190,6 +197,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
                             onClick={() => {
                                 setSelectedTicket(ticket);
                                 setAdminNote(ticket.adminNotes || '');
+                                setNotifyEmployee(false); // Reset on open
                             }}
                             className="p-5 hover:bg-slate-50 cursor-pointer transition-colors group flex flex-col md:flex-row gap-4 md:items-center"
                         >
@@ -244,11 +252,11 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
             <Modal
                 isOpen={!!selectedTicket}
                 onClose={() => setSelectedTicket(null)}
-                title="Ticket Details"
+                title="Ticket Beheer"
             >
                 {selectedTicket && (
                     <div className="space-y-6">
-                        <div>
+                        <div className="border-b border-slate-100 pb-4">
                             <div className="flex flex-wrap items-center gap-2 mb-2">
                                 <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 border ${getPriorityColor(selectedTicket.priority)}`}>
                                     {selectedTicket.priority} Priority
@@ -262,7 +270,7 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
                                     </span>
                                 )}
                             </div>
-                            <h2 className="text-xl font-bold text-slate-900">{selectedTicket.title}</h2>
+                            <h2 className="text-lg font-bold text-slate-900 leading-tight">{selectedTicket.title}</h2>
                             <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
                                 <span>Ingediend door <strong>{selectedTicket.submittedBy}</strong></span>
                                 <span>•</span>
@@ -274,41 +282,60 @@ const TicketDashboard: React.FC<TicketDashboardProps> = ({ onShowToast, currentU
                             {selectedTicket.description}
                         </div>
 
-                        <div className="border-t border-slate-100 pt-4">
-                            <h3 className="text-sm font-bold text-slate-900 mb-3">Beheer</h3>
+                        <div className="pt-2">
+                            <h3 className="text-sm font-bold text-slate-900 mb-3">Interne Notities & Feedback</h3>
                             
                             <div className="mb-4">
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Notities (Intern & Feedback)</label>
                                 <textarea 
                                     className="w-full p-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none"
                                     rows={3}
-                                    placeholder="Notities..."
+                                    placeholder="Typ hier een update of oplossing..."
                                     value={adminNote}
                                     onChange={(e) => setAdminNote(e.target.value)}
                                 />
-                                <p className="text-[10px] text-slate-400 mt-1">Deze notities zijn zichtbaar voor de medewerker bij 'Opgelost'.</p>
+                                <div className="flex items-center mt-2">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={notifyEmployee}
+                                            onChange={(e) => setNotifyEmployee(e.target.checked)}
+                                            className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500"
+                                        />
+                                        <span className="text-xs font-bold text-slate-600 select-none">Informeer medewerker via notificatie</span>
+                                    </label>
+                                </div>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-3">
+                            <div className="flex gap-3 mb-4">
                                 <button 
-                                    onClick={() => handleStatusChange('In Progress')}
+                                    onClick={() => handleUpdateTicket()} // Save without status change
+                                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-lg text-sm transition-colors flex items-center justify-center gap-2"
+                                >
+                                    <Save size={16}/> Opslaan (Geen status wijziging)
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-4">
+                                <button 
+                                    onClick={() => handleUpdateTicket('In Progress')}
                                     disabled={selectedTicket.status === 'In Progress'}
                                     className="py-2.5 bg-amber-50 hover:bg-amber-100 text-amber-700 font-bold rounded-lg text-sm transition-colors border border-amber-200 disabled:opacity-50"
                                 >
                                     Zet 'In Behandeling'
                                 </button>
                                 <button 
-                                    onClick={() => handleStatusChange('Resolved')}
+                                    onClick={() => handleUpdateTicket('Resolved')}
                                     disabled={selectedTicket.status === 'Resolved'}
                                     className="py-2.5 bg-green-50 hover:bg-green-100 text-green-700 font-bold rounded-lg text-sm transition-colors border border-green-200 disabled:opacity-50"
                                 >
                                     Markeer 'Opgelost'
                                 </button>
                             </div>
+                            
                             {selectedTicket.status !== 'Closed' && (
                                 <button 
-                                    onClick={() => handleStatusChange('Closed')}
-                                    className="w-full mt-3 py-2 text-xs font-bold text-slate-400 hover:text-slate-600"
+                                    onClick={() => handleUpdateTicket('Closed')}
+                                    className="w-full mt-3 py-2 text-xs font-bold text-slate-400 hover:text-slate-600 text-center"
                                 >
                                     Ticket sluiten (zonder oplossing)
                                 </button>

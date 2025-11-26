@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import TopNav from './components/TopNav';
@@ -16,10 +15,10 @@ import WelcomeFlow from './components/WelcomeFlow';
 import SystemStatusPage from './components/SystemStatusPage';
 import SettingsPage from './components/SettingsPage'; 
 import DebtControlPage from './components/DebtControlPage'; 
-import TicketDashboard from './components/TicketDashboard'; // New Import
+import TicketDashboard from './components/TicketDashboard'; 
 import Login from './components/Login';
 import { Toast } from './components/Toast';
-import { Modal } from './components/Modal'; // For Feedback
+import { Modal } from './components/Modal'; 
 import { ViewState, Employee, Notification, NewsPost, Survey, SurveyResponse, Ticket, TicketType, TicketPriority } from './types';
 import { api, isLive } from './utils/api';
 import { Loader2 } from 'lucide-react';
@@ -307,6 +306,18 @@ const App: React.FC = () => {
       api.markNotificationRead(id, notifications);
   };
 
+  const handleRemoveNotification = (id: string) => {
+      // Optimistic Remove from view (we are deleting it effectively for the user)
+      // In a real app you might just mark it as 'deleted' or remove it from DB. 
+      // For now we remove it from local state and assume API handles persistence if implemented.
+      // Since API doesn't have explicit deleteNotification, we will treat it as marking read + hiding locally or extend API.
+      // Here we simulate "Dismiss" by removing from state.
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      
+      // Also mark as read in backend to be safe
+      api.markNotificationRead(id, notifications);
+  };
+
   const handleAddSurvey = (survey: Survey) => {
       setSurveys(prev => [...prev, survey]);
       api.saveSurvey(survey);
@@ -439,6 +450,7 @@ const App: React.FC = () => {
           }}
           onMarkAllRead={handleMarkAllRead}
           onMarkSingleRead={handleMarkSingleRead}
+          onRemoveNotification={handleRemoveNotification}
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           onNavigate={(view) => setCurrentView(view)}
           isLive={isLive}
