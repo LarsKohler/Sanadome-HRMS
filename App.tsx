@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import TopNav from './components/TopNav';
@@ -262,23 +263,6 @@ const App: React.FC = () => {
     }, 3000);
   };
 
-  // --- DEBUG: ROLE SWITCHING ---
-  const handleDebugRoleSwitch = (role: string) => {
-      if (!currentUser) return;
-      const updated = { 
-          ...currentUser, 
-          role: role, 
-          // If switching to manager, grant full perms logic, if not, clear custom to revert to defaults
-          customPermissions: undefined 
-      };
-      
-      setCurrentUser(updated);
-      // Note: We don't save this to API to avoid permanent database changes during test
-      // We just update local view state
-      setEmployees(prev => prev.map(e => e.id === currentUser.id ? updated : e));
-      showToast(`Rol gewijzigd naar ${role}`);
-  };
-
   // --- RENDER ---
 
   if (isLoading) {
@@ -378,7 +362,6 @@ const App: React.FC = () => {
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           onNavigate={(view) => setCurrentView(view)}
           isLive={isLive}
-          onDebugRoleSwitch={handleDebugRoleSwitch}
         />
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto no-scrollbar scroll-smooth">

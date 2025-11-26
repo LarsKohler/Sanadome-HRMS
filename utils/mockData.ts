@@ -2,23 +2,25 @@
 
 
 
+
 import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog } from '../types';
 
 // --- AUTO UPDATE LOGGER ---
 export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
-    id: 'update-v3.3.0-debt-module', 
-    version: 'v3.3.0',
+    id: 'update-v3.4.0-super-dashboard', 
+    version: 'v3.4.0',
     date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
     timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
     author: 'AI Assistant',
     type: 'Feature',
     impact: 'High',
-    affectedArea: 'Debiteuren Beheer',
-    description: `- Nieuwe module 'Debiteuren Beheer' toegevoegd.
-- Importeer functie voor Excel/CSV rapportages vanuit PMS.
-- Automatische matching en filtering van openstaande saldi.
-- Status workflow (Herinnering, Aanmaning, Betaald, Blacklist).
-- Dependency 'xlsx' toegevoegd voor parsing.`,
+    affectedArea: 'Dashboard & Structuur',
+    description: `- 'Super Dashboard' redesign voor profielpagina.
+- Locatie verwijderd uit systeem.
+- Afdelingen ondersteunen nu meervoudige selectie.
+- Layout optimalisaties header en sidebar.
+- Verwijdering testknoppen.
+- Uitgebreide permissies voor Recruitment & Cases.`,
     status: 'Success'
 };
 
