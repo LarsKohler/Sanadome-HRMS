@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar } from 'lucide-react';
+import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar, Sparkles } from 'lucide-react';
 import { Debtor, DebtorStatus, Employee } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
@@ -102,6 +103,28 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
     }
   };
 
+  // --- ADDRESS ENRICHMENT LOGIC ---
+  const enrichAddress = async (zipcode: string, houseNumber: string): Promise<{ street: string, city: string } | null> => {
+      try {
+          // Using PDOK Locatieserver (Free Dutch Government API)
+          const cleanZip = zipcode.replace(/\s/g, '');
+          const response = await fetch(`https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?q=${cleanZip}+${houseNumber}&rows=1`);
+          const data = await response.json();
+          
+          if (data.response && data.response.docs && data.response.docs.length > 0) {
+              const doc = data.response.docs[0];
+              return {
+                  street: doc.straatnaam,
+                  city: doc.woonplaatsnaam
+              };
+          }
+          return null;
+      } catch (e) {
+          console.warn("Address enrichment failed", e);
+          return null;
+      }
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -120,7 +143,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
             }
 
             const data = XLSX.utils.sheet_to_json(ws, { header: 'A', defval: '' }) as any[];
-            processImportedData(data);
+            await processImportedData(data);
         } catch (error) {
             console.error("Parsing error", error);
             onShowToast("Fout bij inlezen bestand.");
@@ -134,6 +157,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       try {
           let newCount = 0;
           let updateCount = 0;
+          let enrichedCount = 0;
           
           const currentDebtorsMap = new Map<string, Debtor>(debtors.map(d => [d.reservationNumber, d]));
           const updatedDebtorsList = [...debtors];
@@ -155,7 +179,27 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                   const firstName = String(row['D'] || '').trim();
                   const email = String(row['E'] || '').trim();
                   const phone = String(row['F'] || '').trim();
-                  const address = String(row['G'] || '').trim();
+                  let address = String(row['G'] || '').trim();
+                  let isEnriched = false;
+
+                  // --- ADDRESS ENRICHMENT CHECK ---
+                  // Regex: Looks for "1234 AB 12" or "1234 AB 12b" or "1234AB 12"
+                  // Group 1: Zipcode (4 digits + optional space + 2 letters)
+                  // Group 2: House number + suffix
+                  const zipMatch = address.match(/^(\d{4}\s?[a-zA-Z]{2})\s+(\d+.*)$/);
+                  
+                  if (zipMatch) {
+                      const zip = zipMatch[1];
+                      const number = zipMatch[2];
+                      
+                      // Only enrich if it looks strictly like zip+number without street name
+                      const enriched = await enrichAddress(zip, number);
+                      if (enriched) {
+                          address = `${enriched.street} ${number}, ${zip} ${enriched.city}`;
+                          isEnriched = true;
+                          enrichedCount++;
+                      }
+                  }
 
                   const existing = currentDebtorsMap.get(reservationNumber);
 
@@ -168,6 +212,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                               email: email || existing.email,
                               phone: phone || existing.phone,
                               address: address || existing.address,
+                              isEnriched: isEnriched || existing.isEnriched, // Keep existing enrichment if valid
                               lastUpdated: new Date().toLocaleDateString('en-US'), // Use standard format for sorting
                           };
                           updateCount++;
@@ -185,7 +230,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                           status: 'New',
                           statusDate: new Date().toISOString(), // Initialize status date
                           lastUpdated: new Date().toISOString(),
-                          importedAt: new Date().toLocaleDateString('nl-NL')
+                          importedAt: new Date().toLocaleDateString('nl-NL'),
+                          isEnriched: isEnriched
                       };
                       updatedDebtorsList.push(newDebtor);
                       currentDebtorsMap.set(reservationNumber, newDebtor);
@@ -196,7 +242,10 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
 
           await api.saveDebtors(updatedDebtorsList);
           setDebtors(sortDebtors(updatedDebtorsList));
-          onShowToast(`Import voltooid: ${newCount} nieuwe, ${updateCount} geüpdatet.`);
+          
+          let msg = `Import voltooid: ${newCount} nieuwe, ${updateCount} geüpdatet.`;
+          if (enrichedCount > 0) msg += ` ${enrichedCount} adressen aangevuld.`;
+          onShowToast(msg);
 
       } catch (e) {
           console.error("Processing error", e);
@@ -372,9 +421,9 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
             <title>WIK Brief - ${wikTarget.lastName}</title>
             <style>
                 body { font-family: 'Calibri', 'Segoe UI', sans-serif; padding: 40px; padding-top: 60mm; font-size: 11pt; line-height: 1.3; color: #000; }
-                .header { display: flex; justify-content: space-between; margin-bottom: 60px; }
-                .recipient { width: 50%; }
-                .sender { width: 35%; text-align: left; font-size: 11pt; margin-left: auto; }
+                .header { display: flex; justify-content: space-between; margin-bottom: 60px; margin-top: -40px; }
+                .recipient { width: 50%; line-height: 1.4; }
+                .sender { width: 35%; text-align: left; font-size: 11pt; margin-left: auto; line-height: 1.4; }
                 .sender-bold { font-weight: bold; }
                 .meta { margin-bottom: 40px; }
                 .subject { font-weight: bold; text-decoration: underline; margin-bottom: 20px; }
@@ -383,7 +432,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                 .signature strong { display: block; margin-top: 0px; }
                 @media print {
                     @page { margin: 2cm; margin-top: 0; }
-                    body { padding: 0; padding-top: 60mm; }
+                    body { padding: 0; padding-top: 60mm; } 
                 }
             </style>
         </head>
@@ -648,7 +697,17 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                                   </div>
                               </td>
                               <td className="px-6 py-4 text-sm text-slate-600 max-w-[200px] align-top">
-                                  {debtor.address ? <span className="line-clamp-2" title={debtor.address}>{debtor.address}</span> : <span className="text-xs text-slate-400 italic">Onbekend</span>}
+                                  <div className="flex items-start gap-1">
+                                      {debtor.isEnriched && (
+                                          <Sparkles size={14} className="text-indigo-500 mt-0.5 flex-shrink-0" fill="currentColor" fillOpacity={0.2} />
+                                      )}
+                                      <span 
+                                          className={debtor.isEnriched ? "text-indigo-700 font-medium" : "line-clamp-2"} 
+                                          title={debtor.isEnriched ? "Adres automatisch aangevuld door systeem" : debtor.address}
+                                      >
+                                          {debtor.address || <span className="text-xs text-slate-400 italic">Onbekend</span>}
+                                      </span>
+                                  </div>
                               </td>
                               <td className="px-6 py-4 align-top">
                                   <span className="font-bold text-slate-900">€ {debtor.amount.toLocaleString('nl-NL', {minimumFractionDigits: 2})}</span>

@@ -62,6 +62,7 @@ export interface Debtor {
   statusDate?: string; // New: When was the status last changed?
   lastUpdated: string;
   importedAt: string;
+  isEnriched?: boolean; // New: Flag if address was auto-completed via API
 }
 
 export interface Notification {
