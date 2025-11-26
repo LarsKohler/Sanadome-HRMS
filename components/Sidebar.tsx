@@ -28,13 +28,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
     { icon: ClipboardCheck, label: 'Evaluaties', id: ViewState.EVALUATIONS }, 
     { icon: CheckSquare, label: 'Taken', id: 'tasks', badge: 2 },
     { icon: Users, label: 'Collega\'s', id: ViewState.DIRECTORY },
-    { icon: Calendar, label: 'Kalender', id: 'calendar' },
-    { icon: UserPlus, label: 'Recruitment', id: 'recruitment' },
-    { icon: Trophy, label: 'Performance', id: 'performance' },
-    { icon: Calendar, label: 'Aanwezigheid', id: 'attendance' },
+    { icon: Calendar, label: 'Kalender', id: 'calendar', permission: 'VIEW_CALENDAR' },
+    { icon: UserPlus, label: 'Recruitment', id: 'recruitment', permission: 'MANAGE_RECRUITMENT' },
+    { icon: Trophy, label: 'Performance', id: 'performance', permission: 'MANAGE_EVALUATIONS' },
+    { icon: Calendar, label: 'Aanwezigheid', id: 'attendance', permission: 'MANAGE_ATTENDANCE' },
     { icon: FileText, label: 'Documenten', id: ViewState.DOCUMENTS }, 
     { icon: Euro, label: 'Debiteuren', id: ViewState.DEBT_CONTROL, permission: 'MANAGE_DEBTORS' },
-    { icon: FileBarChart, label: 'Cases', id: 'cases' },
+    { icon: FileBarChart, label: 'Cases', id: 'cases', permission: 'MANAGE_CASES' },
     { icon: PieChart, label: 'Rapportages', id: ViewState.REPORTS, permission: 'VIEW_REPORTS' },
     { icon: Activity, label: 'Systeemstatus', id: ViewState.SYSTEM_STATUS, permission: 'VIEW_SYSTEM_STATUS' },
     { icon: Shield, label: 'Instellingen', id: ViewState.SETTINGS, permission: 'MANAGE_SETTINGS' },
@@ -60,8 +60,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
       {/* Sidebar Content */}
       <aside 
         className={`
-          fixed lg:sticky top-0 lg:top-20 left-0 z-50 lg:z-0
-          h-full lg:h-[calc(100vh-80px)] w-72 
+          fixed lg:sticky top-0 left-0 z-50 lg:z-0
+          h-full lg:h-screen w-72 
           bg-white border-r border-slate-200 
           transform transition-transform duration-300 ease-in-out
           flex flex-col
@@ -75,6 +75,18 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
              <button onClick={onClose} className="p-2 hover:bg-slate-50 rounded-full text-slate-400">
                <X size={24} />
              </button>
+          </div>
+
+          {/* Logo in Sidebar */}
+          <div className="flex items-center gap-2 px-2 mb-8">
+              <div className="text-teal-600">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
+                      <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+                  </svg>
+              </div>
+              <div className="flex flex-col justify-center">
+                  <span className="text-xl font-bold tracking-tight text-slate-900 leading-none">Mijn<span className="text-teal-600">Sanadome</span></span>
+              </div>
           </div>
 
           <ul className="space-y-1.5">

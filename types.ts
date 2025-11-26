@@ -29,7 +29,11 @@ export type Permission =
   | 'VIEW_SYSTEM_STATUS'
   | 'MANAGE_SETTINGS' // Access to permission settings
   | 'MANAGE_EVALUATIONS' // Create cycles, finalize reports
-  | 'MANAGE_DEBTORS'; // New: Access Debt Control
+  | 'MANAGE_DEBTORS' // New: Access Debt Control
+  | 'MANAGE_RECRUITMENT' // New: Access Recruitment module
+  | 'VIEW_CALENDAR' // Access Calendar
+  | 'MANAGE_ATTENDANCE' // Access Attendance/Rooster
+  | 'MANAGE_CASES'; // Access Arbo/Verzuim cases
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_REPORTS': 'Rapportages Inzien',
@@ -41,8 +45,12 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'MANAGE_SURVEYS': 'Surveys Maken & Beheren',
   'VIEW_SYSTEM_STATUS': 'Systeemstatus Bekijken',
   'MANAGE_SETTINGS': 'Rechten & Instellingen Beheren',
-  'MANAGE_EVALUATIONS': 'Evaluaties Beheren',
-  'MANAGE_DEBTORS': 'Debiteuren Beheer'
+  'MANAGE_EVALUATIONS': 'Evaluaties & Performance Beheren',
+  'MANAGE_DEBTORS': 'Debiteuren Beheer',
+  'MANAGE_RECRUITMENT': 'Recruitment & Vacatures',
+  'VIEW_CALENDAR': 'Kalender Inzien',
+  'MANAGE_ATTENDANCE': 'Aanwezigheid & Roosters',
+  'MANAGE_CASES': 'Cases & Verzuim Dossiers'
 };
 
 // --- DEBT CONTROL TYPES ---

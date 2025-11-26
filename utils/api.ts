@@ -1,5 +1,7 @@
 
 
+
+
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
 import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor } from '../types';
@@ -115,7 +117,8 @@ export const api = {
             'VIEW_REPORTS', 'MANAGE_EMPLOYEES', 'MANAGE_DOCUMENTS', 
             'VIEW_ALL_DOCUMENTS', 'CREATE_NEWS', 'MANAGE_ONBOARDING', 
             'MANAGE_SURVEYS', 'VIEW_SYSTEM_STATUS', 'MANAGE_SETTINGS', 
-            'MANAGE_EVALUATIONS', 'MANAGE_DEBTORS'
+            'MANAGE_EVALUATIONS', 'MANAGE_DEBTORS', 'MANAGE_RECRUITMENT',
+            'VIEW_CALENDAR', 'MANAGE_ATTENDANCE', 'MANAGE_CASES'
           ] : undefined
       };
 

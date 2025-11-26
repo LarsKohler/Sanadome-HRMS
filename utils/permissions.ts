@@ -15,18 +15,25 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'VIEW_SYSTEM_STATUS',
     'MANAGE_SETTINGS',
     'MANAGE_EVALUATIONS',
-    'MANAGE_DEBTORS' // Added: Debt Control
+    'MANAGE_DEBTORS',
+    'MANAGE_RECRUITMENT',
+    'VIEW_CALENDAR',
+    'MANAGE_ATTENDANCE',
+    'MANAGE_CASES'
   ],
   'Senior Medewerker': [
     'CREATE_NEWS',
     'MANAGE_ONBOARDING',
     'MANAGE_SURVEYS',
-    'MANAGE_EVALUATIONS', // Can do evaluations but maybe not settings
-    'VIEW_REPORTS', // Can see reports
-    'MANAGE_DEBTORS' // Seniors can also manage debts
+    'MANAGE_EVALUATIONS', 
+    'VIEW_REPORTS', 
+    'MANAGE_DEBTORS',
+    'MANAGE_RECRUITMENT', // Seniors assist in hiring
+    'VIEW_CALENDAR',
+    'MANAGE_ATTENDANCE' // Can help with roosters
   ],
   'Medewerker': [
-    // Basic employees mostly just consume, but we might add specific ones later
+    'VIEW_CALENDAR' // Basic view access
   ]
 };
 
