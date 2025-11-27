@@ -608,33 +608,51 @@ export const api = {
 
   // --- SYSTEM LOGS ---
   getSystemLogs: async (): Promise<SystemUpdateLog[]> => {
-    // 1. Try GitHub Releases if enabled
+    // 1. Try GitHub Commits if enabled
     if (GITHUB_CONFIG.ENABLE) {
         try {
-            const response = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/releases`);
+            // Fetch commits instead of releases to get all deployments
+            const response = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/commits?per_page=15`);
             if (response.ok) {
-                const releases = await response.json();
-                const gitHubLogs: SystemUpdateLog[] = releases.map((r: any) => ({
-                    id: r.id.toString(),
-                    version: r.tag_name,
-                    date: new Date(r.published_at).toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
-                    timestamp: new Date(r.published_at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
-                    author: r.author?.login || 'GitHub',
-                    type: (r.body || '').toLowerCase().includes('bug') ? 'Bugfix' : 'Feature',
-                    impact: 'Medium', 
-                    affectedArea: 'System', 
-                    description: r.body || 'No description provided.',
-                    status: 'Success'
-                }));
-                // If we get logs from GitHub, we can merge them or just return them. 
-                // For now, let's return them combined with DB logs if desired, or just them.
-                // Returning just GitHub logs for "Source of Truth" view if enabled.
+                const commits = await response.json();
+                const gitHubLogs: SystemUpdateLog[] = commits.map((c: any) => {
+                    const msg = c.commit.message || '';
+                    const title = msg.split('\n')[0];
+                    const lcTitle = title.toLowerCase();
+                    
+                    // Simple inference of type and impact from commit message
+                    let type: 'Feature' | 'Bugfix' | 'Maintenance' | 'Security' = 'Maintenance';
+                    let affectedArea = 'System';
+
+                    if (lcTitle.includes('feat') || lcTitle.includes('add') || lcTitle.includes('new')) type = 'Feature';
+                    else if (lcTitle.includes('fix') || lcTitle.includes('bug') || lcTitle.includes('resolve')) type = 'Bugfix';
+                    else if (lcTitle.includes('sec') || lcTitle.includes('auth')) type = 'Security';
+
+                    // Attempt to parse conventional commit scope e.g. "feat(auth):"
+                    const scopeMatch = title.match(/^\w+\(([^)]+)\):/);
+                    if (scopeMatch && scopeMatch[1]) {
+                        affectedArea = scopeMatch[1].charAt(0).toUpperCase() + scopeMatch[1].slice(1);
+                    }
+
+                    return {
+                        id: c.sha,
+                        version: c.sha.substring(0, 7), // Use short SHA as version ID
+                        date: new Date(c.commit.author.date).toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
+                        timestamp: new Date(c.commit.author.date).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
+                        author: c.commit.author.name,
+                        type: type,
+                        impact: 'Low', // Commits are frequent, default to Low unless specified
+                        affectedArea: affectedArea,
+                        description: msg,
+                        status: 'Success'
+                    };
+                });
                 return gitHubLogs;
             } else {
                 console.warn("GitHub API error:", response.statusText);
             }
         } catch (e) {
-            console.warn("Failed to fetch GitHub releases, falling back to database/mock", e);
+            console.warn("Failed to fetch GitHub commits, falling back to database/mock", e);
         }
     }
 
