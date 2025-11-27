@@ -617,21 +617,20 @@ export const api = {
                 const commits = await response.json();
                 const gitHubLogs: SystemUpdateLog[] = commits.map((c: any) => {
                     const msg = c.commit.message || '';
-                    const title = msg.split('\n')[0]; // First line
+                    const title = msg.split('\n')[0]; // First line is the title/summary
                     
                     // Regex for Conventional Commits: type(scope): description
-                    // or type: description
                     const regex = /^([a-zA-Z]+)(?:\(([^)]+)\))?:\s*(.+)$/;
                     const match = title.match(regex);
 
                     let type: 'Feature' | 'Bugfix' | 'Maintenance' | 'Security' = 'Maintenance';
                     let affectedArea = 'System';
-                    let description = title;
+                    let impact: 'High' | 'Medium' | 'Low' = 'Low';
 
                     if (match) {
                         const rawType = match[1].toLowerCase();
                         const rawScope = match[2] ? match[2].toLowerCase() : null;
-                        description = match[3];
+                        // const description = match[3]; // We use the full title now as requested
 
                         // Type Mapping
                         if (['feat', 'feature'].includes(rawType)) type = 'Feature';
@@ -664,6 +663,20 @@ export const api = {
                         else if (lcTitle.includes('fix') || lcTitle.includes('bug')) type = 'Bugfix';
                     }
 
+                    // Impact Calculation Logic
+                    const lowerMsg = msg.toLowerCase();
+                    if (lowerMsg.includes('breaking') || lowerMsg.includes('critical') || lowerMsg.includes('urgent') || lowerMsg.includes('security')) {
+                        impact = 'High';
+                    } else if (type === 'Feature') {
+                        // Features are usually Medium, unless small or very specific
+                        impact = 'Medium';
+                        if (affectedArea === 'System' || affectedArea === 'Ticket Systeem') impact = 'High'; // Major modules
+                    } else if (type === 'Bugfix') {
+                        // Fixes can be low impact unless specified otherwise
+                        if (lowerMsg.includes('crash') || lowerMsg.includes('blocker')) impact = 'High';
+                        else impact = 'Low';
+                    }
+
                     const dateObj = new Date(c.commit.author.date);
 
                     return {
@@ -673,9 +686,9 @@ export const api = {
                         timestamp: dateObj.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
                         author: c.commit.author.name,
                         type: type,
-                        impact: 'Low',
+                        impact: impact,
                         affectedArea: affectedArea,
-                        description: description, // Use parsed description (without prefix) or full title
+                        description: title, // Use FULL title as requested
                         status: 'Success'
                     };
                 });
