@@ -8,6 +8,14 @@ import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_TICKE
 // We explicitely check if supabase is not null
 export const isLive = !!supabase;
 
+// --- GITHUB CONFIGURATION ---
+// PAS DIT AAN NAAR JOUW REPO GEGEVENS VOOR AUTOMATISCHE UPDATES
+export const GITHUB_CONFIG = {
+    OWNER: 'SanadomeDev', // <-- Verander dit naar je GitHub gebruikersnaam
+    REPO: 'hrms-dashboard', // <-- Verander dit naar je repository naam
+    ENABLE: true // Zet op false om handmatige database logs te gebruiken
+};
+
 // Helper to generate fresh tasks for demo users
 const generateDemoTasks = (): OnboardingTask[] => [
   { id: 'd-1', week: 1, category: 'Introductie', title: 'Rondleiding Hotel & Spa', description: 'Volledige rondleiding door faciliteiten.', completed: true, score: 100, completedBy: 'System', completedDate: 'Vandaag' },
@@ -600,6 +608,36 @@ export const api = {
 
   // --- SYSTEM LOGS ---
   getSystemLogs: async (): Promise<SystemUpdateLog[]> => {
+    // 1. Try GitHub Releases if enabled
+    if (GITHUB_CONFIG.ENABLE) {
+        try {
+            const response = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/releases`);
+            if (response.ok) {
+                const releases = await response.json();
+                const gitHubLogs: SystemUpdateLog[] = releases.map((r: any) => ({
+                    id: r.id.toString(),
+                    version: r.tag_name,
+                    date: new Date(r.published_at).toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
+                    timestamp: new Date(r.published_at).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
+                    author: r.author?.login || 'GitHub',
+                    type: (r.body || '').toLowerCase().includes('bug') ? 'Bugfix' : 'Feature',
+                    impact: 'Medium', 
+                    affectedArea: 'System', 
+                    description: r.body || 'No description provided.',
+                    status: 'Success'
+                }));
+                // If we get logs from GitHub, we can merge them or just return them. 
+                // For now, let's return them combined with DB logs if desired, or just them.
+                // Returning just GitHub logs for "Source of Truth" view if enabled.
+                return gitHubLogs;
+            } else {
+                console.warn("GitHub API error:", response.statusText);
+            }
+        } catch (e) {
+            console.warn("Failed to fetch GitHub releases, falling back to database/mock", e);
+        }
+    }
+
     if (isLive && supabase) {
         try {
             const { data, error } = await supabase.from('system_updates').select('data');

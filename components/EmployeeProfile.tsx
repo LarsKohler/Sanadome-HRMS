@@ -425,7 +425,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                           </div>
                       )}
 
-                      {/* Team & Contact */}
+                      {/* Team & Contact - No Snelmenu here */}
                       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                           <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider">Mijn Team</h3>
                           <div className="space-y-4">

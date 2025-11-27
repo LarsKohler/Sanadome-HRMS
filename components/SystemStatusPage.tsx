@@ -3,10 +3,10 @@ import React, { useState, useEffect } from 'react';
 import { 
   Activity, Database, Server, Clock, Users, FileText, 
   MessageSquare, ShieldCheck, RefreshCw, AlertCircle, 
-  CheckCircle2, HardDrive, GitCommit, Tag, User, AlertTriangle, Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp
+  CheckCircle2, HardDrive, GitCommit, Tag, User, AlertTriangle, Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Github
 } from 'lucide-react';
 import { supabase } from '../utils/supabaseClient';
-import { api, isLive } from '../utils/api';
+import { api, isLive, GITHUB_CONFIG } from '../utils/api';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { SystemUpdateLog, Employee } from '../types';
 import { Modal } from './Modal';
@@ -168,7 +168,14 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
              <Activity className="text-teal-600" size={32} />
              Systeemstatus & Updates
            </h1>
-           <p className="text-slate-500 mt-1">Real-time monitoring en change log van het platform.</p>
+           <p className="text-slate-500 mt-1 flex items-center gap-2">
+               Real-time monitoring en change log van het platform.
+               {GITHUB_CONFIG.ENABLE && (
+                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 text-[10px] font-bold text-slate-600 border border-slate-200" title="Updates worden ingeladen vanuit GitHub Releases">
+                       <Github size={10} /> Linked to GitHub
+                   </span>
+               )}
+           </p>
         </div>
         
         <div className="flex items-center gap-4">
@@ -248,12 +255,14 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
                       <GitCommit size={20} className="text-slate-400"/>
                       System Update Log
                   </h3>
-                  <button 
-                    onClick={() => setIsLogModalOpen(true)}
-                    className="text-xs font-bold text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm"
-                  >
-                      + Registreer Update
-                  </button>
+                  {!GITHUB_CONFIG.ENABLE && (
+                      <button 
+                        onClick={() => setIsLogModalOpen(true)}
+                        className="text-xs font-bold text-slate-500 bg-white border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 hover:text-slate-900 transition-colors shadow-sm"
+                      >
+                          + Registreer Update
+                      </button>
+                  )}
               </div>
               
               <div className="overflow-x-auto flex-1">
