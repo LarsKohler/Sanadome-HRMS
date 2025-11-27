@@ -11,8 +11,8 @@ export const isLive = !!supabase;
 // --- GITHUB CONFIGURATION ---
 // PAS DIT AAN NAAR JOUW REPO GEGEVENS VOOR AUTOMATISCHE UPDATES
 export const GITHUB_CONFIG = {
-    OWNER: 'SanadomeDev', // <-- Verander dit naar je GitHub gebruikersnaam
-    REPO: 'hrms-dashboard', // <-- Verander dit naar je repository naam
+    OWNER: 'LarsKohler', // <-- Verander dit naar je GitHub gebruikersnaam
+    REPO: 'Sanadome-HRMS', // <-- Verander dit naar je repository naam
     ENABLE: true // Zet op false om handmatige database logs te gebruiken
 };
 
