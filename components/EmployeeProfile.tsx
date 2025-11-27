@@ -425,25 +425,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                           </div>
                       )}
 
-                      {/* Shortcuts Grid */}
-                      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                          <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider">Snelmenu</h3>
-                          <div className="grid grid-cols-2 gap-3">
-                              <button className="p-3 bg-slate-50 hover:bg-teal-50 hover:text-teal-700 rounded-xl text-xs font-bold text-slate-600 transition-colors flex flex-col items-center gap-2 border border-slate-100 hover:border-teal-200">
-                                  <Plane size={20} /> Verlof
-                              </button>
-                              <button className="p-3 bg-slate-50 hover:bg-rose-50 hover:text-rose-700 rounded-xl text-xs font-bold text-slate-600 transition-colors flex flex-col items-center gap-2 border border-slate-100 hover:border-rose-200">
-                                  <HeartPulse size={20} /> Ziekte
-                              </button>
-                              <button onClick={() => onChangeView(ViewState.DIRECTORY)} className="p-3 bg-slate-50 hover:bg-blue-50 hover:text-blue-700 rounded-xl text-xs font-bold text-slate-600 transition-colors flex flex-col items-center gap-2 border border-slate-100 hover:border-blue-200">
-                                  <Users size={20} /> Collega's
-                              </button>
-                              <button onClick={() => onChangeView(ViewState.DOCUMENTS)} className="p-3 bg-slate-50 hover:bg-purple-50 hover:text-purple-700 rounded-xl text-xs font-bold text-slate-600 transition-colors flex flex-col items-center gap-2 border border-slate-100 hover:border-purple-200">
-                                  <FileText size={20} /> Dossier
-                              </button>
-                          </div>
-                      </div>
-
                       {/* Team & Contact */}
                       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
                           <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider">Mijn Team</h3>
