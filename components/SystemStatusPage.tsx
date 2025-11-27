@@ -286,7 +286,15 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
                                 <tr key={log.id} className="hover:bg-slate-50 transition-colors align-top">
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <div className="font-bold text-slate-900">{log.version}</div>
-                                        <div className="text-xs text-slate-500">{log.date}</div>
+                                        <div className="text-xs text-slate-500 flex items-center gap-1">
+                                            <span>{log.date}</span>
+                                            {log.timestamp && (
+                                                <>
+                                                    <span className="opacity-50">•</span>
+                                                    <span>{log.timestamp}</span>
+                                                </>
+                                            )}
+                                        </div>
                                     </td>
                                     <td className="px-6 py-4">
                                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded text-xs font-bold border ${

@@ -617,33 +617,65 @@ export const api = {
                 const commits = await response.json();
                 const gitHubLogs: SystemUpdateLog[] = commits.map((c: any) => {
                     const msg = c.commit.message || '';
-                    const title = msg.split('\n')[0];
-                    const lcTitle = title.toLowerCase();
+                    const title = msg.split('\n')[0]; // First line
                     
-                    // Simple inference of type and impact from commit message
+                    // Regex for Conventional Commits: type(scope): description
+                    // or type: description
+                    const regex = /^([a-zA-Z]+)(?:\(([^)]+)\))?:\s*(.+)$/;
+                    const match = title.match(regex);
+
                     let type: 'Feature' | 'Bugfix' | 'Maintenance' | 'Security' = 'Maintenance';
                     let affectedArea = 'System';
+                    let description = title;
 
-                    if (lcTitle.includes('feat') || lcTitle.includes('add') || lcTitle.includes('new')) type = 'Feature';
-                    else if (lcTitle.includes('fix') || lcTitle.includes('bug') || lcTitle.includes('resolve')) type = 'Bugfix';
-                    else if (lcTitle.includes('sec') || lcTitle.includes('auth')) type = 'Security';
+                    if (match) {
+                        const rawType = match[1].toLowerCase();
+                        const rawScope = match[2] ? match[2].toLowerCase() : null;
+                        description = match[3];
 
-                    // Attempt to parse conventional commit scope e.g. "feat(auth):"
-                    const scopeMatch = title.match(/^\w+\(([^)]+)\):/);
-                    if (scopeMatch && scopeMatch[1]) {
-                        affectedArea = scopeMatch[1].charAt(0).toUpperCase() + scopeMatch[1].slice(1);
+                        // Type Mapping
+                        if (['feat', 'feature'].includes(rawType)) type = 'Feature';
+                        else if (['fix', 'bug', 'bugfix'].includes(rawType)) type = 'Bugfix';
+                        else if (['sec', 'security'].includes(rawType)) type = 'Security';
+                        else if (['chore', 'docs', 'style', 'refactor', 'perf', 'test', 'ci', 'build'].includes(rawType)) type = 'Maintenance';
+
+                        // Scope Mapping (Affected Area)
+                        if (rawScope) {
+                            const areaMap: Record<string, string> = {
+                                'auth': 'Authenticatie',
+                                'ui': 'Interface',
+                                'ticket': 'Ticket Systeem',
+                                'tickets': 'Ticket Systeem',
+                                'profile': 'Profiel',
+                                'news': 'Nieuws',
+                                'onboarding': 'Onboarding',
+                                'survey': 'Surveys',
+                                'debt': 'Debiteuren',
+                                'api': 'API / Backend',
+                                'db': 'Database',
+                                'doc': 'Documenten'
+                            };
+                            affectedArea = areaMap[rawScope] || (rawScope.charAt(0).toUpperCase() + rawScope.slice(1));
+                        }
+                    } else {
+                        // Fallback for non-conventional commits
+                        const lcTitle = title.toLowerCase();
+                        if (lcTitle.includes('feat') || lcTitle.includes('add')) type = 'Feature';
+                        else if (lcTitle.includes('fix') || lcTitle.includes('bug')) type = 'Bugfix';
                     }
+
+                    const dateObj = new Date(c.commit.author.date);
 
                     return {
                         id: c.sha,
-                        version: c.sha.substring(0, 7), // Use short SHA as version ID
-                        date: new Date(c.commit.author.date).toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
-                        timestamp: new Date(c.commit.author.date).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
+                        version: c.sha.substring(0, 7),
+                        date: dateObj.toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
+                        timestamp: dateObj.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
                         author: c.commit.author.name,
                         type: type,
-                        impact: 'Low', // Commits are frequent, default to Low unless specified
+                        impact: 'Low',
                         affectedArea: affectedArea,
-                        description: msg,
+                        description: description, // Use parsed description (without prefix) or full title
                         status: 'Success'
                     };
                 });
