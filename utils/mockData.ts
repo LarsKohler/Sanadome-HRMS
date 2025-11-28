@@ -1,3 +1,4 @@
+
 import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog, Ticket, BadgeDefinition, KnowledgeArticle } from '../types';
 
 // --- MOCK BADGES ---
@@ -454,6 +455,19 @@ export const MOCK_EMPLOYEES: Employee[] = [
     activeTemplateId: 'template-basis',
     evaluations: [
         {
+            id: 'ev-old-1',
+            employeeId: 'employee-user',
+            managerId: 'manager-user',
+            type: 'Month 3',
+            status: 'Archived',
+            createdAt: '15 Jun 2022',
+            completedAt: '01 Jul 2022',
+            overallRating: 3.8,
+            scores: EVALUATION_TEMPLATES.FRONT_OFFICE.map(t => ({...t, employeeScore: 4, managerScore: 4})),
+            goals: [],
+            signatures: []
+        },
+        {
             id: 'ev-1',
             employeeId: 'employee-user',
             managerId: 'manager-user',
@@ -463,8 +477,15 @@ export const MOCK_EMPLOYEES: Employee[] = [
             completedAt: '01 Okt 2023',
             employeeGeneralFeedback: 'Ik voel me erg thuis in het team.',
             scores: EVALUATION_TEMPLATES.FRONT_OFFICE.map(t => ({...t, employeeScore: 4, managerScore: 4})),
-            goals: [],
-            signatures: []
+            overallRating: 4.2,
+            potential: 'High',
+            goals: [
+                { id: 'g1', title: 'Senior Training', description: 'Deelnemen aan leiderschapstraining.', deadline: 'Q4 2023', status: 'Agreed' }
+            ],
+            signatures: [
+                { signedBy: 'Manager', signedById: 'manager-user', signedAt: '01 Okt 2023', role: 'Manager' },
+                { signedBy: 'Mark de Medewerker', signedById: 'employee-user', signedAt: '01 Okt 2023', role: 'Employee' }
+            ]
         }
     ],
     badges: [

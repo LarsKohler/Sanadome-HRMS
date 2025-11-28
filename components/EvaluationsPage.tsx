@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo } from 'react';
 import { 
     ClipboardCheck, Plus, Search, Calendar, User, ArrowRight, Play, CheckCircle, Clock, 
-    AlertCircle, BarChart3, ChevronRight, MessageSquare, BrainCircuit, X, Target, PenTool, TrendingUp, AlertTriangle, FileCheck, Star, Split, Lock, Unlock, Eye, EyeOff, Printer, PenLine, History, ArrowLeft, Check
+    AlertCircle, BarChart3, ChevronRight, MessageSquare, BrainCircuit, X, Target, PenTool, TrendingUp, AlertTriangle, FileCheck, Star, Split, Lock, Unlock, Eye, EyeOff, Printer, PenLine, History, ArrowLeft, Check, TrendingDown, Minus
 } from 'lucide-react';
 import { Employee, EvaluationCycle, Notification, ViewState, EvaluationScore, EvaluationGoal, EvaluationStatus } from '../types';
 import { EVALUATION_TEMPLATES } from '../utils/mockData';
@@ -31,7 +32,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   const [createType, setCreateType] = useState<'Month 1' | 'Month 3' | 'Annual' | 'Performance'>('Annual');
 
   // Wizard State
-  const [wizardStep, setWizardStep] = useState<1 | 2 | 3 | 4>(1); // 1=Reflection, 2=Scores, 3=Goals, 4=Finalize
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3 | 4>(1); // 1=Reflection, 2=Scores, 3=Goals, 4=Finalize/Potential
   const [newGoal, setNewGoal] = useState({ title: '', description: '', deadline: '' });
   
   // Signatures State
@@ -213,6 +214,104 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           case 'Archived': return 'Gearchiveerd';
           default: return status;
       }
+  };
+
+  // --- 9-GRID & TREND RENDERERS ---
+
+  const renderNineGrid = (rating: number, potential: 'Low' | 'Medium' | 'High') => {
+      // Logic for placement
+      // Y-axis: Potential (High, Med, Low)
+      // X-axis: Performance (Low <3, Med 3-4, High >4)
+      
+      let x = 0;
+      if (rating >= 4) x = 2; // High
+      else if (rating >= 3) x = 1; // Med
+      else x = 0; // Low
+
+      let y = 0;
+      if (potential === 'High') y = 0; // Top
+      else if (potential === 'Medium') y = 1; // Middle
+      else y = 2; // Bottom
+
+      const cells = [
+          ['Future Star', 'High Impact Star', 'Super Star'],
+          ['Inconsistent', 'Core Employee', 'Trusted Pro'],
+          ['Risk', 'Effective', 'Experienced']
+      ];
+
+      return (
+          <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
+              <h4 className="font-bold text-slate-900 mb-4 text-center">Talent Matrix (9-Grid)</h4>
+              <div className="grid grid-rows-3 gap-1 h-64 relative">
+                  {/* Y-Axis Label */}
+                  <div className="absolute -left-8 top-0 h-full flex flex-col justify-between py-8 text-xs font-bold text-slate-400">
+                      <span>Hoog</span>
+                      <span>Midden</span>
+                      <span>Laag</span>
+                  </div>
+                  <div className="absolute -left-12 top-1/2 -translate-y-1/2 -rotate-90 text-xs font-bold text-slate-900">POTENTIEEL</div>
+
+                  {[0, 1, 2].map(row => (
+                      <div key={row} className="grid grid-cols-3 gap-1">
+                          {[0, 1, 2].map(col => {
+                              const isTarget = row === y && col === x;
+                              return (
+                                  <div key={col} className={`relative border rounded flex items-center justify-center text-xs font-bold transition-all ${
+                                      isTarget ? 'bg-teal-600 text-white shadow-lg scale-105 z-10 border-teal-700' : 'bg-white text-slate-300 border-slate-100'
+                                  }`}>
+                                      {cells[row][col]}
+                                      {isTarget && <div className="absolute -top-2 -right-2 bg-white text-teal-600 rounded-full p-1 shadow-sm"><CheckCircle size={14}/></div>}
+                                  </div>
+                              );
+                          })}
+                      </div>
+                  ))}
+              </div>
+              <div className="flex justify-between px-2 text-xs font-bold text-slate-400 mt-2 relative">
+                  <span>Laag</span>
+                  <span>Midden</span>
+                  <span>Hoog</span>
+                  <div className="absolute bottom-[-20px] left-1/2 -translate-x-1/2 text-slate-900">PRESTATIE</div>
+              </div>
+          </div>
+      );
+  };
+
+  const renderTrend = (history: EvaluationCycle[]) => {
+      // Sort by date old to new
+      const sorted = [...history].sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      
+      // We assume last 3
+      const recent = sorted.slice(-4);
+      if (recent.length < 2) return null; // Need at least 2 points for a trend
+
+      const current = recent[recent.length - 1];
+      const previous = recent[recent.length - 2];
+      
+      const diff = (current.overallRating || 0) - (previous.overallRating || 0);
+      const isPositive = diff > 0;
+      
+      return (
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center justify-between">
+              <div>
+                  <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Trend</div>
+                  <div className={`text-sm font-bold flex items-center gap-1 ${isPositive ? 'text-green-600' : diff < 0 ? 'text-red-500' : 'text-slate-600'}`}>
+                      {isPositive ? <TrendingUp size={16}/> : diff < 0 ? <TrendingDown size={16}/> : <Minus size={16}/>}
+                      {diff > 0 ? '+' : ''}{diff.toFixed(1)} vs vorige
+                  </div>
+              </div>
+              {/* Mini Sparkline Visualization (Abstract) */}
+              <div className="flex items-end gap-1 h-8">
+                  {recent.map((ev, i) => (
+                      <div 
+                        key={i} 
+                        className={`w-2 rounded-t-sm ${ev.id === current.id ? 'bg-teal-500' : 'bg-slate-300'}`} 
+                        style={{ height: `${((ev.overallRating || 0) / 5) * 100}%` }}
+                      ></div>
+                  ))}
+              </div>
+          </div>
+      );
   };
 
   // --- VIEWS ---
@@ -517,19 +616,27 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                               </div>
                                           </div>
 
-                                          <textarea 
-                                            className="w-full rounded-xl border border-slate-100 p-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-slate-50 focus:bg-white transition-colors h-20 resize-none"
-                                            placeholder="Toelichting (optioneel)..."
-                                            defaultValue={isManager ? score.managerComment : score.employeeComment}
-                                            onBlur={e => {
-                                                const newScores = [...evaluation.scores];
-                                                newScores[idx] = { 
-                                                    ...newScores[idx], 
-                                                    [isManager ? 'managerComment' : 'employeeComment']: e.target.value 
-                                                };
-                                                handleUpdateEvaluation(evaluation, { scores: newScores });
-                                            }}
-                                          />
+                                          <div className="relative">
+                                              <textarea 
+                                                className="w-full rounded-xl border border-slate-100 p-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-slate-50 focus:bg-white transition-colors h-20 resize-none pr-10"
+                                                placeholder="Toelichting (optioneel)..."
+                                                defaultValue={isManager ? score.managerComment : score.employeeComment}
+                                                onBlur={e => {
+                                                    const newScores = [...evaluation.scores];
+                                                    newScores[idx] = { 
+                                                        ...newScores[idx], 
+                                                        [isManager ? 'managerComment' : 'employeeComment']: e.target.value 
+                                                    };
+                                                    handleUpdateEvaluation(evaluation, { scores: newScores });
+                                                }}
+                                              />
+                                              <div className="absolute right-3 top-3 group/tip">
+                                                  <PenTool size={16} className="text-slate-300 group-hover/tip:text-teal-500 cursor-help"/>
+                                                  <div className="absolute right-0 top-6 w-48 bg-slate-800 text-white text-xs p-2 rounded hidden group-hover/tip:block z-10">
+                                                      Tip: Wees specifiek en geef voorbeelden.
+                                                  </div>
+                                              </div>
+                                          </div>
                                       </div>
                                   ))}
                               </div>
@@ -595,28 +702,52 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                       </div>
                   )}
 
-                  {/* Step 4: Private Notes (Manager Only) or Confirmation */}
+                  {/* Step 4: Finalize & Potential (Manager Only) */}
                   {wizardStep === 4 && (
-                      <div className="p-8 lg:p-12 max-w-3xl mx-auto text-center">
+                      <div className="p-8 lg:p-12 max-w-3xl mx-auto">
                           {isManager ? (
-                              <div className="text-left mb-10">
-                                  <div className="flex items-center gap-2 mb-4">
-                                      <div className="p-2 bg-amber-100 text-amber-700 rounded-lg"><Lock size={20}/></div>
-                                      <h2 className="text-xl font-bold text-slate-900">Privé Notities</h2>
+                              <div className="space-y-10">
+                                  {/* Potential Rating */}
+                                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 text-center">
+                                      <h3 className="font-bold text-slate-900 mb-2">Groeipotentieel Inschatting</h3>
+                                      <p className="text-xs text-slate-500 mb-6 max-w-md mx-auto">
+                                          Schat in hoe waarschijnlijk het is dat de medewerker doorgroeit naar een zwaardere rol binnen 1-2 jaar.
+                                      </p>
+                                      <div className="flex justify-center gap-4">
+                                          {['Low', 'Medium', 'High'].map(level => (
+                                              <button
+                                                key={level}
+                                                onClick={() => handleUpdateEvaluation(evaluation, { potential: level as any })}
+                                                className={`px-6 py-3 rounded-xl border-2 font-bold text-sm transition-all ${
+                                                    evaluation.potential === level 
+                                                    ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
+                                                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300'
+                                                }`}
+                                              >
+                                                  {level === 'Low' && 'Laag / Stabiel'}
+                                                  {level === 'Medium' && 'Midden / Groei'}
+                                                  {level === 'High' && 'Hoog / Topper'}
+                                              </button>
+                                          ))}
+                                      </div>
                                   </div>
-                                  <p className="text-slate-500 mb-4 text-sm">
-                                      Deze notities zijn <strong>alleen voor jou zichtbaar</strong> en komen niet in het eindrapport voor de medewerker.
-                                      Gebruik dit voor reminders voor het gesprek.
-                                  </p>
-                                  <textarea 
-                                    className="w-full h-40 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
-                                    placeholder="Typ hier je privé notities..."
-                                    defaultValue={evaluation.privateManagerNotes}
-                                    onBlur={e => handleUpdateEvaluation(evaluation, { privateManagerNotes: e.target.value })}
-                                  />
+
+                                  {/* Private Notes */}
+                                  <div>
+                                      <div className="flex items-center gap-2 mb-4">
+                                          <div className="p-2 bg-amber-100 text-amber-700 rounded-lg"><Lock size={20}/></div>
+                                          <h2 className="text-xl font-bold text-slate-900">Privé Notities</h2>
+                                      </div>
+                                      <textarea 
+                                        className="w-full h-32 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+                                        placeholder="Typ hier notities voor jezelf..."
+                                        defaultValue={evaluation.privateManagerNotes}
+                                        onBlur={e => handleUpdateEvaluation(evaluation, { privateManagerNotes: e.target.value })}
+                                      />
+                                  </div>
                               </div>
                           ) : (
-                              <div className="mb-10">
+                              <div className="text-center mb-10">
                                   <div className="w-24 h-24 bg-teal-50 rounded-full flex items-center justify-center mx-auto mb-6 text-teal-600">
                                       <CheckCircle size={48}/>
                                   </div>
@@ -627,8 +758,8 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                               </div>
                           )}
                           
-                          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                              <h3 className="font-bold text-slate-900 mb-2">Overzicht Scores</h3>
+                          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 mt-10">
+                              <h3 className="font-bold text-slate-900 mb-2 text-center">Samenvatting</h3>
                               <div className="flex justify-center gap-8">
                                   <div className="text-center">
                                       <span className="block text-3xl font-bold text-slate-900">{evaluation.scores.filter(s => (isManager ? s.managerScore : s.employeeScore) > 0).length}</span>
@@ -657,7 +788,12 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       }));
 
       const mySignature = evaluation.signatures.find(s => s.signedById === currentUser.id);
-      const otherSignature = evaluation.signatures.find(s => s.signedById !== currentUser.id && s.role !== (isManager ? 'Manager' : 'Employee'));
+      
+      // Calculate overall rating
+      const overallRating = evaluation.overallRating || 0;
+
+      // Get historical evaluations for trend
+      const history = (employee.evaluations || []).filter(e => e.status === 'Signed' || e.status === 'Archived' || e.id === evaluation.id);
 
       return (
           <div className="max-w-5xl mx-auto animate-in slide-in-from-bottom-4 duration-500 pb-24">
@@ -682,7 +818,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
               </div>
 
               {/* PAPER DOCUMENT */}
-              <div className="bg-white shadow-2xl rounded-sm min-h-[1000px] p-12 lg:p-16 relative text-slate-900 print:shadow-none print:p-0">
+              <div className="bg-white shadow-2xl rounded-sm min-h-[1000px] p-12 lg:p-16 relative text-slate-900 print:shadow-none print:p-0 print:border-none">
                   {/* Watermark/Status */}
                   {evaluation.status === 'Signed' && (
                       <div className="absolute top-12 right-12 border-4 border-green-600 text-green-600 px-6 py-2 font-black text-2xl uppercase opacity-30 transform rotate-12 pointer-events-none">
@@ -716,42 +852,36 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                           </div>
                       </div>
                       <div>
-                          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Details</h3>
-                          <div className="space-y-2 text-sm">
-                              <div className="flex justify-between"><span className="text-slate-500">Datum Start:</span> <span className="font-bold">{evaluation.createdAt}</span></div>
-                              <div className="flex justify-between"><span className="text-slate-500">Datum Afronding:</span> <span className="font-bold">{evaluation.completedAt || 'Nog niet afgerond'}</span></div>
-                              <div className="flex justify-between"><span className="text-slate-500">Overall Score:</span> <span className="font-bold bg-slate-900 text-white px-2 rounded">{evaluation.overallRating || '-'} / 5</span></div>
+                          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Resultaat</h3>
+                          <div className="flex gap-4">
+                              <div className="bg-slate-900 text-white p-3 rounded-lg text-center min-w-[80px]">
+                                  <span className="block text-2xl font-bold">{overallRating}</span>
+                                  <span className="text-[10px] uppercase tracking-wider opacity-70">Rating</span>
+                              </div>
+                              {/* Trend Widget */}
+                              {renderTrend(history)}
                           </div>
                       </div>
                   </div>
 
-                  {/* Competence Radar & Stats */}
-                  <div className="mb-12 flex flex-col md:flex-row gap-12 items-center">
-                      <div className="w-full md:w-1/2 h-64">
+                  {/* 9-Grid & Radar */}
+                  <div className="mb-12 grid grid-cols-1 md:grid-cols-2 gap-12">
+                      {/* 9-Grid */}
+                      {evaluation.potential && renderNineGrid(overallRating, evaluation.potential)}
+                      
+                      {/* Radar Chart */}
+                      <div className="h-64 relative">
+                           <h4 className="font-bold text-slate-900 mb-2 text-center text-sm uppercase tracking-wide">Competentie Profiel</h4>
                            <ResponsiveContainer width="100%" height="100%">
-                               <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                               <RadarChart cx="50%" cy="55%" outerRadius="75%" data={radarData}>
                                    <PolarGrid stroke="#e2e8f0" />
-                                   <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10, fill: '#64748b' }} />
+                                   <PolarAngleAxis dataKey="subject" tick={{ fontSize: 9, fill: '#64748b' }} />
                                    <PolarRadiusAxis angle={30} domain={[0, 5]} tick={false} axisLine={false} />
-                                   <Radar name="Medewerker" dataKey="Medewerker" stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.3} />
-                                   <Radar name="Manager" dataKey="Manager" stroke="#0f172a" fill="#0f172a" fillOpacity={0.5} />
-                                   <Legend />
+                                   <Radar name="Medewerker" dataKey="Medewerker" stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.1} />
+                                   <Radar name="Manager" dataKey="Manager" stroke="#0f172a" fill="#0f172a" fillOpacity={0.4} />
+                                   <Legend wrapperStyle={{fontSize: '10px', paddingTop: '10px'}}/>
                                </RadarChart>
                            </ResponsiveContainer>
-                      </div>
-                      <div className="w-full md:w-1/2 space-y-6">
-                          {evaluation.smartAdvice && evaluation.smartAdvice.length > 0 && (
-                              <div className="bg-slate-50 p-6 rounded-xl border border-slate-100">
-                                  <h4 className="font-bold text-slate-900 mb-3 flex items-center gap-2"><BrainCircuit size={18}/> Advies & Actiepunten</h4>
-                                  <ul className="space-y-2">
-                                      {evaluation.smartAdvice.map((advice, i) => (
-                                          <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
-                                              <span className="text-teal-500 mt-1">•</span> {advice}
-                                          </li>
-                                      ))}
-                                  </ul>
-                              </div>
-                          )}
                       </div>
                   </div>
 
@@ -760,11 +890,11 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                       <h3 className="font-bold text-lg text-slate-900 mb-4 border-b border-slate-200 pb-2">Detailscores</h3>
                       <table className="w-full text-sm">
                           <thead>
-                              <tr className="text-slate-400 text-left">
+                              <tr className="text-slate-400 text-left border-b border-slate-100">
                                   <th className="font-medium py-2">Competentie</th>
                                   <th className="font-medium py-2 text-center w-24">Medewerker</th>
                                   <th className="font-medium py-2 text-center w-24">Manager</th>
-                                  <th className="font-medium py-2 w-1/3">Opmerkingen</th>
+                                  <th className="font-medium py-2 w-1/3">Toelichting</th>
                               </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-100">
@@ -774,14 +904,27 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                       <td className="py-3 text-center text-slate-500">{s.employeeScore}</td>
                                       <td className="py-3 text-center font-bold text-slate-900">{s.managerScore}</td>
                                       <td className="py-3 pl-4 text-slate-600 italic text-xs">
-                                          {s.managerComment && <div>Mgr: "{s.managerComment}"</div>}
-                                          {s.employeeComment && <div className="text-slate-400 mt-1">Emp: "{s.employeeComment}"</div>}
+                                          {s.managerComment && <div className="mb-1">"{s.managerComment}"</div>}
                                       </td>
                                   </tr>
                               ))}
                           </tbody>
                       </table>
                   </div>
+
+                  {/* AI Advice */}
+                  {evaluation.smartAdvice && evaluation.smartAdvice.length > 0 && (
+                      <div className="bg-slate-50 p-6 rounded-xl border border-slate-100 mb-12">
+                          <h4 className="font-bold text-slate-900 mb-3 flex items-center gap-2"><BrainCircuit size={18}/> Ontwikkeladvies</h4>
+                          <ul className="space-y-2">
+                              {evaluation.smartAdvice.map((advice, i) => (
+                                  <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
+                                      <span className="text-teal-500 mt-1">•</span> {advice}
+                                  </li>
+                              ))}
+                          </ul>
+                      </div>
+                  )}
 
                   {/* Goals */}
                   <div className="mb-16">
@@ -803,33 +946,41 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                   {/* Signatures Area */}
                   <div className="grid grid-cols-2 gap-20 pt-8 border-t-2 border-slate-900">
                       <div>
-                          <div className="h-20 border-b border-slate-300 mb-2 flex items-end pb-2">
+                          <div className="h-24 border-b border-slate-300 mb-2 flex items-center justify-center relative bg-slate-50/30">
                               {evaluation.signatures.find(s => s.role === 'Manager') ? (
-                                  <div className="font-script text-2xl text-slate-800 transform -rotate-2 ml-4">
-                                      {evaluation.signatures.find(s => s.role === 'Manager')?.signedBy}
-                                  </div>
+                                  <>
+                                      <div className="absolute inset-0 border-4 border-slate-900 opacity-10 rotate-3"></div>
+                                      <div className="font-script text-3xl text-slate-900 transform -rotate-3 z-10">
+                                          {evaluation.signatures.find(s => s.role === 'Manager')?.signedBy}
+                                      </div>
+                                      <div className="absolute bottom-1 right-2 text-[10px] text-slate-400 font-mono">DIGITALLY SIGNED</div>
+                                  </>
                               ) : (
-                                  <div className="text-xs text-slate-300 w-full text-center">Nog niet getekend</div>
+                                  <div className="text-xs text-slate-300">Handtekening Manager</div>
                               )}
                           </div>
                           <div className="font-bold text-slate-900">Manager</div>
                           <div className="text-xs text-slate-500">
-                              {evaluation.signatures.find(s => s.role === 'Manager')?.signedAt || 'Datum: ...'}
+                              {evaluation.signatures.find(s => s.role === 'Manager')?.signedAt || '...'}
                           </div>
                       </div>
                       <div>
-                          <div className="h-20 border-b border-slate-300 mb-2 flex items-end pb-2">
+                          <div className="h-24 border-b border-slate-300 mb-2 flex items-center justify-center relative bg-slate-50/30">
                               {evaluation.signatures.find(s => s.role === 'Employee') ? (
-                                  <div className="font-script text-2xl text-slate-800 transform rotate-1 ml-4">
-                                      {evaluation.signatures.find(s => s.role === 'Employee')?.signedBy}
-                                  </div>
+                                  <>
+                                      <div className="absolute inset-0 border-4 border-slate-900 opacity-10 -rotate-2"></div>
+                                      <div className="font-script text-3xl text-slate-900 transform rotate-2 z-10">
+                                          {evaluation.signatures.find(s => s.role === 'Employee')?.signedBy}
+                                      </div>
+                                      <div className="absolute bottom-1 right-2 text-[10px] text-slate-400 font-mono">DIGITALLY SIGNED</div>
+                                  </>
                               ) : (
-                                  <div className="text-xs text-slate-300 w-full text-center">Nog niet getekend</div>
+                                  <div className="text-xs text-slate-300">Handtekening Medewerker</div>
                               )}
                           </div>
                           <div className="font-bold text-slate-900">Medewerker</div>
                           <div className="text-xs text-slate-500">
-                              {evaluation.signatures.find(s => s.role === 'Employee')?.signedAt || 'Datum: ...'}
+                              {evaluation.signatures.find(s => s.role === 'Employee')?.signedAt || '...'}
                           </div>
                       </div>
                   </div>

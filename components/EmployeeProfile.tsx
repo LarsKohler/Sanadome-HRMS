@@ -5,11 +5,11 @@ import {
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Ticket, Circle, Newspaper, Medal, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Trophy, Star, Eye, ArrowLeft
+  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Ticket, Circle, Newspaper, Medal, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Trophy, Star, Eye, ArrowLeft, ArrowRight
 } from 'lucide-react';
 import { Employee, LeaveRequest, EmployeeNote, EmployeeDocument, Notification, ViewState, Ticket as TicketType, NewsPost, BadgeDefinition } from '../types';
 import { Modal } from './Modal';
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip } from 'recharts';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { api } from '../utils/api';
 import { hasPermission } from '../utils/permissions';
 
@@ -669,46 +669,92 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
     </div>
   );
 
-  const renderPerformanceReport = () => (
-     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-           <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
-              <Award className="text-teal-600" size={20}/>
-              Recente Evaluaties
-           </h3>
-           <div className="space-y-4">
-              {(employee.evaluations || []).length > 0 ? (
-                 employee.evaluations?.map(ev => (
-                    <div key={ev.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-teal-200 transition-colors">
-                       <div className="flex items-center gap-4">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs ${
-                             ev.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'
-                          }`}>
-                             {ev.overallRating || '-'}
-                          </div>
-                          <div>
-                             <div className="font-bold text-slate-900">{ev.type}</div>
-                             <div className="text-xs text-slate-500">{ev.createdAt} • {ev.status}</div>
-                          </div>
-                       </div>
-                       <button className="text-slate-400 hover:text-teal-600">
-                          <ChevronRight size={20} />
-                       </button>
+  const renderPerformanceReport = () => {
+     // Prepare Graph Data
+     const evaluations = [...(employee.evaluations || [])].sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+     const chartData = evaluations
+        .filter(ev => ev.status === 'Signed' || ev.status === 'Archived' || ev.overallRating)
+        .map(ev => ({
+            name: ev.type,
+            score: ev.overallRating || 0,
+            date: ev.completedAt || ev.createdAt
+        }));
+
+     return (
+        <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* Chart Section */}
+            {chartData.length > 1 && (
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                    <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
+                        <TrendingUp className="text-teal-600" size={20}/>
+                        Prestatie Trend
+                    </h3>
+                    <div className="h-64 w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={chartData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                                <XAxis dataKey="name" tick={{fontSize: 12}} axisLine={false} tickLine={false} />
+                                <YAxis domain={[0, 5]} hide />
+                                <Tooltip 
+                                    contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}} 
+                                    formatter={(value: number) => [value, 'Rating']}
+                                />
+                                <Line type="monotone" dataKey="score" stroke="#0d9488" strokeWidth={3} dot={{r: 4, fill: '#fff', strokeWidth: 2}} activeDot={{r: 6}} />
+                            </LineChart>
+                        </ResponsiveContainer>
                     </div>
-                 ))
-              ) : (
-                 <p className="text-slate-500 italic text-sm">Nog geen evaluaties afgerond.</p>
-              )}
-           </div>
-           <button 
-             onClick={() => onChangeView(ViewState.EVALUATIONS)}
-             className="w-full mt-6 py-3 border border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50 transition-colors"
-           >
-              Ga naar Performance Center
-           </button>
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(employee.evaluations || []).length > 0 ? (
+                    employee.evaluations?.map(ev => (
+                        <div key={ev.id} className="group relative bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden" onClick={() => onChangeView(ViewState.EVALUATIONS)}>
+                            <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-bl-[100px] -mr-4 -mt-4 transition-all group-hover:bg-teal-50"></div>
+                            
+                            <div className="relative z-10">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shadow-sm ${
+                                        ev.overallRating && ev.overallRating >= 4 ? 'bg-green-100 text-green-700' : 
+                                        ev.overallRating && ev.overallRating >= 3 ? 'bg-blue-100 text-blue-700' :
+                                        'bg-slate-100 text-slate-600'
+                                    }`}>
+                                        {ev.overallRating || '-'}
+                                    </div>
+                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                                        ev.status === 'Signed' ? 'bg-green-50 text-green-700 border-green-100' : 
+                                        ev.status === 'Review' ? 'bg-purple-50 text-purple-700 border-purple-100' :
+                                        'bg-slate-50 text-slate-500 border-slate-100'
+                                    }`}>
+                                        {ev.status}
+                                    </span>
+                                </div>
+                                
+                                <h4 className="font-bold text-slate-900 text-lg mb-1">{ev.type}</h4>
+                                <p className="text-xs text-slate-500 mb-4">{ev.createdAt}</p>
+                                
+                                <div className="flex items-center gap-2 text-xs font-bold text-slate-400 group-hover:text-teal-600 transition-colors">
+                                    Bekijk Rapport <ArrowRight size={14}/>
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <div className="col-span-full p-8 text-center text-slate-400 italic bg-white rounded-2xl border border-dashed border-slate-200">
+                        Nog geen evaluaties beschikbaar.
+                    </div>
+                )}
+            </div>
+            
+            <button 
+                onClick={() => onChangeView(ViewState.EVALUATIONS)}
+                className="w-full py-3 border border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50 transition-colors bg-white shadow-sm"
+            >
+                Ga naar Performance Center
+            </button>
         </div>
-     </div>
-  );
+     );
+  };
 
   const renderOnboardingContent = () => {
      const hasActiveTasks = employee.onboardingTasks && employee.onboardingTasks.length > 0;

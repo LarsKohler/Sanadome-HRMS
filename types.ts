@@ -311,6 +311,7 @@ export interface EvaluationCycle {
     
     overallRating?: number; // Calculated average
     smartAdvice?: string[]; 
+    potential?: 'Low' | 'Medium' | 'High'; // New for 9-Box Grid
 }
 
 export interface Employee {
