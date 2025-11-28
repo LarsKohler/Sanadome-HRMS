@@ -15,6 +15,7 @@ export const MOCK_DEVELOPMENT_LIBRARY: PersonalDevelopmentGoal[] = [
         startDate: '',
         deadline: '',
         reflections: [],
+        checkIns: [],
         isLibraryItem: true
     },
     {
@@ -28,6 +29,7 @@ export const MOCK_DEVELOPMENT_LIBRARY: PersonalDevelopmentGoal[] = [
         startDate: '',
         deadline: '',
         reflections: [],
+        checkIns: [],
         isLibraryItem: true
     },
     {
@@ -41,6 +43,7 @@ export const MOCK_DEVELOPMENT_LIBRARY: PersonalDevelopmentGoal[] = [
         startDate: '',
         deadline: '',
         reflections: [],
+        checkIns: [],
         isLibraryItem: true
     },
     {
@@ -54,6 +57,7 @@ export const MOCK_DEVELOPMENT_LIBRARY: PersonalDevelopmentGoal[] = [
         startDate: '',
         deadline: '',
         reflections: [],
+        checkIns: [],
         isLibraryItem: true
     },
     {
@@ -67,6 +71,7 @@ export const MOCK_DEVELOPMENT_LIBRARY: PersonalDevelopmentGoal[] = [
         startDate: '',
         deadline: '',
         reflections: [],
+        checkIns: [],
         isLibraryItem: true
     },
     {
@@ -80,6 +85,7 @@ export const MOCK_DEVELOPMENT_LIBRARY: PersonalDevelopmentGoal[] = [
         startDate: '',
         deadline: '',
         reflections: [],
+        checkIns: [],
         isLibraryItem: true
     }
 ];
@@ -88,7 +94,7 @@ export const MOCK_DEVELOPMENT_LIBRARY: PersonalDevelopmentGoal[] = [
 export const MOCK_BADGES: BadgeDefinition[] = [
     { id: 'b1', name: 'Super Start', description: 'Voltooide de onboarding binnen 2 weken met 100% score.', icon: 'Rocket', color: 'blue', createdAt: '2023-01-01' },
     { id: 'b2', name: 'Klantheld', description: 'Ging boven en buiten verwachting voor een gast.', icon: 'Heart', color: 'red', createdAt: '2023-01-01' },
-    { id: 'b3', name: 'Team Player', description: 'Altijd bereid om een dienst over te nemen.', icon: 'Users', color: 'green', createdAt: '2023-01-01' }, // Note: Users icon is mapped later or handled by fallback
+    { id: 'b3', name: 'Team Player', description: 'Altijd bereid om een dienst over te nemen.', icon: 'Users', color: 'green', createdAt: '2023-01-01' }, 
     { id: 'b4', name: 'Sales Tijger', description: 'Hoogste upsell percentage van de maand.', icon: 'Trophy', color: 'yellow', createdAt: '2023-01-01' },
     { id: 'b5', name: 'Scherp Oog', description: 'Ontdekte een kritieke fout in een boeking.', icon: 'Eye', color: 'purple', createdAt: '2023-01-01' },
     { id: 'b6', name: 'Probleemoplosser', description: 'Heeft zelfstandig een complex gastprobleem opgelost.', icon: 'Zap', color: 'orange', createdAt: '2023-01-01' }
@@ -294,8 +300,8 @@ export const MOCK_TICKETS: Ticket[] = [
 
 // --- AUTO UPDATE LOGGER ---
 export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
-    id: 'update-v4.0.0-growth', 
-    version: 'v4.0.0',
+    id: 'update-v4.1.0-growth-checkins', 
+    version: 'v4.1.0',
     date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
     timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
     author: 'AI Assistant',
@@ -303,10 +309,9 @@ export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
     impact: 'High',
     affectedArea: 'Performance',
     description: `
-- Lancering Growth & Development Ecosystem.
-- Nieuwe bibliotheek met voorgeprogrammeerde ontwikkeldoelen.
-- Slimme actiesuggesties in evaluatierapporten.
-- 'Groeipad' dashboard toegevoegd aan medewerkersprofiel.`,
+- Groeipad planning verplaatst naar review-fase van evaluatie.
+- Data-driven tussentijdse evaluaties (Check-ins) toegevoegd aan groeipad.
+- Tijdlijn dashboard voor voortgang en vergrendelde scores.`,
     status: 'Success'
 };
 
@@ -570,6 +575,25 @@ export const MOCK_EMPLOYEES: Employee[] = [
             signatures: [
                 { signedBy: 'Manager', signedById: 'manager-user', signedAt: '01 Okt 2023', role: 'Manager' },
                 { signedBy: 'Mark de Medewerker', signedById: 'employee-user', signedAt: '01 Okt 2023', role: 'Employee' }
+            ],
+            developmentPlan: [
+                {
+                    id: 'pg-1',
+                    title: 'Masterclass Upselling',
+                    category: 'Sales & Revenue',
+                    description: 'Verhogen van de gemiddelde besteding per gast door effectieve verkooptechnieken.',
+                    actionPlan: '1. Volg de online module "Upselling at Check-in".\n2. Pas de "Top-Down" methode toe bij 5 gasten per dienst.',
+                    status: 'In Progress',
+                    progress: 25,
+                    startDate: '01 Okt 2023',
+                    deadline: '31 Dec 2023',
+                    checkIns: [
+                        { id: 'ci-1', date: '01 Nov 2023', status: 'Completed', score: 25, completedDate: '02 Nov 2023', managerNotes: 'Goed begin!' },
+                        { id: 'ci-2', date: '01 Dec 2023', status: 'Planned', score: 0 }
+                    ],
+                    reflections: [],
+                    isLibraryItem: true
+                }
             ]
         }
     ],
@@ -585,12 +609,17 @@ export const MOCK_EMPLOYEES: Employee[] = [
             description: 'Verhogen van de gemiddelde besteding per gast door effectieve verkooptechnieken.',
             actionPlan: '1. Volg de online module "Upselling at Check-in".\n2. Pas de "Top-Down" methode toe bij 5 gasten per dienst.\n3. Evalueer wekelijks de upsell cijfers met de supervisor.',
             status: 'In Progress',
-            progress: 35,
+            progress: 25,
             startDate: '01 Okt 2023',
             deadline: '31 Dec 2023',
+            checkIns: [
+                { id: 'ci-1', date: '01 Nov 2023', status: 'Completed', score: 25, completedDate: '02 Nov 2023', managerNotes: 'Goed begin, online module afgerond.' },
+                { id: 'ci-2', date: '01 Dec 2023', status: 'Planned', score: 0 }
+            ],
             reflections: [
                 { id: 'ref-1', date: '10 Okt 2023', content: 'De eerste module afgerond. Interessante techniek over "Choice Architecture".', author: 'Mark de Medewerker' }
-            ]
+            ],
+            linkedEvaluationId: 'ev-1'
         }
     ]
   }

@@ -2,9 +2,9 @@
 import React, { useState, useMemo } from 'react';
 import { 
     ClipboardCheck, Plus, Search, Calendar, User, ArrowRight, Play, CheckCircle, Clock, 
-    AlertCircle, BarChart3, ChevronRight, MessageSquare, BrainCircuit, X, Target, PenTool, TrendingUp, AlertTriangle, FileCheck, Star, Split, Lock, Unlock, Eye, EyeOff, Printer, PenLine, History, ArrowLeft, Check, TrendingDown, Minus, BookOpen, Compass, Trash2
+    AlertCircle, BarChart3, ChevronRight, MessageSquare, BrainCircuit, X, Target, PenTool, TrendingUp, AlertTriangle, FileCheck, Star, Split, Lock, Unlock, Eye, EyeOff, Printer, PenLine, History, ArrowLeft, Check, TrendingDown, Minus, BookOpen, Compass, Trash2, CalendarDays
 } from 'lucide-react';
-import { Employee, EvaluationCycle, Notification, ViewState, EvaluationScore, EvaluationGoal, EvaluationStatus, PersonalDevelopmentGoal } from '../types';
+import { Employee, EvaluationCycle, Notification, ViewState, EvaluationScore, EvaluationGoal, EvaluationStatus, PersonalDevelopmentGoal, InterimCheckIn } from '../types';
 import { EVALUATION_TEMPLATES, MOCK_DEVELOPMENT_LIBRARY } from '../utils/mockData';
 import { Modal } from './Modal';
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend } from 'recharts';
@@ -32,11 +32,12 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   const [createType, setCreateType] = useState<'Month 1' | 'Month 3' | 'Annual' | 'Performance'>('Annual');
 
   // Wizard State
-  const [wizardStep, setWizardStep] = useState<1 | 2 | 3 | 4>(1); // 1=Reflection, 2=Scores, 3=Development Plan, 4=Finalize/Potential
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1); // 1=Reflection, 2=Scores, 3=Finalize
   
-  // Development Plan State
+  // Development Plan State (Now in Report View)
   const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false);
   const [newDevGoal, setNewDevGoal] = useState<Partial<PersonalDevelopmentGoal>>({ title: '', category: 'General', actionPlan: '' });
+  const [showPlanBuilder, setShowPlanBuilder] = useState(false);
 
   // Signatures State
   const [isSigning, setIsSigning] = useState(false);
@@ -162,9 +163,41 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       onUpdateEmployee({ ...targetEmp, evaluations: updatedEvaluations });
   };
 
-  const handleAddDevelopmentGoal = (evaluation: EvaluationCycle) => {
-      if (!newDevGoal.title) return;
+  // Auto-generate check-ins based on deadline
+  const generateCheckIns = (startDate: Date, endDate: Date): InterimCheckIn[] => {
+      const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
+      let count = 2;
+      if (diffDays > 180) count = 4; // > 6 months = 4 check-ins
+      
+      const checkIns: InterimCheckIn[] = [];
+      const interval = diffTime / (count + 1);
+
+      for (let i = 1; i <= count; i++) {
+          const date = new Date(startDate.getTime() + (interval * i));
+          checkIns.push({
+              id: Math.random().toString(36).substr(2, 9),
+              date: date.toLocaleDateString('nl-NL'),
+              status: 'Planned',
+              score: 0
+          });
+      }
+      return checkIns;
+  };
+
+  const handleAddDevelopmentGoal = (evaluation: EvaluationCycle) => {
+      if (!newDevGoal.title || !newDevGoal.deadline) {
+          onShowToast("Titel en deadline zijn verplicht.");
+          return;
+      }
+      
+      const deadlineDate = new Date(newDevGoal.deadline);
+      const now = new Date();
+      
+      // Auto generate check-ins
+      const generatedCheckIns = generateCheckIns(now, deadlineDate);
+
       const goal: PersonalDevelopmentGoal = {
           id: Math.random().toString(36).substr(2, 9),
           title: newDevGoal.title || 'Nieuw Doel',
@@ -173,27 +206,26 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           category: newDevGoal.category || 'General',
           status: 'Not Started',
           progress: 0,
-          startDate: '',
+          startDate: now.toLocaleDateString('nl-NL'),
           deadline: newDevGoal.deadline || '',
-          reflections: []
+          reflections: [],
+          checkIns: generatedCheckIns
       };
 
       handleUpdateEvaluation(evaluation, { developmentPlan: [...(evaluation.developmentPlan || []), goal] });
       setNewDevGoal({ title: '', category: 'General', actionPlan: '' });
+      setShowPlanBuilder(false);
+      onShowToast("Doel en planning opgeslagen.");
   };
 
   const handleAddFromLibrary = (evaluation: EvaluationCycle, libItem: PersonalDevelopmentGoal) => {
-      const goal: PersonalDevelopmentGoal = {
+      setNewDevGoal({
           ...libItem,
-          id: Math.random().toString(36).substr(2, 9), // New ID instance
-          status: 'Not Started',
-          progress: 0,
-          startDate: '',
-          deadline: '' // To be set
-      };
-      handleUpdateEvaluation(evaluation, { developmentPlan: [...(evaluation.developmentPlan || []), goal] });
+          isLibraryItem: true
+      });
       setIsLibraryModalOpen(false);
-      onShowToast("Doel toegevoegd uit bibliotheek");
+      setShowPlanBuilder(true); // Open builder to set deadline
+      onShowToast("Gekozen uit bibliotheek. Stel nu de deadline in.");
   };
 
   const handleRemoveGoal = (evaluation: EvaluationCycle, goalId: string) => {
@@ -471,7 +503,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                   </button>
                   
                   <div className="flex items-center gap-4 bg-white px-6 py-2 rounded-full shadow-sm border border-slate-200">
-                      {[1, 2, 3, 4].map(step => (
+                      {[1, 2, 3].map(step => (
                           <div key={step} className="flex items-center">
                               <button 
                                 onClick={() => setWizardStep(step as any)}
@@ -482,14 +514,14 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                               >
                                   {wizardStep > step ? <Check size={14}/> : step}
                               </button>
-                              {step < 4 && <div className={`w-8 h-0.5 mx-2 ${wizardStep > step ? 'bg-teal-200' : 'bg-slate-200'}`}></div>}
+                              {step < 3 && <div className={`w-8 h-0.5 mx-2 ${wizardStep > step ? 'bg-teal-200' : 'bg-slate-200'}`}></div>}
                           </div>
                       ))}
                   </div>
 
                   <button 
                     onClick={() => {
-                        if (wizardStep < 4) setWizardStep(prev => prev + 1 as any);
+                        if (wizardStep < 3) setWizardStep(prev => prev + 1 as any);
                         else {
                             // Finalize
                             const nextStatus = isManager ? 'Review' : 'ManagerInput';
@@ -500,7 +532,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                     }}
                     className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-slate-800 transition-colors flex items-center gap-2"
                   >
-                      {wizardStep === 4 ? 'Afronden' : 'Volgende Stap'} <ArrowRight size={16}/>
+                      {wizardStep === 3 ? 'Afronden' : 'Volgende Stap'} <ArrowRight size={16}/>
                   </button>
               </div>
 
@@ -678,110 +710,8 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                       </div>
                   )}
 
-                  {/* Step 3: Development Plan (REPLACED GOALS) */}
+                  {/* Step 3: Finalize (Manager Only) */}
                   {wizardStep === 3 && (
-                      <div className="p-8 lg:p-12 max-w-5xl mx-auto">
-                          <h2 className="text-2xl font-bold text-slate-900 mb-2">Groei & Ontwikkelplan</h2>
-                          <p className="text-slate-500 mb-8">Bepaal concrete stappen om vaardigheden te verbeteren. Deze komen direct op het profiel van de medewerker.</p>
-
-                          {/* Plan Builder */}
-                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-                              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                                  <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-                                      <BookOpen size={18} className="text-teal-600"/> Development Library
-                                  </h3>
-                                  <p className="text-sm text-slate-600 mb-6">
-                                      Kies uit voorgeprogrammeerde ontwikkelpaden gebaseerd op best practices.
-                                  </p>
-                                  <button 
-                                    onClick={() => setIsLibraryModalOpen(true)}
-                                    className="w-full py-3 bg-white border-2 border-teal-100 text-teal-700 font-bold rounded-xl hover:bg-teal-50 hover:border-teal-200 transition-all flex items-center justify-center gap-2 shadow-sm"
-                                  >
-                                      <Compass size={18}/> Open Bibliotheek
-                                  </button>
-                              </div>
-
-                              <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                                  <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-                                      <PenLine size={18} className="text-purple-600"/> Maatwerk Doel
-                                  </h3>
-                                  <div className="space-y-3">
-                                      <input 
-                                        type="text" 
-                                        placeholder="Titel..." 
-                                        className="w-full p-2.5 rounded-lg border border-slate-200 text-sm"
-                                        value={newDevGoal.title}
-                                        onChange={e => setNewDevGoal({...newDevGoal, title: e.target.value})}
-                                      />
-                                      <textarea 
-                                        placeholder="Actieplan: Wat gaan we concreet doen?"
-                                        className="w-full p-2.5 rounded-lg border border-slate-200 text-sm h-20 resize-none"
-                                        value={newDevGoal.actionPlan}
-                                        onChange={e => setNewDevGoal({...newDevGoal, actionPlan: e.target.value})}
-                                      />
-                                      <div className="flex gap-2">
-                                          <input 
-                                            type="text" 
-                                            placeholder="Deadline..." 
-                                            className="w-1/2 p-2.5 rounded-lg border border-slate-200 text-sm"
-                                            value={newDevGoal.deadline}
-                                            onChange={e => setNewDevGoal({...newDevGoal, deadline: e.target.value})}
-                                          />
-                                          <button 
-                                            onClick={() => handleAddDevelopmentGoal(evaluation)}
-                                            className="flex-1 bg-slate-900 text-white rounded-lg text-sm font-bold hover:bg-slate-800"
-                                          >
-                                              Toevoegen
-                                          </button>
-                                      </div>
-                                  </div>
-                              </div>
-                          </div>
-
-                          {/* Selected Plan Items */}
-                          <div className="space-y-4">
-                              <h3 className="font-bold text-slate-900 text-lg border-b border-slate-100 pb-2 mb-4">Geselecteerd Ontwikkelplan</h3>
-                              
-                              {evaluation.developmentPlan?.map(goal => (
-                                  <div key={goal.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 group hover:border-teal-200 transition-colors">
-                                      <div className="flex-1">
-                                          <div className="flex items-center gap-2 mb-1">
-                                              <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded uppercase tracking-wide">{goal.category}</span>
-                                              {goal.isLibraryItem && <span className="text-[10px] font-bold bg-teal-50 text-teal-600 px-2 py-0.5 rounded uppercase tracking-wide border border-teal-100">Library</span>}
-                                          </div>
-                                          <h4 className="font-bold text-slate-900 text-lg">{goal.title}</h4>
-                                          <p className="text-sm text-slate-500 mt-1">{goal.description}</p>
-                                          
-                                          <div className="mt-4 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                              <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Actiepunten</span>
-                                              <p className="text-sm text-slate-700 whitespace-pre-line">{goal.actionPlan}</p>
-                                          </div>
-                                      </div>
-                                      <div className="flex flex-col justify-between items-end gap-4 pl-4 md:border-l md:border-slate-50">
-                                          <button onClick={() => handleRemoveGoal(evaluation, goal.id)} className="text-slate-300 hover:text-red-500 transition-colors">
-                                              <Trash2 size={18}/>
-                                          </button>
-                                          {goal.deadline && (
-                                              <div className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded">
-                                                  Deadline: {goal.deadline}
-                                              </div>
-                                          )}
-                                      </div>
-                                  </div>
-                              ))}
-
-                              {(!evaluation.developmentPlan || evaluation.developmentPlan.length === 0) && (
-                                  <div className="text-center py-12 bg-slate-50 border border-dashed border-slate-200 rounded-xl text-slate-400">
-                                      <Target size={40} className="mx-auto mb-2 opacity-20"/>
-                                      <p>Nog geen ontwikkeldoelen toegevoegd.</p>
-                                  </div>
-                              )}
-                          </div>
-                      </div>
-                  )}
-
-                  {/* Step 4: Finalize & Potential (Manager Only) */}
-                  {wizardStep === 4 && (
                       <div className="p-8 lg:p-12 max-w-3xl mx-auto">
                           {isManager ? (
                               <div className="space-y-10">
@@ -843,10 +773,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                       <span className="block text-3xl font-bold text-slate-900">{evaluation.scores.filter(s => (isManager ? s.managerScore : s.employeeScore) > 0).length}</span>
                                       <span className="text-xs text-slate-500 uppercase tracking-wide">Ingevuld</span>
                                   </div>
-                                  <div className="text-center">
-                                      <span className="block text-3xl font-bold text-slate-900">{evaluation.developmentPlan?.length || 0}</span>
-                                      <span className="text-xs text-slate-500 uppercase tracking-wide">Groeiplannen</span>
-                                  </div>
                               </div>
                           </div>
                       </div>
@@ -866,11 +792,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       }));
 
       const mySignature = evaluation.signatures.find(s => s.signedById === currentUser.id);
-      
-      // Calculate overall rating
       const overallRating = evaluation.overallRating || 0;
-
-      // Get historical evaluations for trend
       const history = (employee.evaluations || []).filter(e => e.status === 'Signed' || e.status === 'Archived' || e.id === evaluation.id);
 
       return (
@@ -944,10 +866,8 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
                   {/* 9-Grid & Radar */}
                   <div className="mb-12 grid grid-cols-1 md:grid-cols-2 gap-12">
-                      {/* 9-Grid */}
                       {evaluation.potential && renderNineGrid(overallRating, evaluation.potential)}
                       
-                      {/* Radar Chart */}
                       <div className="h-64 relative">
                            <h4 className="font-bold text-slate-900 mb-2 text-center text-sm uppercase tracking-wide">Competentie Profiel</h4>
                            <ResponsiveContainer width="100%" height="100%">
@@ -990,36 +910,98 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                       </table>
                   </div>
 
-                  {/* Development Plan Section */}
-                  <div className="mb-16 bg-slate-50 p-8 rounded-xl border border-slate-100">
-                      <h3 className="font-bold text-lg text-slate-900 mb-6 flex items-center gap-2">
-                          <Target size={20} className="text-teal-600"/> Ontwikkelafspraken & Actieplan
-                      </h3>
+                  {/* GROWTH PLAN MODULE - NEW in Review Phase */}
+                  <div className="mb-16 bg-slate-50 p-8 rounded-xl border border-slate-100 relative group/plan">
+                      <div className="flex justify-between items-center mb-6">
+                          <h3 className="font-bold text-lg text-slate-900 flex items-center gap-2">
+                              <Target size={20} className="text-teal-600"/> Groeipad & Traject Planning
+                          </h3>
+                          {isManager && evaluation.status === 'Review' && (
+                              <button 
+                                onClick={() => { setIsLibraryModalOpen(true); setShowPlanBuilder(false); }}
+                                className="text-xs font-bold bg-white border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-teal-50 hover:text-teal-700 transition-colors shadow-sm"
+                              >
+                                  + Groeipad Plannen
+                              </button>
+                          )}
+                      </div>
+
+                      {showPlanBuilder && (
+                          <div className="bg-white p-5 rounded-lg shadow-sm border border-teal-200 mb-6 animate-in slide-in-from-top-2">
+                              <h4 className="font-bold text-slate-900 text-sm mb-3">Stel Deadline in voor: {newDevGoal.title}</h4>
+                              <p className="text-xs text-slate-500 mb-4">Op basis van de deadline genereren we automatisch de tussentijdse evaluatiemomenten.</p>
+                              
+                              <div className="flex items-end gap-3">
+                                  <div className="flex-1">
+                                      <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Streefdatum</label>
+                                      <input 
+                                        type="date" 
+                                        className="w-full p-2 border border-slate-300 rounded-lg text-sm"
+                                        value={newDevGoal.deadline || ''}
+                                        onChange={(e) => setNewDevGoal({...newDevGoal, deadline: e.target.value})}
+                                      />
+                                  </div>
+                                  <button 
+                                    onClick={() => handleAddDevelopmentGoal(evaluation)}
+                                    className="px-4 py-2 bg-teal-600 text-white font-bold rounded-lg text-sm hover:bg-teal-700 h-10"
+                                  >
+                                      Genereer Planning
+                                  </button>
+                                  <button onClick={() => setShowPlanBuilder(false)} className="px-3 py-2 text-slate-400 hover:text-red-500">
+                                      <X size={18}/>
+                                  </button>
+                              </div>
+                          </div>
+                      )}
+
                       <div className="grid grid-cols-1 gap-6">
                           {evaluation.developmentPlan?.map(goal => (
-                              <div key={goal.id} className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm">
+                              <div key={goal.id} className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm relative">
                                   <div className="flex justify-between items-start mb-3">
                                       <div>
                                           <h4 className="font-bold text-slate-900 text-base">{goal.title}</h4>
-                                          <p className="text-sm text-slate-600">{goal.description}</p>
+                                          <p className="text-sm text-slate-600 mt-1">{goal.description}</p>
                                       </div>
                                       <span className="text-[10px] font-bold bg-teal-50 text-teal-700 px-2 py-1 rounded uppercase tracking-wide border border-teal-100">
                                           {goal.category}
                                       </span>
                                   </div>
-                                  <div className="pl-4 border-l-2 border-teal-500 mt-4">
-                                      <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Actiepunten</span>
-                                      <p className="text-sm text-slate-800 whitespace-pre-line leading-relaxed">{goal.actionPlan}</p>
-                                  </div>
-                                  {goal.deadline && (
-                                      <div className="mt-4 pt-3 border-t border-slate-50 text-xs font-bold text-slate-500 flex items-center gap-2">
-                                          <Clock size={12}/> Deadline: {goal.deadline}
+                                  
+                                  {/* Timeline Visualization inside report */}
+                                  <div className="mt-6 border-t border-slate-50 pt-4">
+                                      <h5 className="text-xs font-bold text-slate-400 uppercase mb-3">Geplande Evaluatiemomenten</h5>
+                                      <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+                                          {goal.checkIns.map((ci, idx) => (
+                                              <div key={idx} className="flex-shrink-0 flex flex-col items-center min-w-[80px]">
+                                                  <div className="w-3 h-3 rounded-full bg-slate-200 mb-2 border-2 border-white ring-1 ring-slate-100"></div>
+                                                  <span className="text-[10px] font-bold text-slate-600">{ci.date}</span>
+                                                  <span className="text-[9px] text-slate-400 uppercase">Check-in {idx+1}</span>
+                                              </div>
+                                          ))}
+                                          <div className="h-px bg-slate-200 flex-1 mx-2"></div>
+                                          <div className="flex-shrink-0 flex flex-col items-center min-w-[80px]">
+                                              <div className="w-3 h-3 rounded-full bg-slate-900 mb-2"></div>
+                                              <span className="text-[10px] font-bold text-slate-900">{goal.deadline}</span>
+                                              <span className="text-[9px] text-slate-400 uppercase">Deadline</span>
+                                          </div>
                                       </div>
+                                  </div>
+
+                                  {isManager && evaluation.status === 'Review' && (
+                                      <button 
+                                        onClick={() => handleRemoveGoal(evaluation, goal.id)}
+                                        className="absolute top-4 right-12 text-slate-300 hover:text-red-500 transition-colors p-1"
+                                        title="Plan verwijderen"
+                                      >
+                                          <Trash2 size={16}/>
+                                      </button>
                                   )}
                               </div>
                           ))}
                           {(!evaluation.developmentPlan || evaluation.developmentPlan.length === 0) && (
-                              <p className="text-slate-400 italic text-center">Geen specifieke ontwikkeldoelen vastgelegd in dit rapport.</p>
+                              <p className="text-slate-400 italic text-center text-sm py-4">
+                                  Nog geen groeipad vastgesteld. Gebruik de knop hierboven om een traject te starten.
+                              </p>
                           )}
                       </div>
                   </div>
@@ -1124,7 +1106,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
             title="Development Library"
         >
             <div className="max-h-[60vh] overflow-y-auto pr-2">
-                <p className="text-sm text-slate-500 mb-6">Selecteer een voorgeprogrammeerd ontwikkeldoel om toe te voegen aan het rapport.</p>
+                <p className="text-sm text-slate-500 mb-6">Selecteer een voorgeprogrammeerd ontwikkeldoel.</p>
                 <div className="space-y-4">
                     {MOCK_DEVELOPMENT_LIBRARY.map(libItem => (
                         <div 

@@ -163,20 +163,62 @@ const App: React.FC = () => {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isToastVisible, setIsToastVisible] = useState(false);
 
-  // Initial Mock Notification for Survey (Local Logic Only)
+  // Initial Mock Notification for Survey (Local Logic Only) & Growth Checks
   useEffect(() => {
+      // 1. Survey Notification
       if (currentUser && surveys.length > 0) {
           const surveyS1 = surveys.find(s => s.id === 's1');
           const alreadyCompleted = surveyS1?.completedBy.includes(currentUser.id);
           
           if (!alreadyCompleted && surveyS1?.status === 'Active') {
-             const hasNotif = notifications.some(n => n.type === 'Survey' && n.metaId === 's1');
-             if (!hasNotif) {
-                  // This is a local-only notification trigger for demo purposes
-             }
+             // Mock notification check (skipping implementation details for brevity)
           }
       }
-  }, [currentUser, surveys, notifications]);
+
+      // 2. Growth Path Due Check (Simulated for Manager)
+      if (currentUser && currentUser.role === 'Manager' && employees.length > 0) {
+          const today = new Date();
+          let newNotifs: Notification[] = [];
+          
+          employees.forEach(emp => {
+              if (emp.growthGoals) {
+                  emp.growthGoals.forEach(goal => {
+                      if (goal.status === 'In Progress') {
+                          goal.checkIns.forEach(ci => {
+                              if (ci.status === 'Planned') {
+                                  const ciDate = new Date(ci.date.split(' ').reverse().join('-')); // approx parse
+                                  // Simple mock check: if month matches
+                                  if (ciDate.getMonth() === today.getMonth() && ciDate.getFullYear() === today.getFullYear()) {
+                                      // Check if already notified
+                                      const alreadyNotified = notifications.some(n => n.type === 'Evaluation' && n.message.includes(emp.name) && n.message.includes('check-in'));
+                                      if (!alreadyNotified) {
+                                          newNotifs.push({
+                                              id: Math.random().toString(36).substr(2, 9),
+                                              recipientId: currentUser.id,
+                                              senderName: 'System',
+                                              type: 'Evaluation',
+                                              title: 'Tussentijdse Evaluatie',
+                                              message: `Check-in gepland voor ${emp.name}: "${goal.title}"`,
+                                              date: 'Zojuist',
+                                              read: false,
+                                              targetView: ViewState.HOME, // Profile
+                                              targetEmployeeId: emp.id
+                                          });
+                                      }
+                                  }
+                              }
+                          });
+                      }
+                  });
+              }
+          });
+
+          if (newNotifs.length > 0) {
+              newNotifs.forEach(n => handleAddNotification(n));
+          }
+      }
+
+  }, [currentUser, surveys, employees]); // Depend on employees to trigger check when data loads
 
   // Close mobile menu when view changes
   useEffect(() => {

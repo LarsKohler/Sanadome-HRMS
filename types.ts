@@ -277,6 +277,15 @@ export interface GoalReflection {
     author: string;
 }
 
+export interface InterimCheckIn {
+    id: string;
+    date: string; // Scheduled date
+    completedDate?: string; // Actual completion date
+    status: 'Planned' | 'Completed' | 'Skipped';
+    score: number; // 0-100 progress at this check-in
+    managerNotes?: string;
+}
+
 export interface PersonalDevelopmentGoal {
     id: string;
     title: string;
@@ -284,10 +293,13 @@ export interface PersonalDevelopmentGoal {
     actionPlan: string; // The concrete "How to"
     category: string; // Hard skill, Soft skill, Leadership
     status: 'Not Started' | 'In Progress' | 'Completed';
-    progress: number; // 0-100
+    progress: number; // 0-100 (Calculated from latest check-in)
     startDate: string;
     deadline: string;
     linkedEvaluationId?: string;
+    
+    // Timeline / Check-ins
+    checkIns: InterimCheckIn[]; 
     reflections: GoalReflection[];
     
     // For library usage
