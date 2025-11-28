@@ -1,8 +1,9 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
     BookOpen, Search, Plus, Filter, Tag, Clock, User, ChevronRight, 
-    Edit2, Trash2, ArrowLeft, Save, Layout, Shield, Check, Info
+    Edit2, Trash2, ArrowLeft, Save, Layout, Shield, Check, Info, 
+    Bold, Italic, List, Heading1, Heading2, Image as ImageIcon, Link, Wand2, Calendar, Eye
 } from 'lucide-react';
 import { Employee, KnowledgeArticle } from '../types';
 import { api } from '../utils/api';
@@ -22,6 +23,9 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
     
     // Editor State
     const [editForm, setEditForm] = useState<Partial<KnowledgeArticle>>({});
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [isPreviewMode, setIsPreviewMode] = useState(false);
     
     const canManage = hasPermission(currentUser, 'MANAGE_KNOWLEDGE');
 
@@ -38,31 +42,22 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
         }
     };
 
-    // Filter Logic: Search + Category + Visibility Permissions
+    // Filter Logic
     const filteredArticles = useMemo(() => {
         return articles.filter(article => {
-            // 1. Search Check
             const matchesSearch = 
                 article.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
                 article.content.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 article.tags.some(t => t.toLowerCase().includes(searchTerm.toLowerCase()));
 
-            // 2. Category Check
             const matchesCategory = selectedCategory === 'All' || article.category === selectedCategory;
 
-            // 3. Permission Check (Crucial!)
-            // Manager/Senior with permission sees everything? Or should they see only what applies to them?
-            // Usually editors see everything.
             if (canManage) return matchesSearch && matchesCategory;
 
-            // Regular user check
             const roleMatch = article.allowedRoles.includes('All') || article.allowedRoles.includes(currentUser.role);
             const deptMatch = article.allowedDepartments.includes('All') || currentUser.departments.some(d => article.allowedDepartments.includes(d));
             
-            return matchesSearch && matchesCategory && (roleMatch || deptMatch); // OR logic typically better here? Or AND? 
-            // "Visible to Managers AND Front Office" usually means intersection.
-            // But typically access control lists are "Allow if in Role OR in Dept". Let's stick to OR for flexibility.
-            // If an article is allowed for "Front Office", any Front Office employee sees it.
+            return matchesSearch && matchesCategory && (roleMatch || deptMatch); 
         });
     }, [articles, searchTerm, selectedCategory, currentUser, canManage]);
 
@@ -71,8 +66,108 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
         return ['All', ...Array.from(cats)];
     }, [articles]);
 
+    // --- HELPER FUNCTIONS ---
+
+    const getReadTime = (text: string) => {
+        const wordsPerMinute = 200;
+        const words = text.split(/\s+/).length;
+        const minutes = Math.ceil(words / wordsPerMinute);
+        return `${minutes} min leestijd`;
+    };
+
+    // Simple Markdown Renderer
+    const renderMarkdown = (text: string) => {
+        if (!text) return null;
+        
+        // 1. Images
+        let html = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="w-full rounded-xl my-4 border border-slate-200" />');
+        
+        // 2. Bold
+        html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        
+        // 3. Italic
+        html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+        
+        // 4. Headers
+        html = html.replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold text-slate-900 mt-6 mb-3">$1</h1>');
+        html = html.replace(/^## (.*$)/gm, '<h2 class="text-xl font-bold text-slate-800 mt-5 mb-2">$1</h2>');
+        
+        // 5. Lists (Simple)
+        html = html.replace(/^- (.*$)/gm, '<li class="ml-4 list-disc">$1</li>');
+        
+        // 6. Links
+        html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="text-teal-600 hover:underline font-medium">$1</a>');
+
+        // 7. Line Breaks
+        html = html.replace(/\n/g, '<br />');
+
+        return <div dangerouslySetInnerHTML={{ __html: html }} />;
+    };
+
+    // --- EDITOR ACTIONS ---
+
+    const insertText = (prefix: string, suffix: string = '') => {
+        const textarea = textareaRef.current;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const text = editForm.content || '';
+        
+        const selection = text.substring(start, end);
+        const replacement = prefix + selection + suffix;
+        
+        const newText = text.substring(0, start) + replacement + text.substring(end);
+        
+        setEditForm({ ...editForm, content: newText });
+        
+        // Reset cursor
+        setTimeout(() => {
+            textarea.focus();
+            textarea.setSelectionRange(start + prefix.length, end + prefix.length);
+        }, 0);
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            try {
+                onShowToast("Afbeelding uploaden...");
+                const url = await api.uploadFile(file);
+                if (url) {
+                    insertText(`![${file.name}](${url})`);
+                }
+            } catch (err) {
+                console.error(err);
+                onShowToast("Fout bij uploaden");
+            }
+        }
+    };
+
+    const handleMagicTemplate = () => {
+        // Smart Assist Logic
+        const cat = editForm.category?.toLowerCase() || '';
+        const title = editForm.title?.toLowerCase() || '';
+        let template = '';
+
+        if (title.includes('protocol') || cat.includes('veiligheid')) {
+            template = `## Doel van dit protocol\n[Beschrijf kort waarom dit protocol bestaat]\n\n## Benodigdheden\n- Item 1\n- Item 2\n\n## Stappenplan\n1. Stap één\n2. Stap twee\n3. Stap drie\n\n## Noodgevallen\nIn geval van nood, bel direct **112** of de Duty Manager.`;
+        } else if (title.includes('handleiding') || cat.includes('it')) {
+            template = `## Introductie\nDeze handleiding legt uit hoe je [Systeem/Apparaat] gebruikt.\n\n## Inloggen\nGa naar [URL] en log in met je personeelsnummer.\n\n## Veelvoorkomende problemen\n- **Probleem 1:** Oplossing...\n- **Probleem 2:** Oplossing...`;
+        } else {
+            template = `## Samenvatting\n[Korte samenvatting]\n\n## Belangrijke punten\n- Punt A\n- Punt B\n\n## Contact\nVoor vragen kun je terecht bij je leidinggevende.`;
+        }
+
+        if (editForm.content && editForm.content.length > 10) {
+            if(!confirm("Wil je de huidige tekst vervangen door een sjabloon?")) return;
+        }
+        setEditForm({ ...editForm, content: template });
+        onShowToast("Sjabloon toegepast!");
+    };
+
+    // --- NAVIGATION HANDLERS ---
+
     const handleOpenArticle = (article: KnowledgeArticle) => {
-        // Increment view count logic could go here
         setSelectedArticle(article);
         setView('read');
     };
@@ -124,12 +219,12 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
             allowedRoles: editForm.allowedRoles || ['All'],
             allowedDepartments: editForm.allowedDepartments || ['All'],
             views: editForm.views || 0,
-            isPinned: editForm.isPinned || false
+            isPinned: editForm.isPinned || false,
+            reviewDate: editForm.reviewDate
         };
 
         await api.saveKnowledgeArticle(article);
         
-        // Refresh local list
         const exists = articles.find(a => a.id === article.id);
         if (exists) {
             setArticles(prev => prev.map(a => a.id === article.id ? article : a));
@@ -141,17 +236,12 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
         onShowToast("Artikel opgeslagen!");
     };
 
-    // Helper for checkbox lists in editor
     const toggleArrayItem = (field: 'allowedRoles' | 'allowedDepartments', value: string) => {
         const current = editForm[field] || [];
         let updated;
-        
         if (value === 'All') {
-            // If clicking All, toggle it. If turning On, clear others? Or just set to ['All']?
-            // Simple logic: if 'All' is present, it overrides everything.
             updated = current.includes('All') ? [] : ['All'];
         } else {
-            // If clicking specific item, remove 'All' if present
             let temp = current.filter(i => i !== 'All');
             if (temp.includes(value)) {
                 updated = temp.filter(i => i !== value);
@@ -171,34 +261,82 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                     <button onClick={() => setView('list')} className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold text-sm">
                         <ArrowLeft size={18}/> Annuleren
                     </button>
-                    <h2 className="text-2xl font-bold text-slate-900">{editForm.id ? 'Artikel Bewerken' : 'Nieuw Artikel'}</h2>
-                    <button onClick={handleSave} className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg hover:bg-slate-800 transition-colors flex items-center gap-2">
-                        <Save size={18}/> Opslaan
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={() => setIsPreviewMode(!isPreviewMode)}
+                            className={`px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 border ${isPreviewMode ? 'bg-teal-50 text-teal-700 border-teal-200' : 'bg-white text-slate-600 border-slate-200'}`}
+                        >
+                            <Eye size={18}/> {isPreviewMode ? 'Bewerk Modus' : 'Voorbeeld'}
+                        </button>
+                        <button onClick={handleSave} className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg hover:bg-slate-800 transition-colors flex items-center gap-2">
+                            <Save size={18}/> Opslaan
+                        </button>
+                    </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Main Editor */}
                     <div className="lg:col-span-2 space-y-6">
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Titel</label>
-                            <input 
-                                type="text" 
-                                className="w-full text-xl font-bold border-b-2 border-slate-100 py-2 focus:outline-none focus:border-teal-500 transition-colors"
-                                placeholder="Titel van het protocol..."
-                                value={editForm.title}
-                                onChange={e => setEditForm({...editForm, title: e.target.value})}
-                            />
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[600px] flex flex-col">
                             
-                            <div className="mt-6">
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Inhoud</label>
-                                <textarea 
-                                    className="w-full h-96 p-4 bg-slate-50 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium text-slate-700 leading-relaxed resize-none"
-                                    placeholder="Schrijf hier de uitleg..."
-                                    value={editForm.content}
-                                    onChange={e => setEditForm({...editForm, content: e.target.value})}
+                            {/* Title Input */}
+                            <div className="mb-6">
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Titel</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full text-2xl font-bold border-b-2 border-slate-100 py-2 focus:outline-none focus:border-teal-500 transition-colors placeholder:text-slate-300"
+                                    placeholder="Titel van het artikel..."
+                                    value={editForm.title}
+                                    onChange={e => setEditForm({...editForm, title: e.target.value})}
                                 />
-                                <p className="text-xs text-slate-400 mt-2 text-right">Markdown ondersteuning (basis)</p>
+                            </div>
+
+                            {/* Toolbar */}
+                            {!isPreviewMode && (
+                                <div className="flex items-center gap-1 mb-4 p-2 bg-slate-50 rounded-xl border border-slate-200 flex-wrap">
+                                    <button onClick={() => insertText('**', '**')} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-colors" title="Dikgedrukt"><Bold size={18}/></button>
+                                    <button onClick={() => insertText('*', '*')} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-colors" title="Cursief"><Italic size={18}/></button>
+                                    <div className="w-px h-6 bg-slate-200 mx-1"></div>
+                                    <button onClick={() => insertText('# ')} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-colors" title="Kop 1"><Heading1 size={18}/></button>
+                                    <button onClick={() => insertText('## ')} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-colors" title="Kop 2"><Heading2 size={18}/></button>
+                                    <div className="w-px h-6 bg-slate-200 mx-1"></div>
+                                    <button onClick={() => insertText('- ')} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-colors" title="Lijst"><List size={18}/></button>
+                                    <button onClick={() => insertText('[Link tekst](url)')} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-colors" title="Link"><Link size={18}/></button>
+                                    
+                                    <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
+                                    <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-colors" title="Afbeelding toevoegen"><ImageIcon size={18}/></button>
+                                    
+                                    <div className="ml-auto">
+                                        <button 
+                                            onClick={handleMagicTemplate}
+                                            className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-lg text-xs font-bold shadow-sm hover:shadow-md transition-all"
+                                        >
+                                            <Wand2 size={14}/> Smart Assist
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+                            
+                            {/* Editor / Preview Area */}
+                            <div className="flex-1 relative">
+                                {isPreviewMode ? (
+                                    <div className="prose prose-slate max-w-none p-4 h-full overflow-y-auto bg-slate-50/30 rounded-xl border border-transparent">
+                                        {renderMarkdown(editForm.content || '*Nog geen inhoud...*')}
+                                    </div>
+                                ) : (
+                                    <textarea 
+                                        ref={textareaRef}
+                                        className="w-full h-full p-4 bg-white focus:outline-none focus:ring-0 font-medium text-slate-700 leading-relaxed resize-none font-mono text-sm"
+                                        placeholder="Schrijf hier de inhoud... Gebruik Markdown voor opmaak."
+                                        value={editForm.content}
+                                        onChange={e => setEditForm({...editForm, content: e.target.value})}
+                                    />
+                                )}
+                            </div>
+
+                            <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between text-xs text-slate-400 font-medium">
+                                <span>Markdown ondersteund</span>
+                                <span>{getReadTime(editForm.content || '')}</span>
                             </div>
                         </div>
                     </div>
@@ -224,14 +362,27 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tags (komma gescheiden)</label>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tags</label>
                                     <input 
                                         type="text" 
                                         className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium"
-                                        placeholder="bv. kassa, geld, veiligheid"
+                                        placeholder="bv. kassa, veiligheid"
                                         value={editForm.tags?.join(', ')}
                                         onChange={e => setEditForm({...editForm, tags: e.target.value.split(',').map(t => t.trim())})}
                                     />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Review Datum</label>
+                                    <div className="relative">
+                                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                                        <input 
+                                            type="date" 
+                                            className="w-full pl-9 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium"
+                                            value={editForm.reviewDate || ''}
+                                            onChange={e => setEditForm({...editForm, reviewDate: e.target.value})}
+                                        />
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 mt-1">Stel in wanneer dit artikel gecheckt moet worden.</p>
                                 </div>
                                 <div className="flex items-center gap-2 pt-2">
                                     <input 
@@ -337,11 +488,20 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                                 <Clock size={16} />
                                 <span>Laatst gewijzigd: {selectedArticle.lastUpdated}</span>
                             </div>
+                            {selectedArticle.reviewDate && (
+                                <div className="flex items-center gap-2 text-amber-600 font-medium">
+                                    <Calendar size={16} />
+                                    <span>Review: {selectedArticle.reviewDate}</span>
+                                </div>
+                            )}
                         </div>
                     </div>
 
-                    <div className="p-8 md:p-12 text-slate-700 leading-relaxed text-lg whitespace-pre-wrap">
-                        {selectedArticle.content}
+                    <div className="p-8 md:p-12 text-slate-700 leading-relaxed text-lg">
+                        {/* Render Markdown Content */}
+                        <div className="prose prose-slate prose-lg max-w-none">
+                            {renderMarkdown(selectedArticle.content)}
+                        </div>
                     </div>
 
                     <div className="bg-slate-50 p-8 border-t border-slate-100">
@@ -438,9 +598,10 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                                         {article.title}
                                     </h3>
                                     
-                                    <p className="text-slate-500 text-sm line-clamp-3 mb-6 flex-1">
-                                        {article.content}
-                                    </p>
+                                    <div className="text-slate-500 text-sm line-clamp-3 mb-6 flex-1 opacity-80">
+                                        {/* Simple text preview without markdown syntax for list view */}
+                                        {article.content.replace(/[#*]/g, '')}
+                                    </div>
 
                                     <div className="flex items-center justify-between pt-4 border-t border-slate-50 text-xs text-slate-400 font-medium">
                                         <span>{article.lastUpdated}</span>

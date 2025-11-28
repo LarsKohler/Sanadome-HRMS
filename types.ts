@@ -80,6 +80,7 @@ export interface KnowledgeArticle {
   
   views: number;
   isPinned?: boolean; // Featured articles
+  reviewDate?: string; // New: Reminder to update article
 }
 
 // --- BADGE SYSTEM TYPES ---
