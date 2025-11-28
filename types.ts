@@ -299,6 +299,7 @@ export interface PersonalDevelopmentGoal {
     linkedEvaluationId?: string;
     
     supportLevel?: 'Low' | 'Medium' | 'High'; // New: Intensity of guidance needed
+    managementNotes?: string; // New: Internal notes for the manager about this trajectory
 
     // Timeline / Check-ins
     checkIns: InterimCheckIn[]; 

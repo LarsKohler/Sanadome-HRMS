@@ -1,7 +1,8 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
     ClipboardCheck, Plus, Search, Calendar, User, ArrowRight, Play, CheckCircle, Clock, 
-    AlertCircle, BarChart3, ChevronRight, MessageSquare, BrainCircuit, X, Target, PenTool, TrendingUp, AlertTriangle, FileCheck, Star, Split, Lock, Unlock, Eye, EyeOff, Printer, PenLine, History, ArrowLeft, Check, TrendingDown, Minus, BookOpen, Compass, Trash2, CalendarDays, Activity, Signal, Edit, Save, MoreHorizontal, Flag, Milestone, Trophy
+    AlertCircle, BarChart3, ChevronRight, MessageSquare, BrainCircuit, X, Target, PenTool, TrendingUp, AlertTriangle, FileCheck, Star, Split, Lock, Unlock, Eye, EyeOff, Printer, PenLine, History, ArrowLeft, Check, TrendingDown, Minus, BookOpen, Compass, Trash2, CalendarDays, Activity, Signal, Edit, Save, MoreHorizontal, Flag, Milestone, Trophy, FileText, Settings, LayoutDashboard
 } from 'lucide-react';
 import { Employee, EvaluationCycle, Notification, ViewState, EvaluationScore, EvaluationGoal, EvaluationStatus, PersonalDevelopmentGoal, InterimCheckIn } from '../types';
 import { EVALUATION_TEMPLATES, MOCK_DEVELOPMENT_LIBRARY } from '../utils/mockData';
@@ -80,6 +81,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   // Goal Management State (Trajectories View)
   const [managingGoalData, setManagingGoalData] = useState<ManagingGoalData | null>(null);
   const [isManageGoalModalOpen, setIsManageGoalModalOpen] = useState(false);
+  const [cockpitTab, setCockpitTab] = useState<'details' | 'planning' | 'logs'>('details');
 
   // Signatures State
   const [isSigning, setIsSigning] = useState(false);
@@ -359,6 +361,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
   const handleOpenManageGoal = (employeeId: string, goal: PersonalDevelopmentGoal) => {
       setManagingGoalData({ employeeId, goal: JSON.parse(JSON.stringify(goal)) }); // Deep copy
+      setCockpitTab('details');
       setIsManageGoalModalOpen(true);
   };
 
@@ -414,6 +417,38 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
       setIsManageGoalModalOpen(false);
       onShowToast("Traject succesvol bijgewerkt.");
+  };
+
+  const handleManualAddCheckIn = () => {
+      if (!managingGoalData) return;
+      const today = new Date().toLocaleDateString('nl-NL');
+      const newCheckIn: InterimCheckIn = {
+          id: Math.random().toString(36).substr(2, 9),
+          date: today,
+          status: 'Planned',
+          score: 0
+      };
+      
+      // Insert into array and sort by date
+      const currentCheckIns = [...managingGoalData.goal.checkIns, newCheckIn];
+      currentCheckIns.sort((a,b) => parseNLDate(a.date).getTime() - parseNLDate(b.date).getTime());
+
+      setManagingGoalData({
+          ...managingGoalData,
+          goal: { ...managingGoalData.goal, checkIns: currentCheckIns }
+      });
+      onShowToast("Nieuwe check-in toegevoegd.");
+  };
+
+  const handleDeleteCheckIn = (checkInId: string) => {
+      if (!managingGoalData) return;
+      if (!confirm("Check-in verwijderen?")) return;
+
+      const newCheckIns = managingGoalData.goal.checkIns.filter(ci => ci.id !== checkInId);
+      setManagingGoalData({
+          ...managingGoalData,
+          goal: { ...managingGoalData.goal, checkIns: newCheckIns }
+      });
   };
 
   const handleDeleteGoal = () => {
@@ -748,9 +783,9 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                           <td className="px-6 py-4 text-right">
                                               <button 
                                                 onClick={() => handleOpenManageGoal(employee.id, goal)}
-                                                className="p-2 bg-white border border-slate-200 text-slate-500 hover:text-teal-600 hover:border-teal-200 rounded-lg transition-all shadow-sm"
+                                                className="px-3 py-1.5 bg-white border border-slate-200 text-slate-600 font-bold text-xs hover:text-teal-600 hover:border-teal-200 rounded-lg transition-all shadow-sm flex items-center gap-2 ml-auto"
                                               >
-                                                  <Edit size={16} />
+                                                  <Settings size={14} /> Beheer
                                               </button>
                                           </td>
                                       </tr>
@@ -1459,6 +1494,219 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       );
   };
 
+  const renderTrajectoryCockpit = () => {
+      if (!managingGoalData) return null;
+      const { goal, employeeId } = managingGoalData;
+      const emp = employees.find(e => e.id === employeeId);
+
+      return (
+          <div className="space-y-6">
+              {/* Header */}
+              <div className="flex items-center gap-4 p-4 bg-slate-900 text-white rounded-xl shadow-lg">
+                  <div className="p-2 bg-white/10 rounded-lg">
+                      <Target size={24} className="text-teal-400" />
+                  </div>
+                  <div className="flex-1">
+                      <h4 className="font-bold text-lg">{goal.title}</h4>
+                      <p className="text-xs text-slate-300 flex items-center gap-2">
+                          <User size={12} /> {emp?.name} • Start: {goal.startDate}
+                      </p>
+                  </div>
+                  <div className="text-right">
+                      <div className="text-2xl font-bold">{goal.progress}%</div>
+                      <div className="text-[10px] uppercase text-slate-400 tracking-wider">Progressie</div>
+                  </div>
+              </div>
+
+              {/* Navigation */}
+              <div className="flex border-b border-slate-200">
+                  {['details', 'planning', 'logs'].map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setCockpitTab(tab as any)}
+                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
+                            cockpitTab === tab 
+                            ? 'border-teal-600 text-teal-700' 
+                            : 'border-transparent text-slate-500 hover:text-slate-800'
+                        }`}
+                      >
+                          {tab === 'details' && <Settings size={16}/>}
+                          {tab === 'planning' && <Calendar size={16}/>}
+                          {tab === 'logs' && <FileText size={16}/>}
+                          {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                      </button>
+                  ))}
+              </div>
+
+              <div className="min-h-[300px]">
+                  {cockpitTab === 'details' && (
+                      <div className="space-y-4 animate-in fade-in slide-in-from-left-2">
+                          <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Titel Traject</label>
+                              <input 
+                                type="text" 
+                                className="w-full p-2 border border-slate-200 rounded-lg font-bold text-slate-900"
+                                value={goal.title}
+                                onChange={(e) => setManagingGoalData({...managingGoalData, goal: {...goal, title: e.target.value}})}
+                              />
+                          </div>
+                          <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Beschrijving</label>
+                              <textarea 
+                                rows={2}
+                                className="w-full p-2 border border-slate-200 rounded-lg text-sm"
+                                value={goal.description}
+                                onChange={(e) => setManagingGoalData({...managingGoalData, goal: {...goal, description: e.target.value}})}
+                              />
+                          </div>
+                          <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Actieplan</label>
+                              <textarea 
+                                rows={4}
+                                className="w-full p-2 border border-slate-200 rounded-lg text-sm font-medium"
+                                value={goal.actionPlan}
+                                onChange={(e) => setManagingGoalData({...managingGoalData, goal: {...goal, actionPlan: e.target.value}})}
+                              />
+                          </div>
+                          <div className="flex gap-4">
+                              <div className="flex-1">
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Support Level</label>
+                                  <select 
+                                    className="w-full p-2 border border-slate-200 rounded-lg text-sm font-bold"
+                                    value={goal.supportLevel || 'Medium'}
+                                    onChange={(e) => setManagingGoalData({...managingGoalData, goal: {...goal, supportLevel: e.target.value as any}})}
+                                  >
+                                      <option value="High">Intensief (High)</option>
+                                      <option value="Medium">Normaal (Medium)</option>
+                                      <option value="Low">Zelfstandig (Low)</option>
+                                  </select>
+                              </div>
+                              <div className="flex-1">
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Status</label>
+                                  <select 
+                                    className="w-full p-2 border border-slate-200 rounded-lg text-sm font-bold"
+                                    value={goal.status}
+                                    onChange={(e) => setManagingGoalData({...managingGoalData, goal: {...goal, status: e.target.value as any}})}
+                                  >
+                                      <option value="Not Started">Nog niet gestart</option>
+                                      <option value="In Progress">In Uitvoering</option>
+                                      <option value="Completed">Afgerond</option>
+                                  </select>
+                              </div>
+                          </div>
+                      </div>
+                  )}
+
+                  {cockpitTab === 'planning' && (
+                      <div className="space-y-4 animate-in fade-in slide-in-from-right-2">
+                          <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
+                              <div>
+                                  <span className="text-xs font-bold text-slate-500 uppercase block">Huidige Deadline</span>
+                                  <input 
+                                    type="date" 
+                                    className="bg-transparent font-bold text-slate-900 border-none p-0 focus:ring-0"
+                                    value={safeDateToInput(goal.deadline)}
+                                    onChange={(e) => {
+                                        const d = new Date(e.target.value);
+                                        if(!isNaN(d.getTime())) {
+                                            setManagingGoalData({...managingGoalData, goal: {...goal, deadline: d.toLocaleDateString('nl-NL')}});
+                                        }
+                                    }}
+                                  />
+                              </div>
+                              <button onClick={handleManualAddCheckIn} className="text-xs font-bold text-teal-600 bg-white border border-teal-200 px-3 py-1.5 rounded-lg hover:bg-teal-50 transition-colors shadow-sm">
+                                  + Extra Check-in
+                              </button>
+                          </div>
+
+                          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
+                              {goal.checkIns?.map((ci, idx) => (
+                                  <div key={ci.id} className="flex items-center gap-3 p-3 border rounded-xl bg-white hover:border-slate-300 transition-colors group">
+                                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">
+                                          #{idx + 1}
+                                      </div>
+                                      <div className="flex-1">
+                                          {ci.status === 'Completed' ? (
+                                              <div>
+                                                  <div className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                                                      <CheckCircle size={14} className="text-green-500"/> {ci.date}
+                                                  </div>
+                                                  <div className="text-xs text-slate-500">Score: {ci.score}%</div>
+                                              </div>
+                                          ) : (
+                                              <input 
+                                                  type="date"
+                                                  className="w-full p-1 border border-slate-200 rounded text-sm font-medium text-slate-700 focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
+                                                  defaultValue={safeDateToInput(ci.date)}
+                                                  onChange={(e) => {
+                                                      const date = new Date(e.target.value);
+                                                      if (!isNaN(date.getTime())) {
+                                                          const newDateStr = date.toLocaleDateString('nl-NL');
+                                                          const newCheckIns = [...goal.checkIns];
+                                                          newCheckIns[idx] = { ...ci, date: newDateStr };
+                                                          setManagingGoalData({
+                                                              ...managingGoalData,
+                                                              goal: { ...goal, checkIns: newCheckIns }
+                                                          });
+                                                      }
+                                                  }}
+                                              />
+                                          )}
+                                      </div>
+                                      {ci.status !== 'Completed' && (
+                                          <button onClick={() => handleDeleteCheckIn(ci.id)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                                              <Trash2 size={16}/>
+                                          </button>
+                                      )}
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+                  )}
+
+                  {cockpitTab === 'logs' && (
+                      <div className="space-y-4 animate-in fade-in">
+                          <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl text-sm text-amber-800 flex gap-2">
+                              <Lock size={16} className="shrink-0 mt-0.5"/>
+                              <p>Deze notities zijn alleen zichtbaar voor managers en worden niet gedeeld met de medewerker.</p>
+                          </div>
+                          <textarea 
+                            className="w-full h-48 p-4 border border-slate-200 rounded-xl text-sm leading-relaxed focus:ring-2 focus:ring-teal-500 outline-none resize-none"
+                            placeholder="Houd hier interne voortgangsnotities bij..."
+                            value={goal.managementNotes || ''}
+                            onChange={(e) => setManagingGoalData({...managingGoalData, goal: {...goal, managementNotes: e.target.value}})}
+                          />
+                      </div>
+                  )}
+              </div>
+
+              {/* Footer Actions */}
+              <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
+                  <button 
+                    onClick={handleDeleteGoal}
+                    className="text-red-600 font-bold text-sm px-4 py-2 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
+                  >
+                      <Trash2 size={16}/> Verwijder Traject
+                  </button>
+                  <div className="flex gap-3">
+                      <button 
+                        onClick={() => setIsManageGoalModalOpen(false)}
+                        className="px-4 py-2 text-slate-500 font-bold text-sm hover:bg-slate-50 rounded-lg"
+                      >
+                          Annuleren
+                      </button>
+                      <button 
+                        onClick={handleSaveGoalChanges}
+                        className="px-6 py-2 bg-slate-900 text-white font-bold text-sm rounded-lg shadow-md hover:bg-slate-800 transition-all flex items-center gap-2"
+                      >
+                          <Save size={16}/> Opslaan
+                      </button>
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
   return (
     <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
         {selectedEvaluationId ? renderWizard() : renderDashboard()}
@@ -1535,95 +1783,13 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
             </div>
         </Modal>
 
-        {/* Goal Management Modal (NEW) */}
+        {/* Goal Management Cockpit (Revised Modal) */}
         <Modal
             isOpen={isManageGoalModalOpen}
             onClose={() => setIsManageGoalModalOpen(false)}
-            title="Beheer Traject"
+            title="Traject Beheer Cockpit"
         >
-            {managingGoalData && (
-                <div className="space-y-6">
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                        <h4 className="font-bold text-slate-900">{managingGoalData.goal.title}</h4>
-                        <p className="text-xs text-slate-500 mt-1">Startdatum: {managingGoalData.goal.startDate}</p>
-                    </div>
-
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Deadline</label>
-                        <div className="flex gap-2">
-                            <input 
-                                type="date" 
-                                className="w-full rounded-xl border border-slate-200 p-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none"
-                                value={safeDateToInput(managingGoalData.goal.deadline)}
-                                onChange={(e) => {
-                                    // Keep format consistent dd-mm-yyyy or similar based on locale, but input uses yyyy-mm-dd
-                                    const date = new Date(e.target.value);
-                                    if (!isNaN(date.getTime())) {
-                                        setManagingGoalData({
-                                            ...managingGoalData,
-                                            goal: { ...managingGoalData.goal, deadline: date.toLocaleDateString('nl-NL') }
-                                        });
-                                    }
-                                }}
-                            />
-                        </div>
-                        <p className="text-[10px] text-slate-400 mt-1">Pas de datum aan om het traject te verlengen of verkorten.</p>
-                    </div>
-
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Check-in Planning</label>
-                        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-                            {managingGoalData.goal.checkIns?.map((ci, idx) => (
-                                <div key={ci.id} className="flex items-center gap-3 p-3 border rounded-xl bg-white">
-                                    <span className="text-xs font-bold text-slate-400 w-6">#{idx+1}</span>
-                                    <div className="flex-1">
-                                        {ci.status === 'Completed' ? (
-                                            <div className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                                                <CheckCircle size={14} className="text-green-500"/>
-                                                {ci.date} (Voltooid)
-                                            </div>
-                                        ) : (
-                                            <input 
-                                                type="date"
-                                                className="w-full p-1.5 border border-slate-200 rounded text-sm font-medium text-slate-700"
-                                                defaultValue={safeDateToInput(ci.date)}
-                                                onChange={(e) => {
-                                                    const date = new Date(e.target.value);
-                                                    if (!isNaN(date.getTime())) {
-                                                        const newDateStr = date.toLocaleDateString('nl-NL');
-                                                        const newCheckIns = [...managingGoalData.goal.checkIns];
-                                                        newCheckIns[idx] = { ...ci, date: newDateStr };
-                                                        setManagingGoalData({
-                                                            ...managingGoalData,
-                                                            goal: { ...managingGoalData.goal, checkIns: newCheckIns }
-                                                        });
-                                                    }
-                                                }}
-                                            />
-                                        )}
-                                    </div>
-                                    <div className={`w-2 h-2 rounded-full ${ci.status === 'Completed' ? 'bg-green-500' : 'bg-amber-500'}`}></div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="flex gap-3 pt-4 border-t border-slate-100">
-                        <button 
-                            onClick={handleDeleteGoal}
-                            className="px-4 py-3 bg-white border border-red-100 text-red-600 rounded-xl font-bold text-sm hover:bg-red-50 transition-colors"
-                        >
-                            <Trash2 size={18}/>
-                        </button>
-                        <button 
-                            onClick={handleSaveGoalChanges}
-                            className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-colors shadow-sm"
-                        >
-                            Wijzigingen Opslaan
-                        </button>
-                    </div>
-                </div>
-            )}
+            {renderTrajectoryCockpit()}
         </Modal>
     </div>
   );
