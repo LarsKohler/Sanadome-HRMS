@@ -192,6 +192,14 @@ const TopNav: React.FC<TopNavProps> = ({
               </div>
               
               <button 
+                onClick={() => onNavigate(ViewState.HOME)}
+                className="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2 transition-colors"
+              >
+                <User size={16} />
+                Mijn Profiel
+              </button>
+
+              <button 
                 onClick={onLogout}
                 className="w-full text-left px-4 py-3 text-sm font-bold text-slate-600 hover:bg-red-50 hover:text-red-600 flex items-center gap-2 transition-colors"
               >

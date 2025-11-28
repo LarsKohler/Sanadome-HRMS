@@ -1,17 +1,11 @@
 
-
-
-
-
-
-
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Briefcase, MapPin, 
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Ticket, Circle, Newspaper, Medal, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Trophy, Star, Eye
+  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Ticket, Circle, Newspaper, Medal, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Trophy, Star, Eye, ArrowLeft
 } from 'lucide-react';
 import { Employee, LeaveRequest, EmployeeNote, EmployeeDocument, Notification, ViewState, Ticket as TicketType, NewsPost, BadgeDefinition } from '../types';
 import { Modal } from './Modal';
@@ -20,25 +14,29 @@ import { api } from '../utils/api';
 import { hasPermission } from '../utils/permissions';
 
 interface EmployeeProfileProps {
-  employee: Employee;
+  employee: Employee; // The profile being viewed
+  currentUser: Employee; // The person viewing the profile
   onNext: () => void;
   onPrevious: () => void;
   onChangeView: (view: ViewState) => void;
   onUpdateEmployee: (updatedEmployee: Employee) => void;
   onAddNotification: (notification: Notification) => void;
   onShowToast: (message: string) => void;
+  onBack?: () => void; // Function to go back to directory or home
   managers: Employee[];
   latestNews?: NewsPost | null;
 }
 
 const EmployeeProfile: React.FC<EmployeeProfileProps> = ({ 
   employee, 
+  currentUser,
   onNext, 
   onPrevious,
   onChangeView,
   onUpdateEmployee,
   onAddNotification,
   onShowToast,
+  onBack,
   managers,
   latestNews
 }) => {
@@ -48,13 +46,18 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
+  // Security Check
+  const isOwnProfile = employee.id === currentUser.id;
+  const isManager = hasPermission(currentUser, 'MANAGE_EMPLOYEES');
+  const canEdit = isOwnProfile || isManager;
+
   // Note State
   const [noteTitle, setNoteTitle] = useState('');
   const [noteCategory, setNoteCategory] = useState<'General' | 'Performance' | 'Verzuim' | 'Gesprek' | 'Incident'>('General');
   const [noteContent, setNoteContent] = useState('');
   const [noteVisible, setNoteVisible] = useState(true);
   const [noteImpact, setNoteImpact] = useState<'Positive' | 'Negative' | 'Neutral'>('Neutral');
-  const [noteScore, setNoteScore] = useState(0); // 0-5
+  const [noteScore, setNoteScore] = useState(0); 
 
   // Onboarding Template State
   const [templateTitle, setTemplateTitle] = useState<string>('');
@@ -68,7 +71,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   // Badges Definitions State
   const [badgeDefinitions, setBadgeDefinitions] = useState<BadgeDefinition[]>([]);
 
-  // Load Template Name correctly
+  // Load Template Name
   useEffect(() => {
       const fetchTemplateName = async () => {
           if (employee.activeTemplateId) {
@@ -87,16 +90,16 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
           }
       };
       
-      if (employee.onboardingStatus === 'Active') {
+      if (employee.onboardingStatus === 'Active' && (isOwnProfile || isManager)) {
           fetchTemplateName();
       }
-  }, [employee.activeTemplateId, employee.onboardingStatus, employee.onboardingTasks]);
+  }, [employee.activeTemplateId, employee.onboardingStatus, employee.onboardingTasks, isOwnProfile, isManager]);
 
   // Fetch Data for Dashboard and Badges
   useEffect(() => {
       const loadDashboardData = async () => {
-          // Debtors
-          if (hasPermission(employee, 'MANAGE_DEBTORS')) {
+          // Only load sensitive data if own profile or manager
+          if (isOwnProfile && hasPermission(employee, 'MANAGE_DEBTORS')) {
               try {
                   const debtors = await api.getDebtors();
                   const urgent = debtors.filter(d => {
@@ -113,19 +116,21 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
               }
           }
 
-          // Tickets
-          try {
-              const allTickets = await api.getTickets();
-              const mine = allTickets
-                  .filter(t => t.submittedById === employee.id && t.status !== 'Closed')
-                  .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
-                  .slice(0, 3);
-              setMyTickets(mine);
-          } catch (e) {
-              console.error("Failed to load tickets", e);
+          // Tickets (Own only)
+          if (isOwnProfile) {
+              try {
+                  const allTickets = await api.getTickets();
+                  const mine = allTickets
+                      .filter(t => t.submittedById === employee.id && t.status !== 'Closed')
+                      .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
+                      .slice(0, 3);
+                  setMyTickets(mine);
+              } catch (e) {
+                  console.error("Failed to load tickets", e);
+              }
           }
 
-          // Badges
+          // Badges (Always load, public info)
           try {
               const defs = await api.getBadges();
               setBadgeDefinitions(defs);
@@ -134,24 +139,34 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
           }
       };
       loadDashboardData();
-  }, [employee]);
+  }, [employee, isOwnProfile]);
 
   const tabs = useMemo(() => {
-    const baseTabs = ['Overzicht', 'Carrière', 'Evaluatie'];
-    
-    const hasActiveTasks = employee.onboardingTasks && employee.onboardingTasks.length > 0;
-    const isStatusActive = employee.onboardingStatus === 'Active';
-    const hasActive = isStatusActive && hasActiveTasks;
-    const hasHistory = employee.onboardingHistory && employee.onboardingHistory.length > 0;
+    // PUBLIC TABS
+    const availableTabs = ['Overzicht'];
 
-    if (hasActive || hasHistory) {
-        baseTabs.push('Onboarding');
+    if (isOwnProfile || isManager) {
+        // PRIVATE / MANAGEMENT TABS
+        availableTabs.push('Carrière');
+        availableTabs.push('Evaluatie');
+        
+        const hasActiveTasks = employee.onboardingTasks && employee.onboardingTasks.length > 0;
+        const isStatusActive = employee.onboardingStatus === 'Active';
+        const hasActive = isStatusActive && hasActiveTasks;
+        const hasHistory = employee.onboardingHistory && employee.onboardingHistory.length > 0;
+
+        if (hasActive || hasHistory) {
+            availableTabs.push('Onboarding');
+        }
+        
+        availableTabs.push('Documenten');
+    } else {
+        // VISITOR TABS
+        availableTabs.push('Contact');
     }
     
-    baseTabs.push('Documenten');
-    
-    return baseTabs;
-  }, [employee.onboardingStatus, employee.onboardingHistory, employee.onboardingTasks]);
+    return availableTabs;
+  }, [employee.onboardingStatus, employee.onboardingHistory, employee.onboardingTasks, isOwnProfile, isManager]);
 
   useEffect(() => {
       if (!tabs.includes(activeTab)) {
@@ -160,6 +175,8 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   }, [tabs, activeTab]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'banner') => {
+    if (!isOwnProfile) return; // Security check
+
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -194,7 +211,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       category: noteCategory,
       content: noteContent,
       date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
-      author: employee.name,
+      author: currentUser.name, // Author is the one logged in
       visibleToEmployee: noteVisible,
       impact: noteImpact,
       score: noteImpact === 'Neutral' ? 0 : (noteImpact === 'Negative' ? -Math.abs(noteScore) : Math.abs(noteScore))
@@ -245,7 +262,47 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       }
   };
 
-  // --- COMPONENT RENDERS ---
+  // --- RENDER SECTIONS ---
+
+  const renderBadges = () => {
+      if (!employee.badges || employee.badges.length === 0) {
+          if (!isOwnProfile) return <div className="text-sm text-slate-400 italic p-4">Nog geen badges behaald.</div>;
+          return null;
+      }
+
+      return (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+              <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider flex items-center gap-2">
+                  <Medal size={16} className="text-teal-600" /> Verzameling & Waardering
+              </h3>
+              <div className="grid grid-cols-4 gap-3">
+                  {employee.badges.map((assigned) => {
+                      const def = badgeDefinitions.find(b => b.id === assigned.badgeId);
+                      if (!def) return null;
+                      
+                      return (
+                          <div key={assigned.id} className="group relative flex justify-center">
+                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm border-2 transition-transform hover:scale-110 cursor-help ${getBadgeColorClasses(def.color)}`}>
+                                  {getBadgeIcon(def.icon)}
+                              </div>
+                              
+                              {/* Tooltip */}
+                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-xs rounded-xl p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 shadow-xl">
+                                  <div className="font-bold text-sm mb-1">{def.name}</div>
+                                  <div className="opacity-90 mb-2 leading-tight">{def.description}</div>
+                                  <div className="border-t border-slate-600 pt-2 text-[10px] text-slate-400">
+                                      Uitgereikt door {assigned.assignedBy}<br/>
+                                      {assigned.assignedAt}
+                                  </div>
+                                  <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-800"></div>
+                              </div>
+                          </div>
+                      );
+                  })}
+              </div>
+          </div>
+      );
+  };
 
   const renderDashboardOverview = () => {
       // Calculate Tenure
@@ -255,232 +312,191 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       const diffYears = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 365));
       const diffMonths = Math.floor((diffTime % (1000 * 60 * 60 * 24 * 365)) / (1000 * 60 * 60 * 24 * 30));
 
-      // Task & Stats Calculation
+      // Actions (Only for owner/manager)
       const openOnboardingTasks = employee.onboardingTasks?.filter(t => t.score !== 100) || [];
       const pendingEvaluations = employee.evaluations?.filter(ev => ev.status === 'EmployeeInput' || ev.status === 'ManagerInput') || [];
-      const annualLeave = employee.leaveBalances?.find(b => b.type === 'Annual Leave');
-      const leavePercentage = annualLeave ? Math.round(((annualLeave.entitled - annualLeave.taken) / annualLeave.entitled) * 100) : 0;
-
       const totalActions = openOnboardingTasks.length + pendingEvaluations.length + urgentDebtCount;
 
       return (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               
-              {/* VITAL STATS ROW - Refined */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  
-                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-                      <div className={`p-3 rounded-lg ${totalActions > 0 ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-600'}`}>
-                          <ListTodo size={22} />
-                      </div>
-                      <div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Open Taken</div>
-                          <div className="text-lg font-bold text-slate-900">{totalActions}</div>
-                      </div>
-                  </div>
-
-                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-                      <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
-                          <Ticket size={22} />
-                      </div>
-                      <div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mijn Tickets</div>
-                          <div className="text-lg font-bold text-slate-900">{myTickets.length}</div>
-                      </div>
-                  </div>
-
-                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4 cursor-pointer hover:border-teal-300 transition-colors" onClick={() => onShowToast('Verlof module binnenkort beschikbaar')}>
-                      <div className="relative w-12 h-12 flex-shrink-0">
-                           <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                                <path className="text-slate-100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                                <path className="text-teal-500" strokeDasharray={`${leavePercentage}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                           </svg>
-                           <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-teal-700">{annualLeave ? annualLeave.entitled - annualLeave.taken : 0}d</div>
-                      </div>
-                      <div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Verlof Saldo</div>
-                          <div className="text-xs text-slate-500">Beschikbaar</div>
-                      </div>
-                  </div>
-
-                  <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-                      <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-                          <Award size={22} />
-                      </div>
-                      <div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dienstverband</div>
-                          <div className="text-lg font-bold text-slate-900">
-                              {diffYears > 0 ? `${diffYears}j, ${diffMonths}m` : `${diffMonths} Mnd`}
-                          </div>
-                      </div>
-                  </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  
-                  {/* MAIN COLUMN: ACTION CENTER & FEEDS */}
-                  <div className="lg:col-span-2 space-y-6">
+              {/* VITAL STATS ROW (Private/Manager only) */}
+              {(isOwnProfile || isManager) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                       
-                      {/* Unified Action Center */}
-                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                              <h3 className="font-bold text-slate-900 flex items-center gap-2 text-sm uppercase tracking-wide">
-                                  <Zap size={16} className="text-amber-500" fill="currentColor" /> Actie Centrum
-                              </h3>
+                      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                          <div className={`p-3 rounded-lg ${totalActions > 0 ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-600'}`}>
+                              <ListTodo size={22} />
                           </div>
-                          
-                          <div className="divide-y divide-slate-50">
-                              {urgentDebtCount > 0 && (
-                                  <div className="p-4 hover:bg-red-50/30 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.DEBT_CONTROL)}>
-                                      <div className="p-2 bg-red-100 text-red-600 rounded-lg">
-                                          <AlertTriangle size={18} />
-                                      </div>
-                                      <div className="flex-1">
-                                          <div className="text-sm font-bold text-red-900">Debiteuren Beheer</div>
-                                          <div className="text-xs text-red-700">{urgentDebtCount} dossiers vereisen directe opvolging.</div>
-                                      </div>
-                                      <ChevronRight size={16} className="text-slate-300 group-hover:text-red-600" />
-                                  </div>
-                              )}
-
-                              {pendingEvaluations.map(ev => (
-                                  <div key={ev.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.EVALUATIONS)}>
-                                      <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
-                                          <ClipboardCheck size={18} />
-                                      </div>
-                                      <div className="flex-1">
-                                          <div className="text-sm font-bold text-slate-900">Evaluatie: {ev.type}</div>
-                                          <div className="text-xs text-slate-500">Jouw input wordt verwacht.</div>
-                                      </div>
-                                      <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
-                                  </div>
-                              ))}
-
-                              {openOnboardingTasks.slice(0, 3).map(task => (
-                                  <div key={task.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.ONBOARDING)}>
-                                      <div className="p-2 bg-teal-100 text-teal-600 rounded-lg">
-                                          <ListTodo size={18} />
-                                      </div>
-                                      <div className="flex-1">
-                                          <div className="text-sm font-bold text-slate-900">{task.title}</div>
-                                          <div className="text-xs text-slate-500">Onboarding Week {task.week}</div>
-                                      </div>
-                                      <ChevronRight size={16} className="text-slate-300 group-hover:text-teal-600" />
-                                  </div>
-                              ))}
-
-                              {totalActions === 0 && (
-                                  <div className="p-8 text-center">
-                                      <div className="w-10 h-10 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3">
-                                          <CheckCircle2 size={20} />
-                                      </div>
-                                      <p className="text-sm font-bold text-slate-900">Alles is bijgewerkt!</p>
-                                      <p className="text-xs text-slate-500">Geen openstaande acties.</p>
-                                  </div>
-                              )}
+                          <div>
+                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Open Taken</div>
+                              <div className="text-lg font-bold text-slate-900">{totalActions}</div>
                           </div>
                       </div>
 
-                      {/* Personal Tickets Widget */}
-                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                          <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
-                              <h3 className="font-bold text-slate-900 text-sm uppercase tracking-wide flex items-center gap-2">
-                                  <Ticket size={16} /> Mijn Lopende Tickets
-                              </h3>
-                              <button onClick={() => onChangeView(ViewState.TICKETS)} className="text-xs font-bold text-slate-500 hover:text-slate-900">Bekijk Alles</button>
+                      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                          <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
+                              <Ticket size={22} />
                           </div>
-                          <div className="divide-y divide-slate-50">
-                              {myTickets.length > 0 ? myTickets.map(t => (
-                                  <div key={t.id} className="p-4 hover:bg-slate-50 flex items-center gap-3 group cursor-pointer" onClick={() => onChangeView(ViewState.TICKETS)}>
-                                      <div className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                                          t.status === 'Open' ? 'bg-blue-500' : 
-                                          t.status === 'In Progress' ? 'bg-amber-500' : 'bg-green-500'
-                                      }`}></div>
-                                      <div className="flex-1 min-w-0">
-                                          <div className="text-sm font-bold text-slate-900 truncate">{t.title}</div>
-                                          <div className="text-xs text-slate-500 flex gap-2">
-                                              <span>{t.status}</span>
-                                              <span>•</span>
-                                              <span>{new Date(t.submittedAt).toLocaleDateString()}</span>
-                                          </div>
-                                      </div>
-                                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                                          t.priority === 'High' ? 'bg-red-50 text-red-600 border-red-100' : 
-                                          'bg-slate-50 text-slate-500 border-slate-100'
-                                      }`}>
-                                          {t.priority}
-                                      </span>
-                                  </div>
-                              )) : (
-                                  <div className="p-6 text-center text-xs text-slate-400">
-                                      Geen lopende tickets.
-                                  </div>
-                              )}
+                          <div>
+                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mijn Tickets</div>
+                              <div className="text-lg font-bold text-slate-900">{isOwnProfile ? myTickets.length : '-'}</div>
                           </div>
                       </div>
 
-                      {/* Recent Documents / Activity */}
-                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                          <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider flex items-center gap-2">
-                              <FileText size={16}/> Recente Bestanden
-                          </h3>
-                          <div className="relative border-l-2 border-slate-100 ml-2 space-y-6 pl-6">
-                              {employee.documents.slice(0, 2).map((doc, i) => (
-                                  <div key={i} className="relative group cursor-pointer" onClick={() => onChangeView(ViewState.DOCUMENTS)}>
-                                      <div className="absolute -left-[31px] top-0 w-3 h-3 bg-blue-500 rounded-full ring-4 ring-white group-hover:scale-125 transition-transform"></div>
-                                      <p className="text-xs text-slate-400 font-bold mb-0.5">{doc.date}</p>
-                                      <p className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{doc.name}</p>
-                                      <p className="text-xs text-slate-500">{doc.category}</p>
-                                  </div>
-                              ))}
-                              <div className="relative">
-                                  <div className="absolute -left-[31px] top-0 w-3 h-3 bg-slate-300 rounded-full ring-4 ring-white"></div>
-                                  <p className="text-xs text-slate-400 font-bold mb-0.5">{employee.hiredOn}</p>
-                                  <p className="text-sm font-bold text-slate-800">In dienst getreden</p>
+                      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4 cursor-pointer hover:border-teal-300 transition-colors" onClick={() => onShowToast('Verlof module binnenkort beschikbaar')}>
+                          <div className="relative w-12 h-12 flex-shrink-0">
+                               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                    <path className="text-slate-100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                                    <path className="text-teal-500" strokeDasharray={`${isOwnProfile ? 60 : 0}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                               </svg>
+                               <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-teal-700">{isOwnProfile ? 25 : '-'}d</div>
+                          </div>
+                          <div>
+                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Verlof Saldo</div>
+                              <div className="text-xs text-slate-500">Beschikbaar</div>
+                          </div>
+                      </div>
+
+                      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+                          <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
+                              <Award size={22} />
+                          </div>
+                          <div>
+                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dienstverband</div>
+                              <div className="text-lg font-bold text-slate-900">
+                                  {diffYears > 0 ? `${diffYears}j, ${diffMonths}m` : `${diffMonths} Mnd`}
                               </div>
                           </div>
                       </div>
+                  </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  
+                  {/* MAIN COLUMN */}
+                  <div className="lg:col-span-2 space-y-6">
+                      
+                      {/* Action Center (Only Own Profile/Manager) */}
+                      {(isOwnProfile || isManager) && (
+                          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                                  <h3 className="font-bold text-slate-900 flex items-center gap-2 text-sm uppercase tracking-wide">
+                                      <Zap size={16} className="text-amber-500" fill="currentColor" /> Actie Centrum
+                                  </h3>
+                              </div>
+                              
+                              <div className="divide-y divide-slate-50">
+                                  {urgentDebtCount > 0 && (
+                                      <div className="p-4 hover:bg-red-50/30 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.DEBT_CONTROL)}>
+                                          <div className="p-2 bg-red-100 text-red-600 rounded-lg">
+                                              <AlertTriangle size={18} />
+                                          </div>
+                                          <div className="flex-1">
+                                              <div className="text-sm font-bold text-red-900">Debiteuren Beheer</div>
+                                              <div className="text-xs text-red-700">{urgentDebtCount} dossiers vereisen directe opvolging.</div>
+                                          </div>
+                                          <ChevronRight size={16} className="text-slate-300 group-hover:text-red-600" />
+                                      </div>
+                                  )}
+
+                                  {pendingEvaluations.map(ev => (
+                                      <div key={ev.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.EVALUATIONS)}>
+                                          <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
+                                              <ClipboardCheck size={18} />
+                                          </div>
+                                          <div className="flex-1">
+                                              <div className="text-sm font-bold text-slate-900">Evaluatie: {ev.type}</div>
+                                              <div className="text-xs text-slate-500">Jouw input wordt verwacht.</div>
+                                          </div>
+                                          <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                                      </div>
+                                  ))}
+
+                                  {openOnboardingTasks.slice(0, 3).map(task => (
+                                      <div key={task.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.ONBOARDING)}>
+                                          <div className="p-2 bg-teal-100 text-teal-600 rounded-lg">
+                                              <ListTodo size={18} />
+                                          </div>
+                                          <div className="flex-1">
+                                              <div className="text-sm font-bold text-slate-900">{task.title}</div>
+                                              <div className="text-xs text-slate-500">Onboarding Week {task.week}</div>
+                                          </div>
+                                          <ChevronRight size={16} className="text-slate-300 group-hover:text-teal-600" />
+                                      </div>
+                                  ))}
+
+                                  {totalActions === 0 && (
+                                      <div className="p-8 text-center">
+                                          <div className="w-10 h-10 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                                              <CheckCircle2 size={20} />
+                                          </div>
+                                          <p className="text-sm font-bold text-slate-900">Alles is bijgewerkt!</p>
+                                          <p className="text-xs text-slate-500">Geen openstaande acties.</p>
+                                      </div>
+                                  )}
+                              </div>
+                          </div>
+                      )}
+
+                      {/* Visitor View: About / Bio Section */}
+                      {!isOwnProfile && (
+                          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                              <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider flex items-center gap-2">
+                                  <User size={16} className="text-teal-600"/> Over {employee.name.split(' ')[0]}
+                              </h3>
+                              <p className="text-slate-600 text-sm leading-relaxed">
+                                  {employee.name} werkt sinds {employee.hiredOn} bij Sanadome als {employee.role} binnen de afdeling {employee.departments.join(' & ')}.
+                              </p>
+                              
+                              <div className="mt-6">
+                                  <h4 className="font-bold text-slate-900 text-xs uppercase mb-3 flex items-center gap-2">
+                                      <Sparkles size={14} className="text-teal-600"/> Vaardigheden & Expertise
+                                  </h4>
+                                  <div className="flex flex-wrap gap-2">
+                                      {['Gastvrijheid', 'IDu PMS', 'Engels', 'Duits', 'Teamplayer'].map(tag => (
+                                          <span key={tag} className="px-3 py-1.5 bg-slate-50 text-slate-700 rounded-lg text-xs font-bold border border-slate-200">
+                                              {tag}
+                                          </span>
+                                      ))}
+                                  </div>
+                              </div>
+                          </div>
+                      )}
+
+                      {/* Recent Documents / Activity (Private) */}
+                      {(isOwnProfile || isManager) && (
+                          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                              <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider flex items-center gap-2">
+                                  <FileText size={16}/> Recente Bestanden
+                              </h3>
+                              <div className="relative border-l-2 border-slate-100 ml-2 space-y-6 pl-6">
+                                  {employee.documents.slice(0, 2).map((doc, i) => (
+                                      <div key={i} className="relative group cursor-pointer" onClick={() => onChangeView(ViewState.DOCUMENTS)}>
+                                          <div className="absolute -left-[31px] top-0 w-3 h-3 bg-blue-500 rounded-full ring-4 ring-white group-hover:scale-125 transition-transform"></div>
+                                          <p className="text-xs text-slate-400 font-bold mb-0.5">{doc.date}</p>
+                                          <p className="text-sm font-bold text-slate-800 group-hover:text-blue-600 transition-colors">{doc.name}</p>
+                                          <p className="text-xs text-slate-500">{doc.category}</p>
+                                      </div>
+                                  ))}
+                                  <div className="relative">
+                                      <div className="absolute -left-[31px] top-0 w-3 h-3 bg-slate-300 rounded-full ring-4 ring-white"></div>
+                                      <p className="text-xs text-slate-400 font-bold mb-0.5">{employee.hiredOn}</p>
+                                      <p className="text-sm font-bold text-slate-800">In dienst getreden</p>
+                                  </div>
+                              </div>
+                          </div>
+                      )}
                   </div>
 
                   {/* SIDEBAR COLUMN */}
                   <div className="space-y-6">
                       
-                      {/* BADGES SECTION */}
-                      {employee.badges && employee.badges.length > 0 && (
-                          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-                              <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider flex items-center gap-2">
-                                  <Medal size={16} className="text-teal-600" /> Verzameling & Waardering
-                              </h3>
-                              <div className="grid grid-cols-4 gap-3">
-                                  {employee.badges.map((assigned) => {
-                                      const def = badgeDefinitions.find(b => b.id === assigned.badgeId);
-                                      if (!def) return null;
-                                      
-                                      return (
-                                          <div key={assigned.id} className="group relative flex justify-center">
-                                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm border-2 transition-transform hover:scale-110 cursor-help ${getBadgeColorClasses(def.color)}`}>
-                                                  {getBadgeIcon(def.icon)}
-                                              </div>
-                                              
-                                              {/* Tooltip */}
-                                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-xs rounded-xl p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 shadow-xl">
-                                                  <div className="font-bold text-sm mb-1">{def.name}</div>
-                                                  <div className="opacity-90 mb-2 leading-tight">{def.description}</div>
-                                                  <div className="border-t border-slate-600 pt-2 text-[10px] text-slate-400">
-                                                      Uitgereikt door {assigned.assignedBy}<br/>
-                                                      {assigned.assignedAt}
-                                                  </div>
-                                                  <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-800"></div>
-                                              </div>
-                                          </div>
-                                      );
-                                  })}
-                              </div>
-                          </div>
-                      )}
+                      {/* BADGES SECTION - Visible to Everyone */}
+                      {renderBadges()}
 
-                      {/* Latest News Widget */}
-                      {latestNews && (
+                      {/* Latest News Widget (Own Profile Only) */}
+                      {isOwnProfile && latestNews && (
                           <div className="bg-white rounded-2xl border border-slate-200 border-t-4 border-t-teal-500 shadow-sm group cursor-pointer overflow-hidden hover:shadow-md transition-shadow" onClick={() => onChangeView(ViewState.NEWS)}>
                               <div className="p-5">
                                   <div className="flex items-center justify-between mb-3">
@@ -511,9 +527,9 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                           </div>
                       )}
 
-                      {/* Team & Contact */}
+                      {/* Team & Contact (Public) */}
                       <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                          <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider">Mijn Team</h3>
+                          <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider">Team</h3>
                           <div className="space-y-4">
                               <div className="flex items-center gap-3 group">
                                   <img src="https://ui-avatars.com/api/?name=Dennis+Manager&background=0d9488&color=fff" className="w-10 h-10 rounded-full border border-slate-100" alt="Manager"/>
@@ -542,7 +558,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                           </div>
                           
                           <div className="mt-6 pt-4 border-t border-slate-100">
-                              <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Mijn Gegevens</h4>
+                              <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Contactgegevens</h4>
                               <div className="space-y-1 text-xs text-slate-600 font-medium">
                                   <div className="flex items-center gap-2 truncate"><Mail size={12}/> {employee.email}</div>
                                   <div className="flex items-center gap-2"><Phone size={12}/> {employee.phone}</div>
@@ -581,7 +597,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                       </p>
                   </div>
                   
-                  {/* Contract Box */}
+                  {/* Contract Box - PRIVATE */}
                   <div className="w-full md:w-72 bg-slate-50 rounded-xl p-5 border border-slate-200">
                       <div className="flex items-center gap-3 mb-4">
                           <div className="p-2 bg-white rounded-lg shadow-sm text-teal-600"><Briefcase size={20}/></div>
@@ -606,64 +622,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                       >
                           Bekijk Contract
                       </button>
-                  </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                  {/* Team Context */}
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                      <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
-                          <Users size={20} className="text-teal-600"/> Mijn Team
-                      </h3>
-                      <div className="space-y-6">
-                          {/* Manager */}
-                          <div className="flex items-center gap-4">
-                              <img src="https://ui-avatars.com/api/?name=Dennis+Manager&background=0d9488&color=fff" className="w-12 h-12 rounded-full object-cover border-2 border-white shadow-sm" alt="Manager"/>
-                              <div className="flex-1">
-                                  <div className="text-sm font-bold text-slate-900">Dennis de Manager</div>
-                                  <div className="text-xs text-slate-500">Leidinggevende</div>
-                              </div>
-                              <a href="mailto:manager@sanadome.nl" className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors">
-                                  <Mail size={18}/>
-                              </a>
-                          </div>
-                          {/* Mentor */}
-                          {employee.mentor && (
-                              <div className="flex items-center gap-4">
-                                  <div className="w-12 h-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 font-bold text-lg border-2 border-white shadow-sm">
-                                      {employee.mentor.charAt(0)}
-                                  </div>
-                                  <div className="flex-1">
-                                      <div className="text-sm font-bold text-slate-900">{employee.mentor}</div>
-                                      <div className="text-xs text-slate-500">Mentor / Buddy</div>
-                                  </div>
-                                  <button className="p-2 text-slate-400 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors">
-                                      <MessageSquare size={18}/>
-                                  </button>
-                              </div>
-                          )}
-                      </div>
-                  </div>
-
-                  {/* Skills / Tags (Mock) */}
-                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                      <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
-                          <Sparkles size={20} className="text-teal-600"/> Vaardigheden & Complimenten
-                      </h3>
-                      <div className="flex flex-wrap gap-2 mb-6">
-                          {['Gastvrijheid', 'Front Office', 'IDu PMS', 'Engels', 'Teamplayer'].map(tag => (
-                              <span key={tag} className="px-3 py-1.5 bg-slate-50 text-slate-700 rounded-lg text-xs font-bold border border-slate-200">
-                                  {tag}
-                              </span>
-                          ))}
-                      </div>
-                      <div className="bg-green-50 border border-green-100 rounded-xl p-4">
-                          <div className="flex items-center gap-2 mb-2">
-                              <Award size={16} className="text-green-600"/>
-                              <span className="text-xs font-bold text-green-700 uppercase tracking-wide">Recent Compliment</span>
-                          </div>
-                          <p className="text-sm text-slate-700 italic">"Geweldig gehandeld tijdens de drukte gisteren!"</p>
-                      </div>
                   </div>
               </div>
           </div>
@@ -885,7 +843,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                 </div>
                                 <div className="flex items-center gap-4">
                                     <div className="text-right hidden sm:block">
-                                        <div className="text-[10px] font-bold text-slate-400 uppercase">Score</div>
+                                        <div className="text-xs font-bold text-slate-400 uppercase">Score</div>
                                         <div className="font-bold text-green-600">{entry.finalScore}%</div>
                                     </div>
                                 </div>
@@ -898,10 +856,71 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
      );
   };
 
+  const renderContactContent = () => (
+      <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm animate-in fade-in slide-in-from-bottom-4 duration-500">
+          <h3 className="font-bold text-slate-900 mb-6 text-lg">Contact & Details</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                  <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Bereikbaarheid</h4>
+                  <div className="space-y-4">
+                      <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-teal-600 shadow-sm">
+                              <Mail size={18}/>
+                          </div>
+                          <div>
+                              <div className="text-xs font-bold text-slate-400 uppercase">E-mail</div>
+                              <a href={`mailto:${employee.email}`} className="text-sm font-bold text-slate-900 hover:text-teal-600 transition-colors">{employee.email}</a>
+                          </div>
+                      </div>
+                      <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                          <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-teal-600 shadow-sm">
+                              <Phone size={18}/>
+                          </div>
+                          <div>
+                              <div className="text-xs font-bold text-slate-400 uppercase">Telefoon</div>
+                              <a href={`tel:${employee.phone}`} className="text-sm font-bold text-slate-900 hover:text-teal-600 transition-colors">{employee.phone}</a>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+              <div>
+                  <h4 className="text-xs font-bold text-slate-400 uppercase mb-3">Rol & Afdeling</h4>
+                  <div className="space-y-4">
+                      <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                          <div className="text-xs font-bold text-slate-400 uppercase mb-1">Functie</div>
+                          <div className="text-sm font-bold text-slate-900">{employee.role}</div>
+                      </div>
+                      <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
+                          <div className="text-xs font-bold text-slate-400 uppercase mb-1">Afdeling(en)</div>
+                          <div className="flex flex-wrap gap-2">
+                              {employee.departments.map(dept => (
+                                  <span key={dept} className="px-2 py-1 bg-white rounded-md border border-slate-200 text-xs font-medium text-slate-700">
+                                      {dept}
+                                  </span>
+                              ))}
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      </div>
+  );
+
   return (
     <div className="p-6 lg:p-8 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
       <input type="file" ref={bannerInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'banner')} />
       <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'avatar')} />
+
+      {/* Navigation Back (if visitor) */}
+      {!isOwnProfile && onBack && (
+          <button 
+            onClick={onBack}
+            className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold text-sm mb-6 transition-colors"
+          >
+              <ArrowLeft size={18} />
+              Terug naar overzicht
+          </button>
+      )}
 
       {/* Profile Header Card */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8 relative group/header">
@@ -916,13 +935,15 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
           
           <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent"></div>
           
-          <button 
-            onClick={() => bannerInputRef.current?.click()}
-            className="absolute top-4 right-4 px-4 py-2 bg-white/80 hover:bg-white backdrop-blur-md text-slate-700 text-xs font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all flex items-center gap-2 opacity-0 group-hover/header:opacity-100"
-          >
-            <ImageIcon size={14} />
-            <span className="hidden sm:inline">Cover Wijzigen</span>
-          </button>
+          {isOwnProfile && (
+              <button 
+                onClick={() => bannerInputRef.current?.click()}
+                className="absolute top-4 right-4 px-4 py-2 bg-white/80 hover:bg-white backdrop-blur-md text-slate-700 text-xs font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all flex items-center gap-2 opacity-0 group-hover/header:opacity-100"
+              >
+                <ImageIcon size={14} />
+                <span className="hidden sm:inline">Cover Wijzigen</span>
+              </button>
+          )}
         </div>
         
         <div className="px-6 md:px-10 pb-0 relative">
@@ -934,12 +955,14 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                     alt={employee.name} 
                     className="w-32 h-32 md:w-40 md:h-40 object-cover"
                   />
-                  <div 
-                    onClick={() => avatarInputRef.current?.click()}
-                    className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
-                  >
-                    <Camera className="text-white" size={28} />
-                  </div>
+                  {isOwnProfile && (
+                      <div 
+                        onClick={() => avatarInputRef.current?.click()}
+                        className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"
+                      >
+                        <Camera className="text-white" size={28} />
+                      </div>
+                  )}
               </div>
             </div>
             
@@ -956,6 +979,9 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                   <Building2 size={16} className="text-slate-400" />
                   <span>{employee.departments ? employee.departments.join(', ') : 'Geen afdeling'}</span>
                 </div>
+                {employee.id === currentUser.id && (
+                    <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded-full">Jij</span>
+                )}
               </div>
             </div>
           </div>
@@ -986,6 +1012,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       {activeTab === 'Documenten' && renderDocumentsContent()}
       {activeTab === 'Evaluatie' && renderPerformanceReport()}
       {activeTab === 'Onboarding' && renderOnboardingContent()}
+      {activeTab === 'Contact' && renderContactContent()}
 
       <Modal
         isOpen={isNoteModalOpen}

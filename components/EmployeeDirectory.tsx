@@ -1,7 +1,6 @@
 
-
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, MoreHorizontal, Mail, Phone, UserPlus, Pencil, Trash2, Lock, Copy, ExternalLink, Check, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { Search, Filter, MoreHorizontal, Mail, Phone, UserPlus, Pencil, Trash2, Lock, Copy, ExternalLink, Check, Clock, CheckCircle2, XCircle, Eye } from 'lucide-react';
 import { Employee } from '../types';
 import { Modal } from './Modal';
 import { hasPermission } from '../utils/permissions';
@@ -13,6 +12,7 @@ interface EmployeeDirectoryProps {
   onUpdateEmployee: (employee: Employee) => void;
   onDeleteEmployee: (id: string) => void;
   onSimulateOnboarding?: (employee: Employee) => void;
+  onViewProfile?: (employeeId: string) => void; // New callback
 }
 
 const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ 
@@ -21,7 +21,8 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
   onAddEmployee,
   onUpdateEmployee,
   onDeleteEmployee,
-  onSimulateOnboarding
+  onSimulateOnboarding,
+  onViewProfile
 }) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -44,6 +45,8 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
     hiredOn: '',
     employmentType: 'Full-Time'
   });
+
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Check Permission
   const canManage = hasPermission(currentUser, 'MANAGE_EMPLOYEES');
@@ -205,6 +208,13 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       return `${baseUrl}/welcome/${id.substring(0,8)}`;
   };
 
+  // Filter Employees
+  const filteredEmployees = employees.filter(e => 
+      e.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+      e.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      e.departments?.some(d => d.toLowerCase().includes(searchTerm.toLowerCase()))
+  );
+
   return (
     <div className="p-4 md:p-8 2xl:p-12 w-full animate-in fade-in duration-500 max-w-[2400px] mx-auto">
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
@@ -233,6 +243,8 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
           <input 
             type="text" 
             placeholder="Zoek op naam, rol, afdeling..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all placeholder:text-slate-400"
           />
         </div>
@@ -258,12 +270,16 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                 <th className="px-6 py-4 text-slate-700">Rol & Status</th>
                 <th className="px-6 py-4 text-slate-700">Afdelingen</th>
                 <th className="px-6 py-4 text-slate-700">Contact</th>
-                {canManage && <th className="px-6 py-4 text-right text-slate-700">Acties</th>}
+                <th className="px-6 py-4 text-right text-slate-700">Acties</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {employees.map((employee) => (
-                <tr key={employee.id} className="hover:bg-slate-50 transition-colors group relative">
+              {filteredEmployees.map((employee) => (
+                <tr 
+                    key={employee.id} 
+                    className="hover:bg-slate-50 transition-colors group relative cursor-pointer"
+                    onClick={() => onViewProfile && onViewProfile(employee.id)}
+                >
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-4">
                       <div className="relative">
@@ -313,7 +329,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                     </div>
                   </td>
                   <td className="px-6 py-4">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
                       <a href={`mailto:${employee.email}`} className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors" title={employee.email}>
                         <Mail size={16} />
                       </a>
@@ -325,69 +341,80 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                     </div>
                   </td>
                   
-                  {canManage && (
-                    <td className="px-6 py-4 text-right relative">
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setActiveActionId(activeActionId === employee.id ? null : employee.id);
-                        }}
+                  <td className="px-6 py-4 text-right relative" onClick={(e) => e.stopPropagation()}>
+                    <button 
+                        onClick={() => setActiveActionId(activeActionId === employee.id ? null : employee.id)}
                         className={`p-2 rounded-lg hover:bg-slate-100 transition-colors ${activeActionId === employee.id ? 'text-teal-600 bg-teal-50' : 'text-slate-400'}`}
-                      >
+                    >
                         <MoreHorizontal size={18} />
-                      </button>
+                    </button>
 
-                      {activeActionId === employee.id && (
+                    {activeActionId === employee.id && (
                         <div className="absolute right-8 top-10 w-56 bg-white rounded-xl shadow-xl border border-slate-100 z-20 py-2 animate-in fade-in zoom-in-95 duration-200 text-left">
                           
-                          {employee.accountStatus === 'Pending' && (
-                              <>
-                                <button 
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        handleCopyLink(employee.id);
-                                    }}
-                                    className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-teal-600 flex items-center gap-3 transition-colors font-medium"
-                                >
-                                    <Copy size={14} />
-                                    Kopieer uitnodiging
-                                </button>
-                                <div className="h-px bg-slate-50 my-1"></div>
-                              </>
-                          )}
-
                           <button 
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              openEditModal(employee);
+                            onClick={() => {
+                                if (onViewProfile) onViewProfile(employee.id);
+                                setActiveActionId(null);
                             }}
                             className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-teal-600 flex items-center gap-3 transition-colors font-medium"
                           >
-                            <Pencil size={14} />
-                            Bewerk medewerker
+                            <Eye size={14} />
+                            Bekijk Profiel
                           </button>
-                          <div className="h-px bg-slate-50 my-1"></div>
-                          <button 
-                             onClick={(e) => {
-                              e.stopPropagation();
-                              openDeleteModal(employee);
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors font-medium"
-                          >
-                            <Trash2 size={14} />
-                            Verwijderen
-                          </button>
+
+                          {canManage && (
+                              <>
+                                <div className="h-px bg-slate-50 my-1"></div>
+                                {employee.accountStatus === 'Pending' && (
+                                    <>
+                                        <button 
+                                            onClick={() => {
+                                                handleCopyLink(employee.id);
+                                                setActiveActionId(null);
+                                            }}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-teal-600 flex items-center gap-3 transition-colors font-medium"
+                                        >
+                                            <Copy size={14} />
+                                            Kopieer uitnodiging
+                                        </button>
+                                        <div className="h-px bg-slate-50 my-1"></div>
+                                    </>
+                                )}
+
+                                <button 
+                                    onClick={() => {
+                                        openEditModal(employee);
+                                        setActiveActionId(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-teal-600 flex items-center gap-3 transition-colors font-medium"
+                                >
+                                    <Pencil size={14} />
+                                    Bewerk medewerker
+                                </button>
+                                <div className="h-px bg-slate-50 my-1"></div>
+                                <button 
+                                    onClick={() => {
+                                        openDeleteModal(employee);
+                                        setActiveActionId(null);
+                                    }}
+                                    className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors font-medium"
+                                >
+                                    <Trash2 size={14} />
+                                    Verwijderen
+                                </button>
+                              </>
+                          )}
                         </div>
-                      )}
-                    </td>
-                  )}
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
         <div className="px-6 py-4 border-t border-slate-200 bg-slate-50/50 flex items-center justify-between text-sm text-slate-500">
-          <div>Toont <span className="font-bold text-slate-700">{employees.length}</span> medewerkers</div>
+          <div>Toont <span className="font-bold text-slate-700">{filteredEmployees.length}</span> medewerkers</div>
           <div className="flex gap-2">
             <button className="px-4 py-1.5 border border-slate-300 rounded-lg bg-white text-slate-600 disabled:opacity-50 text-xs font-bold hover:bg-slate-50" disabled>Vorige</button>
             <button className="px-4 py-1.5 border border-slate-300 rounded-lg bg-white text-slate-600 disabled:opacity-50 text-xs font-bold hover:bg-slate-50" disabled>Volgende</button>
@@ -402,6 +429,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
           onClose={() => setIsAddModalOpen(false)} 
           title="Nieuwe medewerker"
         >
+          {/* Form Content same as before */}
           <form onSubmit={handleAddSubmit} className="space-y-5">
             <div className="grid grid-cols-2 gap-5">
               <div>
@@ -507,7 +535,6 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                         <span className="text-sm font-medium text-slate-700">Reserveringen</span>
                     </label>
                 </div>
-                {formData.departments.length === 0 && <p className="text-xs text-amber-600 mt-1 font-medium">Selecteer minstens één afdeling.</p>}
             </div>
 
             <div>

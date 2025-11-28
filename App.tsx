@@ -54,6 +54,10 @@ const App: React.FC = () => {
       priority: 'Medium' as TicketPriority
   });
 
+  // --- NAVIGATION & PROFILE STATE ---
+  // If set, the profile page will show this employee instead of current user
+  const [profileTargetId, setProfileTargetId] = useState<string | null>(null);
+
   // --- PERMISSION MIGRATION & FIXES ---
   useEffect(() => {
       if (currentUser && currentUser.role === 'Manager') {
@@ -152,7 +156,7 @@ const App: React.FC = () => {
   // Active Survey State
   const [activeSurveyId, setActiveSurveyId] = useState<string | null>(null);
 
-  // Deep Link State
+  // Deep Link State for Documents
   const [dossierEmployeeId, setDossierEmployeeId] = useState<string | null>(null);
 
   // Toast State
@@ -195,6 +199,7 @@ const App: React.FC = () => {
     setCurrentUser(null);
     setCurrentView(ViewState.HOME);
     setDossierEmployeeId(null);
+    setProfileTargetId(null);
     // Clear Session
     localStorage.removeItem('hrms_session_id');
     // Clear URL if on welcome page
@@ -222,6 +227,11 @@ const App: React.FC = () => {
           case ViewState.KNOWLEDGE_BASE: return 'Kennisbank';
           default: return 'Algemeen';
       }
+  };
+
+  const handleNavigateToProfile = (targetId: string | null) => {
+      setProfileTargetId(targetId);
+      setCurrentView(ViewState.HOME);
   };
 
   // --- FEEDBACK SUBMISSION ---
@@ -458,13 +468,22 @@ const App: React.FC = () => {
       }
   }
 
+  // Determine active profile
+  const activeProfileEmployee = profileTargetId 
+      ? employees.find(e => e.id === profileTargetId) 
+      : currentUser;
+
   // 4. Main Application
   return (
     <div className="flex bg-slate-50 min-h-screen font-sans text-slate-900">
       
       <Sidebar 
         currentView={currentView} 
-        onChangeView={setCurrentView} 
+        onChangeView={(view) => {
+            setCurrentView(view);
+            // If switching to home, ensure we show own profile
+            if (view === ViewState.HOME) setProfileTargetId(null);
+        }} 
         user={currentUser} 
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
@@ -480,7 +499,14 @@ const App: React.FC = () => {
               handleMarkSingleRead(n.id);
               if (n.targetView) {
                   setCurrentView(n.targetView);
-                  if (n.targetEmployeeId) setDossierEmployeeId(n.targetEmployeeId);
+                  
+                  // Specific logic for notification targets
+                  if (n.targetEmployeeId && n.targetView === ViewState.HOME) {
+                      setProfileTargetId(n.targetEmployeeId);
+                  } else if (n.targetEmployeeId) {
+                      setDossierEmployeeId(n.targetEmployeeId);
+                  }
+                  
                   if (n.type === 'Survey' && n.metaId) setActiveSurveyId(n.metaId);
               }
           }}
@@ -494,15 +520,17 @@ const App: React.FC = () => {
         />
 
         <main className="flex-1 overflow-x-hidden overflow-y-auto no-scrollbar scroll-smooth">
-          {(currentView === ViewState.HOME || currentView === ViewState.PROFILE) && (
+          {(currentView === ViewState.HOME || currentView === ViewState.PROFILE) && activeProfileEmployee && (
             <EmployeeProfile 
-              employee={currentUser}
+              employee={activeProfileEmployee}
+              currentUser={currentUser}
               onNext={() => {}} 
               onPrevious={() => {}}
               onChangeView={setCurrentView}
               onUpdateEmployee={handleUpdateEmployee}
               onAddNotification={handleAddNotification}
               onShowToast={showToast}
+              onBack={profileTargetId ? () => { setProfileTargetId(null); setCurrentView(ViewState.DIRECTORY); } : undefined}
               managers={employees.filter(e => e.role === 'Manager')}
               latestNews={newsItems.length > 0 ? newsItems[0] : null}
             />
@@ -530,6 +558,7 @@ const App: React.FC = () => {
                   setSetupUser(emp);
                   setCurrentUser(emp);
               }}
+              onViewProfile={handleNavigateToProfile}
             />
           )}
 
