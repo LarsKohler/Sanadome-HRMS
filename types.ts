@@ -286,6 +286,13 @@ export interface InterimCheckIn {
     managerNotes?: string;
 }
 
+export interface TrajectoryResource {
+    id: string;
+    title: string;
+    url: string;
+    type: 'Link' | 'File';
+}
+
 export interface PersonalDevelopmentGoal {
     id: string;
     title: string;
@@ -300,6 +307,12 @@ export interface PersonalDevelopmentGoal {
     
     supportLevel?: 'Low' | 'Medium' | 'High'; // New: Intensity of guidance needed
     managementNotes?: string; // New: Internal notes for the manager about this trajectory
+    
+    budget?: {
+        allocated: number;
+        spent: number;
+    };
+    resources?: TrajectoryResource[];
 
     // Timeline / Check-ins
     checkIns: InterimCheckIn[]; 

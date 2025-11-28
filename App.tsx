@@ -17,7 +17,7 @@ import SettingsPage from './components/SettingsPage';
 import DebtControlPage from './components/DebtControlPage'; 
 import TicketDashboard from './components/TicketDashboard'; 
 import BadgeManager from './components/BadgeManager';
-import KnowledgeBasePage from './components/KnowledgeBasePage'; // Imported
+import KnowledgeBasePage from './components/KnowledgeBasePage'; 
 import Login from './components/Login';
 import { Toast } from './components/Toast';
 import { Modal } from './components/Modal'; 
@@ -423,6 +423,16 @@ const App: React.FC = () => {
       api.deleteNotification(id);
   };
 
+  const handleClearAllNotifications = () => {
+      // Clear all notifications for current user
+      if (!currentUser) return;
+      const userNotifs = notifications.filter(n => n.recipientId === currentUser.id);
+      userNotifs.forEach(n => api.deleteNotification(n.id));
+      
+      setNotifications(prev => prev.filter(n => n.recipientId !== currentUser.id));
+      showToast("Alle notificaties gewist");
+  };
+
   const handleAddSurvey = (survey: Survey) => {
       setSurveys(prev => [...prev, survey]);
       api.saveSurvey(survey);
@@ -572,6 +582,7 @@ const App: React.FC = () => {
           onMarkAllRead={handleMarkAllRead}
           onMarkSingleRead={handleMarkSingleRead}
           onRemoveNotification={handleRemoveNotification}
+          onClearAllNotifications={handleClearAllNotifications}
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           onNavigate={(view) => setCurrentView(view)}
           isLive={isLive}

@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Bell, Plus, ChevronDown, Lock, LogOut, CheckCircle2, Pin, Menu, Cloud, Database, Shield, User, Briefcase, Ticket, X } from 'lucide-react';
+import { Search, Bell, Plus, ChevronDown, Lock, LogOut, CheckCircle2, Pin, Menu, Cloud, Database, Shield, User, Briefcase, Ticket, X, Trash2 } from 'lucide-react';
 import { Employee, Notification, ViewState } from '../types';
 
 interface TopNavProps {
@@ -10,7 +10,8 @@ interface TopNavProps {
   onNotificationClick: (notification: Notification) => void;
   onMarkAllRead: () => void;
   onMarkSingleRead: (id: string) => void;
-  onRemoveNotification?: (id: string) => void; // Added prop for dismissing
+  onRemoveNotification?: (id: string) => void; 
+  onClearAllNotifications?: () => void; // New Prop
   onToggleMobileMenu: () => void;
   onNavigate: (view: ViewState) => void;
   isLive: boolean;
@@ -25,6 +26,7 @@ const TopNav: React.FC<TopNavProps> = ({
   onMarkAllRead,
   onMarkSingleRead,
   onRemoveNotification,
+  onClearAllNotifications,
   onToggleMobileMenu,
   onNavigate,
   isLive,
@@ -84,14 +86,25 @@ const TopNav: React.FC<TopNavProps> = ({
               <div className="absolute right-0 top-14 w-80 md:w-96 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
                 <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 backdrop-blur-sm">
                   <h3 className="font-bold text-slate-900">Notificaties</h3>
-                  {unreadCount > 0 && (
-                    <button 
-                      onClick={onMarkAllRead}
-                      className="text-xs text-teal-600 hover:text-teal-700 font-bold"
-                    >
-                      Markeer alles als gelezen
-                    </button>
-                  )}
+                  <div className="flex gap-2">
+                      {unreadCount > 0 && (
+                        <button 
+                          onClick={onMarkAllRead}
+                          className="text-xs text-teal-600 hover:text-teal-700 font-bold"
+                        >
+                          Lees alles
+                        </button>
+                      )}
+                      {onClearAllNotifications && notifications.length > 0 && (
+                          <button 
+                            onClick={onClearAllNotifications}
+                            className="text-slate-400 hover:text-red-500 transition-colors p-1"
+                            title="Wis alle notificaties"
+                          >
+                              <Trash2 size={14} />
+                          </button>
+                      )}
+                  </div>
                 </div>
                 <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
                   {notifications.length === 0 ? (

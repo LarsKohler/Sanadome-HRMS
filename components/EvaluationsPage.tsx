@@ -2,9 +2,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { 
     ClipboardCheck, Plus, Search, Calendar, User, ArrowRight, Play, CheckCircle, Clock, 
-    AlertCircle, BarChart3, ChevronRight, MessageSquare, BrainCircuit, X, Target, PenTool, TrendingUp, AlertTriangle, FileCheck, Star, Split, Lock, Unlock, Eye, EyeOff, Printer, PenLine, History, ArrowLeft, Check, TrendingDown, Minus, BookOpen, Compass, Trash2, CalendarDays, Activity, Signal, Edit, Save, MoreHorizontal, Flag, Milestone, Trophy, FileText, Settings, LayoutDashboard
+    AlertCircle, BarChart3, ChevronRight, MessageSquare, BrainCircuit, X, Target, PenTool, TrendingUp, AlertTriangle, FileCheck, Star, Split, Lock, Unlock, Eye, EyeOff, Printer, PenLine, History, ArrowLeft, Check, TrendingDown, Minus, BookOpen, Compass, Trash2, CalendarDays, Activity, Signal, Edit, Save, MoreHorizontal, Flag, Milestone, Trophy, FileText, Settings, LayoutDashboard, Wallet, Link as LinkIcon, ExternalLink
 } from 'lucide-react';
-import { Employee, EvaluationCycle, Notification, ViewState, EvaluationScore, EvaluationGoal, EvaluationStatus, PersonalDevelopmentGoal, InterimCheckIn } from '../types';
+import { Employee, EvaluationCycle, Notification, ViewState, EvaluationScore, EvaluationGoal, EvaluationStatus, PersonalDevelopmentGoal, InterimCheckIn, TrajectoryResource } from '../types';
 import { EVALUATION_TEMPLATES, MOCK_DEVELOPMENT_LIBRARY } from '../utils/mockData';
 import { Modal } from './Modal';
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend } from 'recharts';
@@ -78,10 +78,13 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   // Preview Schedule State
   const [previewSchedule, setPreviewSchedule] = useState<InterimCheckIn[]>([]);
 
-  // Goal Management State (Trajectories View)
+  // NEW: View Mode for Trajectory Management
+  const [viewMode, setViewMode] = useState<'dashboard' | 'trajectory-details'>('dashboard');
   const [managingGoalData, setManagingGoalData] = useState<ManagingGoalData | null>(null);
-  const [isManageGoalModalOpen, setIsManageGoalModalOpen] = useState(false);
-  const [cockpitTab, setCockpitTab] = useState<'details' | 'planning' | 'logs'>('details');
+  const [cockpitTab, setCockpitTab] = useState<'overview' | 'planning' | 'budget' | 'resources' | 'logs'>('overview');
+
+  // New Resource Input State
+  const [newResource, setNewResource] = useState({ title: '', url: '' });
 
   // Signatures State
   const [isSigning, setIsSigning] = useState(false);
@@ -373,8 +376,8 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
   const handleOpenManageGoal = (employeeId: string, goal: PersonalDevelopmentGoal) => {
       setManagingGoalData({ employeeId, goal: JSON.parse(JSON.stringify(goal)) }); // Deep copy
-      setCockpitTab('details');
-      setIsManageGoalModalOpen(true);
+      setViewMode('trajectory-details');
+      setCockpitTab('overview');
   };
 
   const handleSaveGoalChanges = () => {
@@ -427,8 +430,14 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           }
       }
 
-      setIsManageGoalModalOpen(false);
-      onShowToast("Traject succesvol bijgewerkt.");
+      // Instead of closing modal, we just show toast and maybe go back to dashboard if desired?
+      // For now, save keeps you on the page, add explicit Back button to leave
+      onShowToast("Wijzigingen opgeslagen.");
+  };
+
+  const handleBackToDashboard = () => {
+      setManagingGoalData(null);
+      setViewMode('dashboard');
   };
 
   const handleManualAddCheckIn = () => {
@@ -485,8 +494,51 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           targetView: ViewState.HOME
       });
 
-      setIsManageGoalModalOpen(false);
+      handleBackToDashboard();
       onShowToast("Traject verwijderd.");
+  };
+
+  // --- NEW: RESOURCES & BUDGET ---
+
+  const handleAddResource = () => {
+      if (!managingGoalData || !newResource.title || !newResource.url) return;
+      const res: TrajectoryResource = {
+          id: Math.random().toString(36).substr(2, 9),
+          title: newResource.title,
+          url: newResource.url,
+          type: 'Link'
+      };
+      
+      const updatedResources = [...(managingGoalData.goal.resources || []), res];
+      setManagingGoalData({
+          ...managingGoalData,
+          goal: { ...managingGoalData.goal, resources: updatedResources }
+      });
+      setNewResource({ title: '', url: '' });
+      onShowToast("Bron toegevoegd.");
+  };
+
+  const handleDeleteResource = (id: string) => {
+      if (!managingGoalData) return;
+      const updatedResources = (managingGoalData.goal.resources || []).filter(r => r.id !== id);
+      setManagingGoalData({
+          ...managingGoalData,
+          goal: { ...managingGoalData.goal, resources: updatedResources }
+      });
+  };
+
+  const handleBudgetChange = (field: 'allocated' | 'spent', value: string) => {
+      if (!managingGoalData) return;
+      const numVal = parseFloat(value) || 0;
+      const currentBudget = managingGoalData.goal.budget || { allocated: 0, spent: 0 };
+      
+      setManagingGoalData({
+          ...managingGoalData,
+          goal: {
+              ...managingGoalData.goal,
+              budget: { ...currentBudget, [field]: numVal }
+          }
+      });
   };
 
   const handleSign = async () => {
@@ -832,6 +884,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   );
 
   const renderWizard = () => {
+      // (This function remains mostly the same, ensuring it references activeEvaluationData correctly)
       if (!activeEvaluationData) return null;
       const { evaluation, employee } = activeEvaluationData;
       
@@ -1519,213 +1572,350 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       );
   };
 
-  const renderTrajectoryCockpit = () => {
+  const renderTrajectoryDashboard = () => {
       if (!managingGoalData) return null;
       const { goal, employeeId } = managingGoalData;
       const emp = employees.find(e => e.id === employeeId);
 
+      const allocated = goal.budget?.allocated || 0;
+      const spent = goal.budget?.spent || 0;
+      const budgetPercent = allocated > 0 ? Math.min(100, Math.round((spent / allocated) * 100)) : 0;
+
       return (
-          <div className="space-y-6">
-              {/* Header */}
-              <div className="flex items-center gap-4 p-4 bg-slate-900 text-white rounded-xl shadow-lg">
-                  <div className="p-2 bg-white/10 rounded-lg">
-                      <Target size={24} className="text-teal-400" />
+          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 pb-20">
+              {/* Header Bar */}
+              <div className="bg-slate-900 text-white rounded-2xl p-6 mb-8 shadow-lg flex flex-col md:flex-row justify-between md:items-center gap-6">
+                  <div>
+                      <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">
+                          <button onClick={handleBackToDashboard} className="hover:text-white transition-colors">Trajecten</button>
+                          <ChevronRight size={12} />
+                          <span>{emp?.name}</span>
+                      </div>
+                      <h1 className="text-2xl font-bold">{goal.title}</h1>
+                      <div className="flex items-center gap-4 mt-2 text-sm text-slate-300">
+                          <span className="flex items-center gap-1"><User size={14}/> {emp?.name}</span>
+                          <span className="flex items-center gap-1"><Calendar size={14}/> Start: {goal.startDate}</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${goal.status === 'Completed' ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'}`}>
+                              {goal.status}
+                          </span>
+                      </div>
                   </div>
-                  <div className="flex-1">
-                      <h4 className="font-bold text-lg">{goal.title}</h4>
-                      <p className="text-xs text-slate-300 flex items-center gap-2">
-                          <User size={12} /> {emp?.name} • Start: {goal.startDate}
-                      </p>
-                  </div>
-                  <div className="text-right">
-                      <div className="text-2xl font-bold">{goal.progress}%</div>
-                      <div className="text-[10px] uppercase text-slate-400 tracking-wider">Progressie</div>
-                  </div>
-              </div>
-
-              {/* Navigation */}
-              <div className="flex border-b border-slate-200">
-                  {['details', 'planning', 'logs'].map((tab) => (
-                      <button
-                        key={tab}
-                        onClick={() => setCockpitTab(tab as any)}
-                        className={`px-4 py-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
-                            cockpitTab === tab 
-                            ? 'border-teal-600 text-teal-700' 
-                            : 'border-transparent text-slate-500 hover:text-slate-800'
-                        }`}
+                  
+                  <div className="flex items-center gap-4">
+                      <div className="text-right">
+                          <div className="text-3xl font-bold">{goal.progress}%</div>
+                          <div className="text-[10px] uppercase text-slate-400 tracking-wider font-bold">Progressie</div>
+                      </div>
+                      <div className="h-12 w-px bg-slate-700"></div>
+                      <button 
+                        onClick={handleSaveGoalChanges}
+                        className="bg-teal-600 hover:bg-teal-500 text-white px-6 py-3 rounded-xl font-bold shadow-md transition-all flex items-center gap-2"
                       >
-                          {tab === 'details' && <Settings size={16}/>}
-                          {tab === 'planning' && <Calendar size={16}/>}
-                          {tab === 'logs' && <FileText size={16}/>}
-                          {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                          <Save size={18} /> Opslaan
                       </button>
-                  ))}
+                  </div>
               </div>
 
-              <div className="min-h-[300px]">
-                  {cockpitTab === 'details' && (
-                      <div className="space-y-4 animate-in fade-in slide-in-from-left-2">
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Titel Traject</label>
-                              <input 
-                                type="text" 
-                                className="w-full p-2 border border-slate-200 rounded-lg font-bold text-slate-900"
-                                value={goal.title}
-                                onChange={(e) => setManagingGoalData({...managingGoalData, goal: {...goal, title: e.target.value}})}
-                              />
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Beschrijving</label>
-                              <textarea 
-                                rows={2}
-                                className="w-full p-2 border border-slate-200 rounded-lg text-sm"
-                                value={goal.description}
-                                onChange={(e) => setManagingGoalData({...managingGoalData, goal: {...goal, description: e.target.value}})}
-                              />
-                          </div>
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Actieplan</label>
-                              <textarea 
-                                rows={4}
-                                className="w-full p-2 border border-slate-200 rounded-lg text-sm font-medium"
-                                value={goal.actionPlan}
-                                onChange={(e) => setManagingGoalData({...managingGoalData, goal: {...goal, actionPlan: e.target.value}})}
-                              />
-                          </div>
-                          <div className="flex gap-4">
-                              <div className="flex-1">
-                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Support Level</label>
-                                  <select 
-                                    className="w-full p-2 border border-slate-200 rounded-lg text-sm font-bold"
-                                    value={goal.supportLevel || 'Medium'}
-                                    onChange={(e) => setManagingGoalData({...managingGoalData, goal: {...goal, supportLevel: e.target.value as any}})}
-                                  >
-                                      <option value="High">Intensief (High)</option>
-                                      <option value="Medium">Normaal (Medium)</option>
-                                      <option value="Low">Zelfstandig (Low)</option>
-                                  </select>
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* LEFT COLUMN (2/3) */}
+                  <div className="lg:col-span-2 space-y-8">
+                      
+                      {/* Navigation Pills */}
+                      <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                          {[
+                              { id: 'overview', label: 'Overzicht', icon: LayoutDashboard },
+                              { id: 'planning', label: 'Planning', icon: Calendar },
+                              { id: 'resources', label: 'Kennis & Links', icon: LinkIcon },
+                          ].map(tab => (
+                              <button
+                                key={tab.id}
+                                onClick={() => setCockpitTab(tab.id as any)}
+                                className={`px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-all ${
+                                    cockpitTab === tab.id 
+                                    ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200' 
+                                    : 'text-slate-500 hover:bg-white/50'
+                                }`}
+                              >
+                                  <tab.icon size={16} /> {tab.label}
+                              </button>
+                          ))}
+                      </div>
+
+                      {/* Content Area */}
+                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 min-h-[400px]">
+                          
+                          {cockpitTab === 'overview' && (
+                              <div className="space-y-6 animate-in fade-in">
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                      <div>
+                                          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Titel</label>
+                                          <input 
+                                            type="text" 
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            value={goal.title}
+                                            onChange={(e) => setManagingGoalData({...managingGoalData!, goal: {...goal, title: e.target.value}})}
+                                          />
+                                      </div>
+                                      <div>
+                                          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Categorie</label>
+                                          <input 
+                                            type="text" 
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                            value={goal.category}
+                                            onChange={(e) => setManagingGoalData({...managingGoalData!, goal: {...goal, category: e.target.value}})}
+                                          />
+                                      </div>
+                                  </div>
+                                  
+                                  <div>
+                                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Beschrijving</label>
+                                      <textarea 
+                                        rows={3}
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                        value={goal.description}
+                                        onChange={(e) => setManagingGoalData({...managingGoalData!, goal: {...goal, description: e.target.value}})}
+                                      />
+                                  </div>
+
+                                  <div>
+                                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Actieplan</label>
+                                      <textarea 
+                                        rows={6}
+                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+                                        value={goal.actionPlan}
+                                        onChange={(e) => setManagingGoalData({...managingGoalData!, goal: {...goal, actionPlan: e.target.value}})}
+                                      />
+                                  </div>
                               </div>
-                              <div className="flex-1">
+                          )}
+
+                          {cockpitTab === 'planning' && (
+                              <div className="space-y-6 animate-in fade-in">
+                                  <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                      <div>
+                                          <span className="text-xs font-bold text-slate-500 uppercase block">Deadline</span>
+                                          <input 
+                                            type="date" 
+                                            className="bg-transparent font-bold text-slate-900 border-none p-0 focus:ring-0 text-lg"
+                                            value={safeDateToInput(goal.deadline)}
+                                            onChange={(e) => {
+                                                const d = new Date(e.target.value);
+                                                if(!isNaN(d.getTime())) {
+                                                    setManagingGoalData({...managingGoalData!, goal: {...goal, deadline: d.toLocaleDateString('nl-NL')}});
+                                                }
+                                            }}
+                                          />
+                                      </div>
+                                      <button onClick={handleManualAddCheckIn} className="text-xs font-bold text-teal-600 bg-white border border-teal-200 px-4 py-2 rounded-lg hover:bg-teal-50 transition-colors shadow-sm flex items-center gap-2">
+                                          <Plus size={14}/> Extra Check-in
+                                      </button>
+                                  </div>
+
+                                  <div className="relative pl-6 space-y-8 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+                                      {goal.checkIns?.map((ci, idx) => (
+                                          <div key={ci.id} className="relative">
+                                              {/* Node */}
+                                              <div className={`absolute -left-[23px] top-4 w-4 h-4 rounded-full border-2 border-white shadow-sm z-10 ${ci.status === 'Completed' ? 'bg-green-500' : 'bg-slate-300'}`}></div>
+                                              
+                                              <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 flex items-center gap-4 group hover:border-teal-300 transition-colors">
+                                                  <div className="flex flex-col items-center justify-center w-12 h-12 bg-white rounded-lg border border-slate-200 shadow-sm font-bold text-slate-700">
+                                                      <span className="text-xs uppercase text-slate-400">{idx + 1}</span>
+                                                  </div>
+                                                  <div className="flex-1">
+                                                      <div className="flex items-center gap-2 mb-1">
+                                                          <input 
+                                                              type="date"
+                                                              className="bg-transparent font-bold text-slate-900 text-sm border-none p-0 focus:ring-0 w-28"
+                                                              defaultValue={safeDateToInput(ci.date)}
+                                                              onChange={(e) => {
+                                                                  const date = new Date(e.target.value);
+                                                                  if (!isNaN(date.getTime())) {
+                                                                      const newDateStr = date.toLocaleDateString('nl-NL');
+                                                                      const newCheckIns = [...goal.checkIns];
+                                                                      newCheckIns[idx] = { ...ci, date: newDateStr };
+                                                                      setManagingGoalData({
+                                                                          ...managingGoalData!,
+                                                                          goal: { ...goal, checkIns: newCheckIns }
+                                                                      });
+                                                                  }
+                                                              }}
+                                                          />
+                                                          {ci.status === 'Completed' && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">VOLTOOID</span>}
+                                                      </div>
+                                                      <div className="text-xs text-slate-500">
+                                                          {ci.status === 'Completed' ? `Score: ${ci.score}%` : 'Nog niet uitgevoerd'}
+                                                      </div>
+                                                  </div>
+                                                  {ci.status !== 'Completed' && (
+                                                      <button onClick={() => handleDeleteCheckIn(ci.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
+                                                          <Trash2 size={18}/>
+                                                      </button>
+                                                  )}
+                                              </div>
+                                          </div>
+                                      ))}
+                                  </div>
+                              </div>
+                          )}
+
+                          {cockpitTab === 'resources' && (
+                              <div className="space-y-6 animate-in fade-in">
+                                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                      <h4 className="font-bold text-slate-900 text-sm mb-4">Nieuwe bron toevoegen</h4>
+                                      <div className="flex gap-3">
+                                          <input 
+                                            type="text" 
+                                            placeholder="Titel (bv. Cursus PDF)" 
+                                            className="flex-1 p-2 rounded-lg border border-slate-300 text-sm"
+                                            value={newResource.title}
+                                            onChange={e => setNewResource({...newResource, title: e.target.value})}
+                                          />
+                                          <input 
+                                            type="text" 
+                                            placeholder="URL (https://...)" 
+                                            className="flex-1 p-2 rounded-lg border border-slate-300 text-sm"
+                                            value={newResource.url}
+                                            onChange={e => setNewResource({...newResource, url: e.target.value})}
+                                          />
+                                          <button 
+                                            onClick={handleAddResource}
+                                            disabled={!newResource.title || !newResource.url}
+                                            className="px-4 bg-slate-900 text-white rounded-lg font-bold text-sm disabled:opacity-50 hover:bg-slate-800"
+                                          >
+                                              Toevoegen
+                                          </button>
+                                      </div>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                      {(goal.resources || []).map(res => (
+                                          <div key={res.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-slate-300 hover:shadow-sm transition-all group">
+                                              <div className="flex items-center gap-3">
+                                                  <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
+                                                      <LinkIcon size={16}/>
+                                                  </div>
+                                                  <a href={res.url} target="_blank" rel="noopener noreferrer" className="font-bold text-sm text-slate-700 hover:text-blue-600 hover:underline flex items-center gap-1">
+                                                      {res.title} <ExternalLink size={10} className="opacity-50"/>
+                                                  </a>
+                                              </div>
+                                              <button onClick={() => handleDeleteResource(res.id)} className="text-slate-300 hover:text-red-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                  <X size={16}/>
+                                              </button>
+                                          </div>
+                                      ))}
+                                      {(!goal.resources || goal.resources.length === 0) && (
+                                          <div className="text-center py-10 text-slate-400 italic text-sm">Nog geen bronnen toegevoegd.</div>
+                                      )}
+                                  </div>
+                              </div>
+                          )}
+                      </div>
+                  </div>
+
+                  {/* RIGHT COLUMN (1/3) */}
+                  <div className="space-y-6">
+                      
+                      {/* Budget Widget */}
+                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                          <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                              <Wallet size={18} className="text-teal-600"/> Budget
+                          </h3>
+                          <div className="space-y-4">
+                              <div className="relative pt-2">
+                                  <div className="flex justify-between text-xs font-bold text-slate-500 mb-1">
+                                      <span>Besteed: €{spent}</span>
+                                      <span>Totaal: €{allocated}</span>
+                                  </div>
+                                  <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
+                                      <div className={`h-full transition-all duration-1000 ${budgetPercent > 100 ? 'bg-red-500' : 'bg-teal-500'}`} style={{width: `${Math.min(100, budgetPercent)}%`}}></div>
+                                  </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-3">
+                                  <div>
+                                      <label className="text-[10px] font-bold text-slate-400 uppercase">Gealloceerd</label>
+                                      <div className="relative">
+                                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">€</span>
+                                          <input 
+                                            type="number" 
+                                            className="w-full pl-6 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold focus:ring-1 focus:ring-teal-500"
+                                            value={allocated}
+                                            onChange={e => handleBudgetChange('allocated', e.target.value)}
+                                          />
+                                      </div>
+                                  </div>
+                                  <div>
+                                      <label className="text-[10px] font-bold text-slate-400 uppercase">Besteed</label>
+                                      <div className="relative">
+                                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">€</span>
+                                          <input 
+                                            type="number" 
+                                            className="w-full pl-6 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold focus:ring-1 focus:ring-teal-500"
+                                            value={spent}
+                                            onChange={e => handleBudgetChange('spent', e.target.value)}
+                                          />
+                                      </div>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+
+                      {/* Status Widget */}
+                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                          <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                              <Settings size={18} className="text-slate-400"/> Instellingen
+                          </h3>
+                          <div className="space-y-4">
+                              <div>
                                   <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Status</label>
                                   <select 
                                     className="w-full p-2 border border-slate-200 rounded-lg text-sm font-bold"
                                     value={goal.status}
-                                    onChange={(e) => setManagingGoalData({...managingGoalData, goal: {...goal, status: e.target.value as any}})}
+                                    onChange={(e) => setManagingGoalData({...managingGoalData!, goal: {...goal, status: e.target.value as any}})}
                                   >
                                       <option value="Not Started">Nog niet gestart</option>
                                       <option value="In Progress">In Uitvoering</option>
                                       <option value="Completed">Afgerond</option>
                                   </select>
                               </div>
-                          </div>
-                      </div>
-                  )}
-
-                  {cockpitTab === 'planning' && (
-                      <div className="space-y-4 animate-in fade-in slide-in-from-right-2">
-                          <div className="flex justify-between items-center bg-slate-50 p-3 rounded-lg border border-slate-100">
                               <div>
-                                  <span className="text-xs font-bold text-slate-500 uppercase block">Huidige Deadline</span>
-                                  <input 
-                                    type="date" 
-                                    className="bg-transparent font-bold text-slate-900 border-none p-0 focus:ring-0"
-                                    value={safeDateToInput(goal.deadline)}
-                                    onChange={(e) => {
-                                        const d = new Date(e.target.value);
-                                        if(!isNaN(d.getTime())) {
-                                            setManagingGoalData({...managingGoalData, goal: {...goal, deadline: d.toLocaleDateString('nl-NL')}});
-                                        }
-                                    }}
-                                  />
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Support Level</label>
+                                  <select 
+                                    className="w-full p-2 border border-slate-200 rounded-lg text-sm font-bold"
+                                    value={goal.supportLevel || 'Medium'}
+                                    onChange={(e) => setManagingGoalData({...managingGoalData!, goal: {...goal, supportLevel: e.target.value as any}})}
+                                  >
+                                      <option value="High">Intensief (High)</option>
+                                      <option value="Medium">Normaal (Medium)</option>
+                                      <option value="Low">Zelfstandig (Low)</option>
+                                  </select>
                               </div>
-                              <button onClick={handleManualAddCheckIn} className="text-xs font-bold text-teal-600 bg-white border border-teal-200 px-3 py-1.5 rounded-lg hover:bg-teal-50 transition-colors shadow-sm">
-                                  + Extra Check-in
-                              </button>
-                          </div>
-
-                          <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
-                              {goal.checkIns?.map((ci, idx) => (
-                                  <div key={ci.id} className="flex items-center gap-3 p-3 border rounded-xl bg-white hover:border-slate-300 transition-colors group">
-                                      <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">
-                                          #{idx + 1}
-                                      </div>
-                                      <div className="flex-1">
-                                          {ci.status === 'Completed' ? (
-                                              <div>
-                                                  <div className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                                                      <CheckCircle size={14} className="text-green-500"/> {ci.date}
-                                                  </div>
-                                                  <div className="text-xs text-slate-500">Score: {ci.score}%</div>
-                                              </div>
-                                          ) : (
-                                              <input 
-                                                  type="date"
-                                                  className="w-full p-1 border border-slate-200 rounded text-sm font-medium text-slate-700 focus:border-teal-500 focus:ring-1 focus:ring-teal-500"
-                                                  defaultValue={safeDateToInput(ci.date)}
-                                                  onChange={(e) => {
-                                                      const date = new Date(e.target.value);
-                                                      if (!isNaN(date.getTime())) {
-                                                          const newDateStr = date.toLocaleDateString('nl-NL');
-                                                          const newCheckIns = [...goal.checkIns];
-                                                          newCheckIns[idx] = { ...ci, date: newDateStr };
-                                                          setManagingGoalData({
-                                                              ...managingGoalData,
-                                                              goal: { ...goal, checkIns: newCheckIns }
-                                                          });
-                                                      }
-                                                  }}
-                                              />
-                                          )}
-                                      </div>
-                                      {ci.status !== 'Completed' && (
-                                          <button onClick={() => handleDeleteCheckIn(ci.id)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1">
-                                              <Trash2 size={16}/>
-                                          </button>
-                                      )}
-                                  </div>
-                              ))}
                           </div>
                       </div>
-                  )}
 
-                  {cockpitTab === 'logs' && (
-                      <div className="space-y-4 animate-in fade-in">
-                          <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl text-sm text-amber-800 flex gap-2">
-                              <Lock size={16} className="shrink-0 mt-0.5"/>
-                              <p>Deze notities zijn alleen zichtbaar voor managers en worden niet gedeeld met de medewerker.</p>
+                      {/* Logbook Widget */}
+                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col h-full max-h-[400px]">
+                          <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                              <Lock size={18} className="text-amber-500"/> Logboek
+                          </h3>
+                          <div className="bg-amber-50 rounded-lg p-2 text-xs text-amber-800 mb-2 border border-amber-100">
+                              Alleen zichtbaar voor management.
                           </div>
                           <textarea 
-                            className="w-full h-48 p-4 border border-slate-200 rounded-xl text-sm leading-relaxed focus:ring-2 focus:ring-teal-500 outline-none resize-none"
-                            placeholder="Houd hier interne voortgangsnotities bij..."
+                            className="flex-1 w-full p-3 border border-slate-200 rounded-xl text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none font-medium text-slate-600"
+                            placeholder="Notities over voortgang..."
                             value={goal.managementNotes || ''}
-                            onChange={(e) => setManagingGoalData({...managingGoalData, goal: {...goal, managementNotes: e.target.value}})}
+                            onChange={(e) => setManagingGoalData({...managingGoalData!, goal: {...goal, managementNotes: e.target.value}})}
                           />
                       </div>
-                  )}
-              </div>
 
-              {/* Footer Actions */}
-              <div className="pt-4 border-t border-slate-100 flex justify-between items-center">
-                  <button 
-                    onClick={handleDeleteGoal}
-                    className="text-red-600 font-bold text-sm px-4 py-2 hover:bg-red-50 rounded-lg transition-colors flex items-center gap-2"
-                  >
-                      <Trash2 size={16}/> Verwijder Traject
-                  </button>
-                  <div className="flex gap-3">
                       <button 
-                        onClick={() => setIsManageGoalModalOpen(false)}
-                        className="px-4 py-2 text-slate-500 font-bold text-sm hover:bg-slate-50 rounded-lg"
+                        onClick={handleDeleteGoal}
+                        className="w-full py-3 border border-red-100 bg-red-50 text-red-600 font-bold rounded-xl text-sm hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
                       >
-                          Annuleren
+                          <Trash2 size={16}/> Traject Verwijderen
                       </button>
-                      <button 
-                        onClick={handleSaveGoalChanges}
-                        className="px-6 py-2 bg-slate-900 text-white font-bold text-sm rounded-lg shadow-md hover:bg-slate-800 transition-all flex items-center gap-2"
-                      >
-                          <Save size={16}/> Opslaan
-                      </button>
+
                   </div>
               </div>
           </div>
@@ -1734,7 +1924,11 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
   return (
     <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
-        {selectedEvaluationId ? renderWizard() : renderDashboard()}
+        {viewMode === 'trajectory-details' ? (
+            renderTrajectoryDashboard()
+        ) : (
+            selectedEvaluationId ? renderWizard() : renderDashboard()
+        )}
 
         <Modal
             isOpen={isCreateModalOpen}
@@ -1806,15 +2000,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                     ))}
                 </div>
             </div>
-        </Modal>
-
-        {/* Goal Management Cockpit (Revised Modal) */}
-        <Modal
-            isOpen={isManageGoalModalOpen}
-            onClose={() => setIsManageGoalModalOpen(false)}
-            title="Traject Beheer Cockpit"
-        >
-            {renderTrajectoryCockpit()}
         </Modal>
     </div>
   );
