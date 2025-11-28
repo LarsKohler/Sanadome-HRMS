@@ -1,5 +1,4 @@
 
-
 import { createClient } from '@supabase/supabase-js';
 
 // --- SQL SETUP INSTRUCTIONS ---
@@ -54,12 +53,20 @@ import { createClient } from '@supabase/supabase-js';
 //   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 // );
 
-// -- 8. Enable Realtime
-// alter publication supabase_realtime add table employees, news, notifications, surveys, onboarding_templates, debtors, tickets;
+// -- 8. Create Knowledge Base Table
+// create table if not exists knowledge_base (
+//   id text primary key,
+//   data jsonb not null,
+//   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+// );
 
-// -- 9. Enable Delete Policy
+// -- 9. Enable Realtime
+// alter publication supabase_realtime add table employees, news, notifications, surveys, onboarding_templates, debtors, tickets, knowledge_base;
+
+// -- 10. Enable Delete Policy
 // create policy "Enable delete access for all users" on debtors for delete using (true);
 // create policy "Enable delete access for all users" on tickets for delete using (true);
+// create policy "Enable delete access for all users" on knowledge_base for delete using (true);
 
 // Veilig ophalen van env vars, met fallback naar de door jou opgegeven keys
 const getEnvVar = (key: string, fallback: string) => {

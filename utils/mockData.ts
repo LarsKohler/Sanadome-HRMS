@@ -1,9 +1,5 @@
 
-
-
-
-
-import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog, Ticket, BadgeDefinition } from '../types';
+import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog, Ticket, BadgeDefinition, KnowledgeArticle } from '../types';
 
 // --- MOCK BADGES ---
 export const MOCK_BADGES: BadgeDefinition[] = [
@@ -13,6 +9,66 @@ export const MOCK_BADGES: BadgeDefinition[] = [
     { id: 'b4', name: 'Sales Tijger', description: 'Hoogste upsell percentage van de maand.', icon: 'Trophy', color: 'yellow', createdAt: '2023-01-01' },
     { id: 'b5', name: 'Scherp Oog', description: 'Ontdekte een kritieke fout in een boeking.', icon: 'Eye', color: 'purple', createdAt: '2023-01-01' },
     { id: 'b6', name: 'Probleemoplosser', description: 'Heeft zelfstandig een complex gastprobleem opgelost.', icon: 'Zap', color: 'orange', createdAt: '2023-01-01' }
+];
+
+// --- MOCK KNOWLEDGE BASE ---
+export const MOCK_KNOWLEDGE_BASE: KnowledgeArticle[] = [
+    {
+        id: 'kb-1',
+        title: 'VIP Check-in Procedure',
+        category: 'Front Office',
+        content: `Bij het inchecken van VIP gasten gelden extra service standaarden.\n\n1. **Voorbereiding**: Controleer voor aankomst of de kamer gereed is en of de VIP-amenity (fles wijn/fruit) aanwezig is.\n2. **Ontvangst**: VIP gasten worden bij voorkeur niet aan de balie ingecheckt, maar in de lounge met een welkomstdrankje.\n3. **Kamerbegeleiding**: Een medewerker begeleidt de gast altijd naar de kamer en geeft een korte uitleg over de faciliteiten (thermostaat, minibar, spa-toegang).\n4. **Follow-up**: Bel de gast 15 minuten na aankomst op de kamer om te vragen of alles naar wens is.`,
+        tags: ['VIP', 'Check-in', 'Service', 'Protocol'],
+        authorName: 'Lars Kohler',
+        authorRole: 'Manager',
+        lastUpdated: '10 Okt 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['Front Office', 'Management'],
+        views: 145,
+        isPinned: true
+    },
+    {
+        id: 'kb-2',
+        title: 'Brandmeldinstallatie Bediening',
+        category: 'Veiligheid',
+        content: `In geval van een brandmelding op het paneel:\n\n1. **Controleer de locatie**: Lees op het paneel af welke melder is afgegaan.\n2. **Verifieer**: Stuur direct een BHV'er naar de locatie om te verifiëren of het om een echte brand gaat of een valse melding.\n3. **Echte brand**: Activeer de ontruiming en bel 112. Volg het ontruimingsplan.\n4. **Valse melding**: Reset het paneel (Code: 1234) en noteer het incident in het logboek.\n\n**Let op**: Zet het paneel nooit uit zonder toestemming van de Duty Manager.`,
+        tags: ['Brand', 'Veiligheid', 'BHV', 'Noodgeval'],
+        authorName: 'System',
+        authorRole: 'Manager',
+        lastUpdated: '01 Sep 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['All'],
+        views: 320,
+        isPinned: true
+    },
+    {
+        id: 'kb-3',
+        title: 'Kassa Afsluiting & Storting',
+        category: 'Finance',
+        content: `Aan het einde van elke dienst moet de kassa worden opgemaakt.\n\n- Tel het contante geld in de lade.\n- Vergelijk dit met de Z-afslag uit het kassasysteem.\n- Verschillen groter dan €5,- moeten direct gemeld worden bij de manager.\n- Doe het geld in de kluis-envelop, schrijf de datum, je naam en het bedrag erop.\n- Deponeer de envelop in de afstortkluis.\n\nLaat altijd €300,- wisselgeld in de lade voor de volgende dienst.`,
+        tags: ['Kassa', 'Geld', 'Finance', 'Afsluiting'],
+        authorName: 'Janique Vink',
+        authorRole: 'Senior Medewerker',
+        lastUpdated: '15 Sep 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['Front Office', 'F&B'],
+        views: 89,
+        isPinned: false
+    },
+    {
+        id: 'kb-4',
+        title: 'IDu PMS: Reservering Wijzigen',
+        category: 'IT & Systemen',
+        content: `Om een reservering te wijzigen in IDu:\n1. Zoek de reservering op naam of nummer.\n2. Klik op 'Edit' (potlood icoon).\n3. Pas de data, kamertype of gastgegevens aan.\n4. **Belangrijk**: Als de prijs verandert, moet je dit bevestigen aan de gast via e-mail.\n5. Klik op 'Save' en controleer of de balans klopt.`,
+        tags: ['IDu', 'PMS', 'Reservering', 'Software'],
+        authorName: 'Janique Vink',
+        authorRole: 'Senior Medewerker',
+        lastUpdated: '20 Sep 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['Front Office', 'Reserveringen'],
+        views: 56,
+        isPinned: false
+    }
 ];
 
 // --- MOCK TICKETS ---
@@ -112,19 +168,19 @@ export const MOCK_TICKETS: Ticket[] = [
 
 // --- AUTO UPDATE LOGGER ---
 export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
-    id: 'update-v3.8.0-badges', 
-    version: 'v3.8.0',
+    id: 'update-v3.9.0-knowledge', 
+    version: 'v3.9.0',
     date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
     timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
     author: 'AI Assistant',
     type: 'Feature',
     impact: 'Medium',
-    affectedArea: 'Waardering',
+    affectedArea: 'Kennisbank',
     description: `
-- Badge systeem geïntroduceerd.
-- Managers kunnen nu badges uitreiken.
-- Profielen tonen verzamelde badges met details.
-- Systeemkleuren aangepast naar Spa Blauw.`,
+- Slimme Kennisbank toegevoegd.
+- Protocollen en uitleg kunnen nu centraal beheerd worden.
+- Rechtenbeheer per artikel (zichtbaarheid op basis van rol/afdeling).
+- Slimme zoekfunctie door alle artikelen.`,
     status: 'Success'
 };
 

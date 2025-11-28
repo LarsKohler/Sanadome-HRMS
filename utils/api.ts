@@ -1,12 +1,8 @@
 
-
-
-
-
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, Ticket, BadgeDefinition } from '../types';
-import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_TICKETS, MOCK_BADGES } from './mockData';
+import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, Ticket, BadgeDefinition, KnowledgeArticle } from '../types';
+import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_TICKETS, MOCK_BADGES, MOCK_KNOWLEDGE_BASE } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
 // We explicitely check if supabase is not null
@@ -129,7 +125,7 @@ export const api = {
             'MANAGE_SURVEYS', 'VIEW_SYSTEM_STATUS', 'MANAGE_SETTINGS', 
             'MANAGE_EVALUATIONS', 'MANAGE_DEBTORS', 'MANAGE_RECRUITMENT',
             'VIEW_CALENDAR', 'MANAGE_ATTENDANCE', 'MANAGE_CASES',
-            'MANAGE_TICKETS', 'MANAGE_BADGES'
+            'MANAGE_TICKETS', 'MANAGE_BADGES', 'MANAGE_KNOWLEDGE'
           ] : undefined
       };
 
@@ -203,6 +199,16 @@ export const api = {
             MOCK_TICKETS.map(t => ({ id: t.id, data: t }))
         );
         if (error) console.error("Error seeding tickets:", error);
+    }
+
+    // 7. Seed Knowledge Base
+    const { count: kbCount } = await supabase.from('knowledge_base').select('*', { count: 'exact', head: true });
+    if (kbCount === 0) {
+        console.log("Seeding knowledge base...");
+        const { error } = await supabase.from('knowledge_base').insert(
+            MOCK_KNOWLEDGE_BASE.map(k => ({ id: k.id, data: k }))
+        );
+        if (error) console.error("Error seeding KB:", error);
     }
     
     console.log("Database seed completed.");
@@ -336,8 +342,7 @@ export const api = {
   },
 
   saveBadge: async (badge: BadgeDefinition) => {
-      // Simple local storage persistence for badges meta-data as we don't have a 'badges' table in Supabase setup script yet
-      // If you want Supabase, you'd add a table there. For now, local/mock is sufficient for definitions.
+      // Simple local storage persistence for badges meta-data
       const current = await api.getBadges();
       const index = current.findIndex(b => b.id === badge.id);
       if (index >= 0) current[index] = badge;
@@ -349,6 +354,43 @@ export const api = {
       const current = await api.getBadges();
       const filtered = current.filter(b => b.id !== id);
       localStorage.setItem('hrms_badges', JSON.stringify(filtered));
+  },
+
+  // --- KNOWLEDGE BASE (NEW) ---
+  getKnowledgeArticles: async (): Promise<KnowledgeArticle[]> => {
+      if (isLive && supabase) {
+          try {
+              const { data, error } = await supabase.from('knowledge_base').select('data');
+              if (!error && data && data.length > 0) return data.map((row: any) => row.data);
+              return MOCK_KNOWLEDGE_BASE;
+          } catch (e) {
+              return MOCK_KNOWLEDGE_BASE;
+          }
+      }
+      const local = localStorage.getItem('hrms_kb');
+      return local ? JSON.parse(local) : MOCK_KNOWLEDGE_BASE;
+  },
+
+  saveKnowledgeArticle: async (article: KnowledgeArticle) => {
+      if (isLive && supabase) {
+          await supabase.from('knowledge_base').upsert({ id: article.id, data: article });
+      } else {
+          const current = await api.getKnowledgeArticles();
+          const index = current.findIndex(a => a.id === article.id);
+          if (index >= 0) current[index] = article;
+          else current.unshift(article);
+          localStorage.setItem('hrms_kb', JSON.stringify(current));
+      }
+  },
+
+  deleteKnowledgeArticle: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('knowledge_base').delete().eq('id', id);
+      } else {
+          const current = await api.getKnowledgeArticles();
+          const filtered = current.filter(a => a.id !== id);
+          localStorage.setItem('hrms_kb', JSON.stringify(filtered));
+      }
   },
 
   // --- NEWS ---
@@ -682,7 +724,8 @@ export const api = {
                                 'api': 'API / Backend',
                                 'db': 'Database',
                                 'doc': 'Documenten',
-                                'badges': 'Waardering'
+                                'badges': 'Waardering',
+                                'kb': 'Kennisbank'
                             };
                             affectedArea = areaMap[rawScope] || (rawScope.charAt(0).toUpperCase() + rawScope.slice(1));
                         }

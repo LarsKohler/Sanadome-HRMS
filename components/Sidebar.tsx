@@ -1,13 +1,9 @@
 
-
-
-
-
 import React from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
   UserPlus, Trophy, FileText, PieChart, 
-  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Ticket, Medal
+  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Ticket, Medal, BookOpen
 } from 'lucide-react';
 import { ViewState, Employee } from '../types';
 import { hasPermission } from '../utils/permissions';
@@ -29,7 +25,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
     
     // Regular Items
     { icon: User, label: 'Mijn Profiel', id: ViewState.HOME },
-    { icon: Newspaper, label: 'Nieuws', id: ViewState.NEWS }, 
+    { icon: Newspaper, label: 'Nieuws', id: ViewState.NEWS },
+    { icon: BookOpen, label: 'Kennisbank', id: ViewState.KNOWLEDGE_BASE }, 
     { icon: UserCheck, label: 'Onboarding', id: ViewState.ONBOARDING },
     { icon: ClipboardList, label: 'Surveys', id: ViewState.SURVEYS },
     { icon: ClipboardCheck, label: 'Evaluaties', id: ViewState.EVALUATIONS }, 

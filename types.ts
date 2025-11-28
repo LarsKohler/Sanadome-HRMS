@@ -1,3 +1,4 @@
+
 export enum ViewState {
   HOME = 'HOME',
   DIRECTORY = 'DIRECTORY',
@@ -14,6 +15,7 @@ export enum ViewState {
   DEBT_CONTROL = 'DEBT_CONTROL', // New: Debiteuren Beheer
   TICKETS = 'TICKETS', // New: Ticket System
   BADGES = 'BADGES', // New: Badge Management
+  KNOWLEDGE_BASE = 'KNOWLEDGE_BASE', // New: Knowledge Base
 }
 
 // --- PERMISSIONS SYSTEM ---
@@ -35,7 +37,8 @@ export type Permission =
   | 'MANAGE_ATTENDANCE' // Access Attendance/Rooster
   | 'MANAGE_CASES' // Access Arbo/Verzuim cases
   | 'MANAGE_TICKETS' // Access Ticket Dashboard
-  | 'MANAGE_BADGES'; // New: Manage and Award Badges
+  | 'MANAGE_BADGES' // New: Manage and Award Badges
+  | 'MANAGE_KNOWLEDGE'; // New: Create/Edit Knowledge Articles
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_REPORTS': 'Rapportages Inzien',
@@ -54,8 +57,30 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'MANAGE_ATTENDANCE': 'Aanwezigheid & Roosters',
   'MANAGE_CASES': 'Cases & Verzuim Dossiers',
   'MANAGE_TICKETS': 'Ticket Systeem Beheer',
-  'MANAGE_BADGES': 'Badges & Waardering Beheren'
+  'MANAGE_BADGES': 'Badges & Waardering Beheren',
+  'MANAGE_KNOWLEDGE': 'Kennisbank Beheren'
 };
+
+// --- KNOWLEDGE BASE TYPES ---
+
+export interface KnowledgeArticle {
+  id: string;
+  title: string;
+  category: string; // e.g., 'Front Office', 'Veiligheid', 'IT', 'HR'
+  content: string; // The full explanation/protocol
+  tags: string[]; // For smart search
+  
+  authorName: string;
+  authorRole: string;
+  lastUpdated: string;
+  
+  // Visibility Logic
+  allowedRoles: string[]; // e.g. ['Manager', 'Senior Medewerker'] or ['All']
+  allowedDepartments: string[]; // e.g. ['Front Office'] or ['All']
+  
+  views: number;
+  isPinned?: boolean; // Featured articles
+}
 
 // --- BADGE SYSTEM TYPES ---
 
@@ -141,7 +166,7 @@ export interface Notification {
   id: string;
   recipientId: string;
   senderName: string;
-  type: 'LeaveRequest' | 'Document' | 'Note' | 'System' | 'News' | 'Onboarding' | 'Survey' | 'Evaluation' | 'Evaluation' | 'Ticket' | 'Badge';
+  type: 'LeaveRequest' | 'Document' | 'Note' | 'System' | 'News' | 'Onboarding' | 'Survey' | 'Evaluation' | 'Evaluation' | 'Ticket' | 'Badge' | 'Knowledge';
   title: string;
   message: string;
   date: string;
