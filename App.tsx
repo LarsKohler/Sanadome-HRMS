@@ -165,57 +165,74 @@ const App: React.FC = () => {
 
   // Initial Mock Notification for Survey (Local Logic Only) & Growth Checks
   useEffect(() => {
-      // 1. Survey Notification
-      if (currentUser && surveys.length > 0) {
-          const surveyS1 = surveys.find(s => s.id === 's1');
-          const alreadyCompleted = surveyS1?.completedBy.includes(currentUser.id);
-          
-          if (!alreadyCompleted && surveyS1?.status === 'Active') {
-             // Mock notification check (skipping implementation details for brevity)
+      try {
+          // 1. Survey Notification
+          if (currentUser && surveys.length > 0) {
+              const surveyS1 = surveys.find(s => s.id === 's1');
+              const alreadyCompleted = surveyS1?.completedBy?.includes(currentUser.id);
+              
+              if (!alreadyCompleted && surveyS1?.status === 'Active') {
+                 // Mock notification check (skipping implementation details for brevity)
+              }
           }
-      }
 
-      // 2. Growth Path Due Check (Simulated for Manager)
-      if (currentUser && currentUser.role === 'Manager' && employees.length > 0) {
-          const today = new Date();
-          let newNotifs: Notification[] = [];
-          
-          employees.forEach(emp => {
-              if (emp.growthGoals) {
-                  emp.growthGoals.forEach(goal => {
-                      if (goal.status === 'In Progress') {
-                          goal.checkIns.forEach(ci => {
-                              if (ci.status === 'Planned') {
-                                  const ciDate = new Date(ci.date.split(' ').reverse().join('-')); // approx parse
-                                  // Simple mock check: if month matches
-                                  if (ciDate.getMonth() === today.getMonth() && ciDate.getFullYear() === today.getFullYear()) {
-                                      // Check if already notified
-                                      const alreadyNotified = notifications.some(n => n.type === 'Evaluation' && n.message.includes(emp.name) && n.message.includes('check-in'));
-                                      if (!alreadyNotified) {
-                                          newNotifs.push({
-                                              id: Math.random().toString(36).substr(2, 9),
-                                              recipientId: currentUser.id,
-                                              senderName: 'System',
-                                              type: 'Evaluation',
-                                              title: 'Tussentijdse Evaluatie',
-                                              message: `Check-in gepland voor ${emp.name}: "${goal.title}"`,
-                                              date: 'Zojuist',
-                                              read: false,
-                                              targetView: ViewState.HOME, // Profile
-                                              targetEmployeeId: emp.id
-                                          });
+          // 2. Growth Path Due Check (Simulated for Manager)
+          // Wrapped in try/catch to prevent white screen on data mismatch
+          if (currentUser && currentUser.role === 'Manager' && employees.length > 0) {
+              const today = new Date();
+              let newNotifs: Notification[] = [];
+              
+              employees.forEach(emp => {
+                  if (emp.growthGoals && Array.isArray(emp.growthGoals)) {
+                      emp.growthGoals.forEach(goal => {
+                          if (goal.status === 'In Progress') {
+                              // Safe access to checkIns
+                              (goal.checkIns || []).forEach(ci => {
+                                  if (ci.status === 'Planned') {
+                                      // Robust Date Parsing
+                                      let ciDate = new Date();
+                                      try {
+                                          const parts = ci.date.split(' '); // e.g. "20 Dec 2023"
+                                          if (parts.length === 3) {
+                                              // Simple conversion for Dutch month names if needed, but for now assuming std format
+                                              ciDate = new Date(ci.date);
+                                          }
+                                      } catch(e) {
+                                          // ignore invalid date
+                                      }
+
+                                      // Simple mock check: if month matches
+                                      if (ciDate.getMonth() === today.getMonth() && ciDate.getFullYear() === today.getFullYear()) {
+                                          // Check if already notified
+                                          const alreadyNotified = notifications.some(n => n.type === 'Evaluation' && n.message.includes(emp.name) && n.message.includes('check-in'));
+                                          if (!alreadyNotified) {
+                                              newNotifs.push({
+                                                  id: Math.random().toString(36).substr(2, 9),
+                                                  recipientId: currentUser.id,
+                                                  senderName: 'System',
+                                                  type: 'Evaluation',
+                                                  title: 'Tussentijdse Evaluatie',
+                                                  message: `Check-in gepland voor ${emp.name}: "${goal.title}"`,
+                                                  date: 'Zojuist',
+                                                  read: false,
+                                                  targetView: ViewState.HOME, // Profile
+                                                  targetEmployeeId: emp.id
+                                              });
+                                          }
                                       }
                                   }
-                              }
-                          });
-                      }
-                  });
-              }
-          });
+                              });
+                          }
+                      });
+                  }
+              });
 
-          if (newNotifs.length > 0) {
-              newNotifs.forEach(n => handleAddNotification(n));
+              if (newNotifs.length > 0) {
+                  newNotifs.forEach(n => handleAddNotification(n));
+              }
           }
+      } catch (error) {
+          console.warn("Recovered from data consistency check error:", error);
       }
 
   }, [currentUser, surveys, employees]); // Depend on employees to trigger check when data loads

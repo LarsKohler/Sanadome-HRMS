@@ -971,7 +971,8 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                   <div className="mt-6 border-t border-slate-50 pt-4">
                                       <h5 className="text-xs font-bold text-slate-400 uppercase mb-3">Geplande Evaluatiemomenten</h5>
                                       <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
-                                          {goal.checkIns.map((ci, idx) => (
+                                          {/* SAFEGUARD: Using (goal.checkIns || []).map to prevent crash */}
+                                          {(goal.checkIns || []).map((ci, idx) => (
                                               <div key={idx} className="flex-shrink-0 flex flex-col items-center min-w-[80px]">
                                                   <div className="w-3 h-3 rounded-full bg-slate-200 mb-2 border-2 border-white ring-1 ring-slate-100"></div>
                                                   <span className="text-[10px] font-bold text-slate-600">{ci.date}</span>

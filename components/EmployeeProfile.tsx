@@ -254,7 +254,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       if (!selectedGoal || !activeCheckIn) return;
 
       // Update the specific check-in
-      const updatedCheckIns = selectedGoal.checkIns.map(ci => 
+      const updatedCheckIns = (selectedGoal.checkIns || []).map(ci => 
           ci.id === activeCheckIn.id 
           ? { ...ci, status: 'Completed' as const, score: checkInScore, managerNotes: checkInNotes, completedDate: new Date().toLocaleDateString('nl-NL') }
           : ci
@@ -472,7 +472,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                       <h3 className="text-xl font-bold text-slate-900">{activeGrowthGoal.title}</h3>
                                       {/* Find next check-in */}
                                       {(() => {
-                                          const next = activeGrowthGoal.checkIns.find(c => c.status === 'Planned');
+                                          const next = (activeGrowthGoal.checkIns || []).find(c => c.status === 'Planned');
                                           return next ? (
                                               <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
                                                   <Clock size={12}/> Volgende evaluatie: <strong>{next.date}</strong>
@@ -769,8 +769,8 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                       <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide">Actieve Doelen</h3>
                       
                       {activeGoals.map(goal => {
-                          const nextCheckIn = goal.checkIns.find(c => c.status === 'Planned');
-                          const completedCheckIns = goal.checkIns.filter(c => c.status === 'Completed');
+                          const nextCheckIn = (goal.checkIns || []).find(c => c.status === 'Planned');
+                          const completedCheckIns = (goal.checkIns || []).filter(c => c.status === 'Completed');
 
                           return (
                               <div key={goal.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow">
@@ -801,7 +801,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                           </div>
 
                                           {/* Interim Check-ins */}
-                                          {goal.checkIns.map((checkIn, i) => (
+                                          {(goal.checkIns || []).map((checkIn, i) => (
                                               <div key={i} className="flex flex-col items-center group relative">
                                                   <div className={`w-4 h-4 rounded-full border-2 border-white mb-2 transition-all cursor-help
                                                       ${checkIn.status === 'Completed' ? 'bg-teal-500 ring-2 ring-teal-100' : 'bg-white border-slate-300 ring-2 ring-slate-50'}
