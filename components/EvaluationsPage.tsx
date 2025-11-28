@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
     ClipboardCheck, Plus, Search, Calendar, User, ArrowRight, Play, CheckCircle, Clock, 
-    AlertCircle, BarChart3, ChevronRight, MessageSquare, BrainCircuit, X, Target, PenTool, TrendingUp, AlertTriangle, FileCheck, Star, Split, Lock, Unlock, Eye, EyeOff, Printer, PenLine, History, ArrowLeft, Check, TrendingDown, Minus, BookOpen, Compass, Trash2, CalendarDays, Activity, Signal, Edit, Save, MoreHorizontal
+    AlertCircle, BarChart3, ChevronRight, MessageSquare, BrainCircuit, X, Target, PenTool, TrendingUp, AlertTriangle, FileCheck, Star, Split, Lock, Unlock, Eye, EyeOff, Printer, PenLine, History, ArrowLeft, Check, TrendingDown, Minus, BookOpen, Compass, Trash2, CalendarDays, Activity, Signal, Edit, Save, MoreHorizontal, Flag, Milestone, Trophy
 } from 'lucide-react';
 import { Employee, EvaluationCycle, Notification, ViewState, EvaluationScore, EvaluationGoal, EvaluationStatus, PersonalDevelopmentGoal, InterimCheckIn } from '../types';
 import { EVALUATION_TEMPLATES, MOCK_DEVELOPMENT_LIBRARY } from '../utils/mockData';
@@ -73,6 +73,9 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   const [newDevGoal, setNewDevGoal] = useState<Partial<PersonalDevelopmentGoal>>({ title: '', category: 'General', actionPlan: '' });
   const [showPlanBuilder, setShowPlanBuilder] = useState(false);
   const [supportLevel, setSupportLevel] = useState<'Low' | 'Medium' | 'High'>('Medium');
+  
+  // Preview Schedule State
+  const [previewSchedule, setPreviewSchedule] = useState<InterimCheckIn[]>([]);
 
   // Goal Management State (Trajectories View)
   const [managingGoalData, setManagingGoalData] = useState<ManagingGoalData | null>(null);
@@ -220,16 +223,19 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       onUpdateEmployee({ ...targetEmp, evaluations: updatedEvaluations });
   };
 
-  // Auto-generate check-ins based on deadline and support level
-  const generateCheckIns = (startDate: Date, endDate: Date, level: 'Low' | 'Medium' | 'High'): InterimCheckIn[] => {
+  // Pure function to calculate check-in dates
+  const calculateCheckInDates = (startDate: Date, endDate: Date, level: 'Low' | 'Medium' | 'High'): InterimCheckIn[] => {
       const diffTime = endDate.getTime() - startDate.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
+      // If end date is in the past or same day, return empty
+      if (diffDays <= 0) return [];
+
       // Short duration rule (< 6 weeks approx 45 days)
       if (diffDays < 45) {
           const midDate = new Date(startDate.getTime() + diffTime / 2);
            return [{
-              id: Math.random().toString(36).substr(2, 9),
+              id: 'preview-1',
               date: midDate.toLocaleDateString('nl-NL'),
               status: 'Planned',
               score: 0
@@ -237,7 +243,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       }
 
       // Long duration frequency based on support level
-      let intervalDays = 30; // Default Medium
+      let intervalDays = 30; 
       switch (level) {
           case 'High': intervalDays = 14; break; // ~2 weeks
           case 'Medium': intervalDays = 30; break; // ~1 month
@@ -246,11 +252,12 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
       const checkIns: InterimCheckIn[] = [];
       let currentDate = new Date(startDate.getTime() + (intervalDays * 24 * 60 * 60 * 1000));
+      let idCounter = 1;
 
       // Generate check-ins while current date is comfortably before deadline (e.g. 1 week before)
       while (currentDate.getTime() < (endDate.getTime() - (7 * 24 * 60 * 60 * 1000))) {
           checkIns.push({
-              id: Math.random().toString(36).substr(2, 9),
+              id: `preview-${idCounter++}`,
               date: currentDate.toLocaleDateString('nl-NL'),
               status: 'Planned',
               score: 0
@@ -258,11 +265,11 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           currentDate = new Date(currentDate.getTime() + (intervalDays * 24 * 60 * 60 * 1000));
       }
       
-      // Fallback: If logic resulted in 0 check-ins for a long duration (edge case), add 1 halfway
+      // Fallback: If logic resulted in 0 check-ins for a long duration, add 1 halfway
       if (checkIns.length === 0) {
            const midDate = new Date(startDate.getTime() + diffTime / 2);
            return [{
-              id: Math.random().toString(36).substr(2, 9),
+              id: 'preview-fallback',
               date: midDate.toLocaleDateString('nl-NL'),
               status: 'Planned',
               score: 0
@@ -272,18 +279,36 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       return checkIns;
   };
 
+  // Effect to update preview schedule whenever inputs change
+  useEffect(() => {
+      if (showPlanBuilder && newDevGoal.deadline) {
+          const now = new Date();
+          const deadlineDate = new Date(newDevGoal.deadline);
+          if (!isNaN(deadlineDate.getTime())) {
+              const schedule = calculateCheckInDates(now, deadlineDate, supportLevel);
+              setPreviewSchedule(schedule);
+          } else {
+              setPreviewSchedule([]);
+          }
+      } else {
+          setPreviewSchedule([]);
+      }
+  }, [newDevGoal.deadline, supportLevel, showPlanBuilder]);
+
   const handleAddDevelopmentGoal = (evaluation: EvaluationCycle) => {
       if (!newDevGoal.title || !newDevGoal.deadline) {
           onShowToast("Titel en deadline zijn verplicht.");
           return;
       }
       
-      // Use parseNLDate or standard Date if it came from input
       const deadlineDate = new Date(newDevGoal.deadline);
       const now = new Date();
       
-      // Auto generate check-ins
-      const generatedCheckIns = generateCheckIns(now, deadlineDate, supportLevel);
+      // Use the previewed schedule but generate permanent IDs
+      const finalCheckIns = previewSchedule.map(ci => ({
+          ...ci,
+          id: Math.random().toString(36).substr(2, 9)
+      }));
 
       const goal: PersonalDevelopmentGoal = {
           id: Math.random().toString(36).substr(2, 9),
@@ -294,15 +319,15 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           status: 'Not Started',
           progress: 0,
           startDate: now.toLocaleDateString('nl-NL'),
-          deadline: deadlineDate.toLocaleDateString('nl-NL'), // Store consistent format
+          deadline: deadlineDate.toLocaleDateString('nl-NL'),
           supportLevel: supportLevel,
           reflections: [],
-          checkIns: generatedCheckIns
+          checkIns: finalCheckIns
       };
 
       handleUpdateEvaluation(evaluation, { developmentPlan: [...(evaluation.developmentPlan || []), goal] });
       setNewDevGoal({ title: '', category: 'General', actionPlan: '' });
-      setSupportLevel('Medium'); // Reset
+      setSupportLevel('Medium'); 
       setShowPlanBuilder(false);
       onShowToast("Doel en planning opgeslagen.");
   };
@@ -1192,7 +1217,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                           </h3>
                           {isManager && evaluation.status === 'Review' && (
                               <button 
-                                onClick={() => { setIsLibraryModalOpen(true); setShowPlanBuilder(false); setSupportLevel('Medium'); }}
+                                onClick={() => { setIsLibraryModalOpen(true); setShowPlanBuilder(false); setSupportLevel('Medium'); setPreviewSchedule([]); }}
                                 className="text-xs font-bold bg-white border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-teal-50 hover:text-teal-700 transition-colors shadow-sm"
                               >
                                   + Groeipad Plannen
@@ -1201,49 +1226,117 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                       </div>
 
                       {showPlanBuilder && (
-                          <div className="bg-white p-5 rounded-lg shadow-sm border border-teal-200 mb-6 animate-in slide-in-from-top-2">
-                              <h4 className="font-bold text-slate-900 text-sm mb-3">Stel Planning in voor: {newDevGoal.title}</h4>
-                              <p className="text-xs text-slate-500 mb-4">Bepaal de deadline en de intensiteit van de begeleiding.</p>
-                              
-                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                          <div className="bg-white p-6 rounded-xl shadow-sm border border-teal-200 mb-6 animate-in slide-in-from-top-2 relative overflow-hidden">
+                              <div className="flex justify-between items-start mb-6">
                                   <div>
-                                      <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Streefdatum</label>
-                                      <input 
-                                        type="date" 
-                                        className="w-full p-2 border border-slate-300 rounded-lg text-sm"
-                                        value={newDevGoal.deadline || ''}
-                                        onChange={(e) => setNewDevGoal({...newDevGoal, deadline: e.target.value})}
-                                      />
+                                      <h4 className="font-bold text-slate-900 text-lg">Traject Configurator</h4>
+                                      <p className="text-sm text-slate-500">Stel het doel: <span className="font-bold text-teal-700">{newDevGoal.title}</span></p>
                                   </div>
-                                  <div>
-                                      <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Begeleiding</label>
-                                      <div className="flex bg-slate-100 p-1 rounded-lg">
-                                          {['Low', 'Medium', 'High'].map(lvl => (
-                                              <button
-                                                key={lvl}
-                                                onClick={() => setSupportLevel(lvl as any)}
-                                                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
-                                                    supportLevel === lvl 
-                                                    ? 'bg-white shadow-sm text-slate-900' 
-                                                    : 'text-slate-500 hover:text-slate-700'
-                                                }`}
-                                              >
-                                                  {lvl === 'Low' ? 'Basis' : lvl === 'Medium' ? 'Normaal' : 'Intensief'}
-                                              </button>
-                                          ))}
+                                  <button onClick={() => setShowPlanBuilder(false)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors">
+                                      <X size={20}/>
+                                  </button>
+                              </div>
+                              
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                                  {/* Left: Input */}
+                                  <div className="space-y-6">
+                                      <div>
+                                          <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Begeleidingsintensiteit</label>
+                                          <div className="space-y-3">
+                                              {[
+                                                  { id: 'High', label: 'Intensief', desc: 'Veel sturing nodig. Wekelijkse check-ins.', icon: Compass },
+                                                  { id: 'Medium', label: 'Normaal', desc: 'Reguliere begeleiding. Maandelijkse check-ins.', icon: Target },
+                                                  { id: 'Low', label: 'Zelfstandig', desc: 'Grote autonomie. Eens in de 2 maanden check-in.', icon: Trophy },
+                                              ].map(opt => (
+                                                  <div 
+                                                    key={opt.id}
+                                                    onClick={() => setSupportLevel(opt.id as any)}
+                                                    className={`p-3 rounded-xl border flex items-center gap-3 cursor-pointer transition-all ${
+                                                        supportLevel === opt.id 
+                                                        ? 'bg-teal-50 border-teal-500 ring-1 ring-teal-500/20 shadow-sm' 
+                                                        : 'bg-white border-slate-200 hover:border-teal-200 hover:bg-slate-50'
+                                                    }`}
+                                                  >
+                                                      <div className={`p-2 rounded-lg ${supportLevel === opt.id ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                          <opt.icon size={18} />
+                                                      </div>
+                                                      <div>
+                                                          <div className={`text-sm font-bold ${supportLevel === opt.id ? 'text-teal-900' : 'text-slate-700'}`}>{opt.label}</div>
+                                                          <div className="text-xs text-slate-500">{opt.desc}</div>
+                                                      </div>
+                                                      {supportLevel === opt.id && <div className="ml-auto text-teal-600"><CheckCircle size={18}/></div>}
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      </div>
+
+                                      <div>
+                                          <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Streefdatum Afronding</label>
+                                          <input 
+                                            type="date" 
+                                            className="w-full p-3 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-teal-500 outline-none"
+                                            value={newDevGoal.deadline || ''}
+                                            onChange={(e) => setNewDevGoal({...newDevGoal, deadline: e.target.value})}
+                                          />
                                       </div>
                                   </div>
-                                  <div className="flex gap-2">
-                                      <button 
-                                        onClick={() => handleAddDevelopmentGoal(evaluation)}
-                                        className="flex-1 px-4 py-2 bg-teal-600 text-white font-bold rounded-lg text-sm hover:bg-teal-700 h-10"
-                                      >
-                                          Genereer Plan
-                                      </button>
-                                      <button onClick={() => setShowPlanBuilder(false)} className="px-3 py-2 text-slate-400 hover:text-red-500 border border-slate-200 rounded-lg">
-                                          <X size={18}/>
-                                      </button>
+
+                                  {/* Right: Preview */}
+                                  <div className="bg-slate-50 rounded-xl p-5 border border-slate-200">
+                                      <h5 className="font-bold text-slate-700 text-sm mb-4 flex items-center gap-2">
+                                          <CalendarDays size={16} className="text-slate-400"/>
+                                          Traject Voorbeeld
+                                      </h5>
+                                      
+                                      {previewSchedule.length > 0 ? (
+                                          <div className="relative pl-4 space-y-6 before:absolute before:left-[21px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+                                              {/* Start Node */}
+                                              <div className="relative flex items-center gap-4">
+                                                  <div className="z-10 w-4 h-4 rounded-full bg-teal-500 border-2 border-white ring-2 ring-teal-100"></div>
+                                                  <div>
+                                                      <span className="text-xs font-bold text-slate-900 block">Vandaag</span>
+                                                      <span className="text-[10px] text-slate-500 uppercase tracking-wide">Start Traject</span>
+                                                  </div>
+                                              </div>
+
+                                              {/* Check-ins */}
+                                              {previewSchedule.map((ci, idx) => (
+                                                  <div key={idx} className="relative flex items-center gap-4">
+                                                      <div className="z-10 w-4 h-4 rounded-full bg-white border-2 border-slate-300"></div>
+                                                      <div className="bg-white px-3 py-2 rounded-lg border border-slate-100 shadow-sm w-full">
+                                                          <div className="flex justify-between items-center">
+                                                              <span className="text-xs font-bold text-slate-700">Check-in {idx + 1}</span>
+                                                              <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-mono">{ci.date}</span>
+                                                          </div>
+                                                      </div>
+                                                  </div>
+                                              ))}
+
+                                              {/* End Node */}
+                                              <div className="relative flex items-center gap-4">
+                                                  <div className="z-10 w-4 h-4 rounded-full bg-slate-900 border-2 border-white"></div>
+                                                  <div>
+                                                      <span className="text-xs font-bold text-slate-900 block">{newDevGoal.deadline?.split('-').reverse().join('-')}</span>
+                                                      <span className="text-[10px] text-slate-500 uppercase tracking-wide">Deadline</span>
+                                                  </div>
+                                              </div>
+                                          </div>
+                                      ) : (
+                                          <div className="h-40 flex flex-col items-center justify-center text-slate-400 text-center">
+                                              <Milestone size={32} className="mb-2 opacity-20"/>
+                                              <p className="text-xs">Selecteer een datum om een planning te zien.</p>
+                                          </div>
+                                      )}
                                   </div>
+                              </div>
+
+                              <div className="flex justify-end pt-4 border-t border-slate-100">
+                                  <button 
+                                    onClick={() => handleAddDevelopmentGoal(evaluation)}
+                                    className="px-6 py-3 bg-slate-900 text-white font-bold rounded-xl text-sm hover:bg-slate-800 shadow-md transition-all flex items-center gap-2"
+                                  >
+                                      <Save size={16}/> Plan Vastleggen
+                                  </button>
                               </div>
                           </div>
                       )}
