@@ -1,10 +1,9 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import { 
     Medal, Plus, Search, Trash2, Award, Check, User, Calendar, 
-    Trophy, Star, Heart, Zap, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Target, Users, Eye
+    Trophy, Star, Heart, Zap, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Target, Users, Eye,
+    LayoutGrid, List, X
 } from 'lucide-react';
 import { Employee, BadgeDefinition, AssignedBadge, BadgeIconKey, BadgeColor } from '../types';
 import { api } from '../utils/api';
@@ -48,6 +47,7 @@ const BADGE_COLORS: Record<BadgeColor, string> = {
 const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onUpdateEmployee, onShowToast }) => {
     const [badges, setBadges] = useState<BadgeDefinition[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState<'library' | 'assignments'>('library');
     
     // Modal States
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -96,10 +96,10 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
     };
 
     const handleDeleteBadge = async (id: string) => {
-        if (confirm('Weet je zeker dat je deze badge wilt verwijderen?')) {
+        if (confirm('Weet je zeker dat je deze badge definitief wilt verwijderen uit het systeem?')) {
             await api.deleteBadge(id);
             setBadges(badges.filter(b => b.id !== id));
-            onShowToast('Badge verwijderd.');
+            onShowToast('Badge definitie verwijderd.');
         }
     };
 
@@ -136,12 +136,29 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
         onShowToast(`Badge uitgereikt aan ${targetEmployee.name}!`);
     };
 
+    const handleRevokeBadge = async (employeeId: string, assignedBadgeId: string) => {
+        if(!confirm("Weet je zeker dat je deze badge wilt intrekken bij de medewerker?")) return;
+
+        const targetEmployee = employees.find(e => e.id === employeeId);
+        if (!targetEmployee) return;
+
+        const updatedBadges = targetEmployee.badges?.filter(b => b.id !== assignedBadgeId) || [];
+        const updatedEmployee = { ...targetEmployee, badges: updatedBadges };
+
+        onUpdateEmployee(updatedEmployee);
+        await api.saveEmployee(updatedEmployee);
+        onShowToast("Badge succesvol ingetrokken.");
+    };
+
     const openAssignModal = (badgeId: string) => {
         setSelectedBadgeId(badgeId);
         setIsAssignModalOpen(true);
     };
 
     const filteredEmployees = employees.filter(e => e.id !== currentUser.id && e.name.toLowerCase().includes(searchTerm.toLowerCase()));
+
+    // Employees who have badges (for overview tab)
+    const employeesWithBadges = employees.filter(e => e.badges && e.badges.length > 0 && e.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
     return (
         <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
@@ -155,50 +172,143 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
                     <p className="text-slate-500 mt-1">Beheer en reik waarderingsbadges uit aan het team.</p>
                 </div>
                 
+                {activeTab === 'library' && (
+                    <button 
+                        onClick={() => setIsCreateModalOpen(true)}
+                        className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all w-full md:w-auto justify-center"
+                    >
+                        <Plus size={18} />
+                        Nieuwe Badge
+                    </button>
+                )}
+            </div>
+
+            {/* TABS */}
+            <div className="border-b border-slate-200 mb-8 flex gap-8">
                 <button 
-                    onClick={() => setIsCreateModalOpen(true)}
-                    className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all w-full md:w-auto justify-center"
+                    onClick={() => setActiveTab('library')}
+                    className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
+                        activeTab === 'library' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
                 >
-                    <Plus size={18} />
-                    Nieuwe Badge
+                    <LayoutGrid size={18} /> Badge Bibliotheek
+                </button>
+                <button 
+                    onClick={() => setActiveTab('assignments')}
+                    className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
+                        activeTab === 'assignments' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
+                >
+                    <List size={18} /> Toewijzingen ({employeesWithBadges.length})
                 </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {badges.map(badge => {
-                    const Icon = BADGE_ICONS[badge.icon];
-                    return (
-                        <div key={badge.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col items-center text-center group hover:shadow-md transition-shadow">
-                            <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110 border-2 ${BADGE_COLORS[badge.color]}`}>
-                                <Icon size={32} />
+            {/* LIBRARY TAB */}
+            {activeTab === 'library' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                    {badges.map(badge => {
+                        const Icon = BADGE_ICONS[badge.icon];
+                        return (
+                            <div key={badge.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col items-center text-center group hover:shadow-md transition-shadow">
+                                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110 border-2 ${BADGE_COLORS[badge.color]}`}>
+                                    <Icon size={32} />
+                                </div>
+                                <h3 className="font-bold text-slate-900 text-lg mb-1">{badge.name}</h3>
+                                <p className="text-sm text-slate-500 mb-6 line-clamp-2 min-h-[2.5rem]">{badge.description}</p>
+                                
+                                <div className="mt-auto w-full grid grid-cols-2 gap-2">
+                                    <button 
+                                        onClick={() => openAssignModal(badge.id)}
+                                        className="py-2 px-4 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <Award size={14} /> Uitreiken
+                                    </button>
+                                    <button 
+                                        onClick={() => handleDeleteBadge(badge.id)}
+                                        className="py-2 px-4 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-bold hover:text-red-600 hover:bg-red-50 hover:border-red-100 transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <Trash2 size={14} /> Verwijder
+                                    </button>
+                                </div>
                             </div>
-                            <h3 className="font-bold text-slate-900 text-lg mb-1">{badge.name}</h3>
-                            <p className="text-sm text-slate-500 mb-6 line-clamp-2 min-h-[2.5rem]">{badge.description}</p>
-                            
-                            <div className="mt-auto w-full grid grid-cols-2 gap-2">
-                                <button 
-                                    onClick={() => openAssignModal(badge.id)}
-                                    className="py-2 px-4 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"
-                                >
-                                    <Award size={14} /> Uitreiken
-                                </button>
-                                <button 
-                                    onClick={() => handleDeleteBadge(badge.id)}
-                                    className="py-2 px-4 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-bold hover:text-red-600 hover:bg-red-50 hover:border-red-100 transition-colors flex items-center justify-center gap-2"
-                                >
-                                    <Trash2 size={14} /> Verwijder
-                                </button>
-                            </div>
+                        );
+                    })}
+                    {badges.length === 0 && !isLoading && (
+                        <div className="col-span-full py-20 text-center text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200">
+                            <Medal size={48} className="mx-auto mb-4 opacity-20" />
+                            <p>Nog geen badges aangemaakt.</p>
                         </div>
-                    );
-                })}
-                {badges.length === 0 && !isLoading && (
-                    <div className="col-span-full py-20 text-center text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200">
-                        <Medal size={48} className="mx-auto mb-4 opacity-20" />
-                        <p>Nog geen badges aangemaakt.</p>
+                    )}
+                </div>
+            )}
+
+            {/* ASSIGNMENTS TAB */}
+            {activeTab === 'assignments' && (
+                <div className="space-y-6">
+                    <div className="relative max-w-md">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input 
+                            type="text" 
+                            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                            placeholder="Zoek medewerker..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
                     </div>
-                )}
-            </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {employeesWithBadges.map(emp => (
+                            <div key={emp.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                                <div className="flex items-center gap-4 mb-6">
+                                    <img src={emp.avatar} alt={emp.name} className="w-12 h-12 rounded-full border border-slate-100" />
+                                    <div>
+                                        <h3 className="font-bold text-slate-900">{emp.name}</h3>
+                                        <p className="text-xs text-slate-500">{emp.role}</p>
+                                    </div>
+                                    <span className="ml-auto bg-slate-100 text-slate-600 text-xs font-bold px-2 py-1 rounded-full">
+                                        {emp.badges?.length || 0}
+                                    </span>
+                                </div>
+
+                                <div className="space-y-3">
+                                    {emp.badges?.map(assigned => {
+                                        const def = badges.find(b => b.id === assigned.badgeId);
+                                        if(!def) return null;
+                                        const Icon = BADGE_ICONS[def.icon];
+
+                                        return (
+                                            <div key={assigned.id} className="flex items-center gap-3 p-2 rounded-xl bg-slate-50 border border-slate-100 group">
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${BADGE_COLORS[def.color]}`}>
+                                                    <Icon size={16} />
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="text-sm font-bold text-slate-900 truncate">{def.name}</div>
+                                                    <div className="text-[10px] text-slate-400">
+                                                        {assigned.assignedAt} • {assigned.assignedBy}
+                                                    </div>
+                                                </div>
+                                                <button 
+                                                    onClick={() => handleRevokeBadge(emp.id, assigned.id)}
+                                                    className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                                    title="Badge intrekken"
+                                                >
+                                                    <X size={16} />
+                                                </button>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+                        {employeesWithBadges.length === 0 && (
+                            <div className="col-span-full py-20 text-center text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200">
+                                <Award size={48} className="mx-auto mb-4 opacity-20" />
+                                <p>Geen medewerkers met badges gevonden.</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
             {/* CREATE BADGE MODAL */}
             <Modal
