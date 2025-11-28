@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { 
     ClipboardCheck, Plus, Search, Calendar, User, ArrowRight, Play, CheckCircle, Clock, 
@@ -112,7 +111,8 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
       employees.forEach(emp => {
           (emp.growthGoals || []).forEach(goal => {
-              if (goal.status === 'In Progress') {
+              // Changed: Show all NON-completed goals (In Progress AND Not Started) to ensure Manager sees everything
+              if (goal.status !== 'Completed') {
                   list.push({ goal, employee: emp });
               }
           });

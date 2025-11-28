@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Briefcase, MapPin, 
@@ -393,8 +392,9 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       const totalActions = openOnboardingTasks.length + pendingEvaluations.length + urgentDebtCount;
 
       // Active Growth Goal (The most recent in-progress one)
+      // Changed: Show all NON-completed goals (In Progress AND Not Started) to ensure consistency
       const activeGrowthGoal = (employee.growthGoals || [])
-          .filter(g => g.status === 'In Progress')
+          .filter(g => g.status !== 'Completed')
           .sort((a,b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0];
 
       return (
