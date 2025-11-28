@@ -14,6 +14,49 @@ export const MOCK_BADGES: BadgeDefinition[] = [
 // --- MOCK KNOWLEDGE BASE ---
 export const MOCK_KNOWLEDGE_BASE: KnowledgeArticle[] = [
     {
+        id: 'kb-mews-1',
+        title: 'MEWS: Gast Inchecken (Stappenplan)',
+        category: 'Front Office',
+        content: `Dit protocol beschrijft de standaard check-in procedure in MEWS Operations.\n\n## 1. Reservering Zoeken\nGebruik de zoekbalk bovenaan (sneltoets: **Alt + /**) en typ de achternaam van de gast of het reserveringsnummer.\n\n## 2. Controleer Gastprofiel\nVoordat je incheckt, controleer of alle wettelijk verplichte velden zijn ingevuld:\n- **Volledige naam**\n- **Nationaliteit**\n- **Paspoortnummer** (scan indien mogelijk)\n- **E-mailadres** (voor de factuur)\n\n## 3. Kamer Toewijzen\nAls er nog geen kamer is toegewezen:\n1. Klik op het tabblad **Status**.\n2. Klik op **Assign Space** (Ruimte toewijzen).\n3. Kies een schone ('Inspected') kamer uit de lijst.\n\n## 4. Betaling & Autorisatie\nControleer of er een pre-autorisatie is gedaan voor incidentals. Zo niet, vraag de gast om de creditcard en voer een pre-auth uit via de Mews Terminal.\n\n## 5. Inchecken\nKlik op de blauwe knop **Check-in**. Het systeem zal vragen om de kamersleutels te coderen. Leg de kaart op de encoder en wacht op het groene vinkje.`,
+        tags: ['MEWS', 'Check-in', 'Front Office', 'Systeem'],
+        authorName: 'Lars Kohler',
+        authorRole: 'Manager',
+        lastUpdated: '26 Okt 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['Front Office'],
+        views: 42,
+        isPinned: true,
+        reviewDate: '2024-01-01'
+    },
+    {
+        id: 'kb-mews-2',
+        title: 'MEWS: Gast Uitchecken & Facturatie',
+        category: 'Front Office',
+        content: `Het uitchecken van een gast en het correct afsluiten van de rekening.\n\n## 1. Billing Scherm Openen\nGa naar de reservering en klik op de tab **Billing**.\n\n## 2. Rekening Controleren\nLoop samen met de gast de posten na. \n- Zijn alle drankjes uit de minibar toegevoegd?\n- Klopt de toeristenbelasting?\n\n## 3. Betaling Verwerken\nAls er nog een openstaand saldo is:\n1. Klik op **Betaling** (Payment).\n2. Selecteer **Mews Terminal** voor kaartbetalingen of **Cash** voor contant.\n3. Zorg dat het saldo op **€0,00** staat.\n\n## 4. Factuur Sluiten\nKlik op **Close** om de factuur definitief te maken. Vraag de gast of ze de factuur per e-mail willen ontvangen. MEWS stuurt deze automatisch als het e-mailadres in het profiel staat.\n\n## 5. Uitchecken\nKlik op de oranje knop **Check-out**. De kamerstatus verandert automatisch naar 'Dirty' voor Housekeeping.`,
+        tags: ['MEWS', 'Check-out', 'Billing', 'Finance'],
+        authorName: 'Lars Kohler',
+        authorRole: 'Manager',
+        lastUpdated: '26 Okt 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['Front Office'],
+        views: 35,
+        isPinned: true
+    },
+    {
+        id: 'kb-mews-3',
+        title: 'MEWS: Housekeeping Status Wijzigen',
+        category: 'Housekeeping',
+        content: `Hoe wijzig je de status van een kamer in de Housekeeping app of MEWS Operations?\n\n## Statussen Begrijpen\n- **Dirty**: Gast is uitgecheckt, kamer moet schoongemaakt worden.\n- **Clean**: Kamer is schoongemaakt, maar nog niet gecontroleerd.\n- **Inspected**: Kamer is gecontroleerd door de supervisor en klaar voor de volgende gast.\n- **Out of Order (OOO)**: Technische mankementen, kamer niet verhuren.\n\n## Status Wijzigen\n1. Ga naar het **Space Status Report**.\n2. Klik op de kamer die je wilt wijzigen.\n3. Selecteer de nieuwe status (bijv. van Dirty naar Clean).\n4. Voeg optioneel een opmerking toe als er iets kapot is (maak dan ook een Taak aan voor TD).`,
+        tags: ['MEWS', 'Housekeeping', 'Schoonmaak', 'Kamerstatus'],
+        authorName: 'Hoofd Huishouding',
+        authorRole: 'Senior Medewerker',
+        lastUpdated: '20 Okt 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['Huishouding', 'Front Office', 'Management'],
+        views: 28,
+        isPinned: false
+    },
+    {
         id: 'kb-1',
         title: 'VIP Check-in Procedure',
         category: 'Front Office',
@@ -25,7 +68,7 @@ export const MOCK_KNOWLEDGE_BASE: KnowledgeArticle[] = [
         allowedRoles: ['All'],
         allowedDepartments: ['Front Office', 'Management'],
         views: 145,
-        isPinned: true
+        isPinned: false
     },
     {
         id: 'kb-2',
@@ -168,8 +211,8 @@ export const MOCK_TICKETS: Ticket[] = [
 
 // --- AUTO UPDATE LOGGER ---
 export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
-    id: 'update-v3.9.0-knowledge', 
-    version: 'v3.9.0',
+    id: 'update-v3.9.5-mews', 
+    version: 'v3.9.5',
     date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
     timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
     author: 'AI Assistant',
@@ -177,10 +220,9 @@ export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
     impact: 'Medium',
     affectedArea: 'Kennisbank',
     description: `
-- Slimme Kennisbank toegevoegd.
-- Protocollen en uitleg kunnen nu centraal beheerd worden.
-- Rechtenbeheer per artikel (zichtbaarheid op basis van rol/afdeling).
-- Slimme zoekfunctie door alle artikelen.`,
+- MEWS Operations handleidingen toegevoegd.
+- Protocollen voor Check-in, Check-out en Housekeeping vertaald naar Nederlands.
+- Toegevoegd aan de standaard Kennisbank database.`,
     status: 'Success'
 };
 
@@ -189,7 +231,7 @@ const generateOnboardingTasks = (): OnboardingTask[] => [
   // WEEK 1: Introductie & Basis
   { id: 'w1-1', week: 1, category: 'Introductie', title: 'Rondleiding Hotel & Spa', description: 'Volledige rondleiding door hotelkamers, spa faciliteiten, restaurants en back-of-house.', completed: false, score: 0 },
   { id: 'w1-2', week: 1, category: 'Facilitair', title: 'Uniform & Lockers', description: 'Uitgifte uniform, naambadge en toewijzing locker en kleedruimte.', completed: false, score: 0 },
-  { id: 'w1-3', week: 1, category: 'IT & Systemen', title: 'IDu PMS Training (Basis)', description: 'Aanmaken account, basisnavigatie in IDu en uitleg dashboard.', completed: false, score: 0 },
+  { id: 'w1-3', week: 1, category: 'IT & Systemen', title: 'MEWS PMS Training (Basis)', description: 'Aanmaken account, basisnavigatie in MEWS en uitleg dashboard.', completed: false, score: 0 },
   { id: 'w1-4', week: 1, category: 'Safety', title: 'Sleutelbeheer & BHV', description: 'Procedure sleutelkaarten aanmaken en noodprocedures doornemen.', completed: false, score: 0 },
   { id: 'w1-5', week: 1, category: 'Front Office', title: 'Kassa procedure', description: 'Openen en sluiten van de kassa, omgaan met contant geld en pinautomaat.', completed: false, score: 0 },
 
@@ -238,7 +280,7 @@ export const MOCK_TEMPLATES: OnboardingTemplate[] = [
 
 export const EVALUATION_TEMPLATES = {
     FRONT_OFFICE: [
-        { category: 'Hard Skills', topic: 'IDu PMS Kennis' },
+        { category: 'Hard Skills', topic: 'MEWS PMS Kennis' },
         { category: 'Hard Skills', topic: 'Kassa & Financiën' },
         { category: 'Hard Skills', topic: 'Reserveringen Invoeren' },
         { category: 'Front Office', topic: 'Check-in Flow' },
