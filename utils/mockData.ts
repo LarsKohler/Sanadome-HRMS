@@ -1,4 +1,3 @@
-
 import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog, Ticket, BadgeDefinition, KnowledgeArticle } from '../types';
 
 // --- MOCK BADGES ---
@@ -459,7 +458,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
             employeeId: 'employee-user',
             managerId: 'manager-user',
             type: 'Annual',
-            status: 'Completed',
+            status: 'Signed',
             createdAt: '15 Sep 2023',
             completedAt: '01 Okt 2023',
             employeeGeneralFeedback: 'Ik voel me erg thuis in het team.',

@@ -259,7 +259,7 @@ export interface OnboardingHistoryEntry {
 
 // --- EVALUATION SYSTEM TYPES ---
 
-export type EvaluationStatus = 'Planned' | 'EmployeeInput' | 'ManagerInput' | 'Review' | 'Completed';
+export type EvaluationStatus = 'Planned' | 'EmployeeInput' | 'ManagerInput' | 'Review' | 'Signed' | 'Archived';
 
 export interface EvaluationScore {
     category: string; // e.g. "Front Office Skills"
@@ -280,6 +280,7 @@ export interface EvaluationGoal {
 
 export interface EvaluationSignature {
     signedBy: string; // Name
+    signedById: string; // ID
     signedAt: string; // Date
     role: 'Manager' | 'Employee';
 }
@@ -301,10 +302,12 @@ export interface EvaluationCycle {
     managerGeneralFeedback?: string;
     managerStruggles?: string;
     managerWins?: string;
+    
+    privateManagerNotes?: string; // New: Manager only notes
 
     scores: EvaluationScore[];
-    goals: EvaluationGoal[]; // New: Future goals
-    signatures: EvaluationSignature[]; // New: Digital signatures
+    goals: EvaluationGoal[]; 
+    signatures: EvaluationSignature[]; 
     
     overallRating?: number; // Calculated average
     smartAdvice?: string[]; 

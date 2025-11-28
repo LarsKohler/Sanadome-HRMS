@@ -1,10 +1,9 @@
-
 import React, { useState, useMemo } from 'react';
 import { 
     ClipboardCheck, Plus, Search, Calendar, User, ArrowRight, Play, CheckCircle, Clock, 
-    AlertCircle, BarChart3, ChevronRight, MessageSquare, BrainCircuit, X, Target, PenTool, TrendingUp, AlertTriangle, FileCheck, Star
+    AlertCircle, BarChart3, ChevronRight, MessageSquare, BrainCircuit, X, Target, PenTool, TrendingUp, AlertTriangle, FileCheck, Star, Split, Lock, Unlock, Eye, EyeOff, Printer, PenLine, History, ArrowLeft, Check
 } from 'lucide-react';
-import { Employee, EvaluationCycle, Notification, ViewState, EvaluationScore, EvaluationGoal } from '../types';
+import { Employee, EvaluationCycle, Notification, ViewState, EvaluationScore, EvaluationGoal, EvaluationStatus } from '../types';
 import { EVALUATION_TEMPLATES } from '../utils/mockData';
 import { Modal } from './Modal';
 import { ResponsiveContainer, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend } from 'recharts';
@@ -32,27 +31,30 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   const [createType, setCreateType] = useState<'Month 1' | 'Month 3' | 'Annual' | 'Performance'>('Annual');
 
   // Wizard State
-  const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1);
+  const [wizardStep, setWizardStep] = useState<1 | 2 | 3 | 4>(1); // 1=Reflection, 2=Scores, 3=Goals, 4=Finalize
   const [newGoal, setNewGoal] = useState({ title: '', description: '', deadline: '' });
+  
+  // Signatures State
+  const [isSigning, setIsSigning] = useState(false);
 
   const isManager = currentUser.role === 'Manager';
 
-  // Consolidate all evaluations from all employees into one list for the dashboard
+  // Consolidate all evaluations
   const allEvaluations = useMemo(() => {
       const list: { evaluation: EvaluationCycle, employee: Employee }[] = [];
       employees.forEach(emp => {
           (emp.evaluations || []).forEach(ev => {
-              // Filtering: Employees only see their own, Managers see all
               if (isManager || emp.id === currentUser.id) {
                   list.push({ evaluation: ev, employee: emp });
               }
           });
       });
-      // Sort: Pending first, then by date
+      // Sort priority
       return list.sort((a, b) => {
-          const statusPriority = { 'ManagerInput': 1, 'EmployeeInput': 1, 'Review': 2, 'Planned': 3, 'Completed': 4 };
-          const statusDiff = (statusPriority[a.evaluation.status as keyof typeof statusPriority] || 5) - (statusPriority[b.evaluation.status as keyof typeof statusPriority] || 5);
-          if (statusDiff !== 0) return statusDiff;
+          const statusPriority: Record<string, number> = { 'Review': 1, 'ManagerInput': 2, 'EmployeeInput': 3, 'Planned': 4, 'Signed': 5, 'Archived': 6 };
+          const statA = statusPriority[a.evaluation.status] || 9;
+          const statB = statusPriority[b.evaluation.status] || 9;
+          if (statA !== statB) return statA - statB;
           return new Date(b.evaluation.createdAt).getTime() - new Date(a.evaluation.createdAt).getTime();
       });
   }, [employees, isManager, currentUser.id]);
@@ -61,6 +63,8 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       if (!selectedEvaluationId) return null;
       return allEvaluations.find(i => i.evaluation.id === selectedEvaluationId);
   }, [selectedEvaluationId, allEvaluations]);
+
+  // --- ACTIONS ---
 
   const handleCreateEvaluation = () => {
       if (!createEmployeeId) return;
@@ -99,7 +103,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           senderName: currentUser.name,
           type: 'Evaluation',
           title: 'Nieuwe Evaluatie',
-          message: `Er staat een ${createType} evaluatie voor je klaar. Vul deze in voor het gesprek.`,
+          message: `Start je ${createType} zelfreflectie.`,
           date: 'Zojuist',
           read: false,
           targetView: ViewState.EVALUATIONS,
@@ -116,26 +120,20 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           ev.id === evaluation.id ? { ...ev, ...updates } : ev
       );
 
-      // Check if ready for report logic
-      const updatedEval = updatedEvaluations.find(ev => ev.id === evaluation.id)!;
-
-      // Logic: If completing conversation, calculate overall
-      if (updates.status === 'Completed') {
-           // Generating Report logic
-           const lowScores = updatedEval.scores.filter(s => s.managerScore > 0 && s.managerScore < 3);
-           const advice: string[] = [];
-           lowScores.forEach(s => {
-               if (s.topic.includes('IDu')) advice.push('Extra training inplannen bij Janique voor IDu PMS.');
-               if (s.topic.includes('Upselling')) advice.push('Meelopen met Senior tijdens check-in piekuren.');
-               if (s.topic.includes('Kassa')) advice.push('Kassa-procedures handboek opnieuw doornemen.');
-           });
-           updatedEval.smartAdvice = advice;
-           updatedEval.completedAt = new Date().toLocaleDateString('nl-NL');
-           
+      // Check for completion/rating logic if switching to Review
+      if (updates.status === 'Review') {
+           const updatedEval = updatedEvaluations.find(ev => ev.id === evaluation.id)!;
            // Calculate Overall Rating
            const totalScore = updatedEval.scores.reduce((sum, s) => sum + s.managerScore, 0);
            const count = updatedEval.scores.filter(s => s.managerScore > 0).length;
            updatedEval.overallRating = count > 0 ? Number((totalScore / count).toFixed(1)) : 0;
+           
+           // Generate Advice
+           const advice: string[] = [];
+           updatedEval.scores.filter(s => s.managerScore > 0 && s.managerScore < 3).forEach(s => {
+               advice.push(`Aandachtspunt: ${s.topic} - Overweeg training of mentoring.`);
+           });
+           updatedEval.smartAdvice = advice;
       }
 
       onUpdateEmployee({ ...targetEmp, evaluations: updatedEvaluations });
@@ -143,7 +141,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
   const handleAddGoal = (evaluation: EvaluationCycle) => {
       if (!newGoal.title) return;
-      
       const goal: EvaluationGoal = {
           id: Math.random().toString(36).substr(2, 9),
           title: newGoal.title,
@@ -151,237 +148,153 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           deadline: newGoal.deadline,
           status: 'Proposed'
       };
-      
       handleUpdateEvaluation(evaluation, { goals: [...(evaluation.goals || []), goal] });
       setNewGoal({ title: '', description: '', deadline: '' });
   };
 
-  const renderReport = () => {
-      if (!activeEvaluationData) return null;
-      const { evaluation, employee } = activeEvaluationData;
+  const handleSign = async () => {
+      if (!activeEvaluationData) return;
+      const { evaluation } = activeEvaluationData;
+      
+      const role = isManager ? 'Manager' : 'Employee';
+      // Check if already signed
+      if (evaluation.signatures.some(s => s.role === role)) {
+          onShowToast('Je hebt dit document al ondertekend.');
+          return;
+      }
 
-      const radarData = evaluation.scores.map(s => ({
-          subject: s.topic,
-          Medewerker: s.employeeScore,
-          Manager: s.managerScore,
-          fullMark: 5
-      }));
+      const newSignature = {
+          signedBy: currentUser.name,
+          signedById: currentUser.id,
+          signedAt: new Date().toLocaleDateString('nl-NL'),
+          role: role as 'Manager' | 'Employee'
+      };
 
-      return (
-          <div className="max-w-5xl mx-auto animate-in slide-in-from-bottom-4">
-              <div className="flex items-center justify-between mb-6">
-                  <button onClick={() => setSelectedEvaluationId(null)} className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-900">
-                      <ArrowRight size={16} className="rotate-180"/> Terug naar overzicht
-                  </button>
-                  <h1 className="text-2xl font-bold text-slate-900">Evaluatierapport</h1>
-              </div>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  {/* Radar Chart */}
-                  <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                       <h3 className="font-bold text-slate-900 mb-4">Competentie Analyse</h3>
-                       <div className="h-64 w-full">
-                           <ResponsiveContainer width="100%" height="100%">
-                               <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
-                                   <PolarGrid stroke="#e2e8f0" />
-                                   <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10, fill: '#64748b' }} />
-                                   <PolarRadiusAxis angle={30} domain={[0, 5]} tick={false} axisLine={false} />
-                                   <Radar name={employee.name} dataKey="Medewerker" stroke="#0d9488" fill="#0d9488" fillOpacity={0.3} />
-                                   <Radar name="Manager" dataKey="Manager" stroke="#0f172a" fill="#0f172a" fillOpacity={0.3} />
-                                   <Legend />
-                               </RadarChart>
-                           </ResponsiveContainer>
-                       </div>
-                  </div>
+      const updatedSignatures = [...evaluation.signatures, newSignature];
+      let newStatus = evaluation.status;
 
-                  {/* Scores Table/List */}
-                  <div className="lg:col-span-2 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                      <h3 className="font-bold text-slate-900 mb-4">Detail Scores</h3>
-                      <div className="space-y-3 max-h-64 overflow-y-auto pr-2">
-                          {evaluation.scores.map((score, idx) => (
-                              <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100">
-                                  <div>
-                                      <div className="text-xs font-bold text-slate-400 uppercase">{score.category}</div>
-                                      <div className="font-bold text-slate-900">{score.topic}</div>
-                                  </div>
-                                  <div className="flex items-center gap-4">
-                                      <div className="text-right">
-                                          <div className="text-xs text-slate-400">Medewerker</div>
-                                          <div className="font-bold text-teal-600">{score.employeeScore}</div>
-                                      </div>
-                                      <div className="text-right">
-                                          <div className="text-xs text-slate-400">Manager</div>
-                                          <div className="font-bold text-slate-900">{score.managerScore}</div>
-                                      </div>
-                                  </div>
-                              </div>
-                          ))}
-                      </div>
-                  </div>
+      // If both signed, archive
+      const hasManager = updatedSignatures.some(s => s.role === 'Manager');
+      const hasEmployee = updatedSignatures.some(s => s.role === 'Employee');
+      
+      if (hasManager && hasEmployee) {
+          newStatus = 'Signed';
+          onShowToast('Evaluatie volledig ondertekend en afgerond!');
+      } else {
+          onShowToast('Handtekening geplaatst. Wachten op andere partij.');
+      }
 
-                  {/* Feedback Section */}
-                  <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                      <h3 className="font-bold text-slate-900 mb-6">Feedback & Reflectie</h3>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                          <div className="space-y-4">
-                              <h4 className="font-bold text-slate-700 border-b border-slate-100 pb-2">Medewerker ({employee.name})</h4>
-                              <div className="bg-slate-50 p-4 rounded-xl text-sm text-slate-600 italic">"{evaluation.employeeGeneralFeedback || 'Geen toelichting'}"</div>
-                              
-                              <div className="bg-green-50 p-4 rounded-xl border border-green-100">
-                                  <div className="text-xs font-bold text-green-700 uppercase mb-1">Wins</div>
-                                  <p className="text-sm text-slate-700">{evaluation.employeeWins || '-'}</p>
-                              </div>
-                          </div>
-                          <div className="space-y-4">
-                              <h4 className="font-bold text-slate-700 border-b border-slate-100 pb-2">Manager</h4>
-                              <div className="bg-slate-50 p-4 rounded-xl text-sm text-slate-600 italic">"{evaluation.managerGeneralFeedback || 'Geen toelichting'}"</div>
-                              
-                              <div className="bg-green-50 p-4 rounded-xl border border-green-100">
-                                  <div className="text-xs font-bold text-green-700 uppercase mb-1">Wins</div>
-                                  <p className="text-sm text-slate-700">{evaluation.managerWins || '-'}</p>
-                              </div>
-                          </div>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      );
+      handleUpdateEvaluation(evaluation, { 
+          signatures: updatedSignatures,
+          status: newStatus,
+          completedAt: newStatus === 'Signed' ? new Date().toLocaleDateString('nl-NL') : undefined
+      });
   };
 
+  // --- RENDER HELPERS ---
+
+  const getStatusColor = (status: EvaluationStatus) => {
+      switch(status) {
+          case 'EmployeeInput': return 'bg-blue-50 text-blue-700 border-blue-200';
+          case 'ManagerInput': return 'bg-amber-50 text-amber-700 border-amber-200';
+          case 'Review': return 'bg-purple-50 text-purple-700 border-purple-200';
+          case 'Signed': return 'bg-green-50 text-green-700 border-green-200';
+          case 'Archived': return 'bg-slate-100 text-slate-500 border-slate-200';
+          default: return 'bg-slate-50 text-slate-500 border-slate-200';
+      }
+  };
+
+  const getStatusLabel = (status: EvaluationStatus) => {
+      switch(status) {
+          case 'EmployeeInput': return 'Zelfreflectie';
+          case 'ManagerInput': return 'Beoordeling';
+          case 'Review': return 'Bespreking';
+          case 'Signed': return 'Ondertekend';
+          case 'Archived': return 'Gearchiveerd';
+          default: return status;
+      }
+  };
+
+  // --- VIEWS ---
+
   const renderDashboard = () => (
-      <div className="space-y-8">
-          {/* Header & KPIs */}
+      <div className="space-y-8 animate-in fade-in">
+          {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                <div>
-                   <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">Performance Center</h1>
-                   <p className="text-slate-500 mt-1">Monitor groei, doelstellingen en evaluaties.</p>
+                   <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
+                       <BarChart3 className="text-teal-600" size={32} />
+                       Performance Center
+                   </h1>
+                   <p className="text-slate-500 mt-1">Beheer evaluatiecycli, doelstellingen en voortgang.</p>
                </div>
                {isManager && (
-                   <div className="flex gap-3">
-                       <button 
-                         onClick={() => setIsCreateModalOpen(true)}
-                         className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold text-sm shadow-md hover:bg-slate-800 transition-all flex items-center gap-2"
-                       >
-                           <Plus size={18}/> Nieuwe Cyclus
-                       </button>
-                   </div>
+                   <button 
+                     onClick={() => setIsCreateModalOpen(true)}
+                     className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold text-sm shadow-md hover:bg-slate-800 transition-all flex items-center gap-2 hover:-translate-y-0.5"
+                   >
+                       <Plus size={18}/> Start Nieuwe Cyclus
+                   </button>
                )}
           </div>
 
-          {/* KPI Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="flex items-center justify-between mb-4">
-                      <div className="p-2 bg-amber-50 text-amber-600 rounded-lg"><Clock size={20}/></div>
-                      <span className="text-xs font-bold text-slate-400 uppercase">Actie Vereist</span>
-                  </div>
-                  <div className="text-3xl font-bold text-slate-900">
-                      {allEvaluations.filter(e => 
-                          (isManager && e.evaluation.status === 'ManagerInput') || 
-                          (!isManager && e.evaluation.status === 'EmployeeInput')
-                      ).length}
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">Openstaande evaluaties</p>
-              </div>
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="flex items-center justify-between mb-4">
-                      <div className="p-2 bg-teal-50 text-teal-600 rounded-lg"><Target size={20}/></div>
-                      <span className="text-xs font-bold text-slate-400 uppercase">Gem. Score</span>
-                  </div>
-                  <div className="text-3xl font-bold text-slate-900">
-                      {isManager ? '4.2' : (currentUser.evaluations?.[0]?.overallRating || '-')}
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">Schaal van 5</p>
-              </div>
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                  <div className="flex items-center justify-between mb-4">
-                      <div className="p-2 bg-purple-50 text-purple-600 rounded-lg"><FileCheck size={20}/></div>
-                      <span className="text-xs font-bold text-slate-400 uppercase">Afgerond (YTD)</span>
-                  </div>
-                  <div className="text-3xl font-bold text-slate-900">
-                      {allEvaluations.filter(e => e.evaluation.status === 'Completed').length}
-                  </div>
-                  <p className="text-xs text-slate-500 mt-1">Dit jaar</p>
-              </div>
-          </div>
+          {/* Active Cycles Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {allEvaluations.map(({ evaluation, employee }) => {
+                  const percent = 
+                    evaluation.status === 'EmployeeInput' ? 25 :
+                    evaluation.status === 'ManagerInput' ? 50 :
+                    evaluation.status === 'Review' ? 75 : 100;
+                  
+                  const isActionRequired = 
+                    (isManager && evaluation.status === 'ManagerInput') ||
+                    (!isManager && evaluation.status === 'EmployeeInput') ||
+                    (evaluation.status === 'Review' && !evaluation.signatures.some(s => s.signedById === currentUser.id));
 
-          {/* Evaluations List */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-               <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
-                   <h3 className="font-bold text-slate-900 text-sm uppercase tracking-wider">Lopende & Recente Evaluaties</h3>
-               </div>
-               <table className="w-full text-left">
-                   <thead className="bg-white border-b border-slate-200">
-                       <tr>
-                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Medewerker</th>
-                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Type</th>
-                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Startdatum</th>
-                           <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase tracking-wider">Status</th>
-                           <th className="px-6 py-4 text-right"></th>
-                       </tr>
-                   </thead>
-                   <tbody className="divide-y divide-slate-100">
-                       {allEvaluations.map(({ evaluation, employee }) => {
-                           const isMyTurn = (isManager && evaluation.status === 'ManagerInput') || 
-                                            (!isManager && evaluation.status === 'EmployeeInput');
-                           
-                           return (
-                               <tr key={evaluation.id} className="hover:bg-slate-50 transition-colors group">
-                                   <td className="px-6 py-4">
-                                       <div className="flex items-center gap-3">
-                                           <img src={employee.avatar} className="w-8 h-8 rounded-full object-cover" alt="Avatar"/>
-                                           <span className="text-sm font-bold text-slate-900">{employee.name}</span>
-                                       </div>
-                                   </td>
-                                   <td className="px-6 py-4">
-                                       <span className="inline-flex px-2.5 py-1 rounded text-xs font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                                           {evaluation.type}
-                                       </span>
-                                   </td>
-                                   <td className="px-6 py-4 text-sm text-slate-500 font-medium">{evaluation.createdAt}</td>
-                                   <td className="px-6 py-4">
-                                       <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide border ${
-                                           evaluation.status === 'Completed' ? 'bg-green-50 text-green-700 border-green-100' :
-                                           evaluation.status === 'Review' ? 'bg-purple-50 text-purple-700 border-purple-100' :
-                                           isMyTurn ? 'bg-amber-50 text-amber-700 border-amber-100 animate-pulse' :
-                                           'bg-slate-100 text-slate-500 border-slate-200'
-                                       }`}>
-                                           {evaluation.status === 'Completed' && <CheckCircle size={12}/>}
-                                           {evaluation.status === 'Review' && <MessageSquare size={12}/>}
-                                           {(evaluation.status === 'EmployeeInput' || evaluation.status === 'ManagerInput') && <Clock size={12}/>}
-                                           
-                                           {evaluation.status === 'EmployeeInput' ? 'Wachten op Medewerker' :
-                                            evaluation.status === 'ManagerInput' ? 'Wachten op Manager' :
-                                            evaluation.status === 'Review' ? 'Klaar voor gesprek' :
-                                            evaluation.status === 'Completed' ? 'Afgerond' : 'Gepland'}
-                                       </div>
-                                   </td>
-                                   <td className="px-6 py-4 text-right">
-                                       <button 
-                                         onClick={() => {
-                                             setWizardStep(1);
-                                             setSelectedEvaluationId(evaluation.id);
-                                         }}
-                                         className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-all shadow-sm ${
-                                             isMyTurn 
-                                             ? 'bg-slate-900 text-white hover:bg-slate-800 hover:-translate-y-0.5' 
-                                             : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-                                         }`}
-                                       >
-                                           {isMyTurn ? 'Invullen' : 'Bekijken'}
-                                       </button>
-                                   </td>
-                               </tr>
-                           );
-                       })}
-                   </tbody>
-               </table>
-               {allEvaluations.length === 0 && (
-                   <div className="text-center py-20 text-slate-400">
-                       <ClipboardCheck size={48} className="mx-auto mb-4 opacity-20"/>
-                       <p>Geen evaluaties gevonden.</p>
-                   </div>
-               )}
+                  return (
+                      <div 
+                        key={evaluation.id} 
+                        onClick={() => { setSelectedEvaluationId(evaluation.id); setWizardStep(1); }}
+                        className={`group bg-white rounded-2xl border p-6 shadow-sm cursor-pointer transition-all hover:shadow-md relative overflow-hidden ${isActionRequired ? 'border-teal-500 ring-1 ring-teal-500/20' : 'border-slate-200'}`}
+                      >
+                          {isActionRequired && (
+                              <div className="absolute top-0 right-0 bg-teal-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-sm">
+                                  ACTIE VEREIST
+                              </div>
+                          )}
+                          
+                          <div className="flex items-center gap-4 mb-4">
+                              <img src={employee.avatar} className="w-12 h-12 rounded-full border-2 border-slate-100" alt="Avatar"/>
+                              <div>
+                                  <h3 className="font-bold text-slate-900">{employee.name}</h3>
+                                  <p className="text-xs text-slate-500">{evaluation.type}</p>
+                              </div>
+                          </div>
+
+                          <div className="space-y-4">
+                              <div className="flex justify-between items-center text-xs font-medium text-slate-500">
+                                  <span>{getStatusLabel(evaluation.status)}</span>
+                                  <span>{percent}%</span>
+                              </div>
+                              <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                                  <div className="h-full bg-teal-500 transition-all duration-1000" style={{width: `${percent}%`}}></div>
+                              </div>
+                              <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                                  <span className="text-xs text-slate-400 flex items-center gap-1">
+                                      <Calendar size={12}/> {evaluation.createdAt}
+                                  </span>
+                                  <span className="text-xs font-bold text-teal-600 group-hover:underline">Open Dossier</span>
+                              </div>
+                          </div>
+                      </div>
+                  );
+              })}
+              {allEvaluations.length === 0 && (
+                  <div className="col-span-full text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200 text-slate-400">
+                      <ClipboardCheck size={48} className="mx-auto mb-4 opacity-20"/>
+                      <p>Nog geen evaluaties gestart.</p>
+                  </div>
+              )}
           </div>
       </div>
   );
@@ -389,23 +302,24 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   const renderWizard = () => {
       if (!activeEvaluationData) return null;
       const { evaluation, employee } = activeEvaluationData;
-      const isMyInput = (isManager && evaluation.status === 'ManagerInput') || (!isManager && evaluation.status === 'EmployeeInput');
-      const isCompleted = evaluation.status === 'Completed' || evaluation.status === 'Review';
+      
+      const isReviewMode = evaluation.status === 'Review' || evaluation.status === 'Signed' || evaluation.status === 'Archived';
+      const isMyTurn = (isManager && evaluation.status === 'ManagerInput') || (!isManager && evaluation.status === 'EmployeeInput');
+      
+      // If completed/review, show the Official Report View
+      if (isReviewMode) return renderOfficialReport(evaluation, employee);
 
-      // If it's review/completed, show report instead
-      if (isCompleted) return renderReport();
-
-      // If waiting for other party
-      if (!isMyInput) {
+      // If waiting for other
+      if (!isMyTurn) {
           return (
-              <div className="max-w-2xl mx-auto text-center py-20 animate-in fade-in">
-                  <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <div className="max-w-2xl mx-auto text-center py-20 bg-white rounded-2xl border border-slate-200 shadow-sm mt-10">
+                  <div className="w-24 h-24 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
                       <Clock size={48} className="text-slate-400"/>
                   </div>
-                  <h2 className="text-2xl font-bold text-slate-900 mb-2">Even geduld...</h2>
-                  <p className="text-slate-600 mb-8">
-                      We wachten momenteel op de input van {evaluation.status === 'ManagerInput' ? 'de manager' : 'de medewerker'}. 
-                      Zodra dit is ingevuld, wordt het rapport gegenereerd.
+                  <h2 className="text-2xl font-bold text-slate-900 mb-2">Wachten op input...</h2>
+                  <p className="text-slate-600 mb-8 max-w-md mx-auto">
+                      Het dossier is momenteel bij {evaluation.status === 'ManagerInput' ? 'de manager' : 'de medewerker'}. 
+                      Je ontvangt een notificatie zodra het jouw beurt is.
                   </p>
                   <button onClick={() => setSelectedEvaluationId(null)} className="px-6 py-3 bg-white border border-slate-200 rounded-xl text-slate-700 font-bold hover:bg-slate-50">
                       Terug naar overzicht
@@ -414,240 +328,512 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           );
       }
 
+      // --- WIZARD INTERFACE ---
       return (
-          <div className="max-w-5xl mx-auto animate-in slide-in-from-bottom-4 duration-500">
-              <div className="flex items-center justify-between mb-6">
-                  <button onClick={() => setSelectedEvaluationId(null)} className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-900">
-                      <ArrowRight size={16} className="rotate-180"/> Opslaan & Sluiten
+          <div className="max-w-6xl mx-auto animate-in fade-in duration-500 pb-20">
+              {/* Wizard Header */}
+              <div className="flex items-center justify-between mb-8 sticky top-0 bg-slate-50 py-4 z-20 border-b border-slate-200/50 backdrop-blur-sm">
+                  <button onClick={() => setSelectedEvaluationId(null)} className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">
+                      <ArrowLeft size={18} /> Opslaan & Sluiten
                   </button>
                   
-                  {/* Stepper */}
-                  <div className="flex items-center gap-2">
-                      {[1, 2, 3].map(step => (
-                          <div key={step} className={`flex items-center gap-2 ${wizardStep === step ? 'opacity-100' : 'opacity-40'}`}>
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${wizardStep === step ? 'bg-slate-900 text-white' : 'bg-slate-200 text-slate-600'}`}>
-                                  {step}
-                              </div>
-                              <span className="text-xs font-bold hidden sm:block">
-                                  {step === 1 ? 'Reflectie' : step === 2 ? 'Competenties' : 'Doelen'}
-                              </span>
-                              {step < 3 && <div className="w-8 h-px bg-slate-300 mx-2"></div>}
+                  <div className="flex items-center gap-4 bg-white px-6 py-2 rounded-full shadow-sm border border-slate-200">
+                      {[1, 2, 3, 4].map(step => (
+                          <div key={step} className="flex items-center">
+                              <button 
+                                onClick={() => setWizardStep(step as any)}
+                                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                                    wizardStep === step ? 'bg-teal-600 text-white scale-110' : 
+                                    wizardStep > step ? 'bg-teal-100 text-teal-800' : 'bg-slate-100 text-slate-400'
+                                }`}
+                              >
+                                  {wizardStep > step ? <Check size={14}/> : step}
+                              </button>
+                              {step < 4 && <div className={`w-8 h-0.5 mx-2 ${wizardStep > step ? 'bg-teal-200' : 'bg-slate-200'}`}></div>}
                           </div>
                       ))}
                   </div>
+
+                  <button 
+                    onClick={() => {
+                        if (wizardStep < 4) setWizardStep(prev => prev + 1 as any);
+                        else {
+                            // Finalize
+                            const nextStatus = isManager ? 'Review' : 'ManagerInput';
+                            handleUpdateEvaluation(evaluation, { status: nextStatus });
+                            onShowToast(isManager ? 'Evaluatie afgerond en klaar voor gesprek!' : 'Verzonden naar manager!');
+                            setSelectedEvaluationId(null);
+                        }
+                    }}
+                    className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-md hover:bg-slate-800 transition-colors flex items-center gap-2"
+                  >
+                      {wizardStep === 4 ? 'Afronden' : 'Volgende Stap'} <ArrowRight size={16}/>
+                  </button>
               </div>
 
-              <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden min-h-[600px] flex flex-col">
-                  <div className="bg-slate-50 border-b border-slate-200 p-6 flex justify-between items-center">
-                      <div>
-                          <h2 className="text-xl font-bold text-slate-900">
-                              {wizardStep === 1 && 'Stap 1: Terugblik & Reflectie'}
-                              {wizardStep === 2 && 'Stap 2: Competenties & Skills'}
-                              {wizardStep === 3 && 'Stap 3: Toekomst & Doelen'}
-                          </h2>
-                          <p className="text-sm text-slate-500">
-                              {wizardStep === 1 && 'Hoe heb je de afgelopen periode ervaren?'}
-                              {wizardStep === 2 && 'Beoordeel de specifieke vaardigheden.'}
-                              {wizardStep === 3 && 'Welke afspraken maken we voor de toekomst?'}
-                          </p>
-                      </div>
-                      <div className="text-right hidden sm:block">
-                          <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Medewerker</div>
-                          <div className="font-bold text-slate-800">{employee.name}</div>
-                      </div>
-                  </div>
-
-                  <div className="p-8 flex-1 overflow-y-auto">
-                      
-                      {/* STEP 1: REFLECTION */}
-                      {wizardStep === 1 && (
-                          <div className="space-y-8 animate-in fade-in">
-                              <div>
-                                  <label className="block text-sm font-bold text-slate-700 mb-3">Algemene ervaring</label>
-                                  <p className="text-xs text-slate-500 mb-2">Hoe kijk je terug op de afgelopen periode in het algemeen?</p>
-                                  <textarea 
-                                    className="w-full rounded-xl border border-slate-200 p-4 text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent min-h-[120px] bg-slate-50 focus:bg-white transition-colors"
-                                    placeholder="Typ hier je antwoord..."
-                                    defaultValue={isManager ? evaluation.managerGeneralFeedback : evaluation.employeeGeneralFeedback}
-                                    onBlur={(e) => {
-                                        const field = isManager ? 'managerGeneralFeedback' : 'employeeGeneralFeedback';
-                                        handleUpdateEvaluation(evaluation, { [field]: e.target.value });
-                                    }}
-                                  />
-                              </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Wizard Content */}
+              <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden min-h-[600px]">
+                  
+                  {/* Step 1: Reflection */}
+                  {wizardStep === 1 && (
+                      <div className="p-8 lg:p-12">
+                          <h2 className="text-2xl font-bold text-slate-900 mb-2">Terugblik & Reflectie</h2>
+                          <p className="text-slate-500 mb-8">Neem de tijd om terug te kijken op de afgelopen periode.</p>
+                          
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+                              {/* Left: Input */}
+                              <div className="space-y-6">
                                   <div>
-                                      <label className="block text-sm font-bold text-green-700 mb-3 flex items-center gap-2">
-                                          <TrendingUp size={18}/> Wat ging goed? (Wins)
-                                      </label>
+                                      <label className="block text-sm font-bold text-slate-700 mb-3">Algemeen Gevoel</label>
                                       <textarea 
-                                        className="w-full rounded-xl border border-green-100 p-4 text-sm focus:ring-2 focus:ring-green-500 focus:border-transparent min-h-[150px] bg-green-50/30 focus:bg-white transition-colors"
-                                        placeholder="Successen, complimenten..."
+                                        className="w-full h-32 rounded-xl border border-slate-200 p-4 text-sm focus:ring-2 focus:ring-teal-500 outline-none resize-none bg-slate-50 focus:bg-white transition-colors"
+                                        placeholder="Hoe heb je de afgelopen periode ervaren?"
+                                        defaultValue={isManager ? evaluation.managerGeneralFeedback : evaluation.employeeGeneralFeedback}
+                                        onBlur={e => handleUpdateEvaluation(evaluation, { [isManager ? 'managerGeneralFeedback' : 'employeeGeneralFeedback']: e.target.value })}
+                                      />
+                                  </div>
+                                  <div>
+                                      <label className="block text-sm font-bold text-green-700 mb-3 flex items-center gap-2"><TrendingUp size={16}/> Successen (Wins)</label>
+                                      <textarea 
+                                        className="w-full h-32 rounded-xl border border-green-100 p-4 text-sm focus:ring-2 focus:ring-green-500 outline-none resize-none bg-green-50/30 focus:bg-white transition-colors"
+                                        placeholder="Waar ben je trots op?"
                                         defaultValue={isManager ? evaluation.managerWins : evaluation.employeeWins}
-                                        onBlur={(e) => {
-                                            const field = isManager ? 'managerWins' : 'employeeWins';
-                                            handleUpdateEvaluation(evaluation, { [field]: e.target.value });
-                                        }}
+                                        onBlur={e => handleUpdateEvaluation(evaluation, { [isManager ? 'managerWins' : 'employeeWins']: e.target.value })}
                                       />
                                   </div>
                                   <div>
-                                      <label className="block text-sm font-bold text-amber-700 mb-3 flex items-center gap-2">
-                                          <AlertTriangle size={18}/> Uitdagingen (Struggles)
-                                      </label>
+                                      <label className="block text-sm font-bold text-amber-700 mb-3 flex items-center gap-2"><AlertTriangle size={16}/> Uitdagingen (Struggles)</label>
                                       <textarea 
-                                        className="w-full rounded-xl border border-amber-100 p-4 text-sm focus:ring-2 focus:ring-amber-500 focus:border-transparent min-h-[150px] bg-amber-50/30 focus:bg-white transition-colors"
-                                        placeholder="Lastige situaties, leerpunten..."
+                                        className="w-full h-32 rounded-xl border border-amber-100 p-4 text-sm focus:ring-2 focus:ring-amber-500 outline-none resize-none bg-amber-50/30 focus:bg-white transition-colors"
+                                        placeholder="Wat was lastig of kan beter?"
                                         defaultValue={isManager ? evaluation.managerStruggles : evaluation.employeeStruggles}
-                                        onBlur={(e) => {
-                                            const field = isManager ? 'managerStruggles' : 'employeeStruggles';
-                                            handleUpdateEvaluation(evaluation, { [field]: e.target.value });
-                                        }}
+                                        onBlur={e => handleUpdateEvaluation(evaluation, { [isManager ? 'managerStruggles' : 'employeeStruggles']: e.target.value })}
                                       />
                                   </div>
                               </div>
-                          </div>
-                      )}
 
-                      {/* STEP 2: SCORES */}
-                      {wizardStep === 2 && (
-                          <div className="space-y-6 animate-in fade-in">
-                              {evaluation.scores.map((scoreItem, idx) => (
-                                  <div key={idx} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm hover:border-teal-300 transition-colors">
-                                      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                                          <div className="flex-1">
-                                              <div className="text-[10px] font-bold text-teal-600 uppercase tracking-wide mb-1 bg-teal-50 inline-block px-2 py-0.5 rounded">{scoreItem.category}</div>
-                                              <div className="font-bold text-lg text-slate-900">{scoreItem.topic}</div>
-                                              <p className="text-xs text-slate-400 mt-1">Beoordeel op een schaal van 1 tot 5</p>
+                              {/* Right: Context (Only for Manager) */}
+                              {isManager && (
+                                  <div className="bg-slate-50 rounded-2xl p-8 border border-slate-200 h-fit">
+                                      <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                                          <User size={18} className="text-slate-400"/> Input van {employee.name}
+                                      </h3>
+                                      <div className="space-y-6 text-sm text-slate-600">
+                                          <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                                              <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Algemeen</span>
+                                              <p className="italic">"{evaluation.employeeGeneralFeedback || 'Nog niet ingevuld'}"</p>
                                           </div>
-                                          <div className="flex items-center gap-2">
-                                              {[1, 2, 3, 4, 5].map(val => {
-                                                  const currentVal = isManager ? scoreItem.managerScore : scoreItem.employeeScore;
-                                                  return (
-                                                      <button
-                                                        key={val}
-                                                        onClick={() => {
-                                                            const newScores = [...evaluation.scores];
-                                                            newScores[idx] = { 
-                                                                ...newScores[idx], 
-                                                                [isManager ? 'managerScore' : 'employeeScore']: val 
-                                                            };
-                                                            handleUpdateEvaluation(evaluation, { scores: newScores });
-                                                        }}
-                                                        className={`w-12 h-12 rounded-xl font-bold text-sm transition-all border-2 flex flex-col items-center justify-center ${
-                                                            currentVal === val 
-                                                            ? 'bg-slate-900 text-white border-slate-900 shadow-lg scale-110' 
-                                                            : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300 hover:text-slate-600'
-                                                        }`}
-                                                      >
-                                                          <span className="text-lg">{val}</span>
-                                                      </button>
-                                                  );
-                                              })}
+                                          <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                                              <span className="text-xs font-bold text-green-600 uppercase block mb-1">Wins</span>
+                                              <p className="italic">"{evaluation.employeeWins || 'Nog niet ingevuld'}"</p>
+                                          </div>
+                                          <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm">
+                                              <span className="text-xs font-bold text-amber-600 uppercase block mb-1">Struggles</span>
+                                              <p className="italic">"{evaluation.employeeStruggles || 'Nog niet ingevuld'}"</p>
                                           </div>
                                       </div>
                                   </div>
-                              ))}
+                              )}
                           </div>
-                      )}
+                      </div>
+                  )}
 
-                      {/* STEP 3: GOALS */}
-                      {wizardStep === 3 && (
-                          <div className="space-y-8 animate-in fade-in">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                  <div className="bg-slate-50 p-6 rounded-xl border border-slate-200">
-                                      <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2"><Target size={18}/> Nieuw Doel</h4>
-                                      <div className="space-y-4">
-                                          <div>
-                                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Doelstelling</label>
-                                              <input 
-                                                type="text" 
-                                                className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:ring-2 focus:ring-teal-500 outline-none"
-                                                placeholder="Bv. Senior worden"
-                                                value={newGoal.title}
-                                                onChange={(e) => setNewGoal({...newGoal, title: e.target.value})}
-                                              />
-                                          </div>
-                                          <div>
-                                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Omschrijving</label>
-                                              <textarea 
-                                                className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:ring-2 focus:ring-teal-500 outline-none"
-                                                rows={2}
-                                                placeholder="Wat moet er gebeuren?"
-                                                value={newGoal.description}
-                                                onChange={(e) => setNewGoal({...newGoal, description: e.target.value})}
-                                              />
-                                          </div>
-                                          <div>
-                                              <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Deadline</label>
-                                              <input 
-                                                type="text" 
-                                                className="w-full rounded-lg border border-slate-200 p-2.5 text-sm focus:ring-2 focus:ring-teal-500 outline-none"
-                                                placeholder="Bv. Q4 2023"
-                                                value={newGoal.deadline}
-                                                onChange={(e) => setNewGoal({...newGoal, deadline: e.target.value})}
-                                              />
-                                          </div>
-                                          <button 
-                                            onClick={() => handleAddGoal(evaluation)}
-                                            className="w-full py-2.5 bg-slate-900 text-white rounded-lg font-bold text-sm hover:bg-slate-800 transition-colors"
-                                          >
-                                              Toevoegen
-                                          </button>
-                                      </div>
-                                  </div>
-
-                                  <div className="space-y-4">
-                                      <h4 className="font-bold text-slate-900 mb-4">Gestelde Doelen</h4>
-                                      {evaluation.goals?.length === 0 && (
-                                          <div className="text-center py-8 text-slate-400 italic bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                                              Nog geen doelen toegevoegd.
-                                          </div>
-                                      )}
-                                      {evaluation.goals?.map(goal => (
-                                          <div key={goal.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                              <div className="flex justify-between items-start">
-                                                  <h5 className="font-bold text-slate-900">{goal.title}</h5>
-                                                  <span className="text-xs font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded">{goal.deadline}</span>
+                  {/* Step 2: Scores (Split View) */}
+                  {wizardStep === 2 && (
+                      <div className="flex h-full min-h-[600px]">
+                          {/* Manager sees Employee Answers on left (Read Only) */}
+                          {isManager && (
+                              <div className="w-1/3 bg-slate-50 border-r border-slate-200 p-8 overflow-y-auto">
+                                  <h3 className="font-bold text-slate-500 uppercase tracking-wider text-xs mb-6 sticky top-0 bg-slate-50 py-2 z-10">
+                                      Input Medewerker
+                                  </h3>
+                                  <div className="space-y-8">
+                                      {evaluation.scores.map((score, idx) => (
+                                          <div key={idx} className="opacity-80">
+                                              <p className="font-bold text-slate-700 text-sm mb-2">{score.topic}</p>
+                                              <div className="flex items-center gap-2 mb-2">
+                                                  <div className="bg-white border border-slate-200 px-3 py-1 rounded-lg font-bold text-slate-900 shadow-sm">
+                                                      {score.employeeScore}/5
+                                                  </div>
                                               </div>
-                                              <p className="text-sm text-slate-600 mt-1">{goal.description}</p>
+                                              {score.employeeComment && (
+                                                  <p className="text-xs text-slate-500 italic bg-white p-2 rounded-lg border border-slate-100">"{score.employeeComment}"</p>
+                                              )}
                                           </div>
                                       ))}
                                   </div>
                               </div>
+                          )}
+
+                          {/* Active Input Area */}
+                          <div className={`flex-1 p-8 lg:p-12 overflow-y-auto ${!isManager ? 'max-w-3xl mx-auto' : ''}`}>
+                              <h2 className="text-2xl font-bold text-slate-900 mb-6">Competentie Beoordeling</h2>
+                              <div className="space-y-10">
+                                  {evaluation.scores.map((score, idx) => (
+                                      <div key={idx} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition-all hover:border-teal-300 hover:shadow-md">
+                                          <div className="flex justify-between items-start mb-4">
+                                              <div>
+                                                  <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-1 rounded uppercase tracking-wide">{score.category}</span>
+                                                  <h3 className="font-bold text-lg text-slate-900 mt-1">{score.topic}</h3>
+                                              </div>
+                                              
+                                              {/* Gap Alert for Manager */}
+                                              {isManager && Math.abs(score.managerScore - score.employeeScore) >= 2 && score.managerScore > 0 && (
+                                                  <div className="flex items-center gap-1 text-amber-600 text-xs font-bold bg-amber-50 px-3 py-1.5 rounded-full animate-in fade-in">
+                                                      <Split size={14}/> Inzicht Verschil
+                                                  </div>
+                                              )}
+                                          </div>
+
+                                          <div className="mb-4">
+                                              <div className="flex items-center gap-2">
+                                                  {[1, 2, 3, 4, 5].map(val => {
+                                                      const currentVal = isManager ? score.managerScore : score.employeeScore;
+                                                      return (
+                                                          <button
+                                                            key={val}
+                                                            onClick={() => {
+                                                                const newScores = [...evaluation.scores];
+                                                                newScores[idx] = { 
+                                                                    ...newScores[idx], 
+                                                                    [isManager ? 'managerScore' : 'employeeScore']: val 
+                                                                };
+                                                                handleUpdateEvaluation(evaluation, { scores: newScores });
+                                                            }}
+                                                            className={`w-10 h-10 rounded-xl font-bold text-sm transition-all border-2 flex items-center justify-center ${
+                                                                currentVal === val 
+                                                                ? 'bg-slate-900 text-white border-slate-900 shadow-lg scale-110' 
+                                                                : 'bg-white text-slate-400 border-slate-100 hover:border-slate-300 hover:text-slate-600'
+                                                            }`}
+                                                          >
+                                                              {val}
+                                                          </button>
+                                                      );
+                                                  })}
+                                              </div>
+                                              <div className="flex justify-between text-[10px] text-slate-400 mt-2 px-1">
+                                                  <span>Ontwikkelbaar</span>
+                                                  <span>Rolmodel</span>
+                                              </div>
+                                          </div>
+
+                                          <textarea 
+                                            className="w-full rounded-xl border border-slate-100 p-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-slate-50 focus:bg-white transition-colors h-20 resize-none"
+                                            placeholder="Toelichting (optioneel)..."
+                                            defaultValue={isManager ? score.managerComment : score.employeeComment}
+                                            onBlur={e => {
+                                                const newScores = [...evaluation.scores];
+                                                newScores[idx] = { 
+                                                    ...newScores[idx], 
+                                                    [isManager ? 'managerComment' : 'employeeComment']: e.target.value 
+                                                };
+                                                handleUpdateEvaluation(evaluation, { scores: newScores });
+                                            }}
+                                          />
+                                      </div>
+                                  ))}
+                              </div>
                           </div>
+                      </div>
+                  )}
+
+                  {/* Step 3: Goals */}
+                  {wizardStep === 3 && (
+                      <div className="p-8 lg:p-12 max-w-4xl mx-auto">
+                          <h2 className="text-2xl font-bold text-slate-900 mb-2">Doelen & Afspraken</h2>
+                          <p className="text-slate-500 mb-8">Welke doelen stellen we voor de komende periode?</p>
+
+                          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 mb-8">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                  <input 
+                                    type="text" 
+                                    placeholder="Titel van het doel..."
+                                    className="p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                    value={newGoal.title}
+                                    onChange={e => setNewGoal({...newGoal, title: e.target.value})}
+                                  />
+                                  <input 
+                                    type="text" 
+                                    placeholder="Deadline (bv. Q3 2024)..."
+                                    className="p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                    value={newGoal.deadline}
+                                    onChange={e => setNewGoal({...newGoal, deadline: e.target.value})}
+                                  />
+                              </div>
+                              <textarea 
+                                className="w-full p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 h-24 resize-none mb-4"
+                                placeholder="Beschrijving..."
+                                value={newGoal.description}
+                                onChange={e => setNewGoal({...newGoal, description: e.target.value})}
+                              />
+                              <button 
+                                onClick={() => handleAddGoal(evaluation)}
+                                disabled={!newGoal.title}
+                                className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold text-sm hover:bg-slate-800 disabled:opacity-50 transition-colors"
+                              >
+                                  + Doel Toevoegen
+                              </button>
+                          </div>
+
+                          <div className="space-y-4">
+                              {evaluation.goals?.map(goal => (
+                                  <div key={goal.id} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex justify-between items-center group">
+                                      <div>
+                                          <h4 className="font-bold text-slate-900">{goal.title}</h4>
+                                          <p className="text-sm text-slate-500">{goal.description}</p>
+                                          <span className="text-xs font-bold text-teal-600 mt-2 block">Deadline: {goal.deadline}</span>
+                                      </div>
+                                      <button className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-2">
+                                          <X size={20}/>
+                                      </button>
+                                  </div>
+                              ))}
+                              {(!evaluation.goals || evaluation.goals.length === 0) && (
+                                  <div className="text-center py-10 text-slate-400 italic">Nog geen doelen toegevoegd.</div>
+                              )}
+                          </div>
+                      </div>
+                  )}
+
+                  {/* Step 4: Private Notes (Manager Only) or Confirmation */}
+                  {wizardStep === 4 && (
+                      <div className="p-8 lg:p-12 max-w-3xl mx-auto text-center">
+                          {isManager ? (
+                              <div className="text-left mb-10">
+                                  <div className="flex items-center gap-2 mb-4">
+                                      <div className="p-2 bg-amber-100 text-amber-700 rounded-lg"><Lock size={20}/></div>
+                                      <h2 className="text-xl font-bold text-slate-900">Privé Notities</h2>
+                                  </div>
+                                  <p className="text-slate-500 mb-4 text-sm">
+                                      Deze notities zijn <strong>alleen voor jou zichtbaar</strong> en komen niet in het eindrapport voor de medewerker.
+                                      Gebruik dit voor reminders voor het gesprek.
+                                  </p>
+                                  <textarea 
+                                    className="w-full h-40 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+                                    placeholder="Typ hier je privé notities..."
+                                    defaultValue={evaluation.privateManagerNotes}
+                                    onBlur={e => handleUpdateEvaluation(evaluation, { privateManagerNotes: e.target.value })}
+                                  />
+                              </div>
+                          ) : (
+                              <div className="mb-10">
+                                  <div className="w-24 h-24 bg-teal-50 rounded-full flex items-center justify-center mx-auto mb-6 text-teal-600">
+                                      <CheckCircle size={48}/>
+                                  </div>
+                                  <h2 className="text-2xl font-bold text-slate-900 mb-2">Klaar om te versturen?</h2>
+                                  <p className="text-slate-600">
+                                      Je hebt alle stappen doorlopen. Als je op 'Afronden' klikt, kan de manager jouw input bekijken.
+                                  </p>
+                              </div>
+                          )}
+                          
+                          <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                              <h3 className="font-bold text-slate-900 mb-2">Overzicht Scores</h3>
+                              <div className="flex justify-center gap-8">
+                                  <div className="text-center">
+                                      <span className="block text-3xl font-bold text-slate-900">{evaluation.scores.filter(s => (isManager ? s.managerScore : s.employeeScore) > 0).length}</span>
+                                      <span className="text-xs text-slate-500 uppercase tracking-wide">Ingevuld</span>
+                                  </div>
+                                  <div className="text-center">
+                                      <span className="block text-3xl font-bold text-slate-900">{evaluation.goals?.length || 0}</span>
+                                      <span className="text-xs text-slate-500 uppercase tracking-wide">Doelen</span>
+                                  </div>
+                              </div>
+                          </div>
+                      </div>
+                  )}
+              </div>
+          </div>
+      );
+  };
+
+  const renderOfficialReport = (evaluation: EvaluationCycle, employee: Employee) => {
+      // Radar Data
+      const radarData = evaluation.scores.map(s => ({
+          subject: s.topic.length > 15 ? s.topic.substring(0, 15) + '...' : s.topic,
+          Medewerker: s.employeeScore,
+          Manager: s.managerScore,
+          fullMark: 5
+      }));
+
+      const mySignature = evaluation.signatures.find(s => s.signedById === currentUser.id);
+      const otherSignature = evaluation.signatures.find(s => s.signedById !== currentUser.id && s.role !== (isManager ? 'Manager' : 'Employee'));
+
+      return (
+          <div className="max-w-5xl mx-auto animate-in slide-in-from-bottom-4 duration-500 pb-24">
+              {/* Toolbar */}
+              <div className="flex items-center justify-between mb-8 print:hidden">
+                  <button onClick={() => setSelectedEvaluationId(null)} className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">
+                      <ArrowLeft size={18} /> Terug
+                  </button>
+                  <div className="flex gap-3">
+                      <button onClick={() => window.print()} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-50 flex items-center gap-2">
+                          <Printer size={18}/> Print
+                      </button>
+                      {!mySignature && evaluation.status === 'Review' && (
+                          <button 
+                            onClick={handleSign}
+                            className="px-6 py-2 bg-green-600 text-white font-bold rounded-xl shadow-md hover:bg-green-700 flex items-center gap-2 animate-pulse"
+                          >
+                              <PenLine size={18}/> Ondertekenen
+                          </button>
                       )}
+                  </div>
+              </div>
+
+              {/* PAPER DOCUMENT */}
+              <div className="bg-white shadow-2xl rounded-sm min-h-[1000px] p-12 lg:p-16 relative text-slate-900 print:shadow-none print:p-0">
+                  {/* Watermark/Status */}
+                  {evaluation.status === 'Signed' && (
+                      <div className="absolute top-12 right-12 border-4 border-green-600 text-green-600 px-6 py-2 font-black text-2xl uppercase opacity-30 transform rotate-12 pointer-events-none">
+                          GETEKEND
+                      </div>
+                  )}
+
+                  {/* Header */}
+                  <div className="border-b-2 border-slate-900 pb-8 mb-12 flex justify-between items-start">
+                      <div>
+                          <h1 className="text-4xl font-serif font-bold mb-2">Evaluatierapport</h1>
+                          <p className="text-slate-500 uppercase tracking-widest text-sm font-bold">{evaluation.type} Cyclus</p>
+                      </div>
+                      <div className="text-right">
+                          <div className="font-bold text-xl">Sanadome Nijmegen</div>
+                          <div className="text-sm text-slate-500">{new Date().getFullYear()}</div>
+                      </div>
                   </div>
 
-                  <div className="bg-slate-50 border-t border-slate-200 p-6 flex justify-between items-center">
-                      <button 
-                          disabled={wizardStep === 1}
-                          onClick={() => setWizardStep(prev => prev - 1 as any)}
-                          className="px-6 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-100 disabled:opacity-50 transition-colors"
-                      >
-                          Vorige
-                      </button>
-                      {wizardStep < 3 ? (
-                          <button 
-                              onClick={() => setWizardStep(prev => prev + 1 as any)}
-                              className="px-6 py-3 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-colors"
-                          >
-                              Volgende
-                          </button>
-                      ) : (
-                          <button 
-                              onClick={() => {
-                                  const newStatus = isManager ? 'Completed' : 'ManagerInput';
-                                  handleUpdateEvaluation(evaluation, { status: newStatus });
-                                  onShowToast(isManager ? 'Evaluatie afgerond!' : 'Verzonden naar manager!');
-                                  setSelectedEvaluationId(null);
-                              }}
-                              className="px-6 py-3 bg-green-600 text-white rounded-xl font-bold text-sm hover:bg-green-700 transition-colors shadow-md flex items-center gap-2"
-                          >
-                              {isManager ? <CheckCircle size={16}/> : <ArrowRight size={16}/>}
-                              {isManager ? 'Afronden' : 'Verzenden'}
-                          </button>
-                      )}
+                  {/* Info Grid */}
+                  <div className="grid grid-cols-2 gap-12 mb-12">
+                      <div>
+                          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Medewerker</h3>
+                          <div className="flex items-center gap-4">
+                              <img src={employee.avatar} className="w-16 h-16 rounded-xl object-cover border border-slate-200 print:hidden" alt="Avatar"/>
+                              <div>
+                                  <div className="font-bold text-lg">{employee.name}</div>
+                                  <div className="text-slate-500">{employee.role}</div>
+                                  <div className="text-sm text-slate-400 mt-1">{employee.departments.join(', ')}</div>
+                              </div>
+                          </div>
+                      </div>
+                      <div>
+                          <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 border-b border-slate-100 pb-2">Details</h3>
+                          <div className="space-y-2 text-sm">
+                              <div className="flex justify-between"><span className="text-slate-500">Datum Start:</span> <span className="font-bold">{evaluation.createdAt}</span></div>
+                              <div className="flex justify-between"><span className="text-slate-500">Datum Afronding:</span> <span className="font-bold">{evaluation.completedAt || 'Nog niet afgerond'}</span></div>
+                              <div className="flex justify-between"><span className="text-slate-500">Overall Score:</span> <span className="font-bold bg-slate-900 text-white px-2 rounded">{evaluation.overallRating || '-'} / 5</span></div>
+                          </div>
+                      </div>
                   </div>
+
+                  {/* Competence Radar & Stats */}
+                  <div className="mb-12 flex flex-col md:flex-row gap-12 items-center">
+                      <div className="w-full md:w-1/2 h-64">
+                           <ResponsiveContainer width="100%" height="100%">
+                               <RadarChart cx="50%" cy="50%" outerRadius="80%" data={radarData}>
+                                   <PolarGrid stroke="#e2e8f0" />
+                                   <PolarAngleAxis dataKey="subject" tick={{ fontSize: 10, fill: '#64748b' }} />
+                                   <PolarRadiusAxis angle={30} domain={[0, 5]} tick={false} axisLine={false} />
+                                   <Radar name="Medewerker" dataKey="Medewerker" stroke="#94a3b8" fill="#94a3b8" fillOpacity={0.3} />
+                                   <Radar name="Manager" dataKey="Manager" stroke="#0f172a" fill="#0f172a" fillOpacity={0.5} />
+                                   <Legend />
+                               </RadarChart>
+                           </ResponsiveContainer>
+                      </div>
+                      <div className="w-full md:w-1/2 space-y-6">
+                          {evaluation.smartAdvice && evaluation.smartAdvice.length > 0 && (
+                              <div className="bg-slate-50 p-6 rounded-xl border border-slate-100">
+                                  <h4 className="font-bold text-slate-900 mb-3 flex items-center gap-2"><BrainCircuit size={18}/> Advies & Actiepunten</h4>
+                                  <ul className="space-y-2">
+                                      {evaluation.smartAdvice.map((advice, i) => (
+                                          <li key={i} className="text-sm text-slate-700 flex items-start gap-2">
+                                              <span className="text-teal-500 mt-1">•</span> {advice}
+                                          </li>
+                                      ))}
+                                  </ul>
+                              </div>
+                          )}
+                      </div>
+                  </div>
+
+                  {/* Scores Table */}
+                  <div className="mb-12">
+                      <h3 className="font-bold text-lg text-slate-900 mb-4 border-b border-slate-200 pb-2">Detailscores</h3>
+                      <table className="w-full text-sm">
+                          <thead>
+                              <tr className="text-slate-400 text-left">
+                                  <th className="font-medium py-2">Competentie</th>
+                                  <th className="font-medium py-2 text-center w-24">Medewerker</th>
+                                  <th className="font-medium py-2 text-center w-24">Manager</th>
+                                  <th className="font-medium py-2 w-1/3">Opmerkingen</th>
+                              </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                              {evaluation.scores.map((s, i) => (
+                                  <tr key={i}>
+                                      <td className="py-3 pr-4 font-medium text-slate-800">{s.topic}</td>
+                                      <td className="py-3 text-center text-slate-500">{s.employeeScore}</td>
+                                      <td className="py-3 text-center font-bold text-slate-900">{s.managerScore}</td>
+                                      <td className="py-3 pl-4 text-slate-600 italic text-xs">
+                                          {s.managerComment && <div>Mgr: "{s.managerComment}"</div>}
+                                          {s.employeeComment && <div className="text-slate-400 mt-1">Emp: "{s.employeeComment}"</div>}
+                                      </td>
+                                  </tr>
+                              ))}
+                          </tbody>
+                      </table>
+                  </div>
+
+                  {/* Goals */}
+                  <div className="mb-16">
+                      <h3 className="font-bold text-lg text-slate-900 mb-4 border-b border-slate-200 pb-2">Afspraken & Doelen</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {evaluation.goals?.map(g => (
+                              <div key={g.id} className="border border-slate-200 p-4 rounded-lg bg-slate-50/50">
+                                  <div className="flex justify-between mb-2">
+                                      <span className="font-bold text-slate-900">{g.title}</span>
+                                      <span className="text-xs bg-white border px-2 py-0.5 rounded text-slate-500">{g.deadline}</span>
+                                  </div>
+                                  <p className="text-sm text-slate-600">{g.description}</p>
+                              </div>
+                          ))}
+                          {(!evaluation.goals || evaluation.goals.length === 0) && <p className="text-slate-400 italic">Geen doelen vastgelegd.</p>}
+                      </div>
+                  </div>
+
+                  {/* Signatures Area */}
+                  <div className="grid grid-cols-2 gap-20 pt-8 border-t-2 border-slate-900">
+                      <div>
+                          <div className="h-20 border-b border-slate-300 mb-2 flex items-end pb-2">
+                              {evaluation.signatures.find(s => s.role === 'Manager') ? (
+                                  <div className="font-script text-2xl text-slate-800 transform -rotate-2 ml-4">
+                                      {evaluation.signatures.find(s => s.role === 'Manager')?.signedBy}
+                                  </div>
+                              ) : (
+                                  <div className="text-xs text-slate-300 w-full text-center">Nog niet getekend</div>
+                              )}
+                          </div>
+                          <div className="font-bold text-slate-900">Manager</div>
+                          <div className="text-xs text-slate-500">
+                              {evaluation.signatures.find(s => s.role === 'Manager')?.signedAt || 'Datum: ...'}
+                          </div>
+                      </div>
+                      <div>
+                          <div className="h-20 border-b border-slate-300 mb-2 flex items-end pb-2">
+                              {evaluation.signatures.find(s => s.role === 'Employee') ? (
+                                  <div className="font-script text-2xl text-slate-800 transform rotate-1 ml-4">
+                                      {evaluation.signatures.find(s => s.role === 'Employee')?.signedBy}
+                                  </div>
+                              ) : (
+                                  <div className="text-xs text-slate-300 w-full text-center">Nog niet getekend</div>
+                              )}
+                          </div>
+                          <div className="font-bold text-slate-900">Medewerker</div>
+                          <div className="text-xs text-slate-500">
+                              {evaluation.signatures.find(s => s.role === 'Employee')?.signedAt || 'Datum: ...'}
+                          </div>
+                      </div>
+                  </div>
+
               </div>
           </div>
       );
