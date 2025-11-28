@@ -123,7 +123,8 @@ export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
     description: `
 - Badge systeem geïntroduceerd.
 - Managers kunnen nu badges uitreiken.
-- Profielen tonen verzamelde badges met details.`,
+- Profielen tonen verzamelde badges met details.
+- Systeemkleuren aangepast naar Spa Blauw.`,
     status: 'Success'
 };
 

@@ -1,7 +1,3 @@
-
-
-
-
 export enum ViewState {
   HOME = 'HOME',
   DIRECTORY = 'DIRECTORY',

@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import { 
     Medal, Plus, Search, Trash2, Award, Check, User, Calendar, 
@@ -54,7 +56,7 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     
     // Form States
-    const [newBadge, setNewBadge] = useState<Partial<BadgeDefinition>>({ icon: 'Star', color: 'yellow' });
+    const [newBadge, setNewBadge] = useState<Partial<BadgeDefinition>>({ icon: 'Star', color: 'blue' });
     const [selectedBadgeId, setSelectedBadgeId] = useState<string | null>(null);
     const [targetEmployeeId, setTargetEmployeeId] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState('');
@@ -91,7 +93,7 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
         await api.saveBadge(badge);
         setBadges([...badges, badge]);
         setIsCreateModalOpen(false);
-        setNewBadge({ icon: 'Star', color: 'yellow', name: '', description: '' });
+        setNewBadge({ icon: 'Star', color: 'blue', name: '', description: '' });
         onShowToast('Nieuwe badge aangemaakt!');
     };
 
