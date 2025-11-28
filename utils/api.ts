@@ -1,8 +1,10 @@
 
+
+
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, Ticket } from '../types';
-import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_TICKETS } from './mockData';
+import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, Ticket, BadgeDefinition } from '../types';
+import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_TICKETS, MOCK_BADGES } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
 // We explicitely check if supabase is not null
@@ -109,7 +111,7 @@ export const api = {
           onboardingStatus: role === 'Manager' ? 'Completed' : 'Active',
           leaveBalances: [
               { type: 'Annual Leave', entitled: 25, taken: 0 },
-              { type: 'Sick Leave', entitled: 10, taken: 0 },
+              { type: 'Sick Leave', entitled: 10.0, taken: 0 },
               { type: 'Without Pay', entitled: 0, taken: 0 }
           ],
           leaveRequests: [],
@@ -117,6 +119,7 @@ export const api = {
           notes: [],
           onboardingTasks: role === 'Manager' ? [] : generateDemoTasks(),
           evaluations: [],
+          badges: [],
           // Managers get full permissions, Employees get defaults
           customPermissions: role === 'Manager' ? [
             'VIEW_REPORTS', 'MANAGE_EMPLOYEES', 'MANAGE_DOCUMENTS', 
@@ -124,7 +127,7 @@ export const api = {
             'MANAGE_SURVEYS', 'VIEW_SYSTEM_STATUS', 'MANAGE_SETTINGS', 
             'MANAGE_EVALUATIONS', 'MANAGE_DEBTORS', 'MANAGE_RECRUITMENT',
             'VIEW_CALENDAR', 'MANAGE_ATTENDANCE', 'MANAGE_CASES',
-            'MANAGE_TICKETS'
+            'MANAGE_TICKETS', 'MANAGE_BADGES'
           ] : undefined
       };
 
@@ -320,6 +323,30 @@ export const api = {
         const filtered = current.filter(e => e.id !== id);
         storage.saveEmployees(filtered);
     }
+  },
+
+  // --- BADGES (NEW) ---
+  getBadges: async (): Promise<BadgeDefinition[]> => {
+      // In a real app this might be in DB, for now Mock or Local Storage
+      const local = localStorage.getItem('hrms_badges');
+      if (local) return JSON.parse(local);
+      return MOCK_BADGES;
+  },
+
+  saveBadge: async (badge: BadgeDefinition) => {
+      // Simple local storage persistence for badges meta-data as we don't have a 'badges' table in Supabase setup script yet
+      // If you want Supabase, you'd add a table there. For now, local/mock is sufficient for definitions.
+      const current = await api.getBadges();
+      const index = current.findIndex(b => b.id === badge.id);
+      if (index >= 0) current[index] = badge;
+      else current.push(badge);
+      localStorage.setItem('hrms_badges', JSON.stringify(current));
+  },
+
+  deleteBadge: async (id: string) => {
+      const current = await api.getBadges();
+      const filtered = current.filter(b => b.id !== id);
+      localStorage.setItem('hrms_badges', JSON.stringify(filtered));
   },
 
   // --- NEWS ---
@@ -652,7 +679,8 @@ export const api = {
                                 'debt': 'Debiteuren',
                                 'api': 'API / Backend',
                                 'db': 'Database',
-                                'doc': 'Documenten'
+                                'doc': 'Documenten',
+                                'badges': 'Waardering'
                             };
                             affectedArea = areaMap[rawScope] || (rawScope.charAt(0).toUpperCase() + rawScope.slice(1));
                         }

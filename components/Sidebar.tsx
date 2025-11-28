@@ -1,9 +1,11 @@
 
+
+
 import React from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
   UserPlus, Trophy, FileText, PieChart, 
-  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Ticket
+  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Ticket, Medal
 } from 'lucide-react';
 import { ViewState, Employee } from '../types';
 import { hasPermission } from '../utils/permissions';
@@ -34,6 +36,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
     { icon: Calendar, label: 'Kalender', id: 'calendar', permission: 'VIEW_CALENDAR' },
     { icon: UserPlus, label: 'Recruitment', id: 'recruitment', permission: 'MANAGE_RECRUITMENT' },
     { icon: Trophy, label: 'Performance', id: 'performance', permission: 'MANAGE_EVALUATIONS' },
+    { icon: Medal, label: 'Badges', id: ViewState.BADGES, permission: 'MANAGE_BADGES' },
     { icon: Calendar, label: 'Aanwezigheid', id: 'attendance', permission: 'MANAGE_ATTENDANCE' },
     { icon: FileText, label: 'Documenten', id: ViewState.DOCUMENTS }, 
     { icon: Euro, label: 'Debiteuren', id: ViewState.DEBT_CONTROL, permission: 'MANAGE_DEBTORS' },

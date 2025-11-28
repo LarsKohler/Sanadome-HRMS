@@ -20,7 +20,8 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'VIEW_CALENDAR',
     'MANAGE_ATTENDANCE',
     'MANAGE_CASES',
-    'MANAGE_TICKETS'
+    'MANAGE_TICKETS',
+    'MANAGE_BADGES'
   ],
   'Senior Medewerker': [
     'CREATE_NEWS',
@@ -31,7 +32,8 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'MANAGE_DEBTORS',
     'MANAGE_RECRUITMENT', // Seniors assist in hiring
     'VIEW_CALENDAR',
-    'MANAGE_ATTENDANCE' // Can help with roosters
+    'MANAGE_ATTENDANCE', // Can help with roosters
+    'MANAGE_BADGES' // Seniors can award badges
   ],
   'Medewerker': [
     'VIEW_CALENDAR' // Basic view access

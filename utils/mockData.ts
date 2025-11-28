@@ -1,7 +1,19 @@
 
 
 
-import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog, Ticket } from '../types';
+
+
+import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog, Ticket, BadgeDefinition } from '../types';
+
+// --- MOCK BADGES ---
+export const MOCK_BADGES: BadgeDefinition[] = [
+    { id: 'b1', name: 'Super Start', description: 'Voltooide de onboarding binnen 2 weken met 100% score.', icon: 'Rocket', color: 'blue', createdAt: '2023-01-01' },
+    { id: 'b2', name: 'Klantheld', description: 'Ging boven en buiten verwachting voor een gast.', icon: 'Heart', color: 'red', createdAt: '2023-01-01' },
+    { id: 'b3', name: 'Team Player', description: 'Altijd bereid om een dienst over te nemen.', icon: 'Users', color: 'green', createdAt: '2023-01-01' }, // Note: Users icon is mapped later or handled by fallback
+    { id: 'b4', name: 'Sales Tijger', description: 'Hoogste upsell percentage van de maand.', icon: 'Trophy', color: 'yellow', createdAt: '2023-01-01' },
+    { id: 'b5', name: 'Scherp Oog', description: 'Ontdekte een kritieke fout in een boeking.', icon: 'Eye', color: 'purple', createdAt: '2023-01-01' },
+    { id: 'b6', name: 'Probleemoplosser', description: 'Heeft zelfstandig een complex gastprobleem opgelost.', icon: 'Zap', color: 'orange', createdAt: '2023-01-01' }
+];
 
 // --- MOCK TICKETS ---
 export const MOCK_TICKETS: Ticket[] = [
@@ -100,19 +112,18 @@ export const MOCK_TICKETS: Ticket[] = [
 
 // --- AUTO UPDATE LOGGER ---
 export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
-    id: 'update-v3.7.0-tickets', 
-    version: 'v3.7.0',
+    id: 'update-v3.8.0-badges', 
+    version: 'v3.8.0',
     date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
     timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
     author: 'AI Assistant',
     type: 'Feature',
-    impact: 'High',
-    affectedArea: 'Ticket Systeem',
+    impact: 'Medium',
+    affectedArea: 'Waardering',
     description: `
-- Compleet vernieuwd ticketsysteem (Service Desk).
-- Chat-interface voor communicatie over tickets.
-- Interne notities voor managers toegevoegd.
-- Verbeterde detailweergave en tijdlijn.`,
+- Badge systeem geïntroduceerd.
+- Managers kunnen nu badges uitreiken.
+- Profielen tonen verzamelde badges met details.`,
     status: 'Success'
 };
 
@@ -281,7 +292,8 @@ export const MOCK_EMPLOYEES: Employee[] = [
     onboardingTasks: generateOnboardingTasks().map(t => ({...t, completed: true, completedBy: 'System', completedDate: '01 Feb 2018', score: 100, notesVisibleToEmployee: true})),
     onboardingHistory: [],
     activeTemplateId: 'template-senior', // Connected to real template
-    evaluations: []
+    evaluations: [],
+    badges: []
   },
   {
     id: 'employee-user',
@@ -356,6 +368,10 @@ export const MOCK_EMPLOYEES: Employee[] = [
             goals: [],
             signatures: []
         }
+    ],
+    badges: [
+        { id: 'ub1', badgeId: 'b1', assignedBy: 'Manager', assignedById: 'manager-user', assignedAt: '20 Mrt 2022' },
+        { id: 'ub2', badgeId: 'b2', assignedBy: 'Manager', assignedById: 'manager-user', assignedAt: '15 Nov 2022' }
     ]
   }
 ];

@@ -1,5 +1,7 @@
 
 
+
+
 export enum ViewState {
   HOME = 'HOME',
   DIRECTORY = 'DIRECTORY',
@@ -15,6 +17,7 @@ export enum ViewState {
   SETTINGS = 'SETTINGS', // New View
   DEBT_CONTROL = 'DEBT_CONTROL', // New: Debiteuren Beheer
   TICKETS = 'TICKETS', // New: Ticket System
+  BADGES = 'BADGES', // New: Badge Management
 }
 
 // --- PERMISSIONS SYSTEM ---
@@ -35,7 +38,8 @@ export type Permission =
   | 'VIEW_CALENDAR' // Access Calendar
   | 'MANAGE_ATTENDANCE' // Access Attendance/Rooster
   | 'MANAGE_CASES' // Access Arbo/Verzuim cases
-  | 'MANAGE_TICKETS'; // Access Ticket Dashboard
+  | 'MANAGE_TICKETS' // Access Ticket Dashboard
+  | 'MANAGE_BADGES'; // New: Manage and Award Badges
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_REPORTS': 'Rapportages Inzien',
@@ -53,8 +57,31 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_CALENDAR': 'Kalender Inzien',
   'MANAGE_ATTENDANCE': 'Aanwezigheid & Roosters',
   'MANAGE_CASES': 'Cases & Verzuim Dossiers',
-  'MANAGE_TICKETS': 'Ticket Systeem Beheer'
+  'MANAGE_TICKETS': 'Ticket Systeem Beheer',
+  'MANAGE_BADGES': 'Badges & Waardering Beheren'
 };
+
+// --- BADGE SYSTEM TYPES ---
+
+export type BadgeIconKey = 'Trophy' | 'Star' | 'Medal' | 'Heart' | 'Zap' | 'Shield' | 'Rocket' | 'Crown' | 'ThumbsUp' | 'Lightbulb' | 'Flame' | 'Target' | 'Users' | 'Eye';
+export type BadgeColor = 'yellow' | 'blue' | 'purple' | 'red' | 'green' | 'pink' | 'orange' | 'slate';
+
+export interface BadgeDefinition {
+  id: string;
+  name: string;
+  description: string;
+  icon: BadgeIconKey;
+  color: BadgeColor;
+  createdAt: string;
+}
+
+export interface AssignedBadge {
+  id: string;
+  badgeId: string;
+  assignedBy: string; // Name of manager
+  assignedById: string; // ID of manager
+  assignedAt: string; // Date string
+}
 
 // --- TICKET SYSTEM TYPES ---
 
@@ -118,7 +145,7 @@ export interface Notification {
   id: string;
   recipientId: string;
   senderName: string;
-  type: 'LeaveRequest' | 'Document' | 'Note' | 'System' | 'News' | 'Onboarding' | 'Survey' | 'Evaluation' | 'Evaluation' | 'Ticket';
+  type: 'LeaveRequest' | 'Document' | 'Note' | 'System' | 'News' | 'Onboarding' | 'Survey' | 'Evaluation' | 'Evaluation' | 'Ticket' | 'Badge';
   title: string;
   message: string;
   date: string;
@@ -295,6 +322,7 @@ export interface Employee {
   notes: EmployeeNote[];
   
   evaluations?: EvaluationCycle[]; // New field for evaluations
+  badges?: AssignedBadge[]; // New field for badges
 }
 
 export interface HeadcountData {

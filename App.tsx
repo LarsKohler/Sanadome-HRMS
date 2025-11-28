@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import TopNav from './components/TopNav';
@@ -16,6 +18,7 @@ import SystemStatusPage from './components/SystemStatusPage';
 import SettingsPage from './components/SettingsPage'; 
 import DebtControlPage from './components/DebtControlPage'; 
 import TicketDashboard from './components/TicketDashboard'; 
+import BadgeManager from './components/BadgeManager';
 import Login from './components/Login';
 import { Toast } from './components/Toast';
 import { Modal } from './components/Modal'; 
@@ -55,7 +58,7 @@ const App: React.FC = () => {
   // --- PERMISSION MIGRATION & FIXES ---
   useEffect(() => {
       if (currentUser && currentUser.role === 'Manager') {
-          const requiredPerms = ['MANAGE_TICKETS', 'MANAGE_DEBTORS'];
+          const requiredPerms = ['MANAGE_TICKETS', 'MANAGE_DEBTORS', 'MANAGE_BADGES'];
           let hasChanged = false;
           let newPerms = currentUser.customPermissions ? [...currentUser.customPermissions] : [];
           
@@ -216,6 +219,7 @@ const App: React.FC = () => {
           case ViewState.TICKETS: return 'Ticket Systeem';
           case ViewState.SETTINGS: return 'Instellingen';
           case ViewState.SYSTEM_STATUS: return 'Status';
+          case ViewState.BADGES: return 'Badges';
           default: return 'Algemeen';
       }
   };
@@ -601,6 +605,15 @@ const App: React.FC = () => {
                 currentUser={currentUser}
                 onAddNotification={handleAddNotification}
                 onOpenFeedbackModal={openFeedback}
+            />
+          )}
+
+          {currentView === ViewState.BADGES && (
+            <BadgeManager 
+               currentUser={currentUser}
+               employees={employees}
+               onUpdateEmployee={handleUpdateEmployee}
+               onShowToast={showToast}
             />
           )}
 
