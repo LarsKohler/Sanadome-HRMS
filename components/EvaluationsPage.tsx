@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
     ClipboardCheck, Plus, Search, Calendar, User, ArrowRight, Play, CheckCircle, Clock, 
-    AlertCircle, BarChart3, ChevronRight, MessageSquare, BrainCircuit, X, Target, PenTool, TrendingUp, AlertTriangle, FileCheck, Star, Split, Lock, Unlock, Eye, EyeOff, Printer, PenLine, History, ArrowLeft, Check, TrendingDown, Minus, BookOpen, Compass, Trash2, CalendarDays, Activity, Signal
+    AlertCircle, BarChart3, ChevronRight, MessageSquare, BrainCircuit, X, Target, PenTool, TrendingUp, AlertTriangle, FileCheck, Star, Split, Lock, Unlock, Eye, EyeOff, Printer, PenLine, History, ArrowLeft, Check, TrendingDown, Minus, BookOpen, Compass, Trash2, CalendarDays, Activity, Signal, Edit, Save, MoreHorizontal
 } from 'lucide-react';
 import { Employee, EvaluationCycle, Notification, ViewState, EvaluationScore, EvaluationGoal, EvaluationStatus, PersonalDevelopmentGoal, InterimCheckIn } from '../types';
 import { EVALUATION_TEMPLATES, MOCK_DEVELOPMENT_LIBRARY } from '../utils/mockData';
@@ -17,6 +17,11 @@ interface EvaluationsPageProps {
   onShowToast: (message: string) => void;
 }
 
+interface ManagingGoalData {
+    employeeId: string;
+    goal: PersonalDevelopmentGoal;
+}
+
 const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   currentUser,
   employees,
@@ -24,6 +29,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   onAddNotification,
   onShowToast
 }) => {
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'trajectories'>('dashboard');
   const [selectedEvaluationId, setSelectedEvaluationId] = useState<string | null>(null);
   
   // Creation State
@@ -34,11 +40,15 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   // Wizard State
   const [wizardStep, setWizardStep] = useState<1 | 2 | 3>(1); // 1=Reflection, 2=Scores, 3=Finalize
   
-  // Development Plan State (Now in Report View)
+  // Development Plan State (Report View)
   const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false);
   const [newDevGoal, setNewDevGoal] = useState<Partial<PersonalDevelopmentGoal>>({ title: '', category: 'General', actionPlan: '' });
   const [showPlanBuilder, setShowPlanBuilder] = useState(false);
   const [supportLevel, setSupportLevel] = useState<'Low' | 'Medium' | 'High'>('Medium');
+
+  // Goal Management State (Trajectories View)
+  const [managingGoalData, setManagingGoalData] = useState<ManagingGoalData | null>(null);
+  const [isManageGoalModalOpen, setIsManageGoalModalOpen] = useState(false);
 
   // Signatures State
   const [isSigning, setIsSigning] = useState(false);
@@ -64,6 +74,21 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           return new Date(b.evaluation.createdAt).getTime() - new Date(a.evaluation.createdAt).getTime();
       });
   }, [employees, isManager, currentUser.id]);
+
+  // Consolidate all active trajectories
+  const allTrajectories = useMemo(() => {
+      const list: { goal: PersonalDevelopmentGoal, employee: Employee }[] = [];
+      if (!isManager) return list; // Only managers see this overview
+
+      employees.forEach(emp => {
+          (emp.growthGoals || []).forEach(goal => {
+              if (goal.status === 'In Progress') {
+                  list.push({ goal, employee: emp });
+              }
+          });
+      });
+      return list.sort((a, b) => new Date(a.goal.deadline).getTime() - new Date(b.goal.deadline).getTime());
+  }, [employees, isManager]);
 
   const activeEvaluationData = useMemo(() => {
       if (!selectedEvaluationId) return null;
@@ -265,6 +290,93 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       handleUpdateEvaluation(evaluation, { developmentPlan: updated });
   };
 
+  // --- TRAJECTORY MANAGEMENT (NEW) ---
+
+  const handleOpenManageGoal = (employeeId: string, goal: PersonalDevelopmentGoal) => {
+      setManagingGoalData({ employeeId, goal: JSON.parse(JSON.stringify(goal)) }); // Deep copy
+      setIsManageGoalModalOpen(true);
+  };
+
+  const handleSaveGoalChanges = () => {
+      if (!managingGoalData) return;
+      
+      const emp = employees.find(e => e.id === managingGoalData.employeeId);
+      if (!emp) return;
+
+      const originalGoal = emp.growthGoals?.find(g => g.id === managingGoalData.goal.id);
+      
+      // Update employee data
+      const updatedGoals = (emp.growthGoals || []).map(g => g.id === managingGoalData.goal.id ? managingGoalData.goal : g);
+      onUpdateEmployee({ ...emp, growthGoals: updatedGoals });
+
+      // Check for Notifications
+      if (originalGoal) {
+          // Deadline Changed
+          if (originalGoal.deadline !== managingGoalData.goal.deadline) {
+              onAddNotification({
+                  id: Math.random().toString(36).substr(2, 9),
+                  recipientId: emp.id,
+                  senderName: currentUser.name,
+                  type: 'Evaluation',
+                  title: 'Groeipad Bijgewerkt',
+                  message: `De deadline voor "${managingGoalData.goal.title}" is gewijzigd naar ${managingGoalData.goal.deadline}.`,
+                  date: 'Zojuist',
+                  read: false,
+                  targetView: ViewState.HOME
+              });
+          }
+          
+          // Check Dates Changed (Simple check)
+          const datesChanged = managingGoalData.goal.checkIns.some((ci, idx) => {
+              const oldCi = originalGoal.checkIns[idx];
+              return oldCi && oldCi.date !== ci.date;
+          });
+
+          if (datesChanged) {
+              onAddNotification({
+                  id: Math.random().toString(36).substr(2, 9),
+                  recipientId: emp.id,
+                  senderName: currentUser.name,
+                  type: 'Evaluation',
+                  title: 'Evaluatieplanning Gewijzigd',
+                  message: `Er zijn check-in datums gewijzigd in je groeipad "${managingGoalData.goal.title}".`,
+                  date: 'Zojuist',
+                  read: false,
+                  targetView: ViewState.HOME
+              });
+          }
+      }
+
+      setIsManageGoalModalOpen(false);
+      onShowToast("Traject succesvol bijgewerkt.");
+  };
+
+  const handleDeleteGoal = () => {
+      if (!managingGoalData) return;
+      if (!confirm("Weet je zeker dat je dit traject wilt verwijderen? Dit kan niet ongedaan worden gemaakt.")) return;
+
+      const emp = employees.find(e => e.id === managingGoalData.employeeId);
+      if (!emp) return;
+
+      const updatedGoals = (emp.growthGoals || []).filter(g => g.id !== managingGoalData.goal.id);
+      onUpdateEmployee({ ...emp, growthGoals: updatedGoals });
+
+      onAddNotification({
+          id: Math.random().toString(36).substr(2, 9),
+          recipientId: emp.id,
+          senderName: currentUser.name,
+          type: 'Evaluation',
+          title: 'Traject Verwijderd',
+          message: `Het groeipad "${managingGoalData.goal.title}" is verwijderd door je manager.`,
+          date: 'Zojuist',
+          read: false,
+          targetView: ViewState.HOME
+      });
+
+      setIsManageGoalModalOpen(false);
+      onShowToast("Traject verwijderd.");
+  };
+
   const handleSign = async () => {
       if (!activeEvaluationData) return;
       const { evaluation } = activeEvaluationData;
@@ -435,64 +547,162 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                )}
           </div>
 
-          {/* Active Cycles Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-              {allEvaluations.map(({ evaluation, employee }) => {
-                  const percent = 
-                    evaluation.status === 'EmployeeInput' ? 25 :
-                    evaluation.status === 'ManagerInput' ? 50 :
-                    evaluation.status === 'Review' ? 75 : 100;
-                  
-                  const isActionRequired = 
-                    (isManager && evaluation.status === 'ManagerInput') ||
-                    (!isManager && evaluation.status === 'EmployeeInput') ||
-                    (evaluation.status === 'Review' && !evaluation.signatures.some(s => s.signedById === currentUser.id));
-
-                  return (
-                      <div 
-                        key={evaluation.id} 
-                        onClick={() => { setSelectedEvaluationId(evaluation.id); setWizardStep(1); }}
-                        className={`group bg-white rounded-2xl border p-6 shadow-sm cursor-pointer transition-all hover:shadow-md relative overflow-hidden ${isActionRequired ? 'border-teal-500 ring-1 ring-teal-500/20' : 'border-slate-200'}`}
-                      >
-                          {isActionRequired && (
-                              <div className="absolute top-0 right-0 bg-teal-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-sm">
-                                  ACTIE VEREIST
-                              </div>
-                          )}
-                          
-                          <div className="flex items-center gap-4 mb-4">
-                              <img src={employee.avatar} className="w-12 h-12 rounded-full border-2 border-slate-100" alt="Avatar"/>
-                              <div>
-                                  <h3 className="font-bold text-slate-900">{employee.name}</h3>
-                                  <p className="text-xs text-slate-500">{evaluation.type}</p>
-                              </div>
-                          </div>
-
-                          <div className="space-y-4">
-                              <div className="flex justify-between items-center text-xs font-medium text-slate-500">
-                                  <span>{getStatusLabel(evaluation.status)}</span>
-                                  <span>{percent}%</span>
-                              </div>
-                              <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
-                                  <div className="h-full bg-teal-500 transition-all duration-1000" style={{width: `${percent}%`}}></div>
-                              </div>
-                              <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                                  <span className="text-xs text-slate-400 flex items-center gap-1">
-                                      <Calendar size={12}/> {evaluation.createdAt}
-                                  </span>
-                                  <span className="text-xs font-bold text-teal-600 group-hover:underline">Open Dossier</span>
-                              </div>
-                          </div>
-                      </div>
-                  );
-              })}
-              {allEvaluations.length === 0 && (
-                  <div className="col-span-full text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200 text-slate-400">
-                      <ClipboardCheck size={48} className="mx-auto mb-4 opacity-20"/>
-                      <p>Nog geen evaluaties gestart.</p>
-                  </div>
-              )}
+          {/* TABS */}
+          <div className="border-b border-slate-200 flex gap-8">
+                <button 
+                    onClick={() => setActiveTab('dashboard')}
+                    className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
+                        activeTab === 'dashboard' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
+                >
+                    <BarChart3 size={18} /> Evaluatie Cycli
+                </button>
+                {isManager && (
+                    <button 
+                        onClick={() => setActiveTab('trajectories')}
+                        className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
+                            activeTab === 'trajectories' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-700'
+                        }`}
+                    >
+                        <Target size={18} /> Actieve Trajecten
+                    </button>
+                )}
           </div>
+
+          {/* Active Cycles Grid */}
+          {activeTab === 'dashboard' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  {allEvaluations.map(({ evaluation, employee }) => {
+                      const percent = 
+                        evaluation.status === 'EmployeeInput' ? 25 :
+                        evaluation.status === 'ManagerInput' ? 50 :
+                        evaluation.status === 'Review' ? 75 : 100;
+                      
+                      const isActionRequired = 
+                        (isManager && evaluation.status === 'ManagerInput') ||
+                        (!isManager && evaluation.status === 'EmployeeInput') ||
+                        (evaluation.status === 'Review' && !evaluation.signatures.some(s => s.signedById === currentUser.id));
+
+                      return (
+                          <div 
+                            key={evaluation.id} 
+                            onClick={() => { setSelectedEvaluationId(evaluation.id); setWizardStep(1); }}
+                            className={`group bg-white rounded-2xl border p-6 shadow-sm cursor-pointer transition-all hover:shadow-md relative overflow-hidden ${isActionRequired ? 'border-teal-500 ring-1 ring-teal-500/20' : 'border-slate-200'}`}
+                          >
+                              {isActionRequired && (
+                                  <div className="absolute top-0 right-0 bg-teal-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-sm">
+                                      ACTIE VEREIST
+                                  </div>
+                              )}
+                              
+                              <div className="flex items-center gap-4 mb-4">
+                                  <img src={employee.avatar} className="w-12 h-12 rounded-full border-2 border-slate-100" alt="Avatar"/>
+                                  <div>
+                                      <h3 className="font-bold text-slate-900">{employee.name}</h3>
+                                      <p className="text-xs text-slate-500">{evaluation.type}</p>
+                                  </div>
+                              </div>
+
+                              <div className="space-y-4">
+                                  <div className="flex justify-between items-center text-xs font-medium text-slate-500">
+                                      <span>{getStatusLabel(evaluation.status)}</span>
+                                      <span>{percent}%</span>
+                                  </div>
+                                  <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                                      <div className="h-full bg-teal-500 transition-all duration-1000" style={{width: `${percent}%`}}></div>
+                                  </div>
+                                  <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                                      <span className="text-xs text-slate-400 flex items-center gap-1">
+                                          <Calendar size={12}/> {evaluation.createdAt}
+                                      </span>
+                                      <span className="text-xs font-bold text-teal-600 group-hover:underline">Open Dossier</span>
+                                  </div>
+                              </div>
+                          </div>
+                      );
+                  })}
+                  {allEvaluations.length === 0 && (
+                      <div className="col-span-full text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200 text-slate-400">
+                          <ClipboardCheck size={48} className="mx-auto mb-4 opacity-20"/>
+                          <p>Nog geen evaluaties gestart.</p>
+                      </div>
+                  )}
+              </div>
+          )}
+
+          {/* Active Trajectories View */}
+          {activeTab === 'trajectories' && isManager && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                          <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                              <tr>
+                                  <th className="px-6 py-4">Medewerker</th>
+                                  <th className="px-6 py-4">Doelstelling</th>
+                                  <th className="px-6 py-4">Deadline</th>
+                                  <th className="px-6 py-4">Check-ins</th>
+                                  <th className="px-6 py-4">Voortgang</th>
+                                  <th className="px-6 py-4 text-right">Beheer</th>
+                              </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 text-sm">
+                              {allTrajectories.map(({ goal, employee }) => {
+                                  const nextCheckIn = (goal.checkIns || []).find(c => c.status === 'Planned');
+                                  return (
+                                      <tr key={goal.id} className="hover:bg-slate-50 transition-colors">
+                                          <td className="px-6 py-4 font-bold text-slate-900">
+                                              <div className="flex items-center gap-3">
+                                                  <img src={employee.avatar} className="w-8 h-8 rounded-full" alt="Av"/>
+                                                  {employee.name}
+                                              </div>
+                                          </td>
+                                          <td className="px-6 py-4">
+                                              <div className="font-bold text-slate-800">{goal.title}</div>
+                                              <div className="text-xs text-slate-500">{goal.category}</div>
+                                          </td>
+                                          <td className="px-6 py-4 text-slate-600 font-medium">
+                                              {goal.deadline}
+                                          </td>
+                                          <td className="px-6 py-4">
+                                              {nextCheckIn ? (
+                                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-blue-50 text-blue-700 text-xs font-bold border border-blue-100">
+                                                      <Clock size={12} /> {nextCheckIn.date}
+                                                  </span>
+                                              ) : (
+                                                  <span className="text-slate-400 italic">Geen gepland</span>
+                                              )}
+                                          </td>
+                                          <td className="px-6 py-4">
+                                              <div className="flex items-center gap-2">
+                                                  <div className="w-16 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                      <div className="h-full bg-teal-500" style={{ width: `${goal.progress}%` }}></div>
+                                                  </div>
+                                                  <span className="font-bold text-slate-700">{goal.progress}%</span>
+                                              </div>
+                                          </td>
+                                          <td className="px-6 py-4 text-right">
+                                              <button 
+                                                onClick={() => handleOpenManageGoal(employee.id, goal)}
+                                                className="p-2 bg-white border border-slate-200 text-slate-500 hover:text-teal-600 hover:border-teal-200 rounded-lg transition-all shadow-sm"
+                                              >
+                                                  <Edit size={16} />
+                                              </button>
+                                          </td>
+                                      </tr>
+                                  );
+                              })}
+                              {allTrajectories.length === 0 && (
+                                  <tr>
+                                      <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic">
+                                          Geen actieve groeipaden gevonden.
+                                      </td>
+                                  </tr>
+                              )}
+                          </tbody>
+                      </table>
+                  </div>
+              </div>
+          )}
       </div>
   );
 
@@ -1190,6 +1400,106 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                     ))}
                 </div>
             </div>
+        </Modal>
+
+        {/* Goal Management Modal (NEW) */}
+        <Modal
+            isOpen={isManageGoalModalOpen}
+            onClose={() => setIsManageGoalModalOpen(false)}
+            title="Beheer Traject"
+        >
+            {managingGoalData && (
+                <div className="space-y-6">
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <h4 className="font-bold text-slate-900">{managingGoalData.goal.title}</h4>
+                        <p className="text-xs text-slate-500 mt-1">Startdatum: {managingGoalData.goal.startDate}</p>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Deadline</label>
+                        <div className="flex gap-2">
+                            <input 
+                                type="date" 
+                                className="w-full rounded-xl border border-slate-200 p-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                value={new Date(managingGoalData.goal.deadline).toISOString().split('T')[0] || ''}
+                                onChange={(e) => {
+                                    // Keep format consistent dd-mm-yyyy or similar based on locale, but input uses yyyy-mm-dd
+                                    // For simplicity in this edit mode we just use what we get, but ideally reformat for display
+                                    // Converting yyyy-mm-dd to locale string for storage
+                                    const date = new Date(e.target.value);
+                                    if (!isNaN(date.getTime())) {
+                                        setManagingGoalData({
+                                            ...managingGoalData,
+                                            goal: { ...managingGoalData.goal, deadline: date.toLocaleDateString('nl-NL') }
+                                        });
+                                    }
+                                }}
+                            />
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1">Pas de datum aan om het traject te verlengen of verkorten.</p>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Check-in Planning</label>
+                        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
+                            {managingGoalData.goal.checkIns?.map((ci, idx) => (
+                                <div key={ci.id} className="flex items-center gap-3 p-3 border rounded-xl bg-white">
+                                    <span className="text-xs font-bold text-slate-400 w-6">#{idx+1}</span>
+                                    <div className="flex-1">
+                                        {ci.status === 'Completed' ? (
+                                            <div className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                                <CheckCircle size={14} className="text-green-500"/>
+                                                {ci.date} (Voltooid)
+                                            </div>
+                                        ) : (
+                                            <input 
+                                                type="date"
+                                                className="w-full p-1.5 border border-slate-200 rounded text-sm font-medium text-slate-700"
+                                                // Try to parse existing locale date back to yyyy-mm-dd for input
+                                                // Assuming dd-mm-yyyy format from NL locale
+                                                // Simple regex or library would be better, doing basic split here
+                                                defaultValue={(() => {
+                                                    const parts = ci.date.split('-');
+                                                    if(parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+                                                    return '';
+                                                })()}
+                                                onChange={(e) => {
+                                                    const date = new Date(e.target.value);
+                                                    if (!isNaN(date.getTime())) {
+                                                        const newDateStr = date.toLocaleDateString('nl-NL');
+                                                        const newCheckIns = [...managingGoalData.goal.checkIns];
+                                                        newCheckIns[idx] = { ...ci, date: newDateStr };
+                                                        setManagingGoalData({
+                                                            ...managingGoalData,
+                                                            goal: { ...managingGoalData.goal, checkIns: newCheckIns }
+                                                        });
+                                                    }
+                                                }}
+                                            />
+                                        )}
+                                    </div>
+                                    <div className={`w-2 h-2 rounded-full ${ci.status === 'Completed' ? 'bg-green-500' : 'bg-amber-500'}`}></div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="flex gap-3 pt-4 border-t border-slate-100">
+                        <button 
+                            onClick={handleDeleteGoal}
+                            className="px-4 py-3 bg-white border border-red-100 text-red-600 rounded-xl font-bold text-sm hover:bg-red-50 transition-colors"
+                        >
+                            <Trash2 size={18}/>
+                        </button>
+                        <button 
+                            onClick={handleSaveGoalChanges}
+                            className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-colors shadow-sm"
+                        >
+                            Wijzigingen Opslaan
+                        </button>
+                    </div>
+                </div>
+            )}
         </Modal>
     </div>
   );
