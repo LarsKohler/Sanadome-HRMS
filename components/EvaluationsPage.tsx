@@ -180,6 +180,18 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       onAddNotification(notification);
   };
 
+  const handleDeleteEvaluation = (evaluation: EvaluationCycle) => {
+      if (!confirm("Weet je zeker dat je deze evaluatiecyclus wilt verwijderen? Dit kan niet ongedaan worden gemaakt.")) return;
+
+      const targetEmp = employees.find(e => e.id === evaluation.employeeId);
+      if (!targetEmp) return;
+
+      const updatedEvaluations = (targetEmp.evaluations || []).filter(ev => ev.id !== evaluation.id);
+      
+      onUpdateEmployee({ ...targetEmp, evaluations: updatedEvaluations });
+      onShowToast("Evaluatiecyclus verwijderd.");
+  };
+
   const handleUpdateEvaluation = (evaluation: EvaluationCycle, updates: Partial<EvaluationCycle>) => {
       const targetEmp = employees.find(e => e.id === evaluation.employeeId);
       if (!targetEmp) return;
@@ -690,16 +702,18 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                             className={`group bg-white rounded-2xl border p-6 shadow-sm cursor-pointer transition-all hover:shadow-md relative overflow-hidden ${isActionRequired ? 'border-teal-500 ring-1 ring-teal-500/20' : 'border-slate-200'}`}
                           >
                               {isActionRequired && (
-                                  <div className="absolute top-0 right-0 bg-teal-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-sm">
+                                  <div className="absolute top-0 right-0 bg-teal-500 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl shadow-sm z-10">
                                       ACTIE VEREIST
                                   </div>
                               )}
                               
-                              <div className="flex items-center gap-4 mb-4">
-                                  <img src={employee.avatar} className="w-12 h-12 rounded-full border-2 border-slate-100" alt="Avatar"/>
-                                  <div>
-                                      <h3 className="font-bold text-slate-900">{employee.name}</h3>
-                                      <p className="text-xs text-slate-500">{evaluation.type}</p>
+                              <div className="flex items-center justify-between mb-4">
+                                  <div className="flex items-center gap-4">
+                                      <img src={employee.avatar} className="w-12 h-12 rounded-full border-2 border-slate-100" alt="Avatar"/>
+                                      <div>
+                                          <h3 className="font-bold text-slate-900">{employee.name}</h3>
+                                          <p className="text-xs text-slate-500">{evaluation.type}</p>
+                                      </div>
                                   </div>
                               </div>
 
@@ -711,11 +725,22 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                   <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
                                       <div className="h-full bg-teal-500 transition-all duration-1000" style={{width: `${percent}%`}}></div>
                                   </div>
-                                  <div className="flex items-center justify-between pt-4 border-t border-slate-50">
+                                  <div className="flex items-center justify-between pt-4 border-t border-slate-50 relative">
                                       <span className="text-xs text-slate-400 flex items-center gap-1">
                                           <Calendar size={12}/> {evaluation.createdAt}
                                       </span>
-                                      <span className="text-xs font-bold text-teal-600 group-hover:underline">Open Dossier</span>
+                                      <div className="flex items-center gap-2">
+                                          {isManager && (
+                                              <button 
+                                                  onClick={(e) => { e.stopPropagation(); handleDeleteEvaluation(evaluation); }}
+                                                  className="p-1.5 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-full transition-colors"
+                                                  title="Verwijder cyclus"
+                                              >
+                                                  <Trash2 size={16} />
+                                              </button>
+                                          )}
+                                          <span className="text-xs font-bold text-teal-600 group-hover:underline">Open Dossier</span>
+                                      </div>
                                   </div>
                               </div>
                           </div>
