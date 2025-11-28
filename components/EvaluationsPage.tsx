@@ -231,8 +231,8 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       // If end date is in the past or same day, return empty
       if (diffDays <= 0) return [];
 
-      // Short duration rule (< 6 weeks approx 45 days)
-      if (diffDays < 45) {
+      // RULE 1: Very short duration (< 14 days) -> Always 1 check-in halfway
+      if (diffDays < 14) {
           const midDate = new Date(startDate.getTime() + diffTime / 2);
            return [{
               id: 'preview-1',
@@ -242,20 +242,26 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           }];
       }
 
-      // Long duration frequency based on support level
-      let intervalDays = 30; 
+      // RULE 2: Frequency based on Support Level
+      // Aim: 
+      // High = ~3x month (Every 10 days)
+      // Medium = ~2x month (Every 14 days / Bi-weekly) - REQUESTED
+      // Low = ~1x month (Every 28 days)
+      let intervalDays = 28; 
       switch (level) {
-          case 'High': intervalDays = 14; break; // ~2 weeks
-          case 'Medium': intervalDays = 30; break; // ~1 month
-          case 'Low': intervalDays = 60; break; // ~2 months
+          case 'High': intervalDays = 10; break; 
+          case 'Medium': intervalDays = 14; break; 
+          case 'Low': intervalDays = 28; break; 
       }
 
       const checkIns: InterimCheckIn[] = [];
+      // Start the first check-in after one interval
       let currentDate = new Date(startDate.getTime() + (intervalDays * 24 * 60 * 60 * 1000));
       let idCounter = 1;
 
-      // Generate check-ins while current date is comfortably before deadline (e.g. 1 week before)
-      while (currentDate.getTime() < (endDate.getTime() - (7 * 24 * 60 * 60 * 1000))) {
+      // Generate check-ins while current date is comfortably before deadline (buffer of 3 days)
+      // This prevents a check-in appearing on the day before the deadline
+      while (currentDate.getTime() < (endDate.getTime() - (3 * 24 * 60 * 60 * 1000))) {
           checkIns.push({
               id: `preview-${idCounter++}`,
               date: currentDate.toLocaleDateString('nl-NL'),
@@ -265,7 +271,9 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           currentDate = new Date(currentDate.getTime() + (intervalDays * 24 * 60 * 60 * 1000));
       }
       
-      // Fallback: If logic resulted in 0 check-ins for a long duration, add 1 halfway
+      // RULE 3: Fallback
+      // If the logic resulted in 0 check-ins (e.g. Duration 20 days, Interval 28 days),
+      // we still want at least one check-in halfway.
       if (checkIns.length === 0) {
            const midDate = new Date(startDate.getTime() + diffTime / 2);
            return [{
@@ -1244,9 +1252,9 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                           <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Begeleidingsintensiteit</label>
                                           <div className="space-y-3">
                                               {[
-                                                  { id: 'High', label: 'Intensief', desc: 'Veel sturing nodig. Wekelijkse check-ins.', icon: Compass },
-                                                  { id: 'Medium', label: 'Normaal', desc: 'Reguliere begeleiding. Maandelijkse check-ins.', icon: Target },
-                                                  { id: 'Low', label: 'Zelfstandig', desc: 'Grote autonomie. Eens in de 2 maanden check-in.', icon: Trophy },
+                                                  { id: 'High', label: 'Intensief', desc: 'Veel sturing nodig. Elke 10 dagen check-in.', icon: Compass },
+                                                  { id: 'Medium', label: 'Normaal', desc: 'Reguliere begeleiding. Elke 2 weken check-in.', icon: Target },
+                                                  { id: 'Low', label: 'Zelfstandig', desc: 'Grote autonomie. Eens per maand check-in.', icon: Trophy },
                                               ].map(opt => (
                                                   <div 
                                                     key={opt.id}
