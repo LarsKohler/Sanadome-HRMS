@@ -22,6 +22,35 @@ interface ManagingGoalData {
     goal: PersonalDevelopmentGoal;
 }
 
+// Helper to safely parse NL dates (dd-mm-yyyy) to JS Date objects
+const parseNLDate = (dateStr: string): Date => {
+    if (!dateStr) return new Date();
+    
+    // Check if it matches dd-mm-yyyy or d-m-yyyy pattern
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+        // Assuming format is day-month-year where year is the last part
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10);
+        const year = parseInt(parts[2], 10);
+        
+        // Basic validation to ensure it looks like a date
+        if (year > 1000 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+            return new Date(year, month - 1, day);
+        }
+    }
+    
+    // Fallback to standard parsing (e.g. for ISO strings)
+    return new Date(dateStr);
+};
+
+// Helper to convert any date string to YYYY-MM-DD for input[type="date"]
+const safeDateToInput = (dateStr: string): string => {
+    const date = parseNLDate(dateStr);
+    if (isNaN(date.getTime())) return '';
+    return date.toISOString().split('T')[0];
+};
+
 const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   currentUser,
   employees,
@@ -71,7 +100,8 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           const statA = statusPriority[a.evaluation.status] || 9;
           const statB = statusPriority[b.evaluation.status] || 9;
           if (statA !== statB) return statA - statB;
-          return new Date(b.evaluation.createdAt).getTime() - new Date(a.evaluation.createdAt).getTime();
+          // Safe date sort
+          return parseNLDate(b.evaluation.createdAt).getTime() - parseNLDate(a.evaluation.createdAt).getTime();
       });
   }, [employees, isManager, currentUser.id]);
 
@@ -87,7 +117,8 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
               }
           });
       });
-      return list.sort((a, b) => new Date(a.goal.deadline).getTime() - new Date(b.goal.deadline).getTime());
+      // Safe date sort
+      return list.sort((a, b) => parseNLDate(a.goal.deadline).getTime() - parseNLDate(b.goal.deadline).getTime());
   }, [employees, isManager]);
 
   const activeEvaluationData = useMemo(() => {
@@ -247,6 +278,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           return;
       }
       
+      // Use parseNLDate or standard Date if it came from input
       const deadlineDate = new Date(newDevGoal.deadline);
       const now = new Date();
       
@@ -262,7 +294,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           status: 'Not Started',
           progress: 0,
           startDate: now.toLocaleDateString('nl-NL'),
-          deadline: newDevGoal.deadline || '',
+          deadline: deadlineDate.toLocaleDateString('nl-NL'), // Store consistent format
           supportLevel: supportLevel,
           reflections: [],
           checkIns: generatedCheckIns
@@ -488,8 +520,8 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   };
 
   const renderTrend = (history: EvaluationCycle[]) => {
-      // Sort by date old to new
-      const sorted = [...history].sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      // Sort by date old to new using parsed date
+      const sorted = [...history].sort((a,b) => parseNLDate(a.createdAt).getTime() - parseNLDate(b.createdAt).getTime());
       
       // We assume last 3
       const recent = sorted.slice(-4);
@@ -1421,11 +1453,9 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                             <input 
                                 type="date" 
                                 className="w-full rounded-xl border border-slate-200 p-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none"
-                                value={new Date(managingGoalData.goal.deadline).toISOString().split('T')[0] || ''}
+                                value={safeDateToInput(managingGoalData.goal.deadline)}
                                 onChange={(e) => {
                                     // Keep format consistent dd-mm-yyyy or similar based on locale, but input uses yyyy-mm-dd
-                                    // For simplicity in this edit mode we just use what we get, but ideally reformat for display
-                                    // Converting yyyy-mm-dd to locale string for storage
                                     const date = new Date(e.target.value);
                                     if (!isNaN(date.getTime())) {
                                         setManagingGoalData({
@@ -1455,14 +1485,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                             <input 
                                                 type="date"
                                                 className="w-full p-1.5 border border-slate-200 rounded text-sm font-medium text-slate-700"
-                                                // Try to parse existing locale date back to yyyy-mm-dd for input
-                                                // Assuming dd-mm-yyyy format from NL locale
-                                                // Simple regex or library would be better, doing basic split here
-                                                defaultValue={(() => {
-                                                    const parts = ci.date.split('-');
-                                                    if(parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
-                                                    return '';
-                                                })()}
+                                                defaultValue={safeDateToInput(ci.date)}
                                                 onChange={(e) => {
                                                     const date = new Date(e.target.value);
                                                     if (!isNaN(date.getTime())) {
