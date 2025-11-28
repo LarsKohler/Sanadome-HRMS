@@ -270,6 +270,30 @@ export interface EvaluationScore {
     managerComment?: string;
 }
 
+export interface GoalReflection {
+    id: string;
+    date: string;
+    content: string;
+    author: string;
+}
+
+export interface PersonalDevelopmentGoal {
+    id: string;
+    title: string;
+    description: string;
+    actionPlan: string; // The concrete "How to"
+    category: string; // Hard skill, Soft skill, Leadership
+    status: 'Not Started' | 'In Progress' | 'Completed';
+    progress: number; // 0-100
+    startDate: string;
+    deadline: string;
+    linkedEvaluationId?: string;
+    reflections: GoalReflection[];
+    
+    // For library usage
+    isLibraryItem?: boolean;
+}
+
 export interface EvaluationGoal {
     id: string;
     title: string;
@@ -312,6 +336,9 @@ export interface EvaluationCycle {
     overallRating?: number; // Calculated average
     smartAdvice?: string[]; 
     potential?: 'Low' | 'Medium' | 'High'; // New for 9-Box Grid
+    
+    // New: The specific development plan agreed upon in this cycle
+    developmentPlan?: PersonalDevelopmentGoal[]; 
 }
 
 export interface Employee {
@@ -349,6 +376,9 @@ export interface Employee {
   
   evaluations?: EvaluationCycle[]; // New field for evaluations
   badges?: AssignedBadge[]; // New field for badges
+  
+  // New: Personal Growth Path
+  growthGoals?: PersonalDevelopmentGoal[];
 }
 
 export interface HeadcountData {

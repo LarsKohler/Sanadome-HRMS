@@ -1,5 +1,88 @@
 
-import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog, Ticket, BadgeDefinition, KnowledgeArticle } from '../types';
+import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog, Ticket, BadgeDefinition, KnowledgeArticle, PersonalDevelopmentGoal } from '../types';
+
+// --- DEVELOPMENT LIBRARY (NEW) ---
+// Pre-programmed actionable goals for the evaluation system
+export const MOCK_DEVELOPMENT_LIBRARY: PersonalDevelopmentGoal[] = [
+    {
+        id: 'lib-1',
+        title: 'Masterclass Upselling',
+        category: 'Sales & Revenue',
+        description: 'Verhogen van de gemiddelde besteding per gast door effectieve verkooptechnieken.',
+        actionPlan: '1. Volg de online module "Upselling at Check-in".\n2. Pas de "Top-Down" methode toe bij 5 gasten per dienst.\n3. Evalueer wekelijks de upsell cijfers met de supervisor.',
+        status: 'Not Started',
+        progress: 0,
+        startDate: '',
+        deadline: '',
+        reflections: [],
+        isLibraryItem: true
+    },
+    {
+        id: 'lib-2',
+        title: 'MEWS Advanced User',
+        category: 'Technische Vaardigheden',
+        description: 'Diepgaande kennis van het PMS systeem om fouten te verminderen en snelheid te verhogen.',
+        actionPlan: '1. Leer alle sneltoetsen uit het hoofd.\n2. Bestudeer de rapportage functies (Manager Report).\n3. Geef een mini-training aan een nieuwe collega.',
+        status: 'Not Started',
+        progress: 0,
+        startDate: '',
+        deadline: '',
+        reflections: [],
+        isLibraryItem: true
+    },
+    {
+        id: 'lib-3',
+        title: 'Leiderschap: Feedback Geven',
+        category: 'Leiderschap',
+        description: 'Effectief en constructief feedback geven aan teamleden zonder de relatie te schaden.',
+        actionPlan: '1. Lees het document "De 4 G\'s van Feedback".\n2. Oefen het geven van 1 compliment en 1 ontwikkelpunt per dienst.\n3. Vraag na 2 weken feedback aan het team over jouw stijl.',
+        status: 'Not Started',
+        progress: 0,
+        startDate: '',
+        deadline: '',
+        reflections: [],
+        isLibraryItem: true
+    },
+    {
+        id: 'lib-4',
+        title: 'Stressbestendigheid & Piekmomenten',
+        category: 'Persoonlijke Effectiviteit',
+        description: 'Kalm en georganiseerd blijven tijdens drukke check-in/out momenten.',
+        actionPlan: '1. Maak een stappenplan voor "Ritsen" tijdens drukte.\n2. Focus op één gast tegelijk, laat je niet afleiden door de rij.\n3. Ademhalingstechnieken toepassen tussen interacties door.',
+        status: 'Not Started',
+        progress: 0,
+        startDate: '',
+        deadline: '',
+        reflections: [],
+        isLibraryItem: true
+    },
+    {
+        id: 'lib-5',
+        title: 'Engelse Conversatie (Zakelijk)',
+        category: 'Communicatie',
+        description: 'Professionaliseren van Engels taalgebruik richting internationale zakelijke gasten.',
+        actionPlan: '1. Leer de standaard woordenlijst "Business Hotel English".\n2. Oefen telefoongesprekken met een senior collega.\n3. Voer minstens 3 volledige check-ins in het Engels uit zonder hulp.',
+        status: 'Not Started',
+        progress: 0,
+        startDate: '',
+        deadline: '',
+        reflections: [],
+        isLibraryItem: true
+    },
+    {
+        id: 'lib-6',
+        title: 'Klachtafhandeling: Van Klacht naar Fan',
+        category: 'Gastvrijheid',
+        description: 'Klachten zelfstandig oplossen en ombuigen naar een positieve ervaring.',
+        actionPlan: '1. Pas de LEARN-methode toe (Listen, Empathize, Apologize, React, Notify).\n2. Krijg mandaat voor kleine compensaties (drankje/upgrade).\n3. Documenteer 3 casussen in het ticketsysteem ter evaluatie.',
+        status: 'Not Started',
+        progress: 0,
+        startDate: '',
+        deadline: '',
+        reflections: [],
+        isLibraryItem: true
+    }
+];
 
 // --- MOCK BADGES ---
 export const MOCK_BADGES: BadgeDefinition[] = [
@@ -211,18 +294,19 @@ export const MOCK_TICKETS: Ticket[] = [
 
 // --- AUTO UPDATE LOGGER ---
 export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
-    id: 'update-v3.9.5-mews', 
-    version: 'v3.9.5',
+    id: 'update-v4.0.0-growth', 
+    version: 'v4.0.0',
     date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
     timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
     author: 'AI Assistant',
     type: 'Feature',
-    impact: 'Medium',
-    affectedArea: 'Kennisbank',
+    impact: 'High',
+    affectedArea: 'Performance',
     description: `
-- MEWS Operations handleidingen toegevoegd.
-- Protocollen voor Check-in, Check-out en Housekeeping vertaald naar Nederlands.
-- Toegevoegd aan de standaard Kennisbank database.`,
+- Lancering Growth & Development Ecosystem.
+- Nieuwe bibliotheek met voorgeprogrammeerde ontwikkeldoelen.
+- Slimme actiesuggesties in evaluatierapporten.
+- 'Groeipad' dashboard toegevoegd aan medewerkersprofiel.`,
     status: 'Success'
 };
 
@@ -392,7 +476,8 @@ export const MOCK_EMPLOYEES: Employee[] = [
     onboardingHistory: [],
     activeTemplateId: 'template-senior', // Connected to real template
     evaluations: [],
-    badges: []
+    badges: [],
+    growthGoals: []
   },
   {
     id: 'employee-user',
@@ -491,6 +576,22 @@ export const MOCK_EMPLOYEES: Employee[] = [
     badges: [
         { id: 'ub1', badgeId: 'b1', assignedBy: 'Manager', assignedById: 'manager-user', assignedAt: '20 Mrt 2022' },
         { id: 'ub2', badgeId: 'b2', assignedBy: 'Manager', assignedById: 'manager-user', assignedAt: '15 Nov 2022' }
+    ],
+    growthGoals: [
+        {
+            id: 'pg-1',
+            title: 'Masterclass Upselling',
+            category: 'Sales & Revenue',
+            description: 'Verhogen van de gemiddelde besteding per gast door effectieve verkooptechnieken.',
+            actionPlan: '1. Volg de online module "Upselling at Check-in".\n2. Pas de "Top-Down" methode toe bij 5 gasten per dienst.\n3. Evalueer wekelijks de upsell cijfers met de supervisor.',
+            status: 'In Progress',
+            progress: 35,
+            startDate: '01 Okt 2023',
+            deadline: '31 Dec 2023',
+            reflections: [
+                { id: 'ref-1', date: '10 Okt 2023', content: 'De eerste module afgerond. Interessante techniek over "Choice Architecture".', author: 'Mark de Medewerker' }
+            ]
+        }
     ]
   }
 ];
