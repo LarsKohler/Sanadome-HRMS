@@ -298,6 +298,8 @@ export interface PersonalDevelopmentGoal {
     deadline: string;
     linkedEvaluationId?: string;
     
+    supportLevel?: 'Low' | 'Medium' | 'High'; // New: Intensity of guidance needed
+
     // Timeline / Check-ins
     checkIns: InterimCheckIn[]; 
     reflections: GoalReflection[];

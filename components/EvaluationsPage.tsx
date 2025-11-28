@@ -2,7 +2,7 @@
 import React, { useState, useMemo } from 'react';
 import { 
     ClipboardCheck, Plus, Search, Calendar, User, ArrowRight, Play, CheckCircle, Clock, 
-    AlertCircle, BarChart3, ChevronRight, MessageSquare, BrainCircuit, X, Target, PenTool, TrendingUp, AlertTriangle, FileCheck, Star, Split, Lock, Unlock, Eye, EyeOff, Printer, PenLine, History, ArrowLeft, Check, TrendingDown, Minus, BookOpen, Compass, Trash2, CalendarDays
+    AlertCircle, BarChart3, ChevronRight, MessageSquare, BrainCircuit, X, Target, PenTool, TrendingUp, AlertTriangle, FileCheck, Star, Split, Lock, Unlock, Eye, EyeOff, Printer, PenLine, History, ArrowLeft, Check, TrendingDown, Minus, BookOpen, Compass, Trash2, CalendarDays, Activity, Signal
 } from 'lucide-react';
 import { Employee, EvaluationCycle, Notification, ViewState, EvaluationScore, EvaluationGoal, EvaluationStatus, PersonalDevelopmentGoal, InterimCheckIn } from '../types';
 import { EVALUATION_TEMPLATES, MOCK_DEVELOPMENT_LIBRARY } from '../utils/mockData';
@@ -38,6 +38,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   const [isLibraryModalOpen, setIsLibraryModalOpen] = useState(false);
   const [newDevGoal, setNewDevGoal] = useState<Partial<PersonalDevelopmentGoal>>({ title: '', category: 'General', actionPlan: '' });
   const [showPlanBuilder, setShowPlanBuilder] = useState(false);
+  const [supportLevel, setSupportLevel] = useState<'Low' | 'Medium' | 'High'>('Medium');
 
   // Signatures State
   const [isSigning, setIsSigning] = useState(false);
@@ -163,26 +164,55 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       onUpdateEmployee({ ...targetEmp, evaluations: updatedEvaluations });
   };
 
-  // Auto-generate check-ins based on deadline
-  const generateCheckIns = (startDate: Date, endDate: Date): InterimCheckIn[] => {
-      const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+  // Auto-generate check-ins based on deadline and support level
+  const generateCheckIns = (startDate: Date, endDate: Date, level: 'Low' | 'Medium' | 'High'): InterimCheckIn[] => {
+      const diffTime = endDate.getTime() - startDate.getTime();
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
-      let count = 2;
-      if (diffDays > 180) count = 4; // > 6 months = 4 check-ins
-      
-      const checkIns: InterimCheckIn[] = [];
-      const interval = diffTime / (count + 1);
+      // Short duration rule (< 6 weeks approx 45 days)
+      if (diffDays < 45) {
+          const midDate = new Date(startDate.getTime() + diffTime / 2);
+           return [{
+              id: Math.random().toString(36).substr(2, 9),
+              date: midDate.toLocaleDateString('nl-NL'),
+              status: 'Planned',
+              score: 0
+          }];
+      }
 
-      for (let i = 1; i <= count; i++) {
-          const date = new Date(startDate.getTime() + (interval * i));
+      // Long duration frequency based on support level
+      let intervalDays = 30; // Default Medium
+      switch (level) {
+          case 'High': intervalDays = 14; break; // ~2 weeks
+          case 'Medium': intervalDays = 30; break; // ~1 month
+          case 'Low': intervalDays = 60; break; // ~2 months
+      }
+
+      const checkIns: InterimCheckIn[] = [];
+      let currentDate = new Date(startDate.getTime() + (intervalDays * 24 * 60 * 60 * 1000));
+
+      // Generate check-ins while current date is comfortably before deadline (e.g. 1 week before)
+      while (currentDate.getTime() < (endDate.getTime() - (7 * 24 * 60 * 60 * 1000))) {
           checkIns.push({
               id: Math.random().toString(36).substr(2, 9),
-              date: date.toLocaleDateString('nl-NL'),
+              date: currentDate.toLocaleDateString('nl-NL'),
               status: 'Planned',
               score: 0
           });
+          currentDate = new Date(currentDate.getTime() + (intervalDays * 24 * 60 * 60 * 1000));
       }
+      
+      // Fallback: If logic resulted in 0 check-ins for a long duration (edge case), add 1 halfway
+      if (checkIns.length === 0) {
+           const midDate = new Date(startDate.getTime() + diffTime / 2);
+           return [{
+              id: Math.random().toString(36).substr(2, 9),
+              date: midDate.toLocaleDateString('nl-NL'),
+              status: 'Planned',
+              score: 0
+          }];
+      }
+
       return checkIns;
   };
 
@@ -196,7 +226,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       const now = new Date();
       
       // Auto generate check-ins
-      const generatedCheckIns = generateCheckIns(now, deadlineDate);
+      const generatedCheckIns = generateCheckIns(now, deadlineDate, supportLevel);
 
       const goal: PersonalDevelopmentGoal = {
           id: Math.random().toString(36).substr(2, 9),
@@ -208,12 +238,14 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           progress: 0,
           startDate: now.toLocaleDateString('nl-NL'),
           deadline: newDevGoal.deadline || '',
+          supportLevel: supportLevel,
           reflections: [],
           checkIns: generatedCheckIns
       };
 
       handleUpdateEvaluation(evaluation, { developmentPlan: [...(evaluation.developmentPlan || []), goal] });
       setNewDevGoal({ title: '', category: 'General', actionPlan: '' });
+      setSupportLevel('Medium'); // Reset
       setShowPlanBuilder(false);
       onShowToast("Doel en planning opgeslagen.");
   };
@@ -225,7 +257,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       });
       setIsLibraryModalOpen(false);
       setShowPlanBuilder(true); // Open builder to set deadline
-      onShowToast("Gekozen uit bibliotheek. Stel nu de deadline in.");
+      onShowToast("Gekozen uit bibliotheek. Stel nu de deadline en intensiteit in.");
   };
 
   const handleRemoveGoal = (evaluation: EvaluationCycle, goalId: string) => {
@@ -918,7 +950,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                           </h3>
                           {isManager && evaluation.status === 'Review' && (
                               <button 
-                                onClick={() => { setIsLibraryModalOpen(true); setShowPlanBuilder(false); }}
+                                onClick={() => { setIsLibraryModalOpen(true); setShowPlanBuilder(false); setSupportLevel('Medium'); }}
                                 className="text-xs font-bold bg-white border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-teal-50 hover:text-teal-700 transition-colors shadow-sm"
                               >
                                   + Groeipad Plannen
@@ -928,11 +960,11 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
                       {showPlanBuilder && (
                           <div className="bg-white p-5 rounded-lg shadow-sm border border-teal-200 mb-6 animate-in slide-in-from-top-2">
-                              <h4 className="font-bold text-slate-900 text-sm mb-3">Stel Deadline in voor: {newDevGoal.title}</h4>
-                              <p className="text-xs text-slate-500 mb-4">Op basis van de deadline genereren we automatisch de tussentijdse evaluatiemomenten.</p>
+                              <h4 className="font-bold text-slate-900 text-sm mb-3">Stel Planning in voor: {newDevGoal.title}</h4>
+                              <p className="text-xs text-slate-500 mb-4">Bepaal de deadline en de intensiteit van de begeleiding.</p>
                               
-                              <div className="flex items-end gap-3">
-                                  <div className="flex-1">
+                              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-end">
+                                  <div>
                                       <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Streefdatum</label>
                                       <input 
                                         type="date" 
@@ -941,15 +973,35 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                         onChange={(e) => setNewDevGoal({...newDevGoal, deadline: e.target.value})}
                                       />
                                   </div>
-                                  <button 
-                                    onClick={() => handleAddDevelopmentGoal(evaluation)}
-                                    className="px-4 py-2 bg-teal-600 text-white font-bold rounded-lg text-sm hover:bg-teal-700 h-10"
-                                  >
-                                      Genereer Planning
-                                  </button>
-                                  <button onClick={() => setShowPlanBuilder(false)} className="px-3 py-2 text-slate-400 hover:text-red-500">
-                                      <X size={18}/>
-                                  </button>
+                                  <div>
+                                      <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Begeleiding</label>
+                                      <div className="flex bg-slate-100 p-1 rounded-lg">
+                                          {['Low', 'Medium', 'High'].map(lvl => (
+                                              <button
+                                                key={lvl}
+                                                onClick={() => setSupportLevel(lvl as any)}
+                                                className={`flex-1 py-1.5 text-xs font-bold rounded-md transition-all ${
+                                                    supportLevel === lvl 
+                                                    ? 'bg-white shadow-sm text-slate-900' 
+                                                    : 'text-slate-500 hover:text-slate-700'
+                                                }`}
+                                              >
+                                                  {lvl === 'Low' ? 'Basis' : lvl === 'Medium' ? 'Normaal' : 'Intensief'}
+                                              </button>
+                                          ))}
+                                      </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                      <button 
+                                        onClick={() => handleAddDevelopmentGoal(evaluation)}
+                                        className="flex-1 px-4 py-2 bg-teal-600 text-white font-bold rounded-lg text-sm hover:bg-teal-700 h-10"
+                                      >
+                                          Genereer Plan
+                                      </button>
+                                      <button onClick={() => setShowPlanBuilder(false)} className="px-3 py-2 text-slate-400 hover:text-red-500 border border-slate-200 rounded-lg">
+                                          <X size={18}/>
+                                      </button>
+                                  </div>
                               </div>
                           </div>
                       )}
@@ -962,9 +1014,16 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                           <h4 className="font-bold text-slate-900 text-base">{goal.title}</h4>
                                           <p className="text-sm text-slate-600 mt-1">{goal.description}</p>
                                       </div>
-                                      <span className="text-[10px] font-bold bg-teal-50 text-teal-700 px-2 py-1 rounded uppercase tracking-wide border border-teal-100">
-                                          {goal.category}
-                                      </span>
+                                      <div className="flex flex-col items-end gap-1">
+                                          <span className="text-[10px] font-bold bg-teal-50 text-teal-700 px-2 py-1 rounded uppercase tracking-wide border border-teal-100">
+                                              {goal.category}
+                                          </span>
+                                          {goal.supportLevel && (
+                                              <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                                                  <Activity size={10} /> {goal.supportLevel === 'High' ? 'Intensief' : goal.supportLevel === 'Low' ? 'Zelfstandig' : 'Normaal'}
+                                              </span>
+                                          )}
+                                      </div>
                                   </div>
                                   
                                   {/* Timeline Visualization inside report */}
@@ -1001,7 +1060,10 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                           ))}
                           {(!evaluation.developmentPlan || evaluation.developmentPlan.length === 0) && (
                               <p className="text-slate-400 italic text-center text-sm py-4">
-                                  Nog geen groeipad vastgesteld. Gebruik de knop hierboven om een traject te starten.
+                                  {isManager 
+                                    ? "Nog geen groeipad vastgesteld. Gebruik de knop hierboven om een traject te starten."
+                                    : "Het groeipad wordt samen met je manager vastgesteld tijdens het gesprek."
+                                  }
                               </p>
                           )}
                       </div>
