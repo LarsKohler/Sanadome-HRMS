@@ -1,13 +1,15 @@
 
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import { 
     Medal, Plus, Search, Trash2, Award, Check, User, Calendar, 
     Trophy, Star, Heart, Zap, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Target, Users, Eye,
     LayoutGrid, List, X
 } from 'lucide-react';
-import { Employee, BadgeDefinition, AssignedBadge, BadgeIconKey, BadgeColor } from '../types';
+import { Employee, BadgeDefinition, AssignedBadge, BadgeIconKey, BadgeColor, Notification, ViewState } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
 
@@ -16,6 +18,7 @@ interface BadgeManagerProps {
     employees: Employee[];
     onUpdateEmployee: (employee: Employee) => void;
     onShowToast: (message: string) => void;
+    onAddNotification: (notification: Notification) => void;
 }
 
 const BADGE_ICONS: Record<BadgeIconKey, React.ElementType> = {
@@ -46,7 +49,7 @@ const BADGE_COLORS: Record<BadgeColor, string> = {
     'slate': 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
 };
 
-const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onUpdateEmployee, onShowToast }) => {
+const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onUpdateEmployee, onShowToast, onAddNotification }) => {
     const [badges, setBadges] = useState<BadgeDefinition[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<'library' | 'assignments'>('library');
@@ -109,7 +112,9 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
         if (!selectedBadgeId || !targetEmployeeId) return;
         
         const targetEmployee = employees.find(e => e.id === targetEmployeeId);
-        if (!targetEmployee) return;
+        const badgeDef = badges.find(b => b.id === selectedBadgeId);
+        
+        if (!targetEmployee || !badgeDef) return;
 
         // Check if already assigned
         if (targetEmployee.badges?.some(b => b.badgeId === selectedBadgeId)) {
@@ -133,6 +138,21 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
         onUpdateEmployee(updatedEmployee);
         await api.saveEmployee(updatedEmployee);
         
+        // --- SEND NOTIFICATION ---
+        const notification: Notification = {
+            id: Math.random().toString(36).substr(2, 9),
+            recipientId: targetEmployee.id,
+            senderName: currentUser.name,
+            type: 'Badge',
+            title: 'Nieuwe Badge Ontvangen!',
+            message: `Gefeliciteerd! Je hebt de "${badgeDef.name}" badge ontvangen van ${currentUser.name}.`,
+            date: 'Zojuist',
+            read: false,
+            targetView: ViewState.HOME, // Profile page
+            isPinned: true
+        };
+        onAddNotification(notification);
+
         setIsAssignModalOpen(false);
         setTargetEmployeeId('');
         onShowToast(`Badge uitgereikt aan ${targetEmployee.name}!`);

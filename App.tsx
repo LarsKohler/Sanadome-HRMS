@@ -3,6 +3,8 @@
 
 
 
+
+
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import TopNav from './components/TopNav';
@@ -616,6 +618,7 @@ const App: React.FC = () => {
                employees={employees}
                onUpdateEmployee={handleUpdateEmployee}
                onShowToast={showToast}
+               onAddNotification={handleAddNotification}
             />
           )}
 
