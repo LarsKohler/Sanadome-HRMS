@@ -15,12 +15,8 @@ import {
 } from 'recharts';
 
 // --- PDF.JS INITIALIZATION FIX ---
-// Handle potential differences in import structure between Dev and Prod (ESM/CJS)
 const pdfjs = (pdfjsLib as any).default || pdfjsLib;
 
-// DYNAMIC WORKER LOADING
-// Instead of hardcoding the version, we use the version reported by the library itself.
-// This prevents "API version does not match Worker version" errors if the package updates.
 if (typeof window !== 'undefined' && !pdfjs.GlobalWorkerOptions.workerSrc) {
     const version = pdfjs.version;
     pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
@@ -42,7 +38,7 @@ interface LinenItem {
 interface SavedAudit {
     id: string;
     date: string;
-    timestamp?: number; // Added for easier filtering
+    timestamp?: number;
     deliveryDate: string;
     items: LinenItem[];
     totalOrdered: number;
@@ -76,7 +72,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     const excelInputRef = useRef<HTMLInputElement>(null);
     const pdfInputRef = useRef<HTMLInputElement>(null);
 
-    // Load history on mount & Init Date Range
     useEffect(() => {
         const saved = localStorage.getItem('hrms_linen_audits');
         if (saved) {
@@ -87,7 +82,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
             }
         }
 
-        // Default range: Last 30 days
         const end = new Date();
         const start = new Date();
         start.setDate(start.getDate() - 30);
@@ -139,23 +133,48 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
                     const itemsMap = new Map<string, LinenItem>();
 
+                    // Specifieke container artikelen die vermenigvuldigd moeten worden met inhoud
+                    const CONTAINER_IDS = ['8809', '8821', '88211', '88091'];
+
                     for (let i = 0; i < jsonData.length; i++) {
                         const row = jsonData[i] as any[];
                         if (!row || row.length < 2) continue;
-                        const id = String(row[0] || '').trim();
-                        const name = String(row[1] || '').trim();
-                        let ordered = 0;
-                        const qtyVal = row[9]; // Col J
                         
-                        if (typeof qtyVal === 'number') ordered = qtyVal;
-                        else if (typeof qtyVal === 'string') ordered = parseFloat(qtyVal.replace(',', '.'));
+                        const id = String(row[0] || '').trim(); // Kolom A
+                        const name = String(row[1] || '').trim(); // Kolom B
+                        
+                        // Handle Quantity (Column J / Index 9)
+                        let orderedQty = 0;
+                        const qtyVal = row[9]; 
+                        if (typeof qtyVal === 'number') orderedQty = qtyVal;
+                        else if (typeof qtyVal === 'string') orderedQty = parseFloat(qtyVal.replace(',', '.'));
+
+                        // Default multiplier is 1 (normaal product)
+                        let contentMultiplier = 1;
+
+                        // Alleen voor specifieke container IDs kijken we naar kolom C/D voor inhoud
+                        if (CONTAINER_IDS.includes(id)) {
+                            const colC = row[2]; // Kolom C
+                            const colD = row[3]; // Kolom D
+
+                            if (typeof colC === 'number' && colC > 1) {
+                                contentMultiplier = colC;
+                            } else if (typeof colD === 'number' && colD > 1) {
+                                contentMultiplier = colD;
+                            }
+                        }
 
                         if (id && /^\d+$/.test(id) && name) {
-                            const safeOrdered = isNaN(ordered) ? 0 : ordered;
+                            const safeOrdered = isNaN(orderedQty) ? 0 : orderedQty;
+                            
+                            // Bereken totaal aantal stuks (Aantal containers * Inhoud)
+                            // Voor gewone items is multiplier 1, dus blijft het aantal gelijk aan kolom J
+                            const totalUnitsOrdered = safeOrdered * contentMultiplier;
+
                             if (itemsMap.has(id)) {
-                                itemsMap.get(id)!.ordered += safeOrdered;
+                                itemsMap.get(id)!.ordered += totalUnitsOrdered;
                             } else {
-                                itemsMap.set(id, { id, name, ordered: safeOrdered, delivered: 0 });
+                                itemsMap.set(id, { id, name, ordered: totalUnitsOrdered, delivered: 0 });
                             }
                         }
                     }
@@ -173,11 +192,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         let foundDate = '';
         const IGNORE_IDS = ['7772', '11172', '0524', '01469238', '2025', '6532', '6503', '31100']; 
         
-        // Configuration for container multipliers
-        const CONTAINER_SIZES: Record<string, number> = {
-            '88091': 160, // Container badlaken beige
-        };
-
         if (files.length === 0) return { deliveryMap, deliveryDate: '' };
 
         for (const file of files) {
@@ -185,7 +199,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 const arrayBuffer = await file.arrayBuffer();
                 const version = pdfjs.version;
                 
-                // Use dynamic versioning for CMaps as well to ensure matching resources
                 const loadingTask = pdfjs.getDocument({ 
                     data: arrayBuffer,
                     cMapUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/cmaps/`,
@@ -203,12 +216,10 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         continue;
                     }
 
-                    // Improved Line Grouping
                     const lines: { y: number, items: { x: number, str: string }[] }[] = [];
-                    const tolerance = 8; // Increased tolerance
+                    const tolerance = 8; 
 
                     for (const item of (textContent.items as any[])) {
-                        // Normalize spaces
                         const str = (item.str || '').replace(/\u00A0/g, ' ').trim();
                         if (!str) continue; 
                         
@@ -223,15 +234,12 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         line.items.push({ x, str });
                     }
                     
-                    // Sort lines top to bottom
                     lines.sort((a, b) => b.y - a.y);
 
                     for (const line of lines) {
-                        // Sort items left to right
                         line.items.sort((a, b) => a.x - b.x);
                         const lineText = line.items.map(item => item.str).join(' ').trim();
                         
-                        // Date Extraction
                         if (!foundDate && lineText.includes('Afleverdatum')) {
                             const dateMatch = lineText.match(/(\d{1,2}-\d{1,2}-\d{4})/);
                             if (dateMatch) {
@@ -244,7 +252,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         let foundId = '';
                         let foundQty = 0;
 
-                        // Strategy 1: Check First and Last item
                         if (line.items.length >= 2) {
                             const firstStr = line.items[0].str.trim();
                             const lastStr = line.items[line.items.length - 1].str.trim();
@@ -255,7 +262,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                             }
                         }
 
-                        // Strategy 2: Regex fallback
                         if (!foundId) {
                             const match = lineText.match(/^(\d{4,8})\s+.*?\s+(\d+)$/);
                             if (match) { 
@@ -263,12 +269,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                                 foundQty = parseInt(match[2], 10); 
                             }
                         }
-
-                        // --- Apply Container Logic ---
-                        if (foundId && CONTAINER_SIZES[foundId]) {
-                            foundQty = foundQty * CONTAINER_SIZES[foundId];
-                        }
-                        // -----------------------------
 
                         if (foundId && foundQty > 0) {
                             if (IGNORE_IDS.includes(foundId)) continue; 
@@ -339,8 +339,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         onShowToast(`Audit van ${audit.date} geladen.`);
     };
 
-    // --- UI EVENT HANDLERS ---
-
     const handleOrderDrop = (e: React.DragEvent) => {
         e.preventDefault(); setIsDraggingOrder(false);
         const file = e.dataTransfer.files[0];
@@ -361,25 +359,21 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         if (pdfInputRef.current) pdfInputRef.current.value = '';
     };
 
-    // --- ANALYTICS LOGIC ---
-
     const getFilteredAudits = useMemo(() => {
         if (!dateRange.start || !dateRange.end) return savedAudits;
         
         const start = new Date(dateRange.start).getTime();
-        const end = new Date(dateRange.end).getTime() + (24 * 60 * 60 * 1000); // Include end date
+        const end = new Date(dateRange.end).getTime() + (24 * 60 * 60 * 1000); 
 
         return savedAudits.filter(audit => {
-            // Use timestamp if available, else parse date string (fallback)
             let auditTime = audit.timestamp;
             if (!auditTime) {
-                // Try parse deliveryDate dd-mm-yyyy
                 if (audit.deliveryDate && audit.deliveryDate !== 'Onbekend') {
                     const parts = audit.deliveryDate.split('-');
                     if (parts.length === 3) auditTime = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime();
                 }
             }
-            if (!auditTime) return true; // Include if unknown date
+            if (!auditTime) return true;
             return auditTime >= start && auditTime <= end;
         });
     }, [savedAudits, dateRange]);
@@ -395,7 +389,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     const analyticsData = useMemo(() => {
         const filtered = getFilteredAudits;
         
-        // 1. KPIs
         const totalAudits = filtered.length;
         let totalOrderedSum = 0;
         let totalDeliveredSum = 0;
@@ -408,15 +401,13 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         const fulfilmentRate = totalOrderedSum > 0 ? Math.round((totalDeliveredSum / totalOrderedSum) * 100) : 0;
         const netDifference = totalDeliveredSum - totalOrderedSum;
 
-        // 2. Trend Data
         const trendData = filtered.map(a => ({
-            date: a.deliveryDate !== 'Onbekend' ? a.deliveryDate.slice(0, 5) : '?', // dd-mm
+            date: a.deliveryDate !== 'Onbekend' ? a.deliveryDate.slice(0, 5) : '?',
             timestamp: a.timestamp || 0,
             Besteld: a.totalOrdered,
             Geleverd: a.totalDelivered
         })).sort((a,b) => a.timestamp - b.timestamp);
 
-        // 3. Deviations Logic
         const itemStats = new Map<string, { name: string, diffSum: number, absDiffSum: number }>();
         
         filtered.forEach(audit => {
@@ -440,7 +431,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 Overschot: stat.diffSum > 0 ? stat.diffSum : 0
             }));
 
-        // 4. Product Specific Trend
         let productTrend: any[] = [];
         if (selectedProductId !== 'All') {
             productTrend = filtered.map(a => {
@@ -457,17 +447,14 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         return { totalAudits, fulfilmentRate, netDifference, trendData, topDeviations, productTrend };
     }, [getFilteredAudits, selectedProductId]);
 
-    // Totals for current view (New Audit)
     const totalOrderedNow = auditData.reduce((acc, item) => acc + item.ordered, 0);
     const totalDeliveredNow = auditData.reduce((acc, item) => acc + item.delivered, 0);
     const diffTotalNow = totalDeliveredNow - totalOrderedNow;
 
     return (
         <>
-        {/* SCREEN CONTENT (Hidden when printing) */}
         <div className="p-6 md:p-10 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 min-h-[calc(100vh-80px)] print:hidden">
             
-            {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6">
                 <div>
                     <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
@@ -479,7 +466,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     <p className="text-slate-500 mt-2 text-lg">Controleer leveringen en beheer afwijkingen.</p>
                 </div>
                 
-                {/* Tabs */}
                 <div className="flex p-1 bg-white border border-slate-200 rounded-xl shadow-sm overflow-x-auto">
                     {[
                         { id: 'new', label: 'Nieuwe Audit', icon: RefreshCw },
@@ -499,14 +485,11 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 </div>
             </div>
 
-            {/* TAB 1: NEW AUDIT */}
             {activeTab === 'new' && (
                 <div className="animate-in fade-in slide-in-from-bottom-4">
                     
-                    {/* Upload Section */}
                     {auditData.length === 0 && (
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
-                            {/* Order Input Card */}
                             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-full">
                                 <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
                                     <FileSpreadsheet className="text-blue-600"/> 1. Bestelling (Excel)
@@ -544,7 +527,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                                 <input type="file" ref={excelInputRef} className="hidden" accept=".xlsx, .xls" onChange={(e) => { if(e.target.files?.[0]) setOrderFile(e.target.files[0]); }} />
                             </div>
 
-                            {/* Deliveries Input Card */}
                             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-full">
                                 <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
                                     <FileText className="text-red-600"/> 2. Leveringen (PDF)
@@ -573,7 +555,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                                     </div>
                                     <input type="file" ref={pdfInputRef} className="hidden" accept=".pdf" multiple onChange={(e) => { if(e.target.files) setDeliveryFiles(prev => [...prev, ...Array.from(e.target.files!)]); }} />
 
-                                    {/* File List */}
                                     {deliveryFiles.length > 0 && (
                                         <div className="max-h-[200px] overflow-y-auto pr-2 space-y-2 custom-scrollbar bg-white rounded-lg">
                                             {deliveryFiles.map((file, idx) => (
@@ -594,7 +575,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         </div>
                     )}
 
-                    {/* Action Bar */}
                     {auditData.length === 0 && (
                         <div className="flex justify-center mb-10">
                             <button 
@@ -608,10 +588,8 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         </div>
                     )}
 
-                    {/* Results */}
                     {auditData.length > 0 && (
                         <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden animate-in slide-in-from-bottom-8 duration-500">
-                            {/* Summary Header */}
                             <div className="p-6 md:p-8 bg-slate-50 border-b border-slate-200">
                                 <div className="flex justify-between items-start mb-6">
                                     <div>
@@ -650,7 +628,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                                 </div>
                             </div>
 
-                            {/* Table */}
                             <div className="overflow-x-auto">
                                 <table className="w-full text-left border-collapse">
                                     <thead className="bg-white text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-100">
@@ -714,11 +691,8 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 </div>
             )}
 
-            {/* TAB 2: ANALYTICS (NEW) */}
             {activeTab === 'analytics' && (
                 <div className="animate-in fade-in slide-in-from-bottom-4 space-y-8">
-                    {/* ... (Analytics Content - Same as before) ... */}
-                    {/* Filter Bar */}
                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
                         <div className="flex items-center gap-4 w-full md:w-auto">
                             <div className="flex items-center gap-2 text-slate-500 text-sm font-bold bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
@@ -754,7 +728,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         </div>
                     </div>
 
-                    {/* KPI Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Totaal Audits</h3>
@@ -783,9 +756,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         </div>
                     </div>
 
-                    {/* Chart Containers */}
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* CHART 1: Delivery Trend */}
                         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                             <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
                                 <TrendingUp className="text-teal-600"/> Levering Trend
@@ -815,7 +786,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                             </div>
                         </div>
 
-                        {/* CHART 2: Top Deviations */}
                         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                             <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
                                 <AlertTriangle className="text-amber-500"/> Top 5 Afwijkingen
@@ -838,7 +808,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 </div>
             )}
 
-            {/* TAB 3: HISTORY (Keep existing) */}
             {activeTab === 'history' && (
                 <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in">
                     <div className="overflow-x-auto">
@@ -898,7 +867,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 </div>
             )}
 
-            {/* Modal for Deletion */}
             <Modal
                 isOpen={!!auditToDelete}
                 onClose={() => setAuditToDelete(null)}
@@ -933,11 +901,10 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
 
         </div>
 
-        {/* PRINT TEMPLATE - NEW LAYOUT */}
         <div className="hidden print:block print-container font-sans text-black p-0 m-0 w-full h-auto">
             <style>{`
                 @media print {
-                    @page { margin: 20mm; size: A4; }
+                    @page { margin: 15mm; size: A4; }
                     /* Force Global Hide of Navigation Elements */
                     header, aside, nav, .sidebar, .top-nav, .no-print { 
                         display: none !important; 
@@ -957,13 +924,19 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     table { width: 100%; border-collapse: collapse; }
                     thead { display: table-header-group; }
                     tfoot { display: table-footer-group; }
-                    tr { page-break-inside: avoid; break-inside: avoid; background-color: white !important; }
-                    td, th { background-color: white !important; }
+                    tr { page-break-inside: avoid; break-inside: avoid; background-color: transparent !important; }
+                    /* Remove striping and use simple borders */
+                    td, th { 
+                        background-color: transparent !important; 
+                        border-bottom: 1px dashed #000; 
+                        padding: 4px 0;
+                    }
+                    th { border-bottom: 2px solid #000; }
+                    
                     .no-break { page-break-inside: avoid; break-inside: avoid; }
                 }
             `}</style>
 
-            {/* Header */}
             <div className="border-b-2 border-black pb-4 mb-6 flex justify-between items-end">
                 <div>
                     <h1 className="text-3xl font-bold uppercase tracking-tight mb-1">Linnen Audit Rapport</h1>
@@ -976,8 +949,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 </div>
             </div>
 
-            {/* Metadata */}
-            <div className="mb-8 grid grid-cols-3 gap-4 text-sm border-b border-gray-300 pb-6">
+            <div className="mb-8 grid grid-cols-3 gap-4 text-sm border-b border-black pb-6">
                 <div>
                     <span className="block font-bold text-xs uppercase text-black mb-1">Geanalyseerd door</span>
                     <span className="block font-bold">{currentUser.name}</span>
@@ -989,16 +961,15 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 </div>
                 <div>
                     <span className="block font-bold text-xs uppercase text-black mb-1">Resultaat</span>
-                    <span className={`block font-bold ${diffTotalNow === 0 ? 'text-black' : 'text-black'}`}>
+                    <span className="block font-bold">
                         {diffTotalNow === 0 ? 'CORRECT' : diffTotalNow > 0 ? `+${diffTotalNow} Overschot` : `${diffTotalNow} Tekort`}
                     </span>
                 </div>
             </div>
 
-            {/* Main Table */}
             <table className="w-full text-left text-xs mb-8">
                 <thead>
-                    <tr className="border-b-2 border-black">
+                    <tr>
                         <th className="py-2 font-bold uppercase w-[15%]">Art. Nr</th>
                         <th className="py-2 font-bold uppercase w-[40%]">Omschrijving</th>
                         <th className="py-2 font-bold uppercase w-[15%] text-center">Besteld</th>
@@ -1011,18 +982,16 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         const diff = item.delivered - item.ordered;
                         const isIssue = diff !== 0;
                         return (
-                            <tr key={item.id} className={`border-b border-gray-300 ${isIssue ? 'font-bold' : ''}`}>
+                            <tr key={item.id}>
                                 <td className="py-2">{item.id}</td>
-                                <td className="py-2">{item.name}</td>
+                                <td className={`py-2 ${isIssue ? 'font-bold' : ''}`}>{item.name}</td>
                                 <td className="py-2 text-center">{item.ordered}</td>
                                 <td className="py-2 text-center">{item.delivered}</td>
-                                <td className="py-2 text-right">
+                                <td className="py-2 text-right font-bold">
                                     {isIssue ? (
-                                        <span className={`inline-block px-1`}>
-                                            {diff > 0 ? '+' : ''}{diff}
-                                        </span>
+                                        <span>{diff > 0 ? '+' : ''}{diff}</span>
                                     ) : (
-                                        <span className="text-gray-300">-</span>
+                                        <span className="opacity-50">-</span>
                                     )}
                                 </td>
                             </tr>
@@ -1031,7 +1000,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 </tbody>
             </table>
 
-            {/* Summary & Signatures (Prevent break inside) */}
             <div className="no-break mt-8">
                 <div className="flex justify-end mb-12">
                     <div className="w-1/2 border border-black p-4">
@@ -1044,21 +1012,19 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                             <span>Totaal Geleverd:</span>
                             <span className="font-bold">{totalDeliveredNow}</span>
                         </div>
-                        <div className="flex justify-between pt-2 border-t border-gray-300 text-sm font-bold">
+                        <div className="flex justify-between text-sm font-bold border-t border-black pt-2 mt-2">
                             <span>Netto Verschil:</span>
                             <span>{diffTotalNow > 0 ? '+' : ''}{diffTotalNow}</span>
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-16 pt-8 border-t-2 border-black">
-                    <div>
-                        <div className="h-12 border-b border-black mb-1"></div>
-                        <span className="text-[10px] font-bold uppercase text-black tracking-wider">Handtekening Manager</span>
+                <div className="flex justify-between text-xs pt-12">
+                    <div className="w-1/3 border-t border-black pt-2 text-center">
+                        Handtekening Sanadome
                     </div>
-                    <div>
-                        <div className="h-12 border-b border-black mb-1"></div>
-                        <span className="text-[10px] font-bold uppercase text-black tracking-wider">Datum & Plaats</span>
+                    <div className="w-1/3 border-t border-black pt-2 text-center">
+                        Handtekening Chauffeur
                     </div>
                 </div>
             </div>
