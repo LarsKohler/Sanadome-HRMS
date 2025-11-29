@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Truck, Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle, 
@@ -13,8 +14,14 @@ import {
     XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell 
 } from 'recharts';
 
-// Initialize PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs`;
+// --- PDF.JS INITIALIZATION FIX ---
+// Handle potential differences in import structure between Dev and Prod (ESM/CJS)
+const pdfjs = (pdfjsLib as any).default || pdfjsLib;
+
+// Ensure worker is set globally
+if (typeof window !== 'undefined' && !pdfjs.GlobalWorkerOptions.workerSrc) {
+    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs`;
+}
 
 interface LinenAuditPageProps {
     currentUser: Employee;
@@ -87,7 +94,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         });
     }, []);
 
-    // --- PARSING LOGIC (Keep existing) ---
+    // --- PARSING LOGIC ---
 
     const processFiles = async () => {
         if (!orderFile) {
@@ -160,61 +167,91 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     const parsePDFDeliveries = async (files: File[]): Promise<{ deliveryMap: Map<string, number>, deliveryDate: string }> => {
         const deliveryMap = new Map<string, number>();
         let foundDate = '';
-        const IGNORE_IDS = ['7772', '11172', '0524', '01469238', '2025']; 
+        // List of IDs to ignore (Postal codes, Reference numbers, etc.)
+        const IGNORE_IDS = ['7772', '11172', '0524', '01469238', '2025', '6532', '6503', '31100']; 
 
         if (files.length === 0) return { deliveryMap, deliveryDate: '' };
 
         for (const file of files) {
             try {
                 const arrayBuffer = await file.arrayBuffer();
-                // FIX: Add cMapUrl and cMapPacked to ensure fonts are read correctly in production builds
-                const loadingTask = pdfjsLib.getDocument({ 
+                
+                // CRITICAL FIX: Use the 'pdfjs' proxy object, NOT 'pdfjsLib' directly
+                // Also provide standard font data for reliable text extraction
+                const loadingTask = pdfjs.getDocument({ 
                     data: arrayBuffer,
                     cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/cmaps/',
                     cMapPacked: true,
+                    standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/standard_fonts/'
                 });
+                
                 const pdf = await loadingTask.promise;
                 
                 for (let i = 1; i <= pdf.numPages; i++) {
                     const page = await pdf.getPage(i);
                     const textContent = await page.getTextContent();
+                    
+                    // Improved Line Grouping
                     const lines: { y: number, items: { x: number, str: string }[] }[] = [];
-                    const tolerance = 5; 
+                    const tolerance = 8; // Increased tolerance for better grouping in prod
 
                     for (const item of (textContent.items as any[])) {
-                        const str = item.str.trim();
+                        // Normalize spaces (remove non-breaking spaces)
+                        const str = (item.str || '').replace(/\u00A0/g, ' ').trim();
                         if (!str) continue; 
+                        
                         const y = item.transform[5]; 
                         const x = item.transform[4]; 
+                        
                         let line = lines.find(l => Math.abs(l.y - y) < tolerance);
-                        if (!line) { line = { y, items: [] }; lines.push(line); }
+                        if (!line) { 
+                            line = { y, items: [] }; 
+                            lines.push(line); 
+                        }
                         line.items.push({ x, str });
                     }
+                    
+                    // Sort lines top to bottom
                     lines.sort((a, b) => b.y - a.y);
 
                     for (const line of lines) {
+                        // Sort items left to right
                         line.items.sort((a, b) => a.x - b.x);
                         const lineText = line.items.map(item => item.str).join(' ').trim();
+                        
+                        // Date Extraction
                         if (!foundDate && lineText.includes('Afleverdatum')) {
                             const dateMatch = lineText.match(/(\d{1,2}-\d{1,2}-\d{4})/);
                             if (dateMatch) foundDate = dateMatch[0];
                         }
-                        if (lineText.includes('Hardenberg') || lineText.includes('Frankrijkweg') || lineText.includes('Debiteurnummer') || lineText.includes('Afleverdatum') || lineText.includes('Totaal')) continue;
+                        
+                        // Header Skip Check
+                        if (lineText.includes('Hardenberg') || lineText.includes('Frankrijkweg') || lineText.includes('Debiteurnummer') || lineText.includes('Totaal')) continue;
 
                         let foundId = '';
                         let foundQty = 0;
+
+                        // Strategy 1: Check First and Last item (Best for structured columns)
                         if (line.items.length >= 2) {
                             const firstStr = line.items[0].str.trim();
                             const lastStr = line.items[line.items.length - 1].str.trim();
+                            
                             if (/^\d{4,8}$/.test(firstStr) && /^\d+$/.test(lastStr)) {
                                 foundId = firstStr;
                                 foundQty = parseInt(lastStr, 10);
                             }
                         }
+
+                        // Strategy 2: Regex fallback (If items are merged or spaced weirdly)
                         if (!foundId) {
+                            // Look for ID at start ... number at end
                             const match = lineText.match(/^(\d{4,8})\s+.*?\s+(\d+)$/);
-                            if (match) { foundId = match[1]; foundQty = parseInt(match[2], 10); }
+                            if (match) { 
+                                foundId = match[1]; 
+                                foundQty = parseInt(match[2], 10); 
+                            }
                         }
+
                         if (foundId && foundQty > 0) {
                             if (IGNORE_IDS.includes(foundId)) continue; 
                             const current = deliveryMap.get(foundId) || 0;
@@ -222,7 +259,10 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         }
                     }
                 }
-            } catch (e: any) { console.error(`Error parsing PDF ${file.name}:`, e); }
+            } catch (e: any) { 
+                console.error(`Error parsing PDF ${file.name}:`, e);
+                // Optionally notify user of specific file failure, but continue processing others
+            }
         }
         return { deliveryMap, deliveryDate: foundDate };
     };
