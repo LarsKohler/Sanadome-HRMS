@@ -114,8 +114,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         if (typeof qtyVal === 'number') {
                             ordered = qtyVal;
                         } else if (typeof qtyVal === 'string') {
-                            // Handle European number format (dot as thousands separator, comma as decimal, or vice versa depending on locale context)
-                            // Assuming simple integer counts here based on context
+                            // Handle European number format (dot as thousands separator, comma as decimal)
                             ordered = parseFloat(qtyVal.replace(',', '.'));
                         }
 
@@ -161,7 +160,8 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         for (const file of files) {
             try {
                 const arrayBuffer = await file.arrayBuffer();
-                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+                const pdf = await loadingTask.promise;
                 
                 for (let i = 1; i <= pdf.numPages; i++) {
                     const page = await pdf.getPage(i);
@@ -169,8 +169,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     
                     // Group items by Y position to reconstruct lines
                     const lines: { y: number, items: { x: number, str: string }[] }[] = [];
-                    // Increased tolerance to 8 to catch items slightly misaligned
-                    const tolerance = 8; 
+                    const tolerance = 10; // Y-tolerance to group items on "same line"
 
                     for (const item of (textContent.items as any[])) {
                         const str = item.str.trim();
@@ -193,21 +192,42 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         // Sort items by X coordinate (Left to Right)
                         line.items.sort((a, b) => a.x - b.x);
                         
-                        // Join text items to form the line string
-                        const lineText = line.items.map(item => item.str).join(' ').trim();
+                        // Strategy 1: Check distinct columns (First Item = ID, Last Item = Qty)
+                        // This works well if "8821", "Description", and "144" are separate text blocks
+                        if (line.items.length >= 2) {
+                            const firstStr = line.items[0].str.trim();
+                            const lastStr = line.items[line.items.length - 1].str.trim();
 
-                        // Regex to match: 
-                        // Start with ID (digits) -> Any Text -> End with Quantity (digits)
-                        // Example: "8821 Bad- en keukenlinnen - Baddoek 56"
-                        const match = lineText.match(/^(\d{4,6})\b\s+(.+?)\s+(\d+)$/);
+                            // ID must be 4 to 8 digits
+                            if (/^\d{4,8}$/.test(firstStr)) {
+                                // Qty must be numeric
+                                if (/^\d+$/.test(lastStr)) {
+                                    const id = firstStr;
+                                    const qty = parseInt(lastStr, 10);
+                                    if (!isNaN(qty)) {
+                                        const current = deliveryMap.get(id) || 0;
+                                        deliveryMap.set(id, current + qty);
+                                        continue; // Move to next line if successful
+                                    }
+                                }
+                            }
+                        }
+
+                        // Strategy 2: Full line regex fallback
+                        // This handles cases where text blocks might be merged or spacing is weird
+                        const lineText = line.items.map(item => item.str).join(' ').trim();
+                        
+                        // Match start with digits (ID) -> anything -> end with digits (Qty)
+                        // Example: "8821 Bad- en keukenlinnen - Baddoek 144"
+                        const match = lineText.match(/^(\d{4,8})\s+.*?\s+(\d+)$/);
                         
                         if (match) {
                             const id = match[1];
-                            const quantity = parseInt(match[3], 10);
+                            const qty = parseInt(match[2], 10);
                             
-                            if (!isNaN(quantity)) {
+                            if (!isNaN(qty)) {
                                 const current = deliveryMap.get(id) || 0;
-                                deliveryMap.set(id, current + quantity);
+                                deliveryMap.set(id, current + qty);
                             }
                         }
                     }
