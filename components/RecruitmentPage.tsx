@@ -1,10 +1,12 @@
 
+
 import React, { useState, useMemo, useRef } from 'react';
 import { 
     UserPlus, Search, Briefcase, Plus, Calendar, 
     MessageSquare, Mail, ChevronRight, MoveRight, 
     Star, BarChart3, LayoutDashboard, Paperclip, 
-    Clock, Sparkles, BrainCircuit, Upload, FileText, CheckCircle2, Loader2, X, RefreshCw
+    Clock, Sparkles, BrainCircuit, Upload, FileText, CheckCircle2, Loader2, X, RefreshCw,
+    Edit2, ThumbsUp, ThumbsDown
 } from 'lucide-react';
 import { Employee, Applicant, Vacancy, ApplicantStage, RecruitmentTimelineEvent, Notification, ViewState } from '../types';
 import { MOCK_VACANCIES, MOCK_APPLICANTS } from '../utils/mockData';
@@ -37,7 +39,10 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
     const [isApplicantModalOpen, setIsApplicantModalOpen] = useState(false);
 
     // CV Parsing Simulation State
-    const [uploadStep, setUploadStep] = useState<'upload' | 'parsing' | 'review'>('upload');
+    const [uploadMode, setUploadMode] = useState<'auto' | 'manual'>('auto');
+    const [uploadStep, setUploadStep] = useState<'upload' | 'scanning' | 'review'>('upload');
+    const [scanProgress, setScanProgress] = useState(0);
+    const [scanStatusText, setScanStatusText] = useState('');
     const [parsedCandidate, setParsedCandidate] = useState<Partial<Applicant>>({});
     const [cvFile, setCvFile] = useState<File | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -140,32 +145,81 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
         const file = e.target.files?.[0];
         if (file) {
             setCvFile(file);
-            setUploadStep('parsing');
+            setUploadMode('auto');
+            setUploadStep('scanning');
+            setScanProgress(0);
             
-            // SIMULATE AI PARSING DELAY
-            setTimeout(() => {
-                // Mock Extracted Data
-                const randomScore = Math.floor(Math.random() * (98 - 65 + 1) + 65);
-                const mockSkills = ['Gastvrijheid', 'Engels', 'Duits', 'Stressbestendig', 'Teamplayer'].sort(() => 0.5 - Math.random()).slice(0, 3);
-                
-                setParsedCandidate({
-                    firstName: 'Nieuwe',
-                    lastName: 'Kandidaat',
-                    email: 'kandidaat@email.com',
-                    phone: '06-12345678',
-                    matchScore: randomScore,
-                    skills: mockSkills,
-                    rating: 0,
-                    stage: 'New',
-                    vacancyId: vacancies[0].id // Default to first vacancy
-                });
-                setUploadStep('review');
-            }, 2000);
+            // SIMULATE AI PARSING PROGRESS
+            const stages = [
+                { progress: 15, text: "Bestand uploaden..." },
+                { progress: 35, text: "Tekst extraheren (OCR)..." },
+                { progress: 50, text: "Naam en contactgegevens identificeren..." },
+                { progress: 75, text: "Vaardigheden matchen met vacature..." },
+                { progress: 90, text: "AI Match Score berekenen..." },
+                { progress: 100, text: "Voltooid!" }
+            ];
+
+            let step = 0;
+            const interval = setInterval(() => {
+                if (step >= stages.length) {
+                    clearInterval(interval);
+                    // Mock Extracted Data
+                    const randomScore = Math.floor(Math.random() * (98 - 65 + 1) + 65);
+                    const mockSkills = ['Gastvrijheid', 'Engels', 'Duits', 'Stressbestendig', 'Teamplayer'].sort(() => 0.5 - Math.random()).slice(0, 3);
+                    
+                    // Generate smart reasons based on score
+                    const pros = [
+                        'Heeft relevante ervaring in hospitality.',
+                        'Spreekt meerdere talen (Engels, Duits).',
+                        'Skills matchen goed met functieprofiel.'
+                    ];
+                    const cons = [];
+                    if (randomScore < 80) cons.push('Geen leidinggevende ervaring gevonden.');
+                    if (randomScore < 70) cons.push('Woonplaats buiten directe regio.');
+
+                    setParsedCandidate({
+                        firstName: 'Nieuwe',
+                        lastName: 'Kandidaat',
+                        email: 'kandidaat@email.com',
+                        phone: '06-12345678',
+                        matchScore: randomScore,
+                        skills: mockSkills,
+                        rating: 0,
+                        stage: 'New',
+                        vacancyId: vacancies[0].id,
+                        aiReasoning: {
+                            pros,
+                            cons,
+                            summary: 'Sterke kandidaat met potentie, voldoet aan basiseisen.'
+                        }
+                    });
+                    setUploadStep('review');
+                } else {
+                    setScanProgress(stages[step].progress);
+                    setScanStatusText(stages[step].text);
+                    step++;
+                }
+            }, 600); // 600ms per step
         }
     };
 
+    const handleManualEntry = () => {
+        setUploadMode('manual');
+        setParsedCandidate({
+            stage: 'New',
+            vacancyId: vacancies[0].id,
+            matchScore: 0,
+            skills: [],
+            rating: 0
+        });
+        setUploadStep('review');
+    };
+
     const handleSaveCandidate = () => {
-        if (!parsedCandidate.firstName || !parsedCandidate.lastName) return;
+        if (!parsedCandidate.firstName || !parsedCandidate.lastName) {
+            onShowToast("Naam en Achternaam zijn verplicht.");
+            return;
+        }
 
         const newApplicant: Applicant = {
             id: Math.random().toString(36).substr(2, 9),
@@ -176,9 +230,10 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
             vacancyId: parsedCandidate.vacancyId || vacancies[0].id,
             stage: 'New',
             appliedDate: new Date().toLocaleDateString('nl-NL'),
-            matchScore: parsedCandidate.matchScore,
-            skills: parsedCandidate.skills,
+            matchScore: parsedCandidate.matchScore || 0,
+            skills: parsedCandidate.skills || [],
             rating: 0,
+            aiReasoning: parsedCandidate.aiReasoning,
             avatar: `https://ui-avatars.com/api/?name=${parsedCandidate.firstName}+${parsedCandidate.lastName}&background=random`,
             timeline: [
                 {
@@ -186,15 +241,15 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                     type: 'StatusChange',
                     author: 'System',
                     date: new Date().toLocaleString('nl-NL'),
-                    content: 'Kandidaat toegevoegd via CV Upload.'
+                    content: uploadMode === 'auto' ? 'Kandidaat toegevoegd via CV Upload.' : 'Kandidaat handmatig toegevoegd.'
                 },
-                {
+                ...(parsedCandidate.matchScore ? [{
                     id: 'init-2',
                     type: 'Scorecard',
                     author: 'AI Recruiter',
                     date: new Date().toLocaleString('nl-NL'),
                     content: `AI Match Score berekend: ${parsedCandidate.matchScore}%`
-                }
+                } as RecruitmentTimelineEvent] : [])
             ],
             scorecards: []
         };
@@ -417,22 +472,36 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                 onClose={() => { setIsAddCandidateModalOpen(false); setUploadStep('upload'); setParsedCandidate({}); setCvFile(null); }}
                 title="Nieuwe Sollicitant Toevoegen"
             >
-                <div className="min-h-[400px]">
+                <div className="min-h-[400px] flex flex-col">
                     
-                    {/* STEP 1: UPLOAD */}
+                    {/* STEP 1: UPLOAD & CHOICE */}
                     {uploadStep === 'upload' && (
-                        <div className="space-y-6 animate-in fade-in">
-                            <div 
-                                onClick={() => fileInputRef.current?.click()}
-                                className="border-2 border-dashed border-slate-300 rounded-2xl p-10 text-center hover:bg-slate-50 cursor-pointer transition-all hover:border-teal-400 group"
-                            >
-                                <div className="w-16 h-16 bg-teal-50 text-teal-600 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
-                                    <Upload size={32} />
+                        <div className="space-y-6 animate-in fade-in flex-1">
+                            
+                            <div className="grid grid-cols-2 gap-4 h-full">
+                                <div 
+                                    onClick={() => fileInputRef.current?.click()}
+                                    className="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center hover:bg-blue-50 cursor-pointer transition-all hover:border-blue-400 group flex flex-col items-center justify-center h-48"
+                                >
+                                    <div className="w-14 h-14 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                        <Upload size={28} />
+                                    </div>
+                                    <h3 className="text-base font-bold text-slate-900">CV Uploaden</h3>
+                                    <p className="text-xs text-slate-500 mt-1">Automatisch uitlezen & vullen</p>
                                 </div>
-                                <h3 className="text-lg font-bold text-slate-900">Upload CV</h3>
-                                <p className="text-slate-500 text-sm mt-1">Sleep bestand of klik om te bladeren</p>
-                                <p className="text-xs text-slate-400 mt-2">PDF, DOCX (Max 10MB)</p>
+
+                                <div 
+                                    onClick={handleManualEntry}
+                                    className="border-2 border-dashed border-slate-300 rounded-2xl p-8 text-center hover:bg-slate-50 cursor-pointer transition-all hover:border-slate-400 group flex flex-col items-center justify-center h-48"
+                                >
+                                    <div className="w-14 h-14 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                                        <Edit2 size={28} />
+                                    </div>
+                                    <h3 className="text-base font-bold text-slate-900">Handmatige Invoer</h3>
+                                    <p className="text-xs text-slate-500 mt-1">Zelf gegevens invullen</p>
+                                </div>
                             </div>
+
                             <input 
                                 type="file" 
                                 ref={fileInputRef} 
@@ -444,46 +513,75 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                             <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 flex gap-3">
                                 <Sparkles className="text-blue-600 shrink-0 mt-0.5" size={20}/>
                                 <div>
-                                    <h4 className="font-bold text-blue-900 text-sm">Smart Parsing</h4>
+                                    <h4 className="font-bold text-blue-900 text-sm">Smart AI Parsing</h4>
                                     <p className="text-xs text-blue-700 mt-1">
-                                        Ons systeem leest automatisch de naam, contactgegevens en vaardigheden uit het CV en berekent direct een match score.
+                                        Upload een CV om automatisch naam, contactgegevens en vaardigheden te extraheren en een match-score te genereren.
                                     </p>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* STEP 2: PARSING SIMULATION */}
-                    {uploadStep === 'parsing' && (
-                        <div className="flex flex-col items-center justify-center py-20 animate-in fade-in text-center">
-                            <div className="relative">
+                    {/* STEP 2: SCANNING SIMULATION */}
+                    {uploadStep === 'scanning' && (
+                        <div className="flex flex-col items-center justify-center py-10 animate-in fade-in text-center flex-1">
+                            <div className="relative mb-8">
                                 <div className="absolute inset-0 bg-teal-500 rounded-full opacity-20 animate-ping"></div>
-                                <div className="relative w-20 h-20 bg-white border-4 border-teal-500 rounded-full flex items-center justify-center shadow-lg">
-                                    <Loader2 className="animate-spin text-teal-600" size={40} />
+                                <div className="relative w-24 h-24 bg-white border-4 border-teal-500 rounded-full flex items-center justify-center shadow-lg">
+                                    <Loader2 className="animate-spin text-teal-600" size={48} />
                                 </div>
                             </div>
-                            <h3 className="text-xl font-bold text-slate-900 mt-8 mb-2">CV Analyseren...</h3>
-                            <p className="text-slate-500 text-sm">Gegevens extraheren en match score berekenen.</p>
+                            
+                            <h3 className="text-xl font-bold text-slate-900 mb-2">{scanStatusText}</h3>
+                            <div className="w-64 h-2 bg-slate-100 rounded-full overflow-hidden mt-4">
+                                <div className="h-full bg-teal-500 transition-all duration-300" style={{ width: `${scanProgress}%` }}></div>
+                            </div>
                         </div>
                     )}
 
                     {/* STEP 3: REVIEW & SAVE */}
                     {uploadStep === 'review' && (
-                        <div className="space-y-6 animate-in slide-in-from-right-8 duration-300">
+                        <div className="space-y-6 animate-in slide-in-from-right-8 duration-300 flex-1 overflow-y-auto pr-2 max-h-[60vh]">
                             
-                            {/* AI Match Banner */}
-                            <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-6 text-white shadow-md relative overflow-hidden">
-                                <div className="absolute top-0 right-0 p-4 opacity-20"><BrainCircuit size={80}/></div>
-                                <div className="relative z-10 flex items-center gap-4">
-                                    <div className="w-14 h-14 bg-white/20 backdrop-blur rounded-lg flex flex-col items-center justify-center border border-white/30">
-                                        <span className="text-2xl font-bold">{parsedCandidate.matchScore}%</span>
-                                    </div>
-                                    <div>
-                                        <h3 className="font-bold text-lg">AI Match Score</h3>
-                                        <p className="text-xs text-purple-100 opacity-90">Gebaseerd op skills en ervaring in CV.</p>
+                            {/* AI Match Banner (Only in Auto Mode) */}
+                            {uploadMode === 'auto' && parsedCandidate.matchScore !== undefined && (
+                                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-xl p-5 text-white shadow-md relative overflow-hidden">
+                                    <div className="absolute top-0 right-0 p-4 opacity-20"><BrainCircuit size={80}/></div>
+                                    <div className="relative z-10 flex items-start gap-5">
+                                        <div className="w-16 h-16 bg-white/20 backdrop-blur rounded-xl flex flex-col items-center justify-center border border-white/30 flex-shrink-0">
+                                            <span className="text-3xl font-bold">{parsedCandidate.matchScore}%</span>
+                                        </div>
+                                        <div className="flex-1">
+                                            <h3 className="font-bold text-lg mb-2">AI Analyse Rapport</h3>
+                                            
+                                            {parsedCandidate.aiReasoning && (
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                                                    <div>
+                                                        <span className="font-bold text-green-200 uppercase tracking-wide mb-1 block">Pluspunten</span>
+                                                        <ul className="space-y-1">
+                                                            {parsedCandidate.aiReasoning.pros.map((p, i) => (
+                                                                <li key={i} className="flex items-start gap-1.5 opacity-90"><ThumbsUp size={10} className="mt-0.5"/> {p}</li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                    <div>
+                                                        <span className="font-bold text-red-200 uppercase tracking-wide mb-1 block">Aandachtspunten</span>
+                                                        <ul className="space-y-1">
+                                                            {parsedCandidate.aiReasoning.cons.length > 0 ? (
+                                                                parsedCandidate.aiReasoning.cons.map((c, i) => (
+                                                                    <li key={i} className="flex items-start gap-1.5 opacity-90"><ThumbsDown size={10} className="mt-0.5"/> {c}</li>
+                                                                ))
+                                                            ) : (
+                                                                <li className="opacity-70 italic">Geen kritieke punten gevonden.</li>
+                                                            )}
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            )}
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
@@ -493,6 +591,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold"
                                         value={parsedCandidate.firstName || ''}
                                         onChange={e => setParsedCandidate({...parsedCandidate, firstName: e.target.value})}
+                                        placeholder="Voornaam"
                                     />
                                 </div>
                                 <div>
@@ -502,6 +601,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold"
                                         value={parsedCandidate.lastName || ''}
                                         onChange={e => setParsedCandidate({...parsedCandidate, lastName: e.target.value})}
+                                        placeholder="Achternaam"
                                     />
                                 </div>
                             </div>
@@ -514,6 +614,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                                         className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium"
                                         value={parsedCandidate.email || ''}
                                         onChange={e => setParsedCandidate({...parsedCandidate, email: e.target.value})}
+                                        placeholder="email@adres.nl"
                                     />
                                 </div>
                                 <div>
@@ -536,20 +637,23 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                                             {skill} <CheckCircle2 size={12}/>
                                         </span>
                                     ))}
-                                    <button className="px-3 py-1 bg-slate-50 border border-slate-200 border-dashed rounded-full text-xs font-bold text-slate-400 hover:text-slate-600 hover:border-slate-400">
-                                        + Skill
+                                    <button className="px-3 py-1 bg-slate-50 border border-slate-200 border-dashed rounded-full text-xs font-bold text-slate-400 hover:text-slate-600 hover:border-slate-400 transition-colors">
+                                        + Skill Toevoegen
                                     </button>
                                 </div>
                             </div>
+                        </div>
+                    )}
 
-                            <div className="pt-4 flex gap-3">
-                                <button onClick={() => { setUploadStep('upload'); setCvFile(null); }} className="px-4 py-3 border border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50">
-                                    Annuleren
-                                </button>
-                                <button onClick={handleSaveCandidate} className="flex-1 py-3 bg-slate-900 text-white font-bold rounded-xl text-sm hover:bg-slate-800 shadow-md">
-                                    Kandidaat Opslaan
-                                </button>
-                            </div>
+                    {/* FOOTER ACTIONS */}
+                    {uploadStep !== 'upload' && uploadStep !== 'scanning' && (
+                        <div className="pt-4 flex gap-3 mt-auto border-t border-slate-100">
+                            <button onClick={() => { setUploadStep('upload'); setCvFile(null); }} className="px-4 py-3 border border-slate-200 text-slate-600 font-bold rounded-xl text-sm hover:bg-slate-50">
+                                Annuleren
+                            </button>
+                            <button onClick={handleSaveCandidate} className="flex-1 py-3 bg-slate-900 text-white font-bold rounded-xl text-sm hover:bg-slate-800 shadow-md">
+                                Kandidaat Opslaan
+                            </button>
                         </div>
                     )}
                 </div>
@@ -580,6 +684,33 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                         <div className="flex-1 overflow-y-auto p-8 grid grid-cols-3 gap-8">
                             {/* Left Col */}
                             <div className="col-span-2 space-y-8">
+                                
+                                {/* AI Insight Card in Detail View */}
+                                {selectedApplicant.aiReasoning && (
+                                    <div className="bg-purple-50 border border-purple-100 rounded-2xl p-6">
+                                        <h3 className="font-bold text-purple-900 mb-4 flex items-center gap-2">
+                                            <BrainCircuit size={18}/> AI Analyse
+                                        </h3>
+                                        {selectedApplicant.aiReasoning.summary && (
+                                            <p className="text-sm text-purple-800 mb-4 italic">"{selectedApplicant.aiReasoning.summary}"</p>
+                                        )}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="bg-white p-3 rounded-xl border border-purple-100">
+                                                <span className="text-xs font-bold text-green-600 uppercase tracking-wide block mb-2">Pluspunten</span>
+                                                <ul className="text-sm space-y-1 text-slate-600">
+                                                    {selectedApplicant.aiReasoning.pros.map((p,i) => <li key={i} className="flex items-center gap-2"><CheckCircle2 size={12} className="text-green-500"/> {p}</li>)}
+                                                </ul>
+                                            </div>
+                                            <div className="bg-white p-3 rounded-xl border border-purple-100">
+                                                <span className="text-xs font-bold text-amber-600 uppercase tracking-wide block mb-2">Aandachtspunten</span>
+                                                <ul className="text-sm space-y-1 text-slate-600">
+                                                    {selectedApplicant.aiReasoning.cons.map((c,i) => <li key={i} className="flex items-center gap-2"><div className="w-1 h-1 rounded-full bg-amber-500"></div> {c}</li>)}
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                                     <h3 className="font-bold text-slate-900 mb-4">Profiel & Skills</h3>
                                     <div className="flex flex-wrap gap-2 mb-6">

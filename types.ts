@@ -117,6 +117,11 @@ export interface Applicant {
   // Advanced ATS features
   skills?: string[]; // Extracted from CV
   matchScore?: number; // AI calculated 0-100
+  aiReasoning?: { // NEW: Explanation of the match score
+      pros: string[];
+      cons: string[];
+      summary?: string;
+  };
   resumeUrl?: string; 
   coverLetter?: string;
   timeline: RecruitmentTimelineEvent[];
