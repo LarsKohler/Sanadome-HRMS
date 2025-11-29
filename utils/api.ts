@@ -182,8 +182,8 @@ export const api = {
         const { data } = supabase.storage.from(bucket).getPublicUrl(filePath);
         return data.publicUrl;
       } catch (e) {
-        console.error('Upload exception:', e);
-        return null;
+          console.error('Upload exception:', e);
+          return null;
       }
     }
     return URL.createObjectURL(file);
@@ -281,9 +281,14 @@ export const api = {
 
   deleteEmployee: async (id: string) => {
     if (isLive && supabase) {
-        await supabase.from('employees').delete().eq('id', id);
-        // Note: Removing from Auth requires an Edge Function or manual admin action usually, 
-        // unless we add another RPC for 'admin_delete_user'. 
+        // GEBRUIK RPC OM ZOWEL EMPLOYEE ALS AUTH USER TE VERWIJDEREN
+        const { error } = await supabase.rpc('admin_delete_user', { target_user_id: id });
+        
+        if (error) {
+            console.error("Fout bij verwijderen gebruiker via RPC:", error);
+            // Fallback: Als RPC faalt, verwijder alleen data (hoewel Auth dan orphan blijft)
+            await supabase.from('employees').delete().eq('id', id);
+        }
     } else {
         const current = storage.getEmployees();
         const filtered = current.filter(e => e.id !== id);

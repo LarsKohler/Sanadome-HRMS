@@ -64,7 +64,7 @@ import { createClient } from '@supabase/supabase-js';
 
 /*
   =============================================
-  DEEL 2: AUTOMATISCHE USER FUNCTIE (GECORRIGEERD)
+  DEEL 2: AUTOMATISCHE USER AANMAAK (RPC)
   =============================================
 
   CREATE EXTENSION IF NOT EXISTS pgcrypto;
@@ -114,77 +114,32 @@ import { createClient } from '@supabase/supabase-js';
 
 /*
   =============================================
-  DEEL 3: MIGRATIE SCRIPT (GECORRIGEERD)
+  DEEL 3: AUTOMATISCHE USER VERWIJDERING (RPC)
   =============================================
+  -- Voer dit uit om te zorgen dat gebruikers ook uit Auth verwijderd worden.
 
-  CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
-  DO $$
-  DECLARE
-    row record;
-    new_uuid uuid;
-    user_email text;
-    user_password text;
-    old_id text;
+  CREATE OR REPLACE FUNCTION admin_delete_user(target_user_id uuid)
+  RETURNS void AS $$
   BEGIN
-    FOR row IN SELECT * FROM employees LOOP
-      old_id := row.id;
-      user_email := row.data->>'email';
-      user_password := row.data->>'password';
-      
-      IF user_password IS NULL OR user_password = '' THEN user_password := 'demo'; END IF;
+    -- 1. Veiligheidscheck
+    IF NOT is_manager() THEN
+      RAISE EXCEPTION 'Access Denied: Only Managers can delete users.';
+    END IF;
 
-      IF user_email IS NOT NULL AND user_email != '' THEN
-        IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = user_email) THEN
-          new_uuid := gen_random_uuid();
-          
-          INSERT INTO auth.users (
-            instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, 
-            raw_app_meta_data, raw_user_meta_data, created_at, updated_at, 
-            confirmation_token, email_change, email_change_token_new, recovery_token
-          )
-          VALUES (
-            '00000000-0000-0000-0000-000000000000',
-            new_uuid, 'authenticated', 'authenticated', user_email,
-            crypt(user_password, gen_salt('bf')),
-            now(), '{"provider":"email","providers":["email"]}', '{}',
-            now(), now(), '', '', '', ''
-          );
-          
-          INSERT INTO auth.identities (
-            id, user_id, identity_data, provider, provider_id, created_at, updated_at
-          )
-          VALUES (
-            gen_random_uuid(), new_uuid,
-            format('{"sub":"%s","email":"%s"}', new_uuid::text, user_email)::jsonb,
-            'email',
-            new_uuid::text, -- Fix: provider_id is mandatory
-            now(), now()
-          );
-          
-          UPDATE employees SET id = new_uuid::text WHERE id = old_id;
-          UPDATE employees SET data = jsonb_set(data, '{id}', to_jsonb(new_uuid::text)) WHERE id = new_uuid::text;
-          
-          RAISE NOTICE 'Migrated: %', user_email;
-        ELSE
-          SELECT id INTO new_uuid FROM auth.users WHERE email = user_email;
-          IF old_id != new_uuid::text THEN
-              UPDATE employees SET id = new_uuid::text WHERE id = old_id;
-              UPDATE employees SET data = jsonb_set(data, '{id}', to_jsonb(new_uuid::text)) WHERE id = new_uuid::text;
-              RAISE NOTICE 'Relinked: %', user_email;
-          END IF;
-        END IF;
-      END IF;
-    END LOOP;
-  END $$;
+    -- 2. Verwijder data
+    DELETE FROM public.employees WHERE id = target_user_id::text;
+
+    -- 3. Verwijder Auth user
+    DELETE FROM auth.users WHERE id = target_user_id;
+  END;
+  $$ LANGUAGE plpgsql SECURITY DEFINER;
 */
 
 /*
   =============================================
-  DEEL 4: SECURITY AUDIT TOOL (NIEUW)
+  DEEL 4: SECURITY AUDIT TOOL
   =============================================
   
-  -- Deze functie controleert of RLS daadwerkelijk aan staat op de tabellen.
   CREATE OR REPLACE FUNCTION get_table_security_stats()
   RETURNS TABLE(table_name text, rls_enabled boolean) AS $$
   BEGIN
