@@ -5,6 +5,8 @@
 
 
 
+
+
 import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog, Ticket, BadgeDefinition, KnowledgeArticle, PersonalDevelopmentGoal, Vacancy, Applicant, EmailTemplate } from '../types';
 
 // --- RECRUITMENT MOCK DATA ---
