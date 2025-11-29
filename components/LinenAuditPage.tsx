@@ -121,12 +121,21 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
 
                         // Validation: ID must be numeric-ish (e.g. 8821) and Name must exist
                         if (id && /^\d+$/.test(id) && name) {
-                            itemsMap.set(id, {
-                                id,
-                                name,
-                                ordered: isNaN(ordered) ? 0 : ordered,
-                                delivered: 0
-                            });
+                            const safeOrdered = isNaN(ordered) ? 0 : ordered;
+
+                            if (itemsMap.has(id)) {
+                                // AGGREGATE: Add to existing quantity
+                                const existingItem = itemsMap.get(id)!;
+                                existingItem.ordered += safeOrdered;
+                            } else {
+                                // CREATE: New entry
+                                itemsMap.set(id, {
+                                    id,
+                                    name,
+                                    ordered: safeOrdered,
+                                    delivered: 0
+                                });
+                            }
                         }
                     }
                     
