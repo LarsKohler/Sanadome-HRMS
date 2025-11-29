@@ -67,9 +67,10 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
             
             onShowToast("Audit succesvol berekend!");
 
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Audit error:", error);
-            onShowToast(`Fout bij verwerken: ${error.message || 'Onbekende fout'}`);
+            const msg = error instanceof Error ? error.message : 'Onbekende fout';
+            onShowToast(`Fout bij verwerken: ${msg}`);
         } finally {
             setIsProcessing(false);
         }
@@ -100,7 +101,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     
                     // We skip header row(s). We look for rows where Col A is numeric.
                     for (let i = 0; i < jsonData.length; i++) {
-                        const row = jsonData[i];
+                        const row = jsonData[i] as any[];
                         if (!row || row.length < 2) continue;
 
                         const id = String(row[0] || '').trim(); // Col A
@@ -133,8 +134,8 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     } else {
                         resolve(itemsMap);
                     }
-                } catch (err: any) {
-                    reject(err);
+                } catch (err: unknown) {
+                    reject(err instanceof Error ? err : new Error('Excel parsing failed'));
                 }
             };
             reader.onerror = () => reject(new Error("Fout bij lezen Excel bestand"));
@@ -156,31 +157,50 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     const page = await pdf.getPage(i);
                     const textContent = await page.getTextContent();
                     
-                    // Improved Text Extraction Strategy:
-                    // PDF text items are often fragmented. "8821" might be separate from "Baddoek".
-                    // We concatenate all text on the page with spaces, then use regex.
-                    const pageText = textContent.items.map((item: any) => item.str).join(' ');
-                    
-                    // Regex for: ID (4-6 digits) ... Description ... Quantity (digits at end of logical line or segment)
-                    // Looking for patterns like: "8821 Bad- en keukenlinnen - Baddoek 100"
-                    // We use a regex that looks for a number at the start of a sequence, followed by text, ending in a number
-                    // This is heuristic but works for standard tabular reports.
-                    const regex = /(?:\b|^)(\d{4,6})\b\s+([^\d]+?)\s+(\d+)(?:\b|$)/g;
-                    
-                    let match;
-                    while ((match = regex.exec(pageText)) !== null) {
-                        const id = match[1];
-                        const quantity = parseInt(match[3], 10);
+                    // Improved Parsing: Group items by Y position to reconstruct lines
+                    const lines: { y: number, items: { x: number, str: string }[] }[] = [];
+                    const tolerance = 5; // Allow slight Y variation for items on "same line"
+
+                    for (const item of (textContent.items as any[])) {
+                        const y = item.transform[5]; // transform[5] is Y coordinate
+                        const x = item.transform[4];
+                        const str = item.str;
+
+                        // Find existing line group
+                        let line = lines.find(l => Math.abs(l.y - y) < tolerance);
+                        if (!line) {
+                            line = { y, items: [] };
+                            lines.push(line);
+                        }
+                        line.items.push({ x, str });
+                    }
+
+                    // Process each reconstructed line
+                    for (const line of lines) {
+                        // Sort items by X coordinate (Left to Right)
+                        line.items.sort((a, b) => a.x - b.x);
                         
-                        if (!isNaN(quantity)) {
-                            const current = deliveryMap.get(id) || 0;
-                            deliveryMap.set(id, current + quantity);
+                        // Join text items to form the line string
+                        const lineText = line.items.map(item => item.str).join(' ').trim().replace(/\s+/g, ' ');
+
+                        // Regex to match: Start with ID (digits) -> Description -> End with Quantity (digits)
+                        // Example: "8821 Bad- en keukenlinnen - Baddoek 56"
+                        const match = lineText.match(/^(\d{4,6})\b\s+(.+?)\s+(\d+)$/);
+                        
+                        if (match) {
+                            const id = match[1];
+                            const quantity = parseInt(match[3], 10);
+                            
+                            if (!isNaN(quantity)) {
+                                const current = deliveryMap.get(id) || 0;
+                                deliveryMap.set(id, current + quantity);
+                            }
                         }
                     }
                 }
-            } catch (e: any) {
+            } catch (e: unknown) {
                 console.error(`Error parsing PDF ${file.name}:`, e);
-                // We continue with other files even if one fails
+                // Continue with other files even if one fails
             }
         }
         return deliveryMap;
@@ -192,7 +212,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         // 1. Process items from the Order (Excel)
         orderMap.forEach((item, id) => {
             const delivered = deliveryMap.get(id) || 0;
-            deliveryMap.delete(id); // Remove matched items
+            deliveryMap.delete(id); // Remove matched items from delivery map
             
             result.push({
                 ...item,
