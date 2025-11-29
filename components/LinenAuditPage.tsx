@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
     Truck, Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle, 
     RefreshCw, Download, FileSpreadsheet, X, MousePointerClick 
@@ -67,7 +67,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
             
             onShowToast("Audit succesvol berekend!");
 
-        } catch (error: unknown) {
+        } catch (error: any) {
             console.error("Audit error:", error);
             const msg = error instanceof Error ? error.message : 'Onbekende fout';
             onShowToast(`Fout bij verwerken: ${msg}`);
@@ -97,7 +97,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     // User Specification:
                     // Col A (Index 0) = Article Number
                     // Col B (Index 1) = Name
-                    // Col 9 (Index 8) = Total Count (Assuming A=1, then I=9)
+                    // Col J (Index 9) = Total Count
                     
                     // We skip header row(s). We look for rows where Col A is numeric.
                     for (let i = 0; i < jsonData.length; i++) {
@@ -107,14 +107,15 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         const id = String(row[0] || '').trim(); // Col A
                         const name = String(row[1] || '').trim(); // Col B
                         
-                        // Look for Quantity in Index 8 (Column I)
-                        // Safety: Check if it's a valid number.
+                        // Look for Quantity in Index 9 (Column J)
                         let ordered = 0;
-                        const qtyVal = row[8]; 
+                        const qtyVal = row[9]; 
                         
                         if (typeof qtyVal === 'number') {
                             ordered = qtyVal;
                         } else if (typeof qtyVal === 'string') {
+                            // Handle European number format (dot as thousands separator, comma as decimal, or vice versa depending on locale context)
+                            // Assuming simple integer counts here based on context
                             ordered = parseFloat(qtyVal.replace(',', '.'));
                         }
 
@@ -130,11 +131,11 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     }
                     
                     if (itemsMap.size === 0) {
-                        reject(new Error("Geen geldige regels gevonden in Excel. Controleer het formaat (Kolom A=ID, I=Aantal)."));
+                        reject(new Error("Geen geldige regels gevonden in Excel. Controleer of kolom A artikelnummers en kolom J aantallen bevat."));
                     } else {
                         resolve(itemsMap);
                     }
-                } catch (err: unknown) {
+                } catch (err: any) {
                     reject(err instanceof Error ? err : new Error('Excel parsing failed'));
                 }
             };
@@ -157,14 +158,17 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     const page = await pdf.getPage(i);
                     const textContent = await page.getTextContent();
                     
-                    // Improved Parsing: Group items by Y position to reconstruct lines
+                    // Group items by Y position to reconstruct lines
                     const lines: { y: number, items: { x: number, str: string }[] }[] = [];
-                    const tolerance = 5; // Allow slight Y variation for items on "same line"
+                    // Increased tolerance to 8 to catch items slightly misaligned
+                    const tolerance = 8; 
 
                     for (const item of (textContent.items as any[])) {
+                        const str = item.str.trim();
+                        if (!str) continue; // Skip empty strings
+
                         const y = item.transform[5]; // transform[5] is Y coordinate
-                        const x = item.transform[4];
-                        const str = item.str;
+                        const x = item.transform[4]; // transform[4] is X coordinate
 
                         // Find existing line group
                         let line = lines.find(l => Math.abs(l.y - y) < tolerance);
@@ -181,9 +185,10 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         line.items.sort((a, b) => a.x - b.x);
                         
                         // Join text items to form the line string
-                        const lineText = line.items.map(item => item.str).join(' ').trim().replace(/\s+/g, ' ');
+                        const lineText = line.items.map(item => item.str).join(' ').trim();
 
-                        // Regex to match: Start with ID (digits) -> Description -> End with Quantity (digits)
+                        // Regex to match: 
+                        // Start with ID (digits) -> Any Text -> End with Quantity (digits)
                         // Example: "8821 Bad- en keukenlinnen - Baddoek 56"
                         const match = lineText.match(/^(\d{4,6})\b\s+(.+?)\s+(\d+)$/);
                         
@@ -198,7 +203,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         }
                     }
                 }
-            } catch (e: unknown) {
+            } catch (e: any) {
                 console.error(`Error parsing PDF ${file.name}:`, e);
                 // Continue with other files even if one fails
             }
@@ -249,7 +254,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     const handleDeliveryDrop = (e: React.DragEvent) => {
         e.preventDefault();
         setIsDraggingDelivery(false);
-        const files = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+        const files = Array.from(e.dataTransfer.files).filter((f: File) => f.name.toLowerCase().endsWith('.pdf'));
         if (files.length > 0) {
             setDeliveryFiles(prev => [...prev, ...files]);
         } else {
