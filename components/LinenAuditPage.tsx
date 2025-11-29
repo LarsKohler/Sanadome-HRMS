@@ -1,13 +1,18 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Truck, Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle, 
-    RefreshCw, Download, FileSpreadsheet, X, MousePointerClick, Calendar, Save, History, Trash2, Eye, ArrowRight, Printer, AlertOctagon
+    RefreshCw, Download, FileSpreadsheet, X, MousePointerClick, Calendar, Save, History, Trash2, Eye, ArrowRight, Printer, AlertOctagon,
+    BarChart3, TrendingUp, Filter, Search, PieChart, ArrowUpRight, ArrowDownRight, LayoutDashboard
 } from 'lucide-react';
 import { Employee } from '../types';
 import { Modal } from './Modal';
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
+import { 
+    ResponsiveContainer, AreaChart, Area, BarChart, Bar, LineChart, Line, 
+    XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell 
+} from 'recharts';
 
 // Initialize PDF.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs`;
@@ -28,6 +33,7 @@ interface LinenItem {
 interface SavedAudit {
     id: string;
     date: string;
+    timestamp?: number; // Added for easier filtering
     deliveryDate: string;
     items: LinenItem[];
     totalOrdered: number;
@@ -35,7 +41,7 @@ interface SavedAudit {
 }
 
 const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToast }) => {
-    const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
+    const [activeTab, setActiveTab] = useState<'new' | 'history' | 'analytics'>('new');
     
     // Upload State
     const [orderFile, setOrderFile] = useState<File | null>(null);
@@ -54,10 +60,14 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     const [savedAudits, setSavedAudits] = useState<SavedAudit[]>([]);
     const [auditToDelete, setAuditToDelete] = useState<string | null>(null);
 
+    // Analytics State
+    const [dateRange, setDateRange] = useState({ start: '', end: '' });
+    const [selectedProductId, setSelectedProductId] = useState<string>('All');
+
     const excelInputRef = useRef<HTMLInputElement>(null);
     const pdfInputRef = useRef<HTMLInputElement>(null);
 
-    // Load history on mount
+    // Load history on mount & Init Date Range
     useEffect(() => {
         const saved = localStorage.getItem('hrms_linen_audits');
         if (saved) {
@@ -67,9 +77,18 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 console.error("Failed to load history", e);
             }
         }
+
+        // Default range: Last 30 days
+        const end = new Date();
+        const start = new Date();
+        start.setDate(start.getDate() - 30);
+        setDateRange({
+            start: start.toISOString().split('T')[0],
+            end: end.toISOString().split('T')[0]
+        });
     }, []);
 
-    // --- PARSING LOGIC ---
+    // --- PARSING LOGIC (Keep existing) ---
 
     const processFiles = async () => {
         if (!orderFile) {
@@ -83,20 +102,12 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
 
         try {
             console.log("Starting processing...");
-            
-            // 1. Parse Excel Order
             const orderItems = await parseExcelOrder(orderFile);
-            
-            // 2. Parse PDF Deliveries
             const { deliveryMap, deliveryDate } = await parsePDFDeliveries(deliveryFiles);
             setDetectedDate(deliveryDate);
-
-            // 3. Merge Data
             const mergedData = mergeAuditData(orderItems, deliveryMap);
             setAuditData(mergedData);
-            
             onShowToast("Audit succesvol berekend!");
-
         } catch (error: any) {
             console.error("Audit error:", error);
             const msg = error instanceof Error ? error.message : 'Onbekende fout';
@@ -109,59 +120,38 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     const parseExcelOrder = (file: File): Promise<Map<string, LinenItem>> => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            
             reader.onload = (e) => {
                 try {
                     const data = new Uint8Array(e.target?.result as ArrayBuffer);
                     const workbook = XLSX.read(data, { type: 'array' });
-                    
                     const sheetName = workbook.SheetNames[0];
                     const sheet = workbook.Sheets[sheetName];
                     const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
-
                     const itemsMap = new Map<string, LinenItem>();
 
                     for (let i = 0; i < jsonData.length; i++) {
                         const row = jsonData[i] as any[];
                         if (!row || row.length < 2) continue;
-
-                        const id = String(row[0] || '').trim(); // Col A
-                        const name = String(row[1] || '').trim(); // Col B
-                        
+                        const id = String(row[0] || '').trim();
+                        const name = String(row[1] || '').trim();
                         let ordered = 0;
-                        const qtyVal = row[9]; // Col J (index 9)
+                        const qtyVal = row[9]; // Col J
                         
-                        if (typeof qtyVal === 'number') {
-                            ordered = qtyVal;
-                        } else if (typeof qtyVal === 'string') {
-                            ordered = parseFloat(qtyVal.replace(',', '.'));
-                        }
+                        if (typeof qtyVal === 'number') ordered = qtyVal;
+                        else if (typeof qtyVal === 'string') ordered = parseFloat(qtyVal.replace(',', '.'));
 
                         if (id && /^\d+$/.test(id) && name) {
                             const safeOrdered = isNaN(ordered) ? 0 : ordered;
-
                             if (itemsMap.has(id)) {
-                                const existingItem = itemsMap.get(id)!;
-                                existingItem.ordered += safeOrdered;
+                                itemsMap.get(id)!.ordered += safeOrdered;
                             } else {
-                                itemsMap.set(id, {
-                                    id,
-                                    name,
-                                    ordered: safeOrdered,
-                                    delivered: 0
-                                });
+                                itemsMap.set(id, { id, name, ordered: safeOrdered, delivered: 0 });
                             }
                         }
                     }
-                    
-                    if (itemsMap.size === 0) {
-                        reject(new Error("Geen geldige regels gevonden in Excel."));
-                    } else {
-                        resolve(itemsMap);
-                    }
-                } catch (err: any) {
-                    reject(err instanceof Error ? err : new Error('Excel parsing failed'));
-                }
+                    if (itemsMap.size === 0) reject(new Error("Geen geldige regels gevonden in Excel."));
+                    else resolve(itemsMap);
+                } catch (err: any) { reject(err instanceof Error ? err : new Error('Excel parsing failed')); }
             };
             reader.onerror = () => reject(new Error("Fout bij lezen Excel bestand"));
             reader.readAsArrayBuffer(file);
@@ -171,7 +161,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     const parsePDFDeliveries = async (files: File[]): Promise<{ deliveryMap: Map<string, number>, deliveryDate: string }> => {
         const deliveryMap = new Map<string, number>();
         let foundDate = '';
-        // Explicitly ignore common numbers found in headers that look like Article IDs
         const IGNORE_IDS = ['7772', '11172', '0524', '01469238', '2025']; 
 
         if (files.length === 0) return { deliveryMap, deliveryDate: '' };
@@ -185,128 +174,71 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 for (let i = 1; i <= pdf.numPages; i++) {
                     const page = await pdf.getPage(i);
                     const textContent = await page.getTextContent();
-                    
-                    // Group text items by Y coordinate (lines)
                     const lines: { y: number, items: { x: number, str: string }[] }[] = [];
                     const tolerance = 5; 
 
                     for (const item of (textContent.items as any[])) {
                         const str = item.str.trim();
                         if (!str) continue; 
-
                         const y = item.transform[5]; 
                         const x = item.transform[4]; 
-
                         let line = lines.find(l => Math.abs(l.y - y) < tolerance);
-                        if (!line) {
-                            line = { y, items: [] };
-                            lines.push(line);
-                        }
+                        if (!line) { line = { y, items: [] }; lines.push(line); }
                         line.items.push({ x, str });
                     }
-
-                    // Sort lines top to bottom
                     lines.sort((a, b) => b.y - a.y);
 
                     for (const line of lines) {
-                        // Sort items in line left to right
                         line.items.sort((a, b) => a.x - b.x);
                         const lineText = line.items.map(item => item.str).join(' ').trim();
-                        
-                        // Extract Date
                         if (!foundDate && lineText.includes('Afleverdatum')) {
                             const dateMatch = lineText.match(/(\d{1,2}-\d{1,2}-\d{4})/);
-                            if (dateMatch) {
-                                foundDate = dateMatch[0];
-                            }
+                            if (dateMatch) foundDate = dateMatch[0];
                         }
-
-                        // Skip Header/Footer noise to prevent false positives
-                        if (lineText.includes('Hardenberg') || 
-                            lineText.includes('Frankrijkweg') || 
-                            lineText.includes('Debiteurnummer') || 
-                            lineText.includes('Afleverdatum') ||
-                            lineText.includes('Totaal')) {
-                            continue;
-                        }
+                        if (lineText.includes('Hardenberg') || lineText.includes('Frankrijkweg') || lineText.includes('Debiteurnummer') || lineText.includes('Afleverdatum') || lineText.includes('Totaal')) continue;
 
                         let foundId = '';
                         let foundQty = 0;
-
-                        // Strategy 1: Position Based (Table structure)
-                        // If line has at least 2 distinct items, assume First is ID, Last is Qty
                         if (line.items.length >= 2) {
                             const firstStr = line.items[0].str.trim();
                             const lastStr = line.items[line.items.length - 1].str.trim();
-
                             if (/^\d{4,8}$/.test(firstStr) && /^\d+$/.test(lastStr)) {
                                 foundId = firstStr;
                                 foundQty = parseInt(lastStr, 10);
                             }
                         }
-
-                        // Strategy 2: Regex Fallback (Merged text)
                         if (!foundId) {
                             const match = lineText.match(/^(\d{4,8})\s+.*?\s+(\d+)$/);
-                            if (match) {
-                                foundId = match[1];
-                                foundQty = parseInt(match[2], 10);
-                            }
+                            if (match) { foundId = match[1]; foundQty = parseInt(match[2], 10); }
                         }
-
                         if (foundId && foundQty > 0) {
                             if (IGNORE_IDS.includes(foundId)) continue; 
-
                             const current = deliveryMap.get(foundId) || 0;
                             deliveryMap.set(foundId, current + foundQty);
                         }
                     }
                 }
-            } catch (e: any) {
-                console.error(`Error parsing PDF ${file.name}:`, e);
-            }
+            } catch (e: any) { console.error(`Error parsing PDF ${file.name}:`, e); }
         }
         return { deliveryMap, deliveryDate: foundDate };
     };
 
     const mergeAuditData = (orderMap: Map<string, LinenItem>, deliveryMap: Map<string, number>): LinenItem[] => {
         const result: LinenItem[] = [];
-
-        // 1. Process items from Order
         orderMap.forEach((item, id) => {
             const delivered = deliveryMap.get(id) || 0;
             deliveryMap.delete(id); 
-            
-            // Rename logic
             let finalName = item.name;
             if (id === '1022') finalName = 'Theedoek';
-
-            // Exclude "Badjas"
             if (finalName.toLowerCase().includes('badjas')) return;
-
-            result.push({
-                ...item,
-                name: finalName,
-                delivered
-            });
+            result.push({ ...item, name: finalName, delivered });
         });
-
-        // 2. Add unexpected items found in Delivery but not Order
         deliveryMap.forEach((qty, id) => {
             let name = 'Onbekend Artikel';
             if (id === '1022') name = 'Theedoek';
-
-            // Filter out if name resolved to badjas
             if (name.toLowerCase().includes('badjas')) return;
-
-            result.push({
-                id,
-                name,
-                ordered: 0,
-                delivered: qty
-            });
+            result.push({ id, name, ordered: 0, delivered: qty });
         });
-
         return result.sort((a, b) => a.id.localeCompare(b.id));
     };
 
@@ -316,6 +248,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         const newRecord: SavedAudit = {
             id: Math.random().toString(36).substr(2, 9),
             date: new Date().toLocaleDateString('nl-NL', {day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit'}),
+            timestamp: Date.now(),
             deliveryDate: detectedDate || 'Onbekend',
             items: auditData,
             totalOrdered: auditData.reduce((acc, i) => acc + i.ordered, 0),
@@ -348,57 +281,126 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     // --- UI EVENT HANDLERS ---
 
     const handleOrderDrop = (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDraggingOrder(false);
+        e.preventDefault(); setIsDraggingOrder(false);
         const file = e.dataTransfer.files[0];
-        if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
-            setOrderFile(file);
-        } else {
-            onShowToast("Alleen Excel bestanden (.xlsx, .xls) toegestaan.");
-        }
+        if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) setOrderFile(file);
+        else onShowToast("Alleen Excel bestanden (.xlsx, .xls) toegestaan.");
     };
 
     const handleDeliveryDrop = (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDraggingDelivery(false);
+        e.preventDefault(); setIsDraggingDelivery(false);
         const files = Array.from(e.dataTransfer.files).filter((f: File) => f.name.toLowerCase().endsWith('.pdf'));
-        if (files.length > 0) {
-            setDeliveryFiles(prev => [...prev, ...files]);
-        } else {
-            onShowToast("Sleep PDF bestanden hierheen.");
-        }
-    };
-
-    const handleOrderUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files?.[0]) {
-            setOrderFile(e.target.files[0]);
-        }
-    };
-
-    const handleDeliveryUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files) {
-            const newFiles = Array.from(e.target.files);
-            setDeliveryFiles(prev => [...prev, ...newFiles]);
-        }
-    };
-
-    const removeDeliveryFile = (index: number) => {
-        setDeliveryFiles(prev => prev.filter((_, i) => i !== index));
+        if (files.length > 0) setDeliveryFiles(prev => [...prev, ...files]);
+        else onShowToast("Sleep PDF bestanden hierheen.");
     };
 
     const resetAudit = () => {
-        setOrderFile(null);
-        setDeliveryFiles([]);
-        setAuditData([]);
-        setDetectedDate('');
+        setOrderFile(null); setDeliveryFiles([]); setAuditData([]); setDetectedDate('');
         if (excelInputRef.current) excelInputRef.current.value = '';
         if (pdfInputRef.current) pdfInputRef.current.value = '';
     };
 
-    // Totals for current view
-    const totalOrdered = auditData.reduce((acc, item) => acc + item.ordered, 0);
-    const totalDelivered = auditData.reduce((acc, item) => acc + item.delivered, 0);
-    const diffTotal = totalDelivered - totalOrdered;
+    // --- ANALYTICS LOGIC ---
+
+    const getFilteredAudits = useMemo(() => {
+        if (!dateRange.start || !dateRange.end) return savedAudits;
+        
+        const start = new Date(dateRange.start).getTime();
+        const end = new Date(dateRange.end).getTime() + (24 * 60 * 60 * 1000); // Include end date
+
+        return savedAudits.filter(audit => {
+            // Use timestamp if available, else parse date string (fallback)
+            let auditTime = audit.timestamp;
+            if (!auditTime) {
+                // Parse "12 december 2023 14:30" - tough, simplified check
+                // Try parse deliveryDate dd-mm-yyyy
+                if (audit.deliveryDate && audit.deliveryDate !== 'Onbekend') {
+                    const parts = audit.deliveryDate.split('-');
+                    if (parts.length === 3) auditTime = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).getTime();
+                }
+            }
+            if (!auditTime) return true; // Include if unknown date
+            return auditTime >= start && auditTime <= end;
+        });
+    }, [savedAudits, dateRange]);
+
+    const uniqueProducts = useMemo(() => {
+        const products = new Map<string, string>();
+        savedAudits.forEach(audit => {
+            audit.items.forEach(item => products.set(item.id, item.name));
+        });
+        return Array.from(products.entries()).map(([id, name]) => ({ id, name }));
+    }, [savedAudits]);
+
+    const analyticsData = useMemo(() => {
+        const filtered = getFilteredAudits;
+        
+        // 1. KPIs
+        const totalAudits = filtered.length;
+        let totalOrderedSum = 0;
+        let totalDeliveredSum = 0;
+        
+        filtered.forEach(a => {
+            totalOrderedSum += a.totalOrdered;
+            totalDeliveredSum += a.totalDelivered;
+        });
+        
+        const fulfilmentRate = totalOrderedSum > 0 ? Math.round((totalDeliveredSum / totalOrderedSum) * 100) : 0;
+        const netDifference = totalDeliveredSum - totalOrderedSum;
+
+        // 2. Trend Data
+        const trendData = filtered.map(a => ({
+            date: a.deliveryDate !== 'Onbekend' ? a.deliveryDate.slice(0, 5) : '?', // dd-mm
+            timestamp: a.timestamp || 0,
+            Besteld: a.totalOrdered,
+            Geleverd: a.totalDelivered
+        })).sort((a,b) => a.timestamp - b.timestamp);
+
+        // 3. Deviations Logic
+        const itemStats = new Map<string, { name: string, diffSum: number, absDiffSum: number }>();
+        
+        filtered.forEach(audit => {
+            audit.items.forEach(item => {
+                const diff = item.delivered - item.ordered;
+                const current = itemStats.get(item.id) || { name: item.name, diffSum: 0, absDiffSum: 0 };
+                itemStats.set(item.id, {
+                    name: item.name,
+                    diffSum: current.diffSum + diff,
+                    absDiffSum: current.absDiffSum + Math.abs(diff)
+                });
+            });
+        });
+
+        const topDeviations = Array.from(itemStats.values())
+            .sort((a, b) => b.absDiffSum - a.absDiffSum)
+            .slice(0, 5)
+            .map(stat => ({
+                name: stat.name.length > 15 ? stat.name.substring(0, 15) + '...' : stat.name,
+                Tekort: stat.diffSum < 0 ? Math.abs(stat.diffSum) : 0,
+                Overschot: stat.diffSum > 0 ? stat.diffSum : 0
+            }));
+
+        // 4. Product Specific Trend
+        let productTrend: any[] = [];
+        if (selectedProductId !== 'All') {
+            productTrend = filtered.map(a => {
+                const item = a.items.find(i => i.id === selectedProductId);
+                return {
+                    date: a.deliveryDate !== 'Onbekend' ? a.deliveryDate.slice(0, 5) : '?',
+                    timestamp: a.timestamp || 0,
+                    Besteld: item ? item.ordered : 0,
+                    Geleverd: item ? item.delivered : 0
+                };
+            }).sort((a,b) => a.timestamp - b.timestamp);
+        }
+
+        return { totalAudits, fulfilmentRate, netDifference, trendData, topDeviations, productTrend };
+    }, [getFilteredAudits, selectedProductId]);
+
+    // Totals for current view (New Audit)
+    const totalOrderedNow = auditData.reduce((acc, item) => acc + item.ordered, 0);
+    const totalDeliveredNow = auditData.reduce((acc, item) => acc + item.delivered, 0);
+    const diffTotalNow = totalDeliveredNow - totalOrderedNow;
 
     return (
         <>
@@ -418,23 +420,22 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 </div>
                 
                 {/* Tabs */}
-                <div className="flex p-1 bg-white border border-slate-200 rounded-xl shadow-sm">
-                    <button 
-                        onClick={() => setActiveTab('new')}
-                        className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center gap-2 ${
-                            activeTab === 'new' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'
-                        }`}
-                    >
-                        <RefreshCw size={16}/> Nieuwe Audit
-                    </button>
-                    <button 
-                        onClick={() => setActiveTab('history')}
-                        className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center gap-2 ${
-                            activeTab === 'history' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'
-                        }`}
-                    >
-                        <History size={16}/> Geschiedenis
-                    </button>
+                <div className="flex p-1 bg-white border border-slate-200 rounded-xl shadow-sm overflow-x-auto">
+                    {[
+                        { id: 'new', label: 'Nieuwe Audit', icon: RefreshCw },
+                        { id: 'analytics', label: 'Rapportage', icon: PieChart },
+                        { id: 'history', label: 'Geschiedenis', icon: History }
+                    ].map(tab => (
+                        <button 
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as any)}
+                            className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center gap-2 whitespace-nowrap ${
+                                activeTab === tab.id ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'
+                            }`}
+                        >
+                            <tab.icon size={16}/> {tab.label}
+                        </button>
+                    ))}
                 </div>
             </div>
 
@@ -480,7 +481,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                                         <p className="text-xs text-blue-600 font-bold mt-1 uppercase tracking-wide">Bestand Gereed</p>
                                     </div>
                                 )}
-                                <input type="file" ref={excelInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleOrderUpload} />
+                                <input type="file" ref={excelInputRef} className="hidden" accept=".xlsx, .xls" onChange={(e) => { if(e.target.files?.[0]) setOrderFile(e.target.files[0]); }} />
                             </div>
 
                             {/* Deliveries Input Card */}
@@ -493,7 +494,12 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                                     <div 
                                         onDragOver={(e) => { e.preventDefault(); setIsDraggingDelivery(true); }}
                                         onDragLeave={() => setIsDraggingDelivery(false)}
-                                        onDrop={handleDeliveryDrop}
+                                        onDrop={(e) => {
+                                            e.preventDefault(); setIsDraggingDelivery(false);
+                                            const files = Array.from(e.dataTransfer.files).filter((f: File) => f.name.toLowerCase().endsWith('.pdf'));
+                                            if (files.length > 0) setDeliveryFiles(prev => [...prev, ...files]);
+                                            else onShowToast("Sleep PDF bestanden hierheen.");
+                                        }}
                                         onClick={() => pdfInputRef.current?.click()}
                                         className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-8 cursor-pointer transition-all group min-h-[160px] ${
                                             isDraggingDelivery 
@@ -505,7 +511,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                                         <p className="font-bold text-slate-600 text-sm">Sleep PDF leverbonnen hierheen</p>
                                         <p className="text-xs text-slate-400">Je kunt meerdere bestanden tegelijk toevoegen</p>
                                     </div>
-                                    <input type="file" ref={pdfInputRef} className="hidden" accept=".pdf" multiple onChange={handleDeliveryUpload} />
+                                    <input type="file" ref={pdfInputRef} className="hidden" accept=".pdf" multiple onChange={(e) => { if(e.target.files) setDeliveryFiles(prev => [...prev, ...Array.from(e.target.files!)]); }} />
 
                                     {/* File List */}
                                     {deliveryFiles.length > 0 && (
@@ -516,7 +522,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                                                         <FileText size={16} className="text-red-500 flex-shrink-0"/>
                                                         <span className="truncate font-medium text-slate-700">{file.name}</span>
                                                     </div>
-                                                    <button onClick={() => removeDeliveryFile(idx)} className="text-slate-300 hover:text-red-500 transition-colors p-1 hover:bg-red-50 rounded">
+                                                    <button onClick={() => setDeliveryFiles(prev => prev.filter((_, i) => i !== idx))} className="text-slate-300 hover:text-red-500 transition-colors p-1 hover:bg-red-50 rounded">
                                                         <X size={16}/>
                                                     </button>
                                                 </div>
@@ -557,16 +563,10 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                                         )}
                                     </div>
                                     <div className="flex gap-3">
-                                        <button 
-                                            onClick={resetAudit}
-                                            className="px-4 py-2 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 text-sm shadow-sm"
-                                        >
+                                        <button onClick={resetAudit} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 text-sm shadow-sm">
                                             Nieuw
                                         </button>
-                                        <button 
-                                            onClick={handleSaveAudit}
-                                            className="px-4 py-2 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700 text-sm shadow-sm flex items-center gap-2"
-                                        >
+                                        <button onClick={handleSaveAudit} className="px-4 py-2 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700 text-sm shadow-sm flex items-center gap-2">
                                             <Save size={16}/> Opslaan
                                         </button>
                                     </div>
@@ -575,16 +575,16 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
                                         <span className="text-xs font-bold text-slate-400 uppercase">Totaal Besteld</span>
-                                        <span className="text-2xl font-bold text-slate-900">{totalOrdered}</span>
+                                        <span className="text-2xl font-bold text-slate-900">{totalOrderedNow}</span>
                                     </div>
                                     <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
                                         <span className="text-xs font-bold text-slate-400 uppercase">Totaal Geleverd</span>
-                                        <span className={`text-2xl font-bold ${totalDelivered < totalOrdered ? 'text-red-600' : 'text-green-600'}`}>{totalDelivered}</span>
+                                        <span className={`text-2xl font-bold ${totalDeliveredNow < totalOrderedNow ? 'text-red-600' : 'text-green-600'}`}>{totalDeliveredNow}</span>
                                     </div>
                                     <div className="flex flex-col items-center justify-center p-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
                                         <span className="text-xs font-bold text-slate-400 uppercase">Verschil</span>
-                                        <span className={`text-2xl font-bold ${diffTotal === 0 ? 'text-green-600' : 'text-amber-600'}`}>
-                                            {diffTotal > 0 ? '+' : ''}{diffTotal}
+                                        <span className={`text-2xl font-bold ${diffTotalNow === 0 ? 'text-green-600' : 'text-amber-600'}`}>
+                                            {diffTotalNow > 0 ? '+' : ''}{diffTotalNow}
                                         </span>
                                     </div>
                                 </div>
@@ -654,7 +654,154 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 </div>
             )}
 
-            {/* TAB 2: HISTORY */}
+            {/* TAB 2: ANALYTICS (NEW) */}
+            {activeTab === 'analytics' && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 space-y-8">
+                    
+                    {/* Filter Bar */}
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
+                        <div className="flex items-center gap-4 w-full md:w-auto">
+                            <div className="flex items-center gap-2 text-slate-500 text-sm font-bold bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
+                                <Calendar size={16}/>
+                                <input 
+                                    type="date" 
+                                    value={dateRange.start}
+                                    onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
+                                    className="bg-transparent border-none focus:ring-0 text-slate-700 w-28"
+                                />
+                                <span className="text-slate-300">-</span>
+                                <input 
+                                    type="date" 
+                                    value={dateRange.end}
+                                    onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
+                                    className="bg-transparent border-none focus:ring-0 text-slate-700 w-28"
+                                />
+                            </div>
+                            <div className="h-8 w-px bg-slate-200 hidden md:block"></div>
+                            <div className="relative w-full md:w-64">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                                <select 
+                                    value={selectedProductId}
+                                    onChange={(e) => setSelectedProductId(e.target.value)}
+                                    className="w-full pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium focus:ring-2 focus:ring-teal-500 outline-none"
+                                >
+                                    <option value="All">Alle Producten</option>
+                                    {uniqueProducts.map(p => (
+                                        <option key={p.id} value={p.id}>{p.name} ({p.id})</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* KPI Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Totaal Audits</h3>
+                            <div className="flex items-end justify-between">
+                                <span className="text-4xl font-bold text-slate-900">{analyticsData.totalAudits}</span>
+                                <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><Truck size={20}/></div>
+                            </div>
+                        </div>
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Fulfilment Rate</h3>
+                            <div className="flex items-end justify-between">
+                                <span className="text-4xl font-bold text-slate-900">{analyticsData.fulfilmentRate}%</span>
+                                <div className={`p-2 rounded-lg ${analyticsData.fulfilmentRate >= 95 ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-600'}`}>
+                                    {analyticsData.fulfilmentRate >= 95 ? <ArrowUpRight size={20}/> : <ArrowDownRight size={20}/>}
+                                </div>
+                            </div>
+                        </div>
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Netto Verschil</h3>
+                            <div className="flex items-end justify-between">
+                                <span className={`text-4xl font-bold ${analyticsData.netDifference > 0 ? 'text-green-600' : analyticsData.netDifference < 0 ? 'text-red-500' : 'text-slate-900'}`}>
+                                    {analyticsData.netDifference > 0 ? '+' : ''}{analyticsData.netDifference}
+                                </span>
+                                <div className="p-2 bg-slate-100 rounded-lg text-slate-500"><AlertOctagon size={20}/></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        {/* CHART 1: Delivery Trend */}
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                            <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
+                                <TrendingUp className="text-teal-600"/> Levering Trend
+                            </h3>
+                            <div className="h-72">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <AreaChart data={analyticsData.trendData}>
+                                        <defs>
+                                            <linearGradient id="colorOrd" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#94a3b8" stopOpacity={0.1}/>
+                                                <stop offset="95%" stopColor="#94a3b8" stopOpacity={0}/>
+                                            </linearGradient>
+                                            <linearGradient id="colorDel" x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor="#0d9488" stopOpacity={0.2}/>
+                                                <stop offset="95%" stopColor="#0d9488" stopOpacity={0}/>
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0"/>
+                                        <XAxis dataKey="date" tick={{fontSize: 10}} axisLine={false} tickLine={false}/>
+                                        <YAxis tick={{fontSize: 10}} axisLine={false} tickLine={false}/>
+                                        <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}/>
+                                        <Legend />
+                                        <Area type="monotone" dataKey="Besteld" stroke="#94a3b8" fillOpacity={1} fill="url(#colorOrd)" strokeDasharray="3 3"/>
+                                        <Area type="monotone" dataKey="Geleverd" stroke="#0d9488" fillOpacity={1} fill="url(#colorDel)" />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        {/* CHART 2: Top Deviations */}
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                            <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
+                                <AlertTriangle className="text-amber-500"/> Top 5 Afwijkingen
+                            </h3>
+                            <div className="h-72">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={analyticsData.topDeviations} layout="vertical">
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0"/>
+                                        <XAxis type="number" hide/>
+                                        <YAxis dataKey="name" type="category" width={120} tick={{fontSize: 10}} tickLine={false} axisLine={false}/>
+                                        <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}/>
+                                        <Legend />
+                                        <Bar dataKey="Tekort" fill="#ef4444" radius={[0, 4, 4, 0]} barSize={20} stackId="a" />
+                                        <Bar dataKey="Overschot" fill="#f59e0b" radius={[0, 4, 4, 0]} barSize={20} stackId="a" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* CHART 3: Product Deep Dive (Conditional) */}
+                    {selectedProductId !== 'All' && analyticsData.productTrend.length > 0 && (
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm animate-in fade-in slide-in-from-bottom-2">
+                            <div className="flex items-center justify-between mb-6">
+                                <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                                    <Search className="text-blue-600"/> Detail Analyse: {uniqueProducts.find(p=>p.id===selectedProductId)?.name}
+                                </h3>
+                            </div>
+                            <div className="h-72">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <LineChart data={analyticsData.productTrend}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0"/>
+                                        <XAxis dataKey="date" tick={{fontSize: 10}} axisLine={false} tickLine={false}/>
+                                        <YAxis tick={{fontSize: 10}} axisLine={false} tickLine={false}/>
+                                        <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'}}/>
+                                        <Legend />
+                                        <Line type="monotone" dataKey="Besteld" stroke="#94a3b8" strokeWidth={2} dot={{r:4}}/>
+                                        <Line type="monotone" dataKey="Geleverd" stroke="#0d9488" strokeWidth={3} dot={{r:4}}/>
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {/* TAB 3: HISTORY (Keep existing) */}
             {activeTab === 'history' && (
                 <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in">
                     <div className="overflow-x-auto">
@@ -773,8 +920,8 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 </div>
                 <div className="text-right">
                     <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Resultaat</span>
-                    <span className={`font-bold text-xl ${diffTotal === 0 ? 'text-green-700' : 'text-slate-900'}`}>
-                        {diffTotal === 0 ? 'CORRECT' : diffTotal > 0 ? `+${diffTotal} (Overschot)` : `${diffTotal} (Tekort)`}
+                    <span className={`font-bold text-xl ${diffTotalNow === 0 ? 'text-green-700' : 'text-slate-900'}`}>
+                        {diffTotalNow === 0 ? 'CORRECT' : diffTotalNow > 0 ? `+${diffTotalNow} (Overschot)` : `${diffTotalNow} (Tekort)`}
                     </span>
                 </div>
             </div>
@@ -816,9 +963,9 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     <tfoot className="border-t-2 border-slate-800 font-bold">
                         <tr>
                             <td className="py-3" colSpan={2}>TOTAAL</td>
-                            <td className="py-3 text-center">{totalOrdered}</td>
-                            <td className="py-3 text-center">{totalDelivered}</td>
-                            <td className="py-3 text-right">{diffTotal > 0 ? '+' : ''}{diffTotal}</td>
+                            <td className="py-3 text-center">{totalOrderedNow}</td>
+                            <td className="py-3 text-center">{totalDeliveredNow}</td>
+                            <td className="py-3 text-right">{diffTotalNow > 0 ? '+' : ''}{diffTotalNow}</td>
                         </tr>
                     </tfoot>
                 </table>
