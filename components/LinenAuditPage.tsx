@@ -172,6 +172,11 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         const deliveryMap = new Map<string, number>();
         let foundDate = '';
         const IGNORE_IDS = ['7772', '11172', '0524', '01469238', '2025', '6532', '6503', '31100']; 
+        
+        // Configuration for container multipliers
+        const CONTAINER_SIZES: Record<string, number> = {
+            '88091': 160, // Container badlaken beige
+        };
 
         if (files.length === 0) return { deliveryMap, deliveryDate: '' };
 
@@ -258,6 +263,12 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                                 foundQty = parseInt(match[2], 10); 
                             }
                         }
+
+                        // --- Apply Container Logic ---
+                        if (foundId && CONTAINER_SIZES[foundId]) {
+                            foundQty = foundQty * CONTAINER_SIZES[foundId];
+                        }
+                        // -----------------------------
 
                         if (foundId && foundQty > 0) {
                             if (IGNORE_IDS.includes(foundId)) continue; 
@@ -939,6 +950,8 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         -webkit-print-color-adjust: exact; 
                         print-color-adjust: exact; 
                     }
+                    
+                    * { background-color: transparent !important; }
 
                     .print-container { width: 100%; max-width: none; }
                     table { width: 100%; border-collapse: collapse; }
