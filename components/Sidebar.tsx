@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
@@ -19,41 +18,49 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOpen, onClose, systemVersion = 'v1.0' }) => {
-  // Define all items
-  const allItems = [
-    // Highlighted Item at the top
-    { icon: Ticket, label: 'Support & Tickets', id: ViewState.TICKETS, highlight: true },
-    
-    // Regular Items
-    { icon: User, label: 'Mijn Profiel', id: ViewState.HOME },
-    { icon: Newspaper, label: 'Nieuws', id: ViewState.NEWS },
-    { icon: BookOpen, label: 'Kennisbank', id: ViewState.KNOWLEDGE_BASE }, 
-    { icon: UserCheck, label: 'Onboarding', id: ViewState.ONBOARDING },
-    { icon: ClipboardList, label: 'Surveys', id: ViewState.SURVEYS },
-    { icon: ClipboardCheck, label: 'Performance', id: ViewState.EVALUATIONS, permission: 'MANAGE_EVALUATIONS' }, 
-    { icon: CheckSquare, label: 'Taken', id: 'tasks', badge: 2 },
-    { icon: Users, label: 'Collega\'s', id: ViewState.DIRECTORY },
-    { icon: Calendar, label: 'Kalender', id: 'calendar', permission: 'VIEW_CALENDAR' },
-    { icon: UserPlus, label: 'Recruitment', id: 'recruitment', permission: 'MANAGE_RECRUITMENT' },
-    { icon: Medal, label: 'Badges', id: ViewState.BADGES, permission: 'MANAGE_BADGES' },
-    { icon: Calendar, label: 'Aanwezigheid', id: 'attendance', permission: 'MANAGE_ATTENDANCE' },
-    { icon: FileText, label: 'Documenten', id: ViewState.DOCUMENTS }, 
-    { icon: Euro, label: 'Debiteuren', id: ViewState.DEBT_CONTROL, permission: 'MANAGE_DEBTORS' },
-    { icon: Truck, label: 'Linnen Audit', id: ViewState.LINEN_AUDIT, permission: 'MANAGE_OPERATIONS' },
-    { icon: FileBarChart, label: 'Cases', id: 'cases', permission: 'MANAGE_CASES' },
-    { icon: PieChart, label: 'Rapportages', id: ViewState.REPORTS, permission: 'VIEW_REPORTS' },
-    { icon: Activity, label: 'Systeemstatus', id: ViewState.SYSTEM_STATUS, permission: 'VIEW_SYSTEM_STATUS' },
-    { icon: Shield, label: 'Instellingen', id: ViewState.SETTINGS, permission: 'MANAGE_SETTINGS' },
-  ];
-
-  // Filter items based on permissions
-  const menuItems = allItems.filter(item => {
-    if (item.permission) {
-        // Explicit permission check
-        return hasPermission(user || null, item.permission as any);
+  
+  const sections = [
+    {
+      label: 'Algemeen',
+      items: [
+        { icon: Ticket, label: 'Support & Tickets', id: ViewState.TICKETS, highlight: true },
+        { icon: User, label: 'Mijn Profiel', id: ViewState.HOME },
+        { icon: Newspaper, label: 'Nieuws', id: ViewState.NEWS },
+        { icon: BookOpen, label: 'Kennisbank', id: ViewState.KNOWLEDGE_BASE },
+        { icon: CheckSquare, label: 'Taken', id: 'tasks', badge: 2 },
+        { icon: Users, label: 'Collega\'s', id: ViewState.DIRECTORY },
+        { icon: Calendar, label: 'Kalender', id: 'calendar', permission: 'VIEW_CALENDAR' },
+      ]
+    },
+    {
+      label: 'HR & Team',
+      items: [
+        { icon: UserCheck, label: 'Onboarding', id: ViewState.ONBOARDING },
+        { icon: ClipboardList, label: 'Surveys', id: ViewState.SURVEYS },
+        { icon: ClipboardCheck, label: 'Performance', id: ViewState.EVALUATIONS, permission: 'MANAGE_EVALUATIONS' },
+        { icon: UserPlus, label: 'Recruitment', id: 'recruitment', permission: 'MANAGE_RECRUITMENT' },
+        { icon: Medal, label: 'Badges', id: ViewState.BADGES, permission: 'MANAGE_BADGES' },
+        { icon: Calendar, label: 'Aanwezigheid', id: 'attendance', permission: 'MANAGE_ATTENDANCE' },
+        { icon: FileText, label: 'Documenten', id: ViewState.DOCUMENTS }, 
+      ]
+    },
+    {
+      label: 'Management Tools',
+      items: [
+        { icon: Euro, label: 'Debiteuren', id: ViewState.DEBT_CONTROL, permission: 'MANAGE_DEBTORS' },
+        { icon: Truck, label: 'Linnen Audit', id: ViewState.LINEN_AUDIT, permission: 'MANAGE_OPERATIONS' },
+        { icon: FileBarChart, label: 'Cases', id: 'cases', permission: 'MANAGE_CASES' },
+        { icon: PieChart, label: 'Rapportages', id: ViewState.REPORTS, permission: 'VIEW_REPORTS' },
+      ]
+    },
+    {
+      label: 'Systeem',
+      items: [
+        { icon: Activity, label: 'Systeemstatus', id: ViewState.SYSTEM_STATUS, permission: 'VIEW_SYSTEM_STATUS' },
+        { icon: Shield, label: 'Instellingen', id: ViewState.SETTINGS, permission: 'MANAGE_SETTINGS' },
+      ]
     }
-    return true;
-  });
+  ];
 
   return (
     <>
@@ -95,54 +102,74 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
               </div>
           </div>
 
-          <ul className="space-y-1.5">
-            {menuItems.map((item) => {
-              const isActive = currentView === item.id;
-              const isClickable = Object.values(ViewState).includes(item.id as ViewState);
-              
-              // Highlight style for Ticket System
-              const isHighlight = item.highlight;
+          <div className="space-y-6">
+            {sections.map((section, sectionIdx) => {
+              // Filter items based on permissions
+              const visibleItems = section.items.filter(item => {
+                if (item.permission) {
+                    return hasPermission(user || null, item.permission as any);
+                }
+                return true;
+              });
+
+              if (visibleItems.length === 0) return null;
 
               return (
-                <li key={item.label}>
-                  <button
-                    onClick={() => {
-                      if (isClickable) {
-                        onChangeView(item.id as ViewState);
-                        onClose(); // Close menu on selection for mobile
-                      }
-                    }}
-                    className={`w-full flex items-center px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 group ${
-                      isActive
-                        ? 'text-teal-900 bg-teal-50 border border-teal-100 shadow-sm'
-                        : isHighlight 
-                            ? 'bg-purple-50/50 text-purple-900 border border-purple-100 hover:bg-purple-100'
-                            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
-                    }`}
-                  >
-                    <item.icon 
-                        size={20} 
-                        className={`mr-3 transition-colors ${
-                            isActive ? 'text-teal-600' : 
-                            isHighlight ? 'text-purple-600' :
-                            'text-slate-400 group-hover:text-slate-600'
-                        }`} 
-                        strokeWidth={isActive ? 2.5 : 2} 
-                    />
-                    <span className={isActive || isHighlight ? 'font-bold' : ''}>{item.label}</span>
-                    {item.badge && (
-                      <span className={`ml-auto py-0.5 px-2 rounded-md text-[10px] font-bold ${isActive ? 'bg-teal-200/50 text-teal-800' : 'bg-slate-100 text-slate-500'}`}>
-                        {item.badge}
-                      </span>
-                    )}
-                  </button>
-                </li>
+                <div key={section.label}>
+                  {sectionIdx > 0 && (
+                    <h3 className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                      {section.label}
+                    </h3>
+                  )}
+                  <ul className="space-y-1.5">
+                    {visibleItems.map((item) => {
+                      const isActive = currentView === item.id;
+                      const isClickable = Object.values(ViewState).includes(item.id as ViewState);
+                      const isHighlight = item.highlight;
+
+                      return (
+                        <li key={item.label}>
+                          <button
+                            onClick={() => {
+                              if (isClickable) {
+                                onChangeView(item.id as ViewState);
+                                onClose();
+                              }
+                            }}
+                            className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 group ${
+                              isActive
+                                ? 'text-teal-900 bg-teal-50 border border-teal-100 shadow-sm'
+                                : isHighlight 
+                                    ? 'bg-purple-50/50 text-purple-900 border border-purple-100 hover:bg-purple-100'
+                                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
+                            }`}
+                          >
+                            <item.icon 
+                                size={18} 
+                                className={`mr-3 transition-colors ${
+                                    isActive ? 'text-teal-600' : 
+                                    isHighlight ? 'text-purple-600' :
+                                    'text-slate-400 group-hover:text-slate-600'
+                                }`} 
+                                strokeWidth={isActive ? 2.5 : 2} 
+                            />
+                            <span className={isActive || isHighlight ? 'font-bold' : ''}>{item.label}</span>
+                            {item.badge && (
+                              <span className={`ml-auto py-0.5 px-2 rounded-md text-[10px] font-bold ${isActive ? 'bg-teal-200/50 text-teal-800' : 'bg-slate-100 text-slate-500'}`}>
+                                {item.badge}
+                              </span>
+                            )}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               );
             })}
-          </ul>
+          </div>
           
           <div className="mt-8 pt-6 border-t border-slate-100 px-2 space-y-1">
-             {/* Regular Settings link if needed, or merge with Permission settings */}
              <button className="w-full flex items-center px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors">
                <Settings size={20} className="mr-3 text-slate-400" />
                Voorkeuren
