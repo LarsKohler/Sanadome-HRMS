@@ -18,9 +18,13 @@ import {
 // Handle potential differences in import structure between Dev and Prod (ESM/CJS)
 const pdfjs = (pdfjsLib as any).default || pdfjsLib;
 
-// Ensure worker is set globally
+// DYNAMIC WORKER LOADING
+// Instead of hardcoding the version, we use the version reported by the library itself.
+// This prevents "API version does not match Worker version" errors if the package updates.
 if (typeof window !== 'undefined' && !pdfjs.GlobalWorkerOptions.workerSrc) {
-    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs`;
+    const version = pdfjs.version;
+    console.log(`Setting PDF Worker to version: ${version}`);
+    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
 }
 
 interface LinenAuditPageProps {
@@ -194,14 +198,16 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
             addDebugLog(`Processing file: ${file.name}`);
             try {
                 const arrayBuffer = await file.arrayBuffer();
+                const version = pdfjs.version;
                 
-                addDebugLog(`PDF Lib Version: ${pdfjs.version}`);
+                addDebugLog(`PDF Lib Version: ${version}`);
                 
+                // Use dynamic versioning for CMaps as well to ensure matching resources
                 const loadingTask = pdfjs.getDocument({ 
                     data: arrayBuffer,
-                    cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/cmaps/',
+                    cMapUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/cmaps/`,
                     cMapPacked: true,
-                    standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/standard_fonts/'
+                    standardFontDataUrl: `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/standard_fonts/`
                 });
                 
                 const pdf = await loadingTask.promise;
