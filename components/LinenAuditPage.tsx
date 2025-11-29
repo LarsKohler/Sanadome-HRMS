@@ -927,18 +927,25 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
             <style>{`
                 @media print {
                     @page { margin: 20mm; size: A4; }
-                    body, #root, .App { 
-                        -webkit-print-color-adjust: exact; 
-                        print-color-adjust: exact; 
-                        font-family: 'Inter', sans-serif;
+                    /* Force Global Hide of Navigation Elements */
+                    header, aside, nav, .sidebar, .top-nav, .no-print { 
+                        display: none !important; 
+                    }
+                    
+                    /* Global Background Reset */
+                    html, body, #root, .App, div { 
                         background-color: white !important;
                         background: white !important;
+                        -webkit-print-color-adjust: exact; 
+                        print-color-adjust: exact; 
                     }
+
                     .print-container { width: 100%; max-width: none; }
                     table { width: 100%; border-collapse: collapse; }
                     thead { display: table-header-group; }
                     tfoot { display: table-footer-group; }
-                    tr { page-break-inside: avoid; break-inside: avoid; }
+                    tr { page-break-inside: avoid; break-inside: avoid; background-color: white !important; }
+                    td, th { background-color: white !important; }
                     .no-break { page-break-inside: avoid; break-inside: avoid; }
                 }
             `}</style>
@@ -947,7 +954,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
             <div className="border-b-2 border-black pb-4 mb-6 flex justify-between items-end">
                 <div>
                     <h1 className="text-3xl font-bold uppercase tracking-tight mb-1">Linnen Audit Rapport</h1>
-                    <p className="text-sm font-bold text-gray-500 uppercase">Moderna Verschillenanalyse</p>
+                    <p className="text-sm font-bold text-black uppercase">Moderna Verschillenanalyse</p>
                 </div>
                 <div className="text-right">
                     <h2 className="font-bold text-lg">Sanadome Nijmegen</h2>
@@ -959,17 +966,17 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
             {/* Metadata */}
             <div className="mb-8 grid grid-cols-3 gap-4 text-sm border-b border-gray-300 pb-6">
                 <div>
-                    <span className="block font-bold text-xs uppercase text-gray-500 mb-1">Geanalyseerd door</span>
+                    <span className="block font-bold text-xs uppercase text-black mb-1">Geanalyseerd door</span>
                     <span className="block font-bold">{currentUser.name}</span>
                     <span className="block text-xs">{new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
                 <div>
-                    <span className="block font-bold text-xs uppercase text-gray-500 mb-1">Leverdatum (PDF)</span>
+                    <span className="block font-bold text-xs uppercase text-black mb-1">Leverdatum (PDF)</span>
                     <span className="block font-bold">{detectedDate || 'Onbekend'}</span>
                 </div>
                 <div>
-                    <span className="block font-bold text-xs uppercase text-gray-500 mb-1">Resultaat</span>
-                    <span className={`block font-bold ${diffTotalNow === 0 ? 'text-green-800' : 'text-black'}`}>
+                    <span className="block font-bold text-xs uppercase text-black mb-1">Resultaat</span>
+                    <span className={`block font-bold ${diffTotalNow === 0 ? 'text-black' : 'text-black'}`}>
                         {diffTotalNow === 0 ? 'CORRECT' : diffTotalNow > 0 ? `+${diffTotalNow} Overschot` : `${diffTotalNow} Tekort`}
                     </span>
                 </div>
@@ -1034,11 +1041,11 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 <div className="grid grid-cols-2 gap-16 pt-8 border-t-2 border-black">
                     <div>
                         <div className="h-12 border-b border-black mb-1"></div>
-                        <span className="text-[10px] font-bold uppercase text-gray-500 tracking-wider">Handtekening Manager</span>
+                        <span className="text-[10px] font-bold uppercase text-black tracking-wider">Handtekening Manager</span>
                     </div>
                     <div>
                         <div className="h-12 border-b border-black mb-1"></div>
-                        <span className="text-[10px] font-bold uppercase text-gray-500 tracking-wider">Datum & Plaats</span>
+                        <span className="text-[10px] font-bold uppercase text-black tracking-wider">Datum & Plaats</span>
                     </div>
                 </div>
             </div>
