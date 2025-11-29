@@ -922,11 +922,11 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         </div>
 
         {/* PRINT TEMPLATE - NEW LAYOUT */}
-        <div className="hidden print:block print-container font-serif text-black p-0 m-0 w-full h-auto">
+        <div className="hidden print:block print-container font-sans text-black p-0 m-0 w-full h-auto">
             <style>{`
                 @media print {
                     @page { margin: 20mm; size: A4; }
-                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-family: 'Inter', sans-serif; }
                     .print-container { width: 100%; max-width: none; }
                     table { width: 100%; border-collapse: collapse; }
                     thead { display: table-header-group; }
@@ -1007,7 +1007,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
             {/* Summary & Signatures (Prevent break inside) */}
             <div className="no-break mt-8">
                 <div className="flex justify-end mb-12">
-                    <div className="w-1/2 border border-black p-4 bg-gray-50">
+                    <div className="w-1/2 border border-black p-4">
                         <h3 className="font-bold text-sm uppercase border-b border-black pb-2 mb-2">Samenvatting</h3>
                         <div className="flex justify-between text-xs mb-1">
                             <span>Totaal Besteld:</span>
