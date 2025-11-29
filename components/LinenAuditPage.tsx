@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Truck, Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle, 
     RefreshCw, Download, FileSpreadsheet, X, MousePointerClick, Calendar, Save, History, Trash2, Eye, ArrowRight, Printer, AlertOctagon,
-    BarChart3, TrendingUp, Filter, Search, PieChart, ArrowUpRight, ArrowDownRight, LayoutDashboard
+    BarChart3, TrendingUp, Filter, Search, PieChart, ArrowUpRight, ArrowDownRight, LayoutDashboard, Settings, Plus
 } from 'lucide-react';
 import { Employee } from '../types';
 import { Modal } from './Modal';
@@ -49,6 +49,8 @@ interface SavedAudit {
     totalDelivered: number;
 }
 
+const DEFAULT_IGNORED_IDS = ['7772', '11172', '0524', '01469238', '2025', '6532', '6503', '31100'];
+
 const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToast }) => {
     const [activeTab, setActiveTab] = useState<'new' | 'history' | 'analytics'>('new');
     
@@ -73,10 +75,15 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     const [dateRange, setDateRange] = useState({ start: '', end: '' });
     const [selectedProductId, setSelectedProductId] = useState<string>('All');
 
+    // Settings State
+    const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+    const [excludedIds, setExcludedIds] = useState<string[]>(DEFAULT_IGNORED_IDS);
+    const [newExcludedId, setNewExcludedId] = useState('');
+
     const excelInputRef = useRef<HTMLInputElement>(null);
     const pdfInputRef = useRef<HTMLInputElement>(null);
 
-    // Load history on mount & Init Date Range
+    // Load history & Settings on mount
     useEffect(() => {
         const saved = localStorage.getItem('hrms_linen_audits');
         if (saved) {
@@ -84,6 +91,15 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 setSavedAudits(JSON.parse(saved));
             } catch (e) {
                 console.error("Failed to load history", e);
+            }
+        }
+
+        const savedExcluded = localStorage.getItem('hrms_linen_excluded_ids');
+        if (savedExcluded) {
+            try {
+                setExcludedIds(JSON.parse(savedExcluded));
+            } catch (e) {
+                console.error("Failed to load excluded IDs", e);
             }
         }
 
@@ -96,6 +112,25 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
             end: end.toISOString().split('T')[0]
         });
     }, []);
+
+    // --- SETTINGS LOGIC ---
+    const handleAddExcludedId = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (newExcludedId && !excludedIds.includes(newExcludedId)) {
+            const updated = [...excludedIds, newExcludedId];
+            setExcludedIds(updated);
+            localStorage.setItem('hrms_linen_excluded_ids', JSON.stringify(updated));
+            setNewExcludedId('');
+            onShowToast(`Product ID ${newExcludedId} toegevoegd aan negeerlijst.`);
+        }
+    };
+
+    const handleRemoveExcludedId = (id: string) => {
+        const updated = excludedIds.filter(item => item !== id);
+        setExcludedIds(updated);
+        localStorage.setItem('hrms_linen_excluded_ids', JSON.stringify(updated));
+        onShowToast(`Product ID ${id} verwijderd van negeerlijst.`);
+    };
 
     // --- PARSING LOGIC ---
 
@@ -141,6 +176,8 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
 
                     for (let i = 0; i < jsonData.length; i++) {
                         const row = jsonData[i] as any[];
+                        const excelRowNumber = i + 1; // 1-based row index for specific calculations
+
                         if (!row || row.length < 2) continue;
                         const id = String(row[0] || '').trim();
                         const name = String(row[1] || '').trim();
@@ -150,7 +187,20 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         if (typeof qtyVal === 'number') ordered = qtyVal;
                         else if (typeof qtyVal === 'string') ordered = parseFloat(qtyVal.replace(',', '.'));
 
+                        // --- CONTAINER LOGIC (Specifieke Rijen) ---
+                        // Rij 34: Container badlaken 70x140 cm wit = 200 stuks
+                        if (excelRowNumber === 34) ordered *= 200;
+                        // Rij 35: Container baddoek 50x100cm wit = 384 stuks
+                        else if (excelRowNumber === 35) ordered *= 384;
+                        // Rij 36: Container baddoek 50x100cm beige = 384 stuks
+                        else if (excelRowNumber === 36) ordered *= 384;
+                        // Rij 37: Container badlaken beige = 160 stuks
+                        else if (excelRowNumber === 37) ordered *= 160;
+
                         if (id && /^\d+$/.test(id) && name) {
+                            // Check exclusion list
+                            if (excludedIds.includes(id)) continue;
+
                             const safeOrdered = isNaN(ordered) ? 0 : ordered;
                             if (itemsMap.has(id)) {
                                 itemsMap.get(id)!.ordered += safeOrdered;
@@ -171,8 +221,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     const parsePDFDeliveries = async (files: File[]): Promise<{ deliveryMap: Map<string, number>, deliveryDate: string }> => {
         const deliveryMap = new Map<string, number>();
         let foundDate = '';
-        const IGNORE_IDS = ['7772', '11172', '0524', '01469238', '2025', '6532', '6503', '31100']; 
-
+        
         if (files.length === 0) return { deliveryMap, deliveryDate: '' };
 
         for (const file of files) {
@@ -260,7 +309,9 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         }
 
                         if (foundId && foundQty > 0) {
-                            if (IGNORE_IDS.includes(foundId)) continue; 
+                            // Use excludedIds state instead of constant
+                            if (excludedIds.includes(foundId)) continue; 
+                            
                             const current = deliveryMap.get(foundId) || 0;
                             deliveryMap.set(foundId, current + foundQty);
                         }
@@ -276,6 +327,8 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     const mergeAuditData = (orderMap: Map<string, LinenItem>, deliveryMap: Map<string, number>): LinenItem[] => {
         const result: LinenItem[] = [];
         orderMap.forEach((item, id) => {
+            if (excludedIds.includes(id)) return; // Double check exclusion
+
             const delivered = deliveryMap.get(id) || 0;
             deliveryMap.delete(id); 
             let finalName = item.name;
@@ -284,6 +337,8 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
             result.push({ ...item, name: finalName, delivered });
         });
         deliveryMap.forEach((qty, id) => {
+            if (excludedIds.includes(id)) return; // Double check exclusion
+
             let name = 'Onbekend Artikel';
             if (id === '1022') name = 'Theedoek';
             if (name.toLowerCase().includes('badjas')) return;
@@ -468,23 +523,34 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     <p className="text-slate-500 mt-2 text-lg">Controleer leveringen en beheer afwijkingen.</p>
                 </div>
                 
-                {/* Tabs */}
-                <div className="flex p-1 bg-white border border-slate-200 rounded-xl shadow-sm overflow-x-auto">
-                    {[
-                        { id: 'new', label: 'Nieuwe Audit', icon: RefreshCw },
-                        { id: 'analytics', label: 'Rapportage', icon: PieChart },
-                        { id: 'history', label: 'Geschiedenis', icon: History }
-                    ].map(tab => (
-                        <button 
-                            key={tab.id}
-                            onClick={() => setActiveTab(tab.id as any)}
-                            className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center gap-2 whitespace-nowrap ${
-                                activeTab === tab.id ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'
-                            }`}
-                        >
-                            <tab.icon size={16}/> {tab.label}
-                        </button>
-                    ))}
+                <div className="flex gap-4">
+                    {/* Settings Toggle */}
+                    <button 
+                        onClick={() => setIsSettingsOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 transition-all shadow-sm"
+                    >
+                        <Settings size={18} />
+                        Configuratie
+                    </button>
+
+                    {/* Tabs */}
+                    <div className="flex p-1 bg-white border border-slate-200 rounded-xl shadow-sm overflow-x-auto">
+                        {[
+                            { id: 'new', label: 'Nieuwe Audit', icon: RefreshCw },
+                            { id: 'analytics', label: 'Rapportage', icon: PieChart },
+                            { id: 'history', label: 'Geschiedenis', icon: History }
+                        ].map(tab => (
+                            <button 
+                                key={tab.id}
+                                onClick={() => setActiveTab(tab.id as any)}
+                                className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all flex items-center gap-2 whitespace-nowrap ${
+                                    activeTab === tab.id ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'
+                                }`}
+                            >
+                                <tab.icon size={16}/> {tab.label}
+                            </button>
+                        ))}
+                    </div>
                 </div>
             </div>
 
@@ -916,6 +982,59 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         >
                             Verwijderen
                         </button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* Modal for Configuration (Excluded IDs) */}
+            <Modal
+                isOpen={isSettingsOpen}
+                onClose={() => setIsSettingsOpen(false)}
+                title="Configuratie - Uitgesloten Producten"
+            >
+                <div className="space-y-6">
+                    <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl text-sm text-slate-600">
+                        <p>
+                            De onderstaande Product ID's worden <strong>genegeerd</strong> tijdens het inlezen van bestellingen en leverbonnen. 
+                            Gebruik dit voor artikelen die niet meetellen voor de audit.
+                        </p>
+                    </div>
+
+                    <form onSubmit={handleAddExcludedId} className="flex gap-2">
+                        <input 
+                            type="text" 
+                            className="flex-1 p-2 border border-slate-300 rounded-lg text-sm"
+                            placeholder="Nieuw Product ID (bv. 9999)"
+                            value={newExcludedId}
+                            onChange={(e) => setNewExcludedId(e.target.value)}
+                        />
+                        <button 
+                            type="submit" 
+                            disabled={!newExcludedId}
+                            className="bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-bold disabled:opacity-50 hover:bg-slate-800 transition-colors flex items-center gap-2"
+                        >
+                            <Plus size={16}/> Toevoegen
+                        </button>
+                    </form>
+
+                    <div className="max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                        {excludedIds.length === 0 ? (
+                            <p className="text-slate-400 text-center py-4 text-sm italic">Geen uitgesloten producten.</p>
+                        ) : (
+                            <div className="space-y-2">
+                                {excludedIds.map(id => (
+                                    <div key={id} className="flex justify-between items-center bg-white border border-slate-200 p-3 rounded-lg shadow-sm">
+                                        <span className="font-mono text-slate-700 font-bold">{id}</span>
+                                        <button 
+                                            onClick={() => handleRemoveExcludedId(id)}
+                                            className="text-slate-400 hover:text-red-500 p-1 hover:bg-red-50 rounded transition-colors"
+                                        >
+                                            <X size={16}/>
+                                        </button>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
             </Modal>
