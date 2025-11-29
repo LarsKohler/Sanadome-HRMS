@@ -78,6 +78,27 @@ export interface Vacancy {
   status: 'Open' | 'Closed' | 'Draft';
   applicantsCount: number;
   postedDate: string;
+  description?: string;
+  requirements?: string[];
+  salaryRange?: string;
+}
+
+export interface RecruitmentTimelineEvent {
+    id: string;
+    type: 'StatusChange' | 'Note' | 'Email' | 'Interview' | 'Scorecard';
+    author: string;
+    date: string;
+    content: string;
+    meta?: any; // e.g., the new status, or score
+}
+
+export interface CandidateScorecard {
+    id: string;
+    interviewer: string;
+    date: string;
+    skills: { name: string; score: number }[]; // 1-5
+    notes: string;
+    recommendation: 'Hire' | 'No Hire' | 'Maybe';
 }
 
 export interface Applicant {
@@ -89,9 +110,17 @@ export interface Applicant {
   phone: string;
   stage: ApplicantStage;
   appliedDate: string;
-  rating?: number; // 1-5 stars
+  rating?: number; // 1-5 stars (AI or Manual average)
   notes?: string;
-  avatar?: string; // Placeholder or uploaded
+  avatar?: string;
+  
+  // Advanced ATS features
+  skills?: string[]; // Extracted from CV
+  matchScore?: number; // AI calculated 0-100
+  resumeUrl?: string; 
+  coverLetter?: string;
+  timeline: RecruitmentTimelineEvent[];
+  scorecards: CandidateScorecard[];
 }
 
 // --- KNOWLEDGE BASE TYPES ---

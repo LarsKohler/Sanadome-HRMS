@@ -1,6 +1,8 @@
 
 
 
+
+
 import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog, Ticket, BadgeDefinition, KnowledgeArticle, PersonalDevelopmentGoal, Vacancy, Applicant } from '../types';
 
 // --- RECRUITMENT MOCK DATA ---
@@ -12,7 +14,10 @@ export const MOCK_VACANCIES: Vacancy[] = [
         type: 'Full-Time',
         status: 'Open',
         applicantsCount: 3,
-        postedDate: '01 Nov 2023'
+        postedDate: '01 Nov 2023',
+        description: 'Wij zoeken een gastvrij talent voor onze receptie.',
+        salaryRange: '€2.300 - €2.600',
+        requirements: ['Ervaring met IDu PMS', 'Vloeiend Engels', 'Gastvrij']
     },
     {
         id: 'vac-2',
@@ -21,7 +26,9 @@ export const MOCK_VACANCIES: Vacancy[] = [
         type: 'Full-Time',
         status: 'Open',
         applicantsCount: 1,
-        postedDate: '15 Okt 2023'
+        postedDate: '15 Okt 2023',
+        salaryRange: '€2.800 - €3.200',
+        requirements: ['HACCP Kennis', 'Creatief', 'Teamplayer']
     },
     {
         id: 'vac-3',
@@ -46,7 +53,18 @@ export const MOCK_APPLICANTS: Applicant[] = [
         appliedDate: '10 Nov 2023',
         rating: 4,
         notes: 'Ervaring bij Van der Valk. Spreekt goed Duits.',
-        avatar: 'https://ui-avatars.com/api/?name=Sophie+de+Vries&background=random'
+        avatar: 'https://ui-avatars.com/api/?name=Sophie+de+Vries&background=random',
+        matchScore: 85,
+        skills: ['Engels', 'Duits', 'IDu PMS', 'Horeca'],
+        timeline: [
+            { id: 't1', type: 'StatusChange', author: 'System', date: '10 Nov 2023 09:00', content: 'Sollicitatie ontvangen' },
+            { id: 't2', type: 'Note', author: 'Manager', date: '11 Nov 2023 10:30', content: 'Goede ervaring, uitnodigen voor gesprek.' },
+            { id: 't3', type: 'Email', author: 'Recruiter', date: '11 Nov 2023 11:00', content: 'Uitnodiging verstuurd voor 15 nov.' },
+            { id: 't4', type: 'Interview', author: 'Manager', date: '15 Nov 2023 14:00', content: 'Gesprek gevoerd. Positieve indruk.' }
+        ],
+        scorecards: [
+            { id: 'sc1', interviewer: 'Manager', date: '15 Nov 2023', skills: [{name: 'Communicatie', score: 5}, {name: 'Ervaring', score: 4}], notes: 'Sterke kandidaat.', recommendation: 'Hire' }
+        ]
     },
     {
         id: 'app-2',
@@ -58,7 +76,13 @@ export const MOCK_APPLICANTS: Applicant[] = [
         stage: 'New',
         appliedDate: '14 Nov 2023',
         rating: 0,
-        avatar: 'https://ui-avatars.com/api/?name=Tom+Jansen&background=random'
+        avatar: 'https://ui-avatars.com/api/?name=Tom+Jansen&background=random',
+        matchScore: 45,
+        skills: ['Engels', 'Retail'],
+        timeline: [
+            { id: 't1', type: 'StatusChange', author: 'System', date: '14 Nov 2023 15:00', content: 'Sollicitatie ontvangen' }
+        ],
+        scorecards: []
     },
     {
         id: 'app-3',
@@ -71,7 +95,18 @@ export const MOCK_APPLICANTS: Applicant[] = [
         appliedDate: '05 Nov 2023',
         rating: 5,
         notes: 'Top kandidaat! Aanbod verstuurd op 15-11.',
-        avatar: 'https://ui-avatars.com/api/?name=Lisa+Bakker&background=random'
+        avatar: 'https://ui-avatars.com/api/?name=Lisa+Bakker&background=random',
+        matchScore: 95,
+        skills: ['Engels', 'Duits', 'Frans', 'Receptie', 'Leiderschap'],
+        timeline: [
+            { id: 't1', type: 'StatusChange', author: 'System', date: '05 Nov 2023 09:00', content: 'Sollicitatie ontvangen' },
+            { id: 't2', type: 'Interview', author: 'Manager', date: '08 Nov 2023 10:00', content: 'Eerste gesprek: Uitstekend.' },
+            { id: 't3', type: 'Interview', author: 'HR', date: '12 Nov 2023 14:00', content: 'Tweede gesprek: Culture fit is perfect.' },
+            { id: 't4', type: 'StatusChange', author: 'Manager', date: '15 Nov 2023 16:00', content: 'Status gewijzigd naar Offer' }
+        ],
+        scorecards: [
+            { id: 'sc1', interviewer: 'Manager', date: '08 Nov 2023', skills: [{name: 'Vakkennis', score: 5}], notes: 'Weet alles al.', recommendation: 'Hire' }
+        ]
     },
     {
         id: 'app-4',
@@ -83,7 +118,13 @@ export const MOCK_APPLICANTS: Applicant[] = [
         stage: 'Screening',
         appliedDate: '12 Nov 2023',
         rating: 3,
-        avatar: 'https://ui-avatars.com/api/?name=Mehmet+Yilmaz&background=random'
+        avatar: 'https://ui-avatars.com/api/?name=Mehmet+Yilmaz&background=random',
+        matchScore: 60,
+        skills: ['Koken', 'HACCP'],
+        timeline: [
+            { id: 't1', type: 'StatusChange', author: 'System', date: '12 Nov 2023 11:00', content: 'Sollicitatie ontvangen' }
+        ],
+        scorecards: []
     }
 ];
 
