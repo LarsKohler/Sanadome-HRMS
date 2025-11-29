@@ -133,9 +133,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
                     const itemsMap = new Map<string, LinenItem>();
 
-                    // Specifieke container artikelen die vermenigvuldigd moeten worden met inhoud
-                    const CONTAINER_IDS = ['8809', '8821', '88211', '88091'];
-
                     for (let i = 0; i < jsonData.length; i++) {
                         const row = jsonData[i] as any[];
                         if (!row || row.length < 2) continue;
@@ -152,8 +149,9 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         // Default multiplier is 1 (normaal product)
                         let contentMultiplier = 1;
 
-                        // Alleen voor specifieke container IDs kijken we naar kolom C/D voor inhoud
-                        if (CONTAINER_IDS.includes(id)) {
+                        // Check op 'container' in de naam (gebruikersverzoek)
+                        // Dit voorkomt conflicten met ID's die hergebruikt worden
+                        if (name.toLowerCase().includes('container')) {
                             const colC = row[2]; // Kolom C
                             const colD = row[3]; // Kolom D
 
@@ -167,8 +165,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         if (id && /^\d+$/.test(id) && name) {
                             const safeOrdered = isNaN(orderedQty) ? 0 : orderedQty;
                             
-                            // Bereken totaal aantal stuks (Aantal containers * Inhoud)
-                            // Voor gewone items is multiplier 1, dus blijft het aantal gelijk aan kolom J
+                            // Bereken totaal aantal stuks (Aantal * Inhoud)
                             const totalUnitsOrdered = safeOrdered * contentMultiplier;
 
                             if (itemsMap.has(id)) {
