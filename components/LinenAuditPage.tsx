@@ -109,13 +109,8 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         setDetectedDate('');
 
         try {
-            console.log("Starting processing...");
             const orderItems = await parseExcelOrder(orderFile);
-            console.log(`Excel parsed. Found ${orderItems.size} items.`);
-            
-            console.log(`Parsing ${deliveryFiles.length} PDF files...`);
             const { deliveryMap, deliveryDate } = await parsePDFDeliveries(deliveryFiles);
-            console.log(`PDF Parsing complete. Found delivery date: ${deliveryDate}`);
             
             setDetectedDate(deliveryDate);
             const mergedData = mergeAuditData(orderItems, deliveryMap);
@@ -950,88 +945,114 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         </div>
 
         {/* PRINT TEMPLATE (Only visible when printing) */}
-        <div className="hidden print:block p-8 font-sans bg-white text-black">
-            <div className="border-b-2 border-slate-900 pb-6 mb-8 flex justify-between items-start">
+        <div className="hidden print:block font-sans bg-white text-black text-sm">
+            <style>{`
+                @media print {
+                    @page { margin: 15mm 15mm 15mm 15mm; size: A4; }
+                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                }
+            `}</style>
+
+            {/* Header */}
+            <div className="flex justify-between items-start mb-8 pb-6 border-b-2 border-slate-800">
                 <div>
-                    <h1 className="text-3xl font-serif font-bold mb-1">Linnen Audit Rapport</h1>
-                    <p className="text-sm text-slate-500 font-bold uppercase tracking-widest">Moderna Verschillenanalyse</p>
+                    <h1 className="text-3xl font-serif font-bold tracking-tight text-slate-900 mb-1">Linnen Audit</h1>
+                    <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Rapportage Verschillenanalyse</p>
                 </div>
                 <div className="text-right">
-                    <div className="font-bold text-xl">Sanadome Nijmegen</div>
-                    <div className="text-sm text-slate-500">Gegenereerd op: {new Date().toLocaleDateString('nl-NL')}</div>
+                    <h2 className="font-bold text-xl text-slate-900">Sanadome Nijmegen</h2>
+                    <p className="text-slate-500 text-xs">Weg door Jonkerbos 90</p>
+                    <p className="text-slate-500 text-xs">6532 SZ Nijmegen</p>
                 </div>
             </div>
 
-            <div className="flex justify-between mb-8 border-b border-slate-200 pb-8">
+            {/* Metadata Grid */}
+            <div className="grid grid-cols-3 gap-8 mb-8 pb-8 border-b border-slate-200">
                 <div>
-                    <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Geanalyseerd door</span>
-                    <span className="font-bold text-lg">{currentUser.name}</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Geanalyseerd door</span>
+                    <span className="font-bold text-slate-900 block">{currentUser.name}</span>
+                    <span className="text-xs text-slate-500">{new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
                 <div>
-                    <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Leverdatum (PDF)</span>
-                    <span className="font-bold text-lg">{detectedDate || 'Onbekend'}</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Leverdatum (PDF)</span>
+                    <span className="font-bold text-slate-900 block">{detectedDate || 'Onbekend'}</span>
                 </div>
-                <div className="text-right">
-                    <span className="text-xs font-bold text-slate-400 uppercase block mb-1">Resultaat</span>
-                    <span className={`font-bold text-xl ${diffTotalNow === 0 ? 'text-green-700' : 'text-slate-900'}`}>
-                        {diffTotalNow === 0 ? 'CORRECT' : diffTotalNow > 0 ? `+${diffTotalNow} (Overschot)` : `${diffTotalNow} (Tekort)`}
+                <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Status</span>
+                    <span className={`font-bold block ${diffTotalNow === 0 ? 'text-green-700' : 'text-slate-900'}`}>
+                        {diffTotalNow === 0 ? 'CORRECT' : diffTotalNow > 0 ? `+${diffTotalNow} Overschot` : `${diffTotalNow} Tekort`}
                     </span>
                 </div>
             </div>
 
-            <div className="mb-12">
-                <table className="w-full text-left text-sm border-collapse">
+            {/* Main Table */}
+            <div className="mb-8">
+                <table className="w-full text-left border-collapse table-fixed">
                     <thead>
-                        <tr className="border-b-2 border-slate-800 text-slate-600 uppercase text-xs">
-                            <th className="py-2">Art. Nr</th>
-                            <th className="py-2">Omschrijving</th>
-                            <th className="py-2 text-center">Besteld</th>
-                            <th className="py-2 text-center">Geleverd</th>
-                            <th className="py-2 text-right">Verschil</th>
+                        <tr className="border-b-2 border-slate-800 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                            <th className="py-2 w-[15%]">Art. Nr</th>
+                            <th className="py-2 w-[45%]">Omschrijving</th>
+                            <th className="py-2 w-[10%] text-center">Besteld</th>
+                            <th className="py-2 w-[10%] text-center">Geleverd</th>
+                            <th className="py-2 w-[20%] text-right">Verschil</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-200">
-                        {auditData.map((item) => {
+                    <tbody className="text-xs">
+                        {auditData.map((item, index) => {
                             const diff = item.delivered - item.ordered;
                             const isIssue = diff !== 0;
                             return (
-                                <tr key={item.id} className={isIssue ? "font-bold bg-slate-50" : ""}>
-                                    <td className="py-2 font-mono text-slate-500">{item.id}</td>
-                                    <td className="py-2">{item.name}</td>
-                                    <td className="py-2 text-center">{item.ordered}</td>
-                                    <td className="py-2 text-center">{item.delivered}</td>
-                                    <td className="py-2 text-right">
+                                <tr key={item.id} className={`border-b border-slate-100 ${isIssue ? 'bg-slate-50 font-bold' : ''}`}>
+                                    <td className="py-2 pr-2 font-mono text-slate-500">{item.id}</td>
+                                    <td className="py-2 pr-2 truncate">{item.name}</td>
+                                    <td className="py-2 px-2 text-center">{item.ordered}</td>
+                                    <td className="py-2 px-2 text-center">{item.delivered}</td>
+                                    <td className="py-2 pl-2 text-right">
                                         {isIssue ? (
-                                            <span className={`px-2 py-0.5 rounded ${diff < 0 ? 'bg-black text-white' : 'border border-black'}`}>
+                                            <span className={`inline-block px-2 py-0.5 rounded ${diff < 0 ? 'bg-black text-white' : 'border border-black'}`}>
                                                 {diff > 0 ? '+' : ''}{diff}
                                             </span>
                                         ) : (
-                                            <span className="text-slate-400">-</span>
+                                            <span className="text-slate-300">-</span>
                                         )}
                                     </td>
                                 </tr>
                             );
                         })}
                     </tbody>
-                    <tfoot className="border-t-2 border-slate-800 font-bold">
-                        <tr>
-                            <td className="py-3" colSpan={2}>TOTAAL</td>
-                            <td className="py-3 text-center">{totalOrderedNow}</td>
-                            <td className="py-3 text-center">{totalDeliveredNow}</td>
-                            <td className="py-3 text-right">{diffTotalNow > 0 ? '+' : ''}{diffTotalNow}</td>
-                        </tr>
-                    </tfoot>
                 </table>
             </div>
 
-            <div className="grid grid-cols-2 gap-20 pt-10 mt-10 border-t border-slate-200">
+            {/* Summary Box (Avoid Page Break inside if possible) */}
+            <div className="flex justify-end mb-12 break-inside-avoid">
+                <div className="w-1/2 bg-slate-50 border border-slate-200 rounded-lg p-6">
+                    <h3 className="font-bold text-slate-900 border-b border-slate-200 pb-2 mb-4 text-sm uppercase tracking-wider">Samenvatting</h3>
+                    <div className="flex justify-between mb-2 text-xs">
+                        <span className="text-slate-500">Totaal Besteld:</span>
+                        <span className="font-bold">{totalOrderedNow}</span>
+                    </div>
+                    <div className="flex justify-between mb-2 text-xs">
+                        <span className="text-slate-500">Totaal Geleverd:</span>
+                        <span className="font-bold">{totalDeliveredNow}</span>
+                    </div>
+                    <div className="flex justify-between pt-2 border-t border-slate-200 text-sm font-bold">
+                        <span>Netto Verschil:</span>
+                        <span className={diffTotalNow < 0 ? 'text-red-600' : diffTotalNow > 0 ? 'text-slate-900' : 'text-green-600'}>
+                            {diffTotalNow > 0 ? '+' : ''}{diffTotalNow}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Signature Area */}
+            <div className="grid grid-cols-2 gap-12 pt-8 border-t-2 border-slate-900 break-inside-avoid">
                 <div>
-                    <div className="h-20 border-b border-slate-900 mb-2"></div>
-                    <span className="text-xs font-bold uppercase text-slate-500">Handtekening Manager</span>
+                    <div className="h-16 border-b border-slate-300 mb-2"></div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Handtekening Manager</span>
                 </div>
                 <div>
-                    <div className="h-20 border-b border-slate-900 mb-2"></div>
-                    <span className="text-xs font-bold uppercase text-slate-500">Datum & Plaats</span>
+                    <div className="h-16 border-b border-slate-300 mb-2"></div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Datum & Plaats</span>
                 </div>
             </div>
         </div>
