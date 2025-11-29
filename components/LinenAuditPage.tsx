@@ -1,9 +1,8 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Truck, Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle, 
     RefreshCw, Download, FileSpreadsheet, X, MousePointerClick, Calendar, Save, History, Trash2, Eye, ArrowRight, Printer, AlertOctagon,
-    BarChart3, TrendingUp, Filter, Search, PieChart, ArrowUpRight, ArrowDownRight, LayoutDashboard, Terminal
+    BarChart3, TrendingUp, Filter, Search, PieChart, ArrowUpRight, ArrowDownRight, LayoutDashboard
 } from 'lucide-react';
 import { Employee } from '../types';
 import { Modal } from './Modal';
@@ -23,7 +22,6 @@ const pdfjs = (pdfjsLib as any).default || pdfjsLib;
 // This prevents "API version does not match Worker version" errors if the package updates.
 if (typeof window !== 'undefined' && !pdfjs.GlobalWorkerOptions.workerSrc) {
     const version = pdfjs.version;
-    console.log(`Setting PDF Worker to version: ${version}`);
     pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
 }
 
@@ -62,10 +60,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     const [detectedDate, setDetectedDate] = useState<string>('');
     const [isProcessing, setIsProcessing] = useState(false);
     
-    // Debug State
-    const [debugLogs, setDebugLogs] = useState<string[]>([]);
-    const [showDebug, setShowDebug] = useState(false);
-    
     // Drag & Drop State
     const [isDraggingOrder, setIsDraggingOrder] = useState(false);
     const [isDraggingDelivery, setIsDraggingDelivery] = useState(false);
@@ -102,11 +96,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         });
     }, []);
 
-    const addDebugLog = (msg: string) => {
-        console.log(msg);
-        setDebugLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
-    };
-
     // --- PARSING LOGIC ---
 
     const processFiles = async () => {
@@ -118,18 +107,15 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         setIsProcessing(true);
         setAuditData([]); 
         setDetectedDate('');
-        setDebugLogs([]); // Clear logs on new run
-        addDebugLog("Start verwerking...");
 
         try {
-            addDebugLog("Parsing Excel order file...");
+            console.log("Starting processing...");
             const orderItems = await parseExcelOrder(orderFile);
-            addDebugLog(`Excel parsed. Found ${orderItems.size} items.`);
+            console.log(`Excel parsed. Found ${orderItems.size} items.`);
             
-            addDebugLog(`Parsing ${deliveryFiles.length} PDF files...`);
+            console.log(`Parsing ${deliveryFiles.length} PDF files...`);
             const { deliveryMap, deliveryDate } = await parsePDFDeliveries(deliveryFiles);
-            addDebugLog(`PDF Parsing complete. Found delivery date: ${deliveryDate}`);
-            addDebugLog(`Found ${deliveryMap.size} unique delivered items.`);
+            console.log(`PDF Parsing complete. Found delivery date: ${deliveryDate}`);
             
             setDetectedDate(deliveryDate);
             const mergedData = mergeAuditData(orderItems, deliveryMap);
@@ -139,7 +125,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         } catch (error: any) {
             console.error("Audit error:", error);
             const msg = error instanceof Error ? error.message : 'Onbekende fout';
-            addDebugLog(`CRITICAL ERROR: ${msg}`);
             onShowToast(`Fout bij verwerken: ${msg}`);
         } finally {
             setIsProcessing(false);
@@ -195,12 +180,9 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         if (files.length === 0) return { deliveryMap, deliveryDate: '' };
 
         for (const file of files) {
-            addDebugLog(`Processing file: ${file.name}`);
             try {
                 const arrayBuffer = await file.arrayBuffer();
                 const version = pdfjs.version;
-                
-                addDebugLog(`PDF Lib Version: ${version}`);
                 
                 // Use dynamic versioning for CMaps as well to ensure matching resources
                 const loadingTask = pdfjs.getDocument({ 
@@ -211,14 +193,12 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 });
                 
                 const pdf = await loadingTask.promise;
-                addDebugLog(`Loaded PDF. Pages: ${pdf.numPages}`);
                 
                 for (let i = 1; i <= pdf.numPages; i++) {
                     const page = await pdf.getPage(i);
                     const textContent = await page.getTextContent();
                     
                     if (!textContent || !textContent.items || textContent.items.length === 0) {
-                        addDebugLog(`Page ${i}: No text extracted.`);
                         continue;
                     }
 
@@ -244,23 +224,17 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     
                     // Sort lines top to bottom
                     lines.sort((a, b) => b.y - a.y);
-                    
-                    addDebugLog(`Page ${i}: Grouped into ${lines.length} lines.`);
 
                     for (const line of lines) {
                         // Sort items left to right
                         line.items.sort((a, b) => a.x - b.x);
                         const lineText = line.items.map(item => item.str).join(' ').trim();
                         
-                        // Log suspicious lines to verify content
-                        // if (lineText.includes('8821') || lineText.includes('Baddoek')) addDebugLog(`Row Content: ${lineText}`);
-
                         // Date Extraction
                         if (!foundDate && lineText.includes('Afleverdatum')) {
                             const dateMatch = lineText.match(/(\d{1,2}-\d{1,2}-\d{4})/);
                             if (dateMatch) {
                                 foundDate = dateMatch[0];
-                                addDebugLog(`Found Date: ${foundDate}`);
                             }
                         }
                         
@@ -277,7 +251,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                             if (/^\d{4,8}$/.test(firstStr) && /^\d+$/.test(lastStr)) {
                                 foundId = firstStr;
                                 foundQty = parseInt(lastStr, 10);
-                                addDebugLog(`Matched Strategy 1: ID ${foundId} Qty ${foundQty}`);
                             }
                         }
 
@@ -287,7 +260,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                             if (match) { 
                                 foundId = match[1]; 
                                 foundQty = parseInt(match[2], 10); 
-                                addDebugLog(`Matched Strategy 2: ID ${foundId} Qty ${foundQty}`);
                             }
                         }
 
@@ -300,7 +272,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 }
             } catch (e: any) { 
                 console.error(`Error parsing PDF ${file.name}:`, e);
-                addDebugLog(`Error in ${file.name}: ${e.message}`);
             }
         }
         return { deliveryMap, deliveryDate: foundDate };
@@ -378,7 +349,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     };
 
     const resetAudit = () => {
-        setOrderFile(null); setDeliveryFiles([]); setAuditData([]); setDetectedDate(''); setDebugLogs([]);
+        setOrderFile(null); setDeliveryFiles([]); setAuditData([]); setDetectedDate('');
         if (excelInputRef.current) excelInputRef.current.value = '';
         if (pdfInputRef.current) pdfInputRef.current.value = '';
     };
@@ -629,35 +600,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                             </button>
                         </div>
                     )}
-
-                    {/* Debug Console - Added for production troubleshooting */}
-                    <div className="bg-slate-900 rounded-xl p-4 mb-10 overflow-hidden shadow-lg border border-slate-700">
-                        <div 
-                            className="flex items-center justify-between cursor-pointer"
-                            onClick={() => setShowDebug(!showDebug)}
-                        >
-                            <h3 className="font-mono text-teal-400 font-bold flex items-center gap-2 text-sm">
-                                <Terminal size={16}/> Debug Console
-                            </h3>
-                            <button className="text-slate-400 hover:text-white text-xs font-bold uppercase">
-                                {showDebug ? 'Verberg Logs' : 'Toon Logs'}
-                            </button>
-                        </div>
-                        
-                        {showDebug && (
-                            <div className="mt-4 bg-black/50 p-4 rounded-lg h-64 overflow-y-auto font-mono text-xs text-slate-300 border border-slate-800">
-                                {debugLogs.length === 0 ? (
-                                    <p className="opacity-50 italic">Wachten op actie...</p>
-                                ) : (
-                                    debugLogs.map((log, i) => (
-                                        <div key={i} className="mb-1 border-b border-slate-800/50 pb-1 last:border-0 last:pb-0">
-                                            {log}
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        )}
-                    </div>
 
                     {/* Results */}
                     {auditData.length > 0 && (
