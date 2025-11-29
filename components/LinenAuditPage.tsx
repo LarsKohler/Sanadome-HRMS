@@ -921,118 +921,118 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
 
         </div>
 
-        {/* PRINT TEMPLATE (Only visible when printing) */}
-        <div className="hidden print:block font-sans bg-white text-black text-sm w-full">
+        {/* PRINT TEMPLATE - NEW LAYOUT */}
+        <div className="hidden print:block print-container font-serif text-black p-0 m-0 w-full h-auto">
             <style>{`
                 @media print {
-                    @page { margin: 15mm; size: A4; }
+                    @page { margin: 20mm; size: A4; }
                     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-                    thead { display: table-header-group; } 
+                    .print-container { width: 100%; max-width: none; }
+                    table { width: 100%; border-collapse: collapse; }
+                    thead { display: table-header-group; }
                     tfoot { display: table-footer-group; }
-                    tr { break-inside: avoid; page-break-inside: avoid; }
+                    tr { page-break-inside: avoid; break-inside: avoid; }
+                    .no-break { page-break-inside: avoid; break-inside: avoid; }
                 }
             `}</style>
 
             {/* Header */}
-            <div className="flex justify-between items-start mb-8 pb-6 border-b-2 border-slate-800">
+            <div className="border-b-2 border-black pb-4 mb-6 flex justify-between items-end">
                 <div>
-                    <h1 className="text-3xl font-serif font-bold tracking-tight text-slate-900 mb-1">Linnen Audit</h1>
-                    <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Rapportage Verschillenanalyse</p>
+                    <h1 className="text-3xl font-bold uppercase tracking-tight mb-1">Linnen Audit Rapport</h1>
+                    <p className="text-sm font-bold text-gray-500 uppercase">Moderna Verschillenanalyse</p>
                 </div>
                 <div className="text-right">
-                    <h2 className="font-bold text-xl text-slate-900">Sanadome Nijmegen</h2>
-                    <p className="text-slate-500 text-xs">Weg door Jonkerbos 90</p>
-                    <p className="text-slate-500 text-xs">6532 SZ Nijmegen</p>
+                    <h2 className="font-bold text-lg">Sanadome Nijmegen</h2>
+                    <p className="text-xs">Weg door Jonkerbos 90</p>
+                    <p className="text-xs">6532 SZ Nijmegen</p>
                 </div>
             </div>
 
-            {/* Metadata Grid */}
-            <div className="grid grid-cols-3 gap-8 mb-8 pb-8 border-b border-slate-200">
+            {/* Metadata */}
+            <div className="mb-8 grid grid-cols-3 gap-4 text-sm border-b border-gray-300 pb-6">
                 <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Geanalyseerd door</span>
-                    <span className="font-bold text-slate-900 block">{currentUser.name}</span>
-                    <span className="text-xs text-slate-500">{new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                    <span className="block font-bold text-xs uppercase text-gray-500 mb-1">Geanalyseerd door</span>
+                    <span className="block font-bold">{currentUser.name}</span>
+                    <span className="block text-xs">{new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
                 <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Leverdatum (PDF)</span>
-                    <span className="font-bold text-slate-900 block">{detectedDate || 'Onbekend'}</span>
+                    <span className="block font-bold text-xs uppercase text-gray-500 mb-1">Leverdatum (PDF)</span>
+                    <span className="block font-bold">{detectedDate || 'Onbekend'}</span>
                 </div>
                 <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Status</span>
-                    <span className={`font-bold block ${diffTotalNow === 0 ? 'text-green-700' : 'text-slate-900'}`}>
+                    <span className="block font-bold text-xs uppercase text-gray-500 mb-1">Resultaat</span>
+                    <span className={`block font-bold ${diffTotalNow === 0 ? 'text-green-800' : 'text-black'}`}>
                         {diffTotalNow === 0 ? 'CORRECT' : diffTotalNow > 0 ? `+${diffTotalNow} Overschot` : `${diffTotalNow} Tekort`}
                     </span>
                 </div>
             </div>
 
             {/* Main Table */}
-            <div className="mb-8">
-                <table className="w-full text-left border-collapse table-fixed">
-                    <thead>
-                        <tr className="border-b-2 border-slate-800 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                            <th className="py-2 w-[15%]">Art. Nr</th>
-                            <th className="py-2 w-[45%]">Omschrijving</th>
-                            <th className="py-2 w-[10%] text-center">Besteld</th>
-                            <th className="py-2 w-[10%] text-center">Geleverd</th>
-                            <th className="py-2 w-[20%] text-right">Verschil</th>
-                        </tr>
-                    </thead>
-                    <tbody className="text-xs">
-                        {auditData.map((item, index) => {
-                            const diff = item.delivered - item.ordered;
-                            const isIssue = diff !== 0;
-                            return (
-                                <tr key={item.id} className={`border-b border-slate-100 ${isIssue ? 'bg-slate-50 font-bold' : ''}`}>
-                                    <td className="py-2 pr-2 font-mono text-slate-500">{item.id}</td>
-                                    <td className="py-2 pr-2 truncate">{item.name}</td>
-                                    <td className="py-2 px-2 text-center">{item.ordered}</td>
-                                    <td className="py-2 px-2 text-center">{item.delivered}</td>
-                                    <td className="py-2 pl-2 text-right">
-                                        {isIssue ? (
-                                            <span className={`inline-block px-2 py-0.5 rounded ${diff < 0 ? 'bg-black text-white' : 'border border-black'}`}>
-                                                {diff > 0 ? '+' : ''}{diff}
-                                            </span>
-                                        ) : (
-                                            <span className="text-slate-300">-</span>
-                                        )}
-                                    </td>
-                                </tr>
-                            );
-                        })}
-                    </tbody>
-                </table>
-            </div>
+            <table className="w-full text-left text-xs mb-8">
+                <thead>
+                    <tr className="border-b-2 border-black">
+                        <th className="py-2 font-bold uppercase w-[15%]">Art. Nr</th>
+                        <th className="py-2 font-bold uppercase w-[40%]">Omschrijving</th>
+                        <th className="py-2 font-bold uppercase w-[15%] text-center">Besteld</th>
+                        <th className="py-2 font-bold uppercase w-[15%] text-center">Geleverd</th>
+                        <th className="py-2 font-bold uppercase w-[15%] text-right">Verschil</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {auditData.map((item) => {
+                        const diff = item.delivered - item.ordered;
+                        const isIssue = diff !== 0;
+                        return (
+                            <tr key={item.id} className={`border-b border-gray-200 ${isIssue ? 'bg-gray-100 font-bold' : ''}`}>
+                                <td className="py-2">{item.id}</td>
+                                <td className="py-2">{item.name}</td>
+                                <td className="py-2 text-center">{item.ordered}</td>
+                                <td className="py-2 text-center">{item.delivered}</td>
+                                <td className="py-2 text-right">
+                                    {isIssue ? (
+                                        <span className={`inline-block px-1 rounded ${diff < 0 ? 'bg-black text-white' : 'border border-black'}`}>
+                                            {diff > 0 ? '+' : ''}{diff}
+                                        </span>
+                                    ) : (
+                                        <span className="text-gray-300">-</span>
+                                    )}
+                                </td>
+                            </tr>
+                        );
+                    })}
+                </tbody>
+            </table>
 
-            {/* Summary Box */}
-            <div className="flex justify-end mb-12" style={{ pageBreakInside: 'avoid' }}>
-                <div className="w-1/2 bg-slate-50 border border-slate-200 rounded-lg p-6">
-                    <h3 className="font-bold text-slate-900 border-b border-slate-200 pb-2 mb-4 text-sm uppercase tracking-wider">Samenvatting</h3>
-                    <div className="flex justify-between mb-2 text-xs">
-                        <span className="text-slate-500">Totaal Besteld:</span>
-                        <span className="font-bold">{totalOrderedNow}</span>
-                    </div>
-                    <div className="flex justify-between mb-2 text-xs">
-                        <span className="text-slate-500">Totaal Geleverd:</span>
-                        <span className="font-bold">{totalDeliveredNow}</span>
-                    </div>
-                    <div className="flex justify-between pt-2 border-t border-slate-200 text-sm font-bold">
-                        <span>Netto Verschil:</span>
-                        <span className={diffTotalNow < 0 ? 'text-red-600' : diffTotalNow > 0 ? 'text-slate-900' : 'text-green-600'}>
-                            {diffTotalNow > 0 ? '+' : ''}{diffTotalNow}
-                        </span>
+            {/* Summary & Signatures (Prevent break inside) */}
+            <div className="no-break mt-8">
+                <div className="flex justify-end mb-12">
+                    <div className="w-1/2 border border-black p-4 bg-gray-50">
+                        <h3 className="font-bold text-sm uppercase border-b border-black pb-2 mb-2">Samenvatting</h3>
+                        <div className="flex justify-between text-xs mb-1">
+                            <span>Totaal Besteld:</span>
+                            <span className="font-bold">{totalOrderedNow}</span>
+                        </div>
+                        <div className="flex justify-between text-xs mb-1">
+                            <span>Totaal Geleverd:</span>
+                            <span className="font-bold">{totalDeliveredNow}</span>
+                        </div>
+                        <div className="flex justify-between pt-2 border-t border-gray-300 text-sm font-bold">
+                            <span>Netto Verschil:</span>
+                            <span>{diffTotalNow > 0 ? '+' : ''}{diffTotalNow}</span>
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Signature Area */}
-            <div className="grid grid-cols-2 gap-12 pt-8 border-t-2 border-slate-900" style={{ pageBreakInside: 'avoid' }}>
-                <div>
-                    <div className="h-16 border-b border-slate-300 mb-2"></div>
-                    <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Handtekening Manager</span>
-                </div>
-                <div>
-                    <div className="h-16 border-b border-slate-300 mb-2"></div>
-                    <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Datum & Plaats</span>
+                <div className="grid grid-cols-2 gap-16 pt-8 border-t-2 border-black">
+                    <div>
+                        <div className="h-12 border-b border-black mb-1"></div>
+                        <span className="text-[10px] font-bold uppercase text-gray-500 tracking-wider">Handtekening Manager</span>
+                    </div>
+                    <div>
+                        <div className="h-12 border-b border-black mb-1"></div>
+                        <span className="text-[10px] font-bold uppercase text-gray-500 tracking-wider">Datum & Plaats</span>
+                    </div>
                 </div>
             </div>
         </div>
