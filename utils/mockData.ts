@@ -102,363 +102,795 @@ export const MOCK_BADGES: BadgeDefinition[] = [
 
 // --- MOCK KNOWLEDGE BASE ---
 export const MOCK_KNOWLEDGE_BASE: KnowledgeArticle[] = [
-    // --- CATEGORIE: STARTEN & BASIS (5) ---
+    // --- CATEGORIE: MIJNSANADOME & BASIS (1-5) ---
     {
         id: 'kb-sys-1',
-        title: 'Inloggen & Eerste Keer Gebruik',
+        title: 'Startgids: Inloggen & Wachtwoord',
         category: 'MijnSanadome',
-        content: `Welkom bij MijnSanadome! Dit artikel helpt je op weg bij je eerste keer inloggen.\n\n## Inloggen\n1. Ga naar het startscherm.\n2. Voer je **@sanadome.nl** e-mailadres in.\n3. Voer je tijdelijke wachtwoord in (verkregen via je manager).\n\n## Wachtwoord Wijzigen\nBij de eerste keer inloggen wordt je gevraagd een nieuw wachtwoord in te stellen. Zorg dat deze minimaal 8 tekens bevat.\n\n## Problemen?\nLukt het inloggen niet? Klik op "Wachtwoord vergeten" of neem contact op met HR.`,
-        tags: ['Starten', 'Inloggen', 'Account', 'Wachtwoord'],
+        content: `## Welkom bij MijnSanadome
+Dit is jouw centrale hub voor alles rondom je werk bij Sanadome. Van roosters tot nieuws en je persoonlijke ontwikkeling.
+
+## Eerste keer inloggen
+1. Je hebt van je manager of HR een tijdelijk wachtwoord ontvangen.
+2. Ga naar het inlogscherm en gebruik je **@sanadome.nl** e-mailadres.
+3. Voer het tijdelijke wachtwoord in.
+4. Het systeem zal je direct vragen een nieuw, persoonlijk wachtwoord in te stellen.
+
+## Wachtwoordbeleid
+Om de veiligheid van onze gast- en personeelsgegevens te waarborgen, moet je wachtwoord voldoen aan de volgende eisen:
+- Minimaal 8 tekens
+- Minimaal 1 hoofdletter
+- Minimaal 1 cijfer
+
+## Wachtwoord vergeten?
+Ben je je wachtwoord vergeten? Klik in het inlogscherm op **"Wachtwoord vergeten?"**. Omdat we met gevoelige gegevens werken, kun je dit niet zelf resetten. Je krijgt instructies om contact op te nemen met de systeembeheerders (Lars Kohler of Janique Vink). Zij kunnen een reset voor je uitvoeren.`,
+        tags: ['Inloggen', 'Account', 'Beveiliging', 'Starten'],
         authorName: 'System Admin',
         authorRole: 'Manager',
-        lastUpdated: '01 Nov 2023',
+        lastUpdated: '01 Dec 2023',
         allowedRoles: ['All'],
         allowedDepartments: ['All'],
-        views: 120,
+        views: 450,
         isPinned: true
     },
     {
         id: 'kb-sys-2',
-        title: 'Jouw Profiel & Gegevens Bewerken',
+        title: 'Jouw Profiel & Personalia Beheren',
         category: 'MijnSanadome',
-        content: `Je profiel is je visitekaartje binnen de organisatie. Houd deze up-to-date.\n\n## Profielfoto Aanpassen\n1. Ga naar **Mijn Profiel** in het menu.\n2. Klik op het camera-icoon bij je huidige foto.\n3. Upload een professionele foto (JPG/PNG).\n\n## Banner Wijzigen\nJe kunt de achtergrond (banner) van je profiel personaliseren door op "Cover Wijzigen" te klikken rechtsboven in je profiel.\n\n## Contactgegevens\nKloppen je telefoonnummer of e-mailadres niet? Geef dit door aan HR via een ticket of mail.`,
-        tags: ['Profiel', 'Foto', 'Instellingen'],
+        content: `## Waarom is je profiel belangrijk?
+Je profiel in MijnSanadome is meer dan alleen een plaatje. Het is zichtbaar voor al je collega's in de "Collega's" lijst (smoelenboek). Een compleet profiel helpt nieuwe collega's om je te herkennen en contact op te nemen.
+
+## Profielfoto aanpassen
+1. Navigeer naar **Mijn Profiel** in het menu.
+2. Klik op het camera-icoontje dat verschijnt als je met je muis over je huidige foto gaat.
+3. Upload een representatieve foto (liefst in uniform of zakelijk).
+4. Het systeem snijdt de foto automatisch rond uit.
+
+## Banner & Uitstraling
+Je kunt je profiel personaliseren met een achtergrondbanner. Klik rechtsboven in je profielheader op **"Cover Wijzigen"**. Kies een afbeelding die past bij Sanadome of jouw rol (bijv. een foto van de keuken, receptie of wellness).
+
+## Gegevens wijzigen
+Kloppen je e-mailadres, telefoonnummer of afdeling niet?
+- **Telefoonnummer:** Kun je zelf aanpassen via de "Bewerk" knop bij Contactgegevens.
+- **Contract/Functie:** Deze gegevens worden beheerd door HR. Klopt er iets niet? Maak dan een ticket aan via "Support & Tickets".`,
+        tags: ['Profiel', 'Foto', 'HR', 'Smoelenboek'],
         authorName: 'HR Support',
         authorRole: 'Manager',
-        lastUpdated: '28 Okt 2023',
+        lastUpdated: '15 Nov 2023',
         allowedRoles: ['All'],
         allowedDepartments: ['All'],
-        views: 85,
+        views: 210,
         isPinned: false
     },
     {
         id: 'kb-sys-3',
-        title: 'Notificaties Instellen & Begrijpen',
+        title: 'Notificatiecentrum: Mis niets',
         category: 'MijnSanadome',
-        content: `Mis nooit meer een belangrijk bericht met notificaties.\n\n## Waar vind ik ze?\nRechtsboven in de balk zie je een bel-icoon 🔔. Als er een rood bolletje bij staat, heb je ongelezen berichten.\n\n## Soorten Meldingen\n- **Nieuws:** Belangrijke mededelingen van directie.\n- **Taken:** Herinneringen voor onboarding of surveys.\n- **Badges:** Als je een compliment ontvangt van een collega.\n- **Evaluaties:** Uitnodigingen voor gesprekken.\n\n## Alles Lezen\nKlik op "Lees alles" in het dropdown menu om in één keer je inbox op te schonen.`,
-        tags: ['Notificaties', 'Berichten', 'Communicatie'],
-        authorName: 'System Admin',
-        authorRole: 'Manager',
-        lastUpdated: '15 Okt 2023',
-        allowedRoles: ['All'],
-        allowedDepartments: ['All'],
-        views: 60,
-        isPinned: false
-    },
-    {
-        id: 'kb-sys-4',
-        title: 'Collega\'s Zoeken in de Directory',
-        category: 'MijnSanadome',
-        content: `Op zoek naar het telefoonnummer of e-mailadres van een collega?\n\n1. Ga naar **Collega's** in het menu.\n2. Gebruik de **zoekbalk** bovenin om te zoeken op:\n   - Naam\n   - Afdeling (bijv. "Front Office")\n   - Rol (bijv. "Manager")\n3. Klik op een collega om direct naar hun profiel te gaan.\n\n**Tip:** Je kunt vanuit de lijst direct op het mail- of telefoonicoon klikken om contact op te nemen.`,
-        tags: ['Directory', 'Collega', 'Zoeken', 'Contact'],
-        authorName: 'HR Support',
-        authorRole: 'Manager',
-        lastUpdated: '10 Okt 2023',
-        allowedRoles: ['All'],
-        allowedDepartments: ['All'],
-        views: 95,
-        isPinned: false
-    },
-    {
-        id: 'kb-sys-5',
-        title: 'Mobiel Gebruik van MijnSanadome',
-        category: 'MijnSanadome',
-        content: `MijnSanadome is volledig geoptimaliseerd voor je smartphone.\n\n## Menu Openen\nOp mobiel is het menu standaard ingeklapt. Klik op het **Menu-icoon** (drie streepjes) linksboven om te navigeren.\n\n## Sneltoets Maken (App Ervaring)\n- **iPhone (Safari):** Klik op de deel-knop onderin en kies "Zet op beginscherm".\n- **Android (Chrome):** Klik op de drie puntjes rechtsboven en kies "App installeren" of "Toevoegen aan startscherm".\n\nZo heb je altijd snel toegang tot je rooster en nieuws!`,
-        tags: ['Mobiel', 'App', 'Installatie'],
-        authorName: 'IT Support',
-        authorRole: 'Manager',
-        lastUpdated: '05 Nov 2023',
-        allowedRoles: ['All'],
-        allowedDepartments: ['All'],
-        views: 210,
-        isPinned: true
-    },
+        content: `## Het belletje rechtsboven
+MijnSanadome houdt je proactief op de hoogte van belangrijke zaken. Het bel-icoon rechtsboven toont een rode indicator als er actie vereist is.
 
-    // --- CATEGORIE: HR & DOCUMENTEN (5) ---
-    {
-        id: 'kb-hr-1',
-        title: 'Documenten Uploaden in je Dossier',
-        category: 'HR & Admin',
-        content: `Je kunt zelf documenten toevoegen aan je personeelsdossier, zoals diploma's of certificaten.\n\n1. Ga naar **Documenten**.\n2. Zorg dat het tabblad "Bestanden" actief is.\n3. Klik rechtsboven op de knop **Uploaden**.\n4. Selecteer het bestand van je computer of telefoon.\n5. Geef het bestand een duidelijke naam en kies de juiste categorie (bijv. "Overig").\n\n**Let op:** Alleen jij en je manager kunnen deze documenten zien.`,
-        tags: ['Documenten', 'Uploaden', 'HR', 'Dossier'],
-        authorName: 'HR',
-        authorRole: 'Manager',
-        lastUpdated: '20 Okt 2023',
-        allowedRoles: ['All'],
-        allowedDepartments: ['All'],
-        views: 45,
-        isPinned: false
-    },
-    {
-        id: 'kb-hr-2',
-        title: 'Loonstrook Bekijken',
-        category: 'HR & Admin',
-        content: `Je loonstroken worden digitaal beschikbaar gesteld in MijnSanadome.\n\n1. Ga naar **Documenten**.\n2. Filter in de lijst of zoek op "Loonstrook".\n3. Klik op het download-icoon naast de strook die je wilt bekijken.\n\nDe loonstroken worden meestal rond de **24e van de maand** geüpload. Je krijgt hiervan een notificatie.`,
-        tags: ['Loonstrook', 'Salaris', 'Financieel'],
-        authorName: 'Finance',
-        authorRole: 'Manager',
-        lastUpdated: '01 Sep 2023',
-        allowedRoles: ['All'],
-        allowedDepartments: ['All'],
-        views: 300,
-        isPinned: true
-    },
-    {
-        id: 'kb-hr-3',
-        title: 'Ziek Melden: Procedure',
-        category: 'HR & Admin',
-        content: `Ben je ziek en kun je niet werken? Volg dan dit protocol:\n\n1. **Bel** vóór 09:00 uur naar je leidinggevende.\n2. Geef aan dat je ziek bent en wat de verwachte duur is (indien bekend).\n3. Je leidinggevende verwerkt de ziekmelding in het systeem.\n4. In je profiel onder "Notities" kun je eventueel het verzuim terugzien (alleen zichtbaar voor jou en HR).\n\n**Beter melden:** Bel je leidinggevende zodra je weer hersteld bent om je betermelding door te geven.`,
-        tags: ['Ziek', 'Verzuim', 'Protocol', 'HR'],
-        authorName: 'HR',
+## Soorten meldingen
+Het systeem maakt onderscheid tussen verschillende types berichten:
+- **Taken & Onboarding:** Je manager heeft een taak afgevinkt of er staat een nieuwe week voor je klaar.
+- **Evaluaties:** Er is een uitnodiging voor een gesprek of je moet je voorbereiding invullen.
+- **Nieuws:** Belangrijke mededelingen van de directie.
+- **Badges:** Een collega heeft je een compliment (badge) gegeven!
+- **Systeem:** Updates over onderhoud of nieuwe features.
+
+## Acties
+- **Klikken:** Door op een melding te klikken, ga je direct naar de juiste pagina (bijv. meteen naar het evaluatieformulier).
+- **Markeren als gelezen:** Heb je alles gezien? Klik in het uitklapmenu op "Lees alles" om de rode teller te resetten.
+- **Vastgezette meldingen:** Sommige kritieke meldingen (zoals "Contract verloopt bijna") blijven bovenaan staan totdat de actie is voltooid.`,
+        tags: ['Communicatie', 'Meldingen', 'Inbox'],
+        authorName: 'IT Support',
         authorRole: 'Manager',
         lastUpdated: '10 Nov 2023',
         allowedRoles: ['All'],
         allowedDepartments: ['All'],
-        views: 150,
-        isPinned: true
-    },
-    {
-        id: 'kb-hr-4',
-        title: 'Notities & Feedback Inzien',
-        category: 'HR & Admin',
-        content: `In je dossier worden gespreksverslagen en feedback bewaard.\n\n1. Ga naar **Documenten**.\n2. Klik op het tabblad **Notities & Tijdlijn**.\n3. Hier zie je een chronologisch overzicht van:\n   - Performance gesprekken\n   - Complimenten\n   - Verzuimregistraties\n\nSommige notities zijn privé voor de manager en zijn hier niet zichtbaar.`,
-        tags: ['Feedback', 'Notities', 'Dossier'],
-        authorName: 'HR',
-        authorRole: 'Manager',
-        lastUpdated: '15 Okt 2023',
-        allowedRoles: ['All'],
-        allowedDepartments: ['All'],
-        views: 40,
+        views: 115,
         isPinned: false
     },
     {
-        id: 'kb-hr-5',
-        title: 'Verlof Aanvragen (Vakantie)',
-        category: 'HR & Admin',
-        content: `*Let op: De digitale verlofmodule wordt momenteel uitgerold. Tot die tijd geldt de volgende procedure:*\n\n1. Download het **Vakantieaanvraagformulier** bij Documenten (Categorie: Overig).\n2. Vul het formulier in.\n3. Laat het ondertekenen door je leidinggevende.\n4. Lever het in bij HR of upload de getekende versie terug in je dossier.\n\nZodra de digitale module live is, verschijnt er een knop "Verlof Aanvragen" op je dashboard.`,
-        tags: ['Verlof', 'Vakantie', 'Aanvraag'],
+        id: 'kb-sys-4',
+        title: 'Collega\'s vinden (Directory)',
+        category: 'MijnSanadome',
+        content: `## Het digitale smoelenboek
+Zoek je het telefoonnummer van een collega of wil je weten wie de manager van F&B is? Gebruik de Directory.
+
+## Zoeken & Filteren
+Ga in het menu naar **Collega's**.
+1. **Zoekbalk:** Typ een naam, maar je kunt ook zoeken op rol (bijv. "Supervisor") of afdeling.
+2. **Afdeling Filter:** Gebruik de dropdown rechtsboven om snel alle collega's van "Huishouding" of "Receptie" te zien.
+
+## Direct contact
+In de lijst zie je bij elke collega icoontjes voor E-mail en Telefoon.
+- Klik op het **Mail-icoon** om direct Outlook/Mail te openen.
+- Klik op het **Telefoon-icoon** (op mobiel) om direct te bellen.
+
+**Privacy:** Alleen zakelijke nummers en e-mailadressen zijn zichtbaar, tenzij een collega expliciet toestemming heeft gegeven voor privé-gegevens.`,
+        tags: ['Team', 'Contact', 'Zoeken', 'Telefoonlijst'],
         authorName: 'HR',
         authorRole: 'Manager',
         lastUpdated: '01 Nov 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['All'],
+        views: 340,
+        isPinned: true
+    },
+    {
+        id: 'kb-sys-5',
+        title: 'Mobiele App Installeren (PWA)',
+        category: 'MijnSanadome',
+        content: `## Altijd bij de hand
+MijnSanadome is een zogenaamde "Progressive Web App" (PWA). Dit betekent dat je geen app uit de App Store hoeft te downloaden, maar de website als app op je telefoon kunt installeren.
+
+## Installeren op iPhone (iOS)
+1. Open **Safari** en ga naar het portaal.
+2. Tik onderin op de **Deel-knop** (vierkantje met pijl omhoog).
+3. Scroll naar beneden en kies **"Zet op beginscherm"**.
+4. Tik op "Voeg toe".
+5. Het Sanadome-icoon staat nu tussen je apps!
+
+## Installeren op Android (Chrome)
+1. Open **Chrome** en ga naar het portaal.
+2. Tik rechtsboven op de **drie puntjes**.
+3. Kies **"App installeren"** of **"Toevoegen aan startscherm"**.
+4. Bevestig de installatie.
+
+**Voordelen:**
+- Je hoeft niet telkens opnieuw in te loggen.
+- De app werkt sneller en full-screen.
+- Je ontvangt notificaties direct op je telefoon (indien ingeschakeld).`,
+        tags: ['Mobiel', 'App', 'Installatie', 'iPhone', 'Android'],
+        authorName: 'IT Support',
+        authorRole: 'Manager',
+        lastUpdated: '20 Okt 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['All'],
+        views: 520,
+        isPinned: true
+    },
+
+    // --- CATEGORIE: HR & ADMIN (6-10) ---
+    {
+        id: 'kb-hr-1',
+        title: 'Documentenbeheer: Uploaden & Inzien',
+        category: 'HR & Admin',
+        content: `## Jouw digitale dossier
+Onder het kopje **Documenten** vind je al je belangrijke papieren. Dit vervangt de oude papieren personeelsdossiers.
+
+## Wat vind je hier?
+- **Contracten:** Je arbeidsovereenkomst en verlengingen.
+- **Loonstroken:** Je maandelijkse specificaties.
+- **Identificatie:** Een kopie van je ID/Paspoort (veilig opgeslagen).
+- **Overig:** Diploma's, certificaten of functioneringsverslagen.
+
+## Zelf documenten toevoegen
+Heb je een nieuw diploma behaald of een certificaat?
+1. Ga naar het tabblad **"Bestanden"**.
+2. Klik rechtsboven op **"Uploaden"**.
+3. Selecteer het bestand (PDF of Foto).
+4. Kies de categorie "Overig".
+5. Je manager en HR krijgen een melding en valideren het document.
+
+**Let op:** Verwijderen kan alleen door een manager/HR om per ongeluk dataverlies te voorkomen.`,
+        tags: ['Dossier', 'Contract', 'Uploaden', 'Administratie'],
+        authorName: 'HR',
+        authorRole: 'Manager',
+        lastUpdated: '15 Okt 2023',
         allowedRoles: ['All'],
         allowedDepartments: ['All'],
         views: 180,
         isPinned: false
     },
+    {
+        id: 'kb-hr-2',
+        title: 'Loonstroken: Wanneer & Waar?',
+        category: 'HR & Admin',
+        content: `## Digitale loonstrook
+Je loonstrook wordt niet meer per post verstuurd of gemaild, maar veilig klaargezet in MijnSanadome.
 
-    // --- CATEGORIE: ONBOARDING & GROEI (5) ---
-    {
-        id: 'kb-groei-1',
-        title: 'Jouw Onboarding Traject',
-        category: 'Onboarding',
-        content: `Nieuw bij Sanadome? Je onboarding traject staat voor je klaar.\n\n1. Ga naar **Onboarding** in het menu.\n2. Je ziet hier je voortgang per week (Week 1 t/m 4).\n3. Klik op de week om de openstaande taken te zien.\n4. Je manager zal taken afvinken en beoordelen.\n\nJe kunt zelf zien hoe ver je bent in de voortgangsbalk bovenaan de pagina.`,
-        tags: ['Onboarding', 'Nieuw', 'Starten'],
-        authorName: 'Training Team',
-        authorRole: 'Senior Medewerker',
-        lastUpdated: '20 Sep 2023',
-        allowedRoles: ['All'],
-        allowedDepartments: ['All'],
-        views: 110,
-        isPinned: false
-    },
-    {
-        id: 'kb-groei-2',
-        title: 'Evaluatiecyclus: Hoe werkt het?',
-        category: 'Evaluaties',
-        content: `Jaarlijks voeren we evaluatiegesprekken. In MijnSanadome verloopt dit digitaal.\n\n## Stap 1: Uitnodiging\nJe ontvangt een notificatie om je voorbereiding te starten.\n\n## Stap 2: Zelfreflectie\nGa naar **Evaluaties**, open de actieve cyclus en vul jouw deel in (terugblik, successen, scores).\n\n## Stap 3: Manager Input\nNadat jij klaar bent, vult de manager zijn/haar deel in.\n\n## Stap 4: Het Gesprek\nTijdens het gesprek bespreken jullie de scores en stellen jullie het rapport definitief vast.\n\n## Stap 5: Ondertekenen\nNa het gesprek tekenen jullie beiden digitaal in het systeem voor akkoord.`,
-        tags: ['Evaluatie', 'Beoordeling', 'Cyclus'],
-        authorName: 'HR',
+## Wanneer?
+Salarissen worden doorgaans rond de **24e van de maand** uitbetaald. De loonstrook is vaak 1 of 2 dagen eerder zichtbaar in het systeem. Je ontvangt automatisch een notificatie (belletje) zodra de strook beschikbaar is.
+
+## Downloaden
+1. Ga naar **Documenten**.
+2. Filter eventueel op categorie "Loonstrook".
+3. Klik op het **Download-icoon** naast de betreffende maand.
+4. De PDF opent direct of wordt opgeslagen op je apparaat.
+
+**Tip:** Heb je een loonstrook nodig voor bijvoorbeeld een hypotheekaanvraag? Download ze tijdig en sla ze lokaal op.`,
+        tags: ['Salaris', 'Geld', 'Financieel', 'Downloaden'],
+        authorName: 'Finance',
         authorRole: 'Manager',
         lastUpdated: '01 Okt 2023',
         allowedRoles: ['All'],
         allowedDepartments: ['All'],
-        views: 220,
+        views: 600,
         isPinned: true
     },
     {
-        id: 'kb-groei-3',
-        title: 'Groeipad & Doelen Instellen',
-        category: 'Evaluaties',
-        content: `Wil je groeien in je functie? Stel een Groeipad op.\n\nDit doe je samen met je manager tijdens een evaluatie. Een groeipad bestaat uit:\n- Een concreet doel (bijv. "Leidinggeven").\n- Een deadline.\n- Tussentijdse check-ins (evaluatiemomenten).\n\nJe kunt je actieve doelen en voortgang altijd terugvinden op je **Profiel** onder het tabblad "Groeipad".`,
-        tags: ['Groeipad', 'Doelen', 'Ontwikkeling'],
+        id: 'kb-hr-3',
+        title: 'Ziekteverzuim: Het Protocol',
+        category: 'HR & Admin',
+        content: `## Ziek melden
+Als je ziek bent en niet kunt werken, is het cruciaal dat we dit tijdig weten voor de bezetting.
+
+**Stap 1: Bellen (Vóór 09:00)**
+Bel altijd telefonisch naar je direct leidinggevende of de Duty Manager. Appjes of mailtjes worden **niet** geaccepteerd als officiële ziekmelding.
+- Geef aan dat je ziek bent.
+- Geef een indicatie van de duur (indien mogelijk).
+- Je hoeft *niet* te vertellen wat je mankeert (medisch geheim).
+
+**Stap 2: Registratie**
+Je leidinggevende zet de melding in MijnSanadome. Je ziet dit terug in je profiel onder "Notities & Tijdlijn" (categorie Verzuim). Dit is belangrijk voor de Wet Verbetering Poortwachter.
+
+**Stap 3: Beter melden**
+Ben je weer hersteld? Bel je leidinggevende. Hij/zij sluit de verzuimcase in het systeem.`,
+        tags: ['Ziek', 'Verzuim', 'Regels', 'Poortwachter'],
         authorName: 'HR',
         authorRole: 'Manager',
-        lastUpdated: '12 Nov 2023',
+        lastUpdated: '05 Nov 2023',
         allowedRoles: ['All'],
         allowedDepartments: ['All'],
-        views: 65,
-        isPinned: false
+        views: 250,
+        isPinned: true
     },
     {
-        id: 'kb-groei-4',
-        title: 'Badges Uitreiken (Waardering)',
-        category: 'Team',
-        content: `Waardering uitspreken is belangrijk! Als Senior of Manager kun je badges uitreiken.\n\n1. Ga naar **Badges** in het menu.\n2. Klik op "Bibliotheek" om te zien welke badges er zijn (bijv. "Klantheld", "Teamplayer").\n3. Klik op **Uitreiken** onder een badge.\n4. Selecteer de collega die de badge verdient.\n5. De collega ontvangt direct een feestelijke notificatie!\n\nIedereen kan elkaars badges zien op de profielpagina's.`,
-        tags: ['Badges', 'Complimenten', 'Team'],
+        id: 'kb-hr-4',
+        title: 'Vakantie & Verlof Aanvragen',
+        category: 'HR & Admin',
+        content: `## Verlof aanvragen
+Iedereen heeft recht op ontspanning. Vraag je vakantie tijdig aan zodat we het rooster rond krijgen.
+
+**Procedure (Huidig)**
+Omdat de volledige roosterintegratie nog loopt, werken we met een digitaal formulier in MijnSanadome.
+1. Download het **"Verlofaanvraagformulier"** bij Documenten (onder Categorie: Overig).
+2. Vul het in en laat het ondertekenen door je manager.
+3. Upload het getekende formulier terug in je dossier.
+
+**Toekomst (Q1 2024)**
+Binnenkort verschijnt er een knop **"Verlof Aanvragen"** op je dashboard. Je kunt dan:
+- Je actuele saldo (uren) zien.
+- Een datumselectie maken in een kalender.
+- Direct goedkeuring krijgen van je manager.
+Houd de "Systeemstatus" en "Nieuws" in de gaten voor de lancering!`,
+        tags: ['Vakantie', 'Vrije tijd', 'Rooster'],
         authorName: 'HR',
         authorRole: 'Manager',
-        lastUpdated: '25 Okt 2023',
-        allowedRoles: ['Manager', 'Senior Medewerker'],
+        lastUpdated: '20 Nov 2023',
+        allowedRoles: ['All'],
         allowedDepartments: ['All'],
-        views: 80,
+        views: 300,
         isPinned: false
     },
     {
-        id: 'kb-groei-5',
-        title: 'Surveys Invullen',
-        category: 'MijnSanadome',
-        content: `Jouw mening telt! We sturen regelmatig korte enquêtes (surveys).\n\n1. Als er een nieuwe survey is, zie je een melding op je dashboard.\n2. Klik op de melding of ga naar **Surveys**.\n3. Start de survey en beantwoord de vragen (dit kan anoniem zijn, dit staat erbij vermeld).\n4. Klik op afronden.\n\nDe resultaten worden gebruikt om Sanadome te verbeteren.`,
-        tags: ['Survey', 'Feedback', 'Enquête'],
+        id: 'kb-hr-5',
+        title: 'Functioneringsdossier & Notities',
+        category: 'HR & Admin',
+        content: `## Jouw groeidossier
+In MijnSanadome wordt een logboek bijgehouden van jouw functioneren. Dit is niet om je te controleren, maar om je groei vast te leggen.
+
+## Wat staat erin?
+Ga naar **Documenten** > tabblad **"Notities"**.
+- **Complimenten:** Als een gast of collega positief over je was.
+- **Gespreksverslagen:** Korte samenvattingen van 1-op-1 gesprekken.
+- **Incidenten:** Als er iets misging, wordt dit hier genoteerd zodat we er later op kunnen reflecteren.
+
+## Zichtbaarheid
+Sommige notities zijn "Privé" voor de manager (bijv. geheugensteuntjes voor een evaluatie). De meeste notities zijn echter openbaar voor jou. Transparantie staat voorop! Zie je iets waar je het niet mee eens bent? Bespreek dit met je manager.`,
+        tags: ['Feedback', 'Dossier', 'Groei'],
         authorName: 'HR',
         authorRole: 'Manager',
-        lastUpdated: '10 Sep 2023',
+        lastUpdated: '12 Okt 2023',
         allowedRoles: ['All'],
         allowedDepartments: ['All'],
         views: 130,
         isPinned: false
     },
 
-    // --- CATEGORIE: OPERATIE & TOOLS (5) ---
+    // --- CATEGORIE: ONBOARDING & ONTWIKKELING (11-15) ---
+    {
+        id: 'kb-dev-1',
+        title: 'Onboarding: Je eerste 4 weken',
+        category: 'Onboarding',
+        content: `## Een vliegende start
+Welkom! Om te zorgen dat je snel je weg vindt, werken we met een gestructureerd onboarding programma in MijnSanadome.
+
+**Hoe werkt het?**
+Ga naar de pagina **Onboarding**. Je ziet hier 4 weken.
+- **Week 1 (Introductie):** Huisregels, rondleiding, systemen en kennismaken.
+- **Week 2 (Basis):** De kern van je taken uitvoeren onder begeleiding.
+- **Week 3 (Verdieping):** Zelfstandiger werken en uitzonderingen leren.
+- **Week 4 (Zelfstandig):** Je draait volledig mee en sluit af met een gesprek.
+
+**Voortgang**
+Je manager of "buddy" vinkt taken af als je ze beheerst. Je ziet de voortgangsbalk bovenin vollopen. Probeer voor het einde van je proeftijd 100% te halen!`,
+        tags: ['Nieuw', 'Starten', 'Training', 'Proeftijd'],
+        authorName: 'Training Team',
+        authorRole: 'Senior Medewerker',
+        lastUpdated: '01 Nov 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['All'],
+        views: 220,
+        isPinned: true
+    },
+    {
+        id: 'kb-dev-2',
+        title: 'Evaluatiecyclus: Van start tot handtekening',
+        category: 'Evaluaties',
+        content: `## Het digitale evaluatieproces
+Geen papieren formulieren meer die kwijtraken. Alles gaat digitaal.
+
+**Stap 1: Uitnodiging**
+Je krijgt een melding dat er een evaluatie (bijv. Jaargesprek) voor je klaarstaat.
+
+**Stap 2: Zelfreflectie (Jouw beurt)**
+Open de evaluatie. Geef jezelf scores en typ je toelichting. Waar ben je trots op? Wat kan beter? Klik op "Volgende" tot je klaar bent. De manager ziet dit pas als je op "Afronden" klikt.
+
+**Stap 3: Manager Input**
+De manager krijgt een seintje, leest jouw input en vult zijn/haar deel in.
+
+**Stap 4: Het Gesprek**
+Jullie zitten samen en bespreken de scores. De manager past eventueel nog dingen aan in het verslag tijdens het gesprek.
+
+**Stap 5: Ondertekenen**
+Na het gesprek zet de manager de status op "Review". Jullie moeten nu beiden digitaal ondertekenen met de knop "Ondertekenen". Daarna is het dossier gesloten en gearchiveerd.`,
+        tags: ['Beoordeling', 'Gesprek', 'HR Cyclus'],
+        authorName: 'HR',
+        authorRole: 'Manager',
+        lastUpdated: '15 Okt 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['All'],
+        views: 310,
+        isPinned: false
+    },
+    {
+        id: 'kb-dev-3',
+        title: 'Groeipad (PDP): Doelen stellen',
+        category: 'Evaluaties',
+        content: `## Personal Development Plan (PDP)
+Wil je doorgroeien? Bijvoorbeeld van Medewerker naar Senior? Of wil je een specifieke vaardigheid leren (bijv. Duits)?
+
+**Een doel aanmaken**
+Tijdens een evaluatie of tussentijds overleg kun je samen met je manager een "Groeipad" instellen.
+1. De manager voegt een doel toe (bijv. "Upselling Training").
+2. Er wordt een **deadline** gekoppeld.
+3. Er wordt een **intensiteit** gekozen (hoe vaak checken we in?).
+
+**Check-ins**
+Het systeem plant automatisch tussentijdse evaluatiemomenten ("Check-ins"). Je krijgt hier meldingen van. Tijdens zo'n check-in bespreken jullie kort de voortgang en wordt het voortgangspercentage bijgewerkt.`,
+        tags: ['Ontwikkeling', 'Opleiding', 'Carrière'],
+        authorName: 'HR',
+        authorRole: 'Manager',
+        lastUpdated: '20 Nov 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['All'],
+        views: 145,
+        isPinned: false
+    },
+    {
+        id: 'kb-dev-4',
+        title: 'Badges: Waardering geven en krijgen',
+        category: 'Team',
+        content: `## Complimenten cultuur
+Bij Sanadome waarderen we extra inzet. Daarom hebben we digitale Badges.
+
+**Een badge ontvangen**
+Als je iets bijzonders doet (bijv. een gast extreem goed geholpen, of ingevallen voor een zieke collega), kan een manager of senior je een badge geven. Je krijgt hier een feestelijke melding van en de badge prijkt op je profiel.
+
+**Een badge uitreiken (Voor Seniors/Managers)**
+1. Ga naar **Badges** > Bibliotheek.
+2. Kies een badge (bijv. "Klantheld" of "Teamplayer").
+3. Klik op **Uitreiken**.
+4. Selecteer de collega.
+5. De badge is direct zichtbaar!`,
+        tags: ['Compliment', 'Cultuur', 'Beloning'],
+        authorName: 'HR',
+        authorRole: 'Manager',
+        lastUpdated: '01 Sep 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['All'],
+        views: 190,
+        isPinned: false
+    },
+    {
+        id: 'kb-dev-5',
+        title: 'Surveys: Jouw mening telt',
+        category: 'MijnSanadome',
+        content: `## Medewerkerstevredenheid
+We vinden het belangrijk wat jij vindt. Daarom sturen we regelmatig korte enquêtes (Surveys).
+
+**Hoe werkt het?**
+1. Je ziet een melding "Nieuwe Survey beschikbaar".
+2. Klik erop of ga naar de pagina **Surveys**.
+3. Beantwoord de vragen (dit kan sterren, tekst of meerkeuze zijn).
+4. Klik op verzenden.
+
+**Anonimiteit**
+Bij elke survey staat duidelijk vermeld of deze **Anoniem** is of niet. Bij anonieme surveys zien managers alleen de totaalcijfers, nooit wie wat heeft ingevuld. Wees dus eerlijk!`,
+        tags: ['Feedback', 'Mening', 'Enquête'],
+        authorName: 'HR',
+        authorRole: 'Manager',
+        lastUpdated: '10 Okt 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['All'],
+        views: 160,
+        isPinned: false
+    },
+
+    // --- CATEGORIE: OPERATIE & TOOLS (16-20) ---
     {
         id: 'kb-ops-1',
         title: 'Linnen Audit: Bestelling Importeren',
         category: 'Operatie',
-        content: `Voor de Moderna Linnen Audit begin je met de bestellijst.\n\n1. Ga naar **Linnen Audit**.\n2. Zorg dat je de bestelling van Moderna als **Excel-bestand** (.xlsx) hebt.\n3. Klik op het linker vak ("1. Bestelling") of sleep het bestand erin.\n\n**Let op:** Het systeem herkent automatisch containers (bijv. 200 stuks) op basis van specifieke rijnummers (rij 34-37). Controleer of je de originele Moderna-layout gebruikt.`,
-        tags: ['Linnen', 'Audit', 'Moderna', 'Excel'],
+        content: `## Stap 1: De Bestelling
+De Linnen Audit vergelijkt wat we besteld hebben bij Moderna met wat er daadwerkelijk geleverd is.
+
+**Bestand**
+Zorg dat je de bestelling als digitaal Excel-bestand (.xlsx) hebt. Dit komt meestal uit het inkoopsysteem of de mail van Moderna.
+
+**Importeren**
+1. Ga naar **Linnen Audit**.
+2. Klik links op het vak "1. Bestelling".
+3. Selecteer het Excel-bestand.
+
+**Let op: Containers**
+Het systeem bevat slimme logica voor grote aantallen.
+- Rij 34 (Badlaken wit): Wordt automatisch x 200 gedaan (volle container).
+- Rij 35 (Baddoek wit): Wordt automatisch x 384 gedaan.
+- Rij 36 (Baddoek beige): Wordt automatisch x 384 gedaan.
+- Rij 37 (Badlaken beige): Wordt automatisch x 160 gedaan.
+*Vul in de Excel dus '1' in als je 1 container bedoelt, het systeem rekent dit om naar stuks.*`,
+        tags: ['Linnen', 'Facilitair', 'Moderna', 'Excel'],
         authorName: 'Facilitair',
         authorRole: 'Manager',
-        lastUpdated: '15 Nov 2023',
+        lastUpdated: '25 Nov 2023',
         allowedRoles: ['Manager', 'Senior Medewerker'],
         allowedDepartments: ['Huishouding', 'Management'],
-        views: 40,
+        views: 85,
         isPinned: false
     },
     {
         id: 'kb-ops-2',
-        title: 'Linnen Audit: Leverbonnen Verwerken',
+        title: 'Linnen Audit: Leverbonnen Scannen (OCR)',
         category: 'Operatie',
-        content: `Na de bestelling voeg je de leverbonnen toe.\n\n1. Scan de papieren leverbonnen in als **PDF** (of download ze).\n2. Sleep ze in het rechter vak ("2. Leveringen") in de **Linnen Audit** module.\n3. Je kunt meerdere PDF's tegelijk toevoegen.\n4. Klik op **Start Audit**.\n\nHet systeem leest de PDF's uit en matcht de aantallen met de bestelling.`,
-        tags: ['Linnen', 'PDF', 'Scan', 'Audit'],
-        authorName: 'Facilitair',
+        content: `## Stap 2: De Levering
+De papieren bonnen die bij de karren zitten, moeten digitaal worden gemaakt.
+
+**Scannen**
+Scan de bonnen in. Zorg voor een goede resolutie. Sla ze op als PDF. Je mag meerdere bonnen in één PDF doen, of meerdere losse PDF's hebben.
+
+**Uploaden**
+1. Sleep de PDF-bestanden naar het rechtervak "2. Leveringen".
+2. Klik op **"Start Audit"**.
+
+**Hoe werkt het?**
+Het systeem gebruikt OCR (Tekstherkenning) om de PDF uit te lezen. Hij zoekt naar artikelnummers (bijv. 7772) en de aantallen die erachter staan. Daarna worden alle bonnen bij elkaar opgeteld en gematcht met je bestelling.`,
+        tags: ['Linnen', 'PDF', 'Scan', 'Automatisering'],
+        authorName: 'IT Support',
         authorRole: 'Manager',
-        lastUpdated: '15 Nov 2023',
+        lastUpdated: '25 Nov 2023',
         allowedRoles: ['Manager', 'Senior Medewerker'],
         allowedDepartments: ['Huishouding', 'Management'],
-        views: 35,
+        views: 80,
         isPinned: false
     },
     {
         id: 'kb-ops-3',
         title: 'Linnen Audit: Artikelen Uitsluiten',
         category: 'Operatie',
-        content: `Sommige artikelen wil je niet meetellen in de audit (bijv. dienstkleding of specials).\n\n1. Ga in de Linnen Audit module naar **Configuratie** (knop rechtsboven).\n2. Hier zie je een lijst met uitgesloten Product ID's.\n3. Voeg een nieuw ID toe en klik op "Toevoegen".\n4. Verwijder een ID door op het kruisje te klikken.\n\nDeze instellingen worden onthouden voor de volgende keer.`,
-        tags: ['Linnen', 'Configuratie', 'Instellingen'],
+        content: `## Waarom uitsluiten?
+Soms staan er items op de bon die we niet willen tellen. Bijvoorbeeld:
+- Dienstkleding (persoonsgebonden).
+- Karren/Containers zelf (statiegeld items).
+- Specials die niet in de standaardtelling horen.
+
+**Configureren**
+1. Ga in de Linnen Audit module naar de knop **"Configuratie"** (rechtsboven).
+2. Je ziet een lijst met geblokkeerde Product ID's (bijv. 7772, 0524).
+3. **Toevoegen:** Typ een ID in en klik op plus.
+4. **Verwijderen:** Klik op het kruisje naast een ID om het weer mee te laten tellen.
+
+Deze instellingen worden opgeslagen voor de volgende keer!`,
+        tags: ['Configuratie', 'Instellingen', 'Filter'],
         authorName: 'Facilitair',
         authorRole: 'Manager',
-        lastUpdated: '18 Nov 2023',
+        lastUpdated: '26 Nov 2023',
         allowedRoles: ['Manager', 'Senior Medewerker'],
         allowedDepartments: ['Huishouding', 'Management'],
-        views: 20,
+        views: 65,
         isPinned: false
     },
     {
         id: 'kb-ops-4',
-        title: 'Debiteuren: Rapportage Importeren',
+        title: 'Debiteuren: Import & Verrijking',
         category: 'Finance',
-        content: `Het importeren van openstaande posten uit MEWS/Excel.\n\n1. Ga naar **Debiteuren**.\n2. Klik rechtsboven op **Importeer Rapportage**.\n3. Upload het Excel-bestand met de openstaande balansen.\n4. Het systeem ontdubbelt automatisch en verrijkt adressen waar mogelijk via de PDOK API.\n5. Na import zie je direct welke dossiers actie vereisen (>14 dagen open).`,
-        tags: ['Debiteuren', 'Finance', 'Import', 'Excel'],
+        content: `## Openstaande posten beheren
+Met de Debiteuren-module houden we grip op onbetaalde rekeningen van gasten.
+
+**Import uit MEWS**
+1. Draai in MEWS het "Accounting Report" of "Open Balances".
+2. Exporteer naar Excel.
+3. Ga in MijnSanadome naar **Debiteuren** > **"Importeer Rapportage"**.
+4. Upload het bestand.
+
+**Automatische Verrijking (PDOK)**
+Het systeem kijkt naar de adressen in het bestand. Als een adres incompleet is (bijv. alleen postcode en huisnummer), gebruikt het systeem de 'PDOK Locatieserver' van de overheid om automatisch de juiste straatnaam en woonplaats erbij te zoeken. Dit scheelt veel typewerk bij het versturen van brieven!`,
+        tags: ['Finance', 'Geld', 'Incasso', 'API'],
         authorName: 'Finance',
         authorRole: 'Manager',
-        lastUpdated: '05 Okt 2023',
+        lastUpdated: '10 Nov 2023',
         allowedRoles: ['Manager', 'Senior Medewerker'],
         allowedDepartments: ['Front Office', 'Management'],
-        views: 55,
+        views: 120,
         isPinned: false
     },
     {
         id: 'kb-ops-5',
-        title: 'Debiteuren: WIK Brief Genereren',
+        title: 'Debiteuren: WIK Brief Maken',
         category: 'Finance',
-        content: `Voor de laatste aanmaning (Wet Incasso Kosten) kun je een officiële brief genereren.\n\n1. Open het dossier van de gast in de **Debiteuren** module.\n2. Klik op het **Printer-icoontje** bij acties.\n3. Selecteer de originele factuurdatum.\n4. Klik op **Genereer & Print**.\n\nEr opent een nieuw venster met een juridisch correcte brief die je direct kunt printen of opslaan als PDF.`,
-        tags: ['WIK', 'Incasso', 'Brief', 'Juridisch'],
+        content: `## Wet Incasso Kosten (WIK)
+Voordat we een vordering naar een incassobureau mogen sturen, is een officiële "14-dagen brief" wettelijk verplicht (de WIK-brief).
+
+**Brief genereren**
+1. Zoek de gast in het overzicht (Filter eventueel op "Final Notice").
+2. Klik op het **Printer-icoontje** aan de rechterkant.
+3. Er opent een venster. Selecteer de **oorspronkelijke factuurdatum**.
+4. Klik op "Genereer & Print".
+
+Het systeem maakt een PDF met de juiste juridische teksten, het openstaande bedrag en de gegevens van de gast. Print deze uit, doe hem in een envelop en stuur hem aangetekend op.`,
+        tags: ['Juridisch', 'Brief', 'WIK', 'Incasso'],
         authorName: 'Finance',
         authorRole: 'Manager',
-        lastUpdated: '01 Nov 2023',
+        lastUpdated: '10 Nov 2023',
         allowedRoles: ['Manager'],
         allowedDepartments: ['Management'],
-        views: 45,
+        views: 95,
         isPinned: true
     },
 
-    // --- CATEGORIE: SUPPORT & BEHEER (5) ---
+    // --- CATEGORIE: SUPPORT & IT (21-25) ---
     {
         id: 'kb-sup-1',
-        title: 'Ticket Aanmaken (Melding)',
+        title: 'Ticket Systeem: Melding maken',
         category: 'Support',
-        content: `Zie je een fout in het systeem of heb je een goed idee?\n\n1. Ga naar **Support & Tickets** in het menu.\n2. Klik op **Nieuwe Melding**.\n3. Kies het type:\n   - **Bug:** Iets is kapot.\n   - **Idee:** Je hebt een verbetersuggestie.\n   - **Fix:** Een kleine tekst- of layoutfout.\n4. Beschrijf het probleem duidelijk en klik op versturen.\n\nJe kunt de status van je ticket volgen op dezelfde pagina.`,
-        tags: ['Ticket', 'Bug', 'Support', 'Helpdesk'],
+        content: `## Iets kapot of een goed idee?
+Gebruik het ticketsysteem in plaats van losse mailtjes of briefjes. Zo raakt niets kwijt.
+
+**Soorten tickets**
+- **Bug:** Er is iets stuk (bijv. "Login werkt niet" of "Koffieapparaat defect").
+- **Idea:** Je hebt een verbetersuggestie (bijv. "Kunnen we een donkere modus krijgen?").
+- **Fix:** Een kleine aanpassing (bijv. "Spelfout op de website").
+
+**Een ticket maken**
+1. Ga naar **Support & Tickets**.
+2. Klik op **"Nieuwe Melding"**.
+3. Kies de **Locatie** (waar gaat het over?) en de **Prioriteit**.
+4. Beschrijf het probleem duidelijk.
+5. Klik op versturen.
+
+Je kunt de status (Open, In Behandeling, Opgelost) volgen op het dashboard.`,
+        tags: ['Helpdesk', 'IT', 'Onderhoud', 'Melding'],
         authorName: 'IT Support',
         authorRole: 'Manager',
-        lastUpdated: '10 Sep 2023',
+        lastUpdated: '01 Nov 2023',
         allowedRoles: ['All'],
         allowedDepartments: ['All'],
-        views: 125,
+        views: 200,
         isPinned: false
     },
     {
         id: 'kb-sup-2',
-        title: 'Systeemstatus Controleren',
-        category: 'Beheer',
-        content: `Als het systeem traag lijkt, kun je de status controleren.\n\n1. Ga naar **Systeemstatus** (alleen zichtbaar voor bepaalde rollen).\n2. Hier zie je de "Database Latency" (vertraging). Groen is goed (<300ms).\n3. Je ziet ook een logboek van recente updates en versies.\n\nBij storingen wordt dit hier ook gemeld.`,
-        tags: ['Status', 'Uptime', 'Storing', 'IT'],
-        authorName: 'IT Support',
+        title: 'Systeemstatus & Updates',
+        category: 'Support',
+        content: `## Werkt alles nog?
+Ervaar je traagheid of een storing? Check eerst de statuspagina.
+
+**Database Latency**
+Op de pagina **Systeemstatus** (alleen voor managers/seniors) zie je een metertje "Database Latency".
+- **Groen (<300ms):** Alles is snel en goed.
+- **Oranje/Rood:** Het systeem heeft het druk. Even geduld.
+
+**Update Log**
+Onderaan zie je de "Change Log". Hier staat precies wat er in de laatste update is veranderd. We updaten het systeem regelmatig met nieuwe features (gekoppeld aan GitHub).`,
+        tags: ['Storing', 'Snelheid', 'Updates', 'Versie'],
+        authorName: 'System Admin',
         authorRole: 'Manager',
-        lastUpdated: '01 Nov 2023',
-        allowedRoles: ['All'],
+        lastUpdated: '15 Okt 2023',
+        allowedRoles: ['Manager', 'Senior Medewerker'],
         allowedDepartments: ['All'],
-        views: 30,
+        views: 50,
         isPinned: false
     },
     {
         id: 'kb-sup-3',
-        title: 'Rechten & Rollen Beheren',
+        title: 'Rechtenbeheer: Wie mag wat?',
         category: 'Beheer',
-        content: `Als Manager kun je instellen wie wat mag zien.\n\n1. Ga naar **Instellingen**.\n2. Kies **Rollen** om standaardrechten per functie aan te passen.\n3. Kies **Gebruikers** om voor één specifiek persoon een uitzondering te maken (bijv. een Senior die ook Debiteuren mag zien).\n\n**Let op:** Wees voorzichtig met het geven van "Delete" rechten.`,
-        tags: ['Rechten', 'Permissies', 'Beheer', 'Manager'],
+        content: `## Rollen en Permissies
+MijnSanadome werkt met een strikt rechtensysteem. Standaard rechten zijn gekoppeld aan je rol:
+- **Manager:** Mag alles zien en bewerken.
+- **Senior:** Mag roosters zien, taken afvinken en badges uitdelen.
+- **Medewerker:** Ziet alleen eigen gegevens, nieuws en surveys.
+
+**Uitzonderingen maken**
+Wil je dat een specifieke medewerker (bijv. een stagiair op kantoor) toch toegang krijgt tot "Documenten Beheer"?
+1. Ga naar **Instellingen**.
+2. Zoek de medewerker.
+3. Vink handmatig extra permissies aan (bijv. "MANAGE_DOCUMENTS").
+4. Dit overschrijft de standaard rol.`,
+        tags: ['Rechten', 'Beveiliging', 'Admin', 'Toegang'],
         authorName: 'System Admin',
         authorRole: 'Manager',
-        lastUpdated: '15 Okt 2023',
+        lastUpdated: '20 Nov 2023',
         allowedRoles: ['Manager'],
         allowedDepartments: ['Management'],
-        views: 25,
+        views: 40,
         isPinned: true
     },
     {
         id: 'kb-sup-4',
-        title: 'Nieuwsbericht Plaatsen',
+        title: 'Nieuwsberichten Plaatsen',
         category: 'Communicatie',
-        content: `Heb je een mededeling voor het team?\n\n1. Ga naar **Nieuws**.\n2. Klik op **Bericht Plaatsen**.\n3. Vul een titel en korte samenvatting in.\n4. Schrijf het bericht. Je kunt tekst **dikgedrukt** maken of lijstjes toevoegen.\n5. Voeg optioneel een afbeelding toe voor meer attentiewaarde.\n6. Klik op **Publiceren**.\n\nIedereen ontvangt een notificatie van je nieuwe bericht.`,
-        tags: ['Nieuws', 'Publiceren', 'Communicatie'],
-        authorName: 'Communicatie',
+        content: `## Bereik het hele team
+Als Manager of Senior kun je nieuwsberichten plaatsen die direct op het startscherm van alle medewerkers verschijnen.
+
+**Tips voor een goed bericht**
+1. **Titel:** Kort en pakkend.
+2. **Afbeelding:** Upload altijd een foto. Berichten met foto worden 3x vaker gelezen!
+3. **Opmaak:** Gebruik de editor knoppen voor **dikgedrukte tekst** of lijstjes om het leesbaar te houden.
+4. **Notificatie:** Bij het publiceren wordt automatisch een push-notificatie naar iedereen gestuurd. Doe dit dus niet 's nachts, tenzij het spoed is.`,
+        tags: ['Nieuws', 'Communicatie', 'Redactie'],
+        authorName: 'Marketing',
         authorRole: 'Manager',
-        lastUpdated: '20 Sep 2023',
+        lastUpdated: '10 Sep 2023',
         allowedRoles: ['Manager', 'Senior Medewerker'],
         allowedDepartments: ['All'],
-        views: 70,
+        views: 90,
         isPinned: false
     },
     {
         id: 'kb-sup-5',
-        title: 'Knowledge Base Artikel Maken',
+        title: 'Kennisbank Artikelen Schrijven',
         category: 'Beheer',
-        content: `Help collega's door kennis te delen in deze kennisbank.\n\n1. Ga naar **Kennisbank**.\n2. Klik op **Nieuw Artikel**.\n3. Gebruik de "Smart Assist" knop voor sjablonen (bijv. voor een Protocol of Handleiding).\n4. Gebruik Markdown voor opmaak (kopjes met #, lijsten met -).\n5. Stel bij "Zichtbaarheid" in voor wie dit artikel bedoeld is (bijv. alleen Front Office).\n6. Klik op Opslaan.`,
-        tags: ['Kennisbank', 'Schrijven', 'Documentatie'],
+        content: `## Deel je kennis
+Weet jij alles van de kassa of het koffieapparaat? Schrijf er een artikel over!
+
+1. Ga naar **Kennisbank** > **"Nieuw Artikel"**.
+2. **Smart Assist:** Klik op de toverstaf-knop. Kies een sjabloon (bijv. "Protocol" of "Handleiding"). Dit geeft je direct een goede structuur.
+3. **Markdown:** Gebruik hekjes (#) voor koppen en sterretjes (*) voor lijstjes.
+4. **Zichtbaarheid:** Is dit alleen voor de Receptie? Vink dan bij "Afdelingen" alleen Front Office aan. Zo houden we het overzichtelijk voor de rest.`,
+        tags: ['Kennis', 'Schrijven', 'Documentatie'],
         authorName: 'System Admin',
         authorRole: 'Manager',
-        lastUpdated: '25 Nov 2023',
+        lastUpdated: '01 Dec 2023',
         allowedRoles: ['Manager', 'Senior Medewerker'],
         allowedDepartments: ['All'],
-        views: 40,
+        views: 60,
+        isPinned: false
+    },
+
+    // --- CATEGORIE: VEILIGHEID & HUISREGELS (26-30) ---
+    {
+        id: 'kb-safe-1',
+        title: 'BHV & Noodsituaties',
+        category: 'Veiligheid',
+        content: `## In geval van nood
+Bij brand, ongeval of ontruiming volg je altijd de instructies van de BHV (Bedrijfshulpverlening).
+
+**Alarmnummers**
+- **Intern Noodnummer:** Toestel **2222** (Receptie/Duty Manager).
+- **Extern:** 112 (Alleen bellen in levensbedreigende situaties, meld dit direct ook intern!).
+
+**Verzamelplaats**
+Bij een ontruiming verzamelen we op het parkeerterrein aan de achterzijde (bij de vlaggenmasten).
+
+**Wie is BHV?**
+Op het rooster en bij de prikklok hangt dagelijks een lijstje wie er BHV-dienst heeft. Zorg dat je weet wie dit zijn in jouw shift.`,
+        tags: ['Brand', 'Ongeval', 'Alarm', 'BHV'],
+        authorName: 'Veiligheid',
+        authorRole: 'Manager',
+        lastUpdated: '01 Jan 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['All'],
+        views: 400,
+        isPinned: true
+    },
+    {
+        id: 'kb-safe-2',
+        title: 'AVG & Privacy: Gastgegevens',
+        category: 'Veiligheid',
+        content: `## Omgaan met persoonsgegevens
+We werken dagelijks met gevoelige data van gasten (NAW, creditcards, paspoorten). Hier gelden strenge regels voor (AVG).
+
+**Gouden Regels**
+1. **Clean Desk:** Laat nooit printjes met gastgegevens op de balie slingeren.
+2. **Vergrendelen:** Loop je weg bij je computer? Windows-toets + L.
+3. **Wachtwoorden:** Deel nooit je wachtwoord met een collega. Iedereen heeft een eigen account.
+4. **Papier:** Gooi documenten met persoonsgegevens niet in de prullenbak, maar in de speciale papierversnipperaar-bakken.`,
+        tags: ['Privacy', 'AVG', 'Data', 'Security'],
+        authorName: 'IT Support',
+        authorRole: 'Manager',
+        lastUpdated: '15 Sep 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['All'],
+        views: 280,
+        isPinned: true
+    },
+    {
+        id: 'kb-safe-3',
+        title: 'Huisregels & Kledingvoorschrift',
+        category: 'HR & Admin',
+        content: `## Representativiteit
+Jij bent het visitekaartje van Sanadome.
+
+**Kleding**
+- Draag altijd het voorgeschreven uniform.
+- Zorg dat het schoon en gestreken is.
+- Naambadge is verplicht en moet zichtbaar gedragen worden (links op de borst).
+
+**Uiterlijke verzorging**
+- Haar moet verzorgd zijn (lang haar vast).
+- Geen opvallende sieraden of piercings.
+- Tatoeages moeten zoveel mogelijk bedekt zijn.
+
+**Roken & Telefoon**
+- Roken alleen in de pauze op de aangewezen plek buiten het zicht van gasten.
+- Privételefoons zijn tijdens werktijd niet toegestaan, tenzij met toestemming van je leidinggevende voor werkdoeleinden.`,
+        tags: ['Regels', 'Uniform', 'Gedrag'],
+        authorName: 'HR',
+        authorRole: 'Manager',
+        lastUpdated: '01 Jan 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['All'],
+        views: 350,
+        isPinned: false
+    },
+    {
+        id: 'kb-safe-4',
+        title: 'Declaraties Indienen',
+        category: 'HR & Admin',
+        content: `## Onkostenvergoeding
+Heb je kosten gemaakt voor het werk? (bijv. reiskosten voor een training of boodschappen voor de afdeling).
+
+**Procedure**
+1. Bewaar altijd de originele bon (met BTW vermelding!).
+2. Download het **Declaratieformulier** bij Documenten.
+3. Vul het in en niet de bon eraan vast.
+4. Laat het tekenen door je afdelingshoofd.
+5. Lever het in bij de financiële administratie (postvakje Finance).
+
+De uitbetaling vindt meestal plaats tegelijk met de eerstvolgende salarisbetaling.`,
+        tags: ['Geld', 'Kosten', 'Bonnetjes'],
+        authorName: 'Finance',
+        authorRole: 'Manager',
+        lastUpdated: '10 Nov 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['All'],
+        views: 90,
+        isPinned: false
+    },
+    {
+        id: 'kb-safe-5',
+        title: 'Duurzaamheid & Green Key',
+        category: 'Operatie',
+        content: `## Green Key Goud
+Sanadome is gecertificeerd met het Green Key Goud keurmerk. We doen er alles aan om het milieu te sparen. Jij helpt mee!
+
+**Wat kun jij doen?**
+- **Afval:** Scheid afval strikt (Papier, Plastic, Rest, Glas).
+- **Licht & Apparatuur:** Doe lichten uit in ruimtes waar niemand is. Zet computers en schermen uit na sluitingstijd.
+- **Water:** Meld lekkende kranen direct via een Ticket (type: Bug/Fix) zodat de TD het kan maken.
+- **Gasten:** Informeer gasten over onze handdoekenwissel-policy (alleen op de grond = wassen).
+
+Samen zorgen we voor een groenere toekomst!`,
+        tags: ['Milieu', 'MVO', 'Green Key', 'Afval'],
+        authorName: 'Directie',
+        authorRole: 'Manager',
+        lastUpdated: '01 Sep 2023',
+        allowedRoles: ['All'],
+        allowedDepartments: ['All'],
+        views: 120,
         isPinned: false
     }
 ];
@@ -560,18 +992,18 @@ export const MOCK_TICKETS: Ticket[] = [
 
 // --- AUTO UPDATE LOGGER ---
 export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
-    id: 'update-v4.2.0-kb-update', 
-    version: 'v4.2.0',
+    id: 'update-v4.3.0-kb-complete', 
+    version: 'v4.3.0',
     date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
     timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
     author: 'AI Assistant',
     type: 'Feature',
-    impact: 'Medium',
+    impact: 'High',
     affectedArea: 'Kennisbank',
     description: `
-- Kennisbank gevuld met 30 uitgebreide systeem-artikelen.
-- Categorieën en rechtenstructuur voor artikelen geoptimaliseerd.
-- Linnen Audit configuratie en logica verbeterd.`,
+- Kennisbank volledig vernieuwd met 30 "slimme" artikelen.
+- Uitgebreide markdown ondersteuning en instructies.
+- Categorieën geherstructureerd voor betere vindbaarheid.`,
     status: 'Success'
 };
 

@@ -43,7 +43,8 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
     role: 'Medewerker',
     departments: [] as string[],
     hiredOn: '',
-    employmentType: 'Full-Time'
+    employmentType: 'Full-Time',
+    password: '' // Added password field for auto-creation
   });
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -92,7 +93,8 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       role: employee.role,
       departments: employee.departments || [],
       hiredOn: '', 
-      employmentType: employee.employmentType || 'Full-Time'
+      employmentType: employee.employmentType || 'Full-Time',
+      password: ''
     });
     setIsEditModalOpen(true);
     setActiveActionId(null);
@@ -142,14 +144,17 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       role: 'Medewerker',
       departments: [],
       hiredOn: '',
-      employmentType: 'Full-Time'
+      employmentType: 'Full-Time',
+      password: ''
     });
   };
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    const newId = Math.random().toString(36).substr(2, 9);
+    // GENERATE REAL UUID FOR SUPABASE AUTH COMPATIBILITY
+    const newId = crypto.randomUUID();
+    
     const fullName = `${formData.firstName} ${formData.lastName}`;
     const dateObj = formData.hiredOn ? new Date(formData.hiredOn) : new Date();
     const formattedDate = dateObj.toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -167,6 +172,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       employmentType: formData.employmentType,
       accountStatus: 'Pending',
       onboardingStatus: 'Pending',
+      password: formData.password || 'sanadome123', // Default or provided
       leaveBalances: [
         { type: 'Annual Leave', entitled: 25, taken: 0 },
         { type: 'Sick Leave', entitled: 10, taken: 0 },
@@ -429,7 +435,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
           onClose={() => setIsAddModalOpen(false)} 
           title="Nieuwe medewerker"
         >
-          {/* Form Content same as before */}
+          {/* Form Content */}
           <form onSubmit={handleAddSubmit} className="space-y-5">
             <div className="grid grid-cols-2 gap-5">
               <div>
@@ -482,6 +488,20 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                   placeholder="+31 6..."
                 />
               </div>
+            </div>
+
+            {/* Password Field for Auto Auth Creation */}
+            <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Start Wachtwoord</label>
+                <input 
+                  type="text" 
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
+                  placeholder="bv. Sanadome2023! (Laat leeg voor standaard)"
+                />
+                <p className="text-[10px] text-slate-400 mt-1">Dit wachtwoord wordt gebruikt om direct een inlog-account aan te maken.</p>
             </div>
 
             <div className="grid grid-cols-2 gap-5">
@@ -561,12 +581,13 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                 type="submit"
                 className="px-6 py-3 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-all shadow-sm"
               >
-                Opslaan
+                Opslaan & Aanmaken
               </button>
             </div>
           </form>
         </Modal>
 
+        {/* Success Modal */}
         <Modal 
              isOpen={isSuccessModalOpen}
              onClose={() => setIsSuccessModalOpen(false)}
@@ -578,9 +599,9 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                  </div>
                  
                  <div>
-                     <h3 className="text-xl font-bold font-serif text-slate-900">Verstuur uitnodiging</h3>
+                     <h3 className="text-xl font-bold font-serif text-slate-900">Account Aangemaakt!</h3>
                      <p className="text-sm text-slate-600 mt-2 max-w-xs mx-auto">
-                         Deel deze link met <strong>{recentlyAddedEmployee?.name}</strong> om de onboarding te starten.
+                         <strong>{recentlyAddedEmployee?.name}</strong> is toegevoegd aan het systeem en kan direct inloggen.
                      </p>
                  </div>
 
@@ -612,18 +633,20 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                         onClick={() => setIsSuccessModalOpen(false)}
                         className="text-sm text-slate-400 hover:text-slate-800 font-medium py-2"
                      >
-                         Overslaan en sluiten
+                         Sluiten
                      </button>
                  </div>
              </div>
           </Modal>
 
+        {/* Edit Modal (Existing code...) */}
         <Modal 
           isOpen={isEditModalOpen} 
           onClose={() => setIsEditModalOpen(false)} 
           title="Bewerk medewerker"
         >
           <form onSubmit={handleEditSubmit} className="space-y-5">
+             {/* Same form fields as Add, minus password */}
              <div className="grid grid-cols-2 gap-5">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Voornaam</label>
@@ -715,6 +738,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
           </form>
         </Modal>
 
+        {/* Delete Modal */}
         <Modal
           isOpen={isDeleteModalOpen}
           onClose={() => setIsDeleteModalOpen(false)}

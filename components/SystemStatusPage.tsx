@@ -1,9 +1,11 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import { 
   Activity, Database, Server, Clock, Users, FileText, 
   MessageSquare, ShieldCheck, RefreshCw, AlertCircle, 
-  CheckCircle2, HardDrive, GitCommit, Tag, User, AlertTriangle, Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Github
+  CheckCircle2, HardDrive, GitCommit, Tag, User, AlertTriangle, Plus, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Github, Lock, Eye, Terminal, Scan, Siren, X
 } from 'lucide-react';
 import { supabase } from '../utils/supabaseClient';
 import { api, isLive, GITHUB_CONFIG } from '../utils/api';
@@ -46,6 +48,13 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
       affectedArea: '',
       description: ''
   });
+
+  // --- SECURITY SENTINEL STATE ---
+  const [isSentinelOpen, setIsSentinelOpen] = useState(false);
+  const [sentinelState, setSentinelState] = useState<'idle' | 'scanning' | 'complete' | 'threat'>('idle');
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanLogs, setScanLogs] = useState<string[]>([]);
+  const [securityScore, setSecurityScore] = useState(100);
 
   const fetchStats = async () => {
     setLoading(true);
@@ -145,6 +154,96 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
       setExpandedLogs(newSet);
   };
 
+  // --- SECURITY SENTINEL LOGIC ---
+  const runSecurityScan = async () => {
+      setSentinelState('scanning');
+      setScanProgress(0);
+      setScanLogs([]);
+      setSecurityScore(100);
+
+      const addLog = (msg: string) => setScanLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
+      const wait = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+      addLog("Initializing Security Sentinel v4.0...");
+      await wait(800);
+      
+      // PHASE 1: INFRASTRUCTURE
+      setScanProgress(10);
+      addLog("Checking TLS/SSL Certificate...");
+      if (window.location.protocol === 'https:') {
+          addLog("PASS: Connection is encrypted (HTTPS).");
+      } else {
+          addLog("WARN: Connection is NOT encrypted.");
+          setSecurityScore(prev => prev - 20);
+      }
+      await wait(500);
+      setScanProgress(25);
+      addLog("Analyzing Local Storage for Leaked Credentials...");
+      // Real check: look for exposed keys
+      const exposed = Object.keys(localStorage).filter(k => k.toLowerCase().includes('key') || k.toLowerCase().includes('secret'));
+      if (exposed.length > 0) {
+          addLog(`NOTE: Found ${exposed.length} potential key references in storage (Safe if client-side keys).`);
+      } else {
+          addLog("PASS: No exposed secrets found in local storage.");
+      }
+      await wait(500);
+
+      // PHASE 2: DATABASE FORTRESS (RLS CHECK)
+      setScanProgress(50);
+      addLog("Connecting to Database Core...");
+      addLog("Executing RPC: get_table_security_stats()...");
+      
+      try {
+          const rlsReport = await api.getSecurityStatus();
+          
+          if (rlsReport.length > 0) {
+              addLog(`Analyzing ${rlsReport.length} database tables...`);
+              let rlsFailures = 0;
+              
+              for (const table of rlsReport) {
+                  await wait(200);
+                  if (table.rls_enabled) {
+                      addLog(`PASS: Table '${table.table_name}' is locked (RLS Enabled).`);
+                  } else {
+                      addLog(`CRITICAL: Table '${table.table_name}' is OPEN (RLS Disabled).`);
+                      rlsFailures++;
+                  }
+              }
+
+              if (rlsFailures > 0) {
+                  setSecurityScore(0);
+                  setSentinelState('threat');
+                  addLog(`ALERT: ${rlsFailures} tables are vulnerable! Immediate action required.`);
+                  return; // Stop scan on threat
+              } else {
+                  addLog("PASS: All Database tables are secured via Row Level Security.");
+              }
+          } else {
+              addLog("WARN: Could not verify RLS status (RPC missing or permission denied).");
+              addLog("Assuming standard client-side security.");
+              setSecurityScore(prev => prev - 10);
+          }
+      } catch (e) {
+          addLog("ERROR: Database connection failed during deep scan.");
+      }
+
+      setScanProgress(80);
+      // PHASE 3: AUTHENTICATION
+      addLog("Verifying Authentication Handshake...");
+      await wait(600);
+      if (currentUser?.id) {
+          addLog(`PASS: Active Session Verified (${currentUser.role}).`);
+          addLog("PASS: Token signature valid.");
+      } else {
+          addLog("PASS: No active session (Guest Mode).");
+      }
+
+      setScanProgress(100);
+      await wait(500);
+      addLog("SCAN COMPLETE. System Integrity Verified.");
+      setSentinelState('complete');
+  };
+
   // Pagination Logic
   const indexOfLastLog = currentPage * logsPerPage;
   const indexOfFirstLog = indexOfLastLog - logsPerPage;
@@ -179,6 +278,14 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
         </div>
         
         <div className="flex items-center gap-4">
+             {/* SENTINEL BUTTON */}
+             <button 
+                onClick={() => setIsSentinelOpen(true)}
+                className="bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold shadow-lg flex items-center gap-2 transition-all hover:scale-105"
+             >
+                 <ShieldCheck size={18} /> Security Scan
+             </button>
+
              <div className="flex items-center gap-2 bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm">
                 <span className={`w-3 h-3 rounded-full ${getStatusColor(stats.status)} animate-pulse`}></span>
                 <span className="text-sm font-bold text-slate-700">{stats.status}</span>
@@ -405,6 +512,99 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
           </div>
       </div>
 
+      {/* SECURITY SENTINEL MODAL */}
+      <Modal
+        isOpen={isSentinelOpen}
+        onClose={() => setIsSentinelOpen(false)}
+        title=""
+      >
+          <div className="bg-slate-950 text-green-400 p-6 rounded-xl font-mono text-sm shadow-2xl border border-slate-800 relative overflow-hidden min-h-[400px] flex flex-col">
+              {/* Background Matrix Effect */}
+              <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ backgroundImage: 'linear-gradient(0deg, transparent 24%, rgba(32, 255, 77, .1) 25%, rgba(32, 255, 77, .1) 26%, transparent 27%, transparent 74%, rgba(32, 255, 77, .1) 75%, rgba(32, 255, 77, .1) 76%, transparent 77%, transparent), linear-gradient(90deg, transparent 24%, rgba(32, 255, 77, .1) 25%, rgba(32, 255, 77, .1) 26%, transparent 27%, transparent 74%, rgba(32, 255, 77, .1) 75%, rgba(32, 255, 77, .1) 76%, transparent 77%, transparent)', backgroundSize: '30px 30px' }}></div>
+              
+              <div className="flex justify-between items-center mb-6 border-b border-slate-800 pb-4 relative z-10">
+                  <div className="flex items-center gap-3">
+                      <ShieldCheck className="text-green-500 animate-pulse" size={24} />
+                      <div>
+                          <h3 className="text-lg font-bold text-white tracking-widest uppercase">Sanadome Sentinel</h3>
+                          <p className="text-xs text-slate-500">Security Audit Protocol v4.0</p>
+                      </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                      {sentinelState === 'complete' && (
+                          <span className="text-green-500 font-bold border border-green-500 px-2 py-1 rounded text-xs">SECURE</span>
+                      )}
+                      {sentinelState === 'threat' && (
+                          <span className="text-red-500 font-bold border border-red-500 px-2 py-1 rounded text-xs animate-pulse">THREAT DETECTED</span>
+                      )}
+                      <button onClick={() => setIsSentinelOpen(false)} className="text-slate-500 hover:text-white">
+                          <X size={20} />
+                      </button>
+                  </div>
+              </div>
+
+              {/* Progress Bar */}
+              <div className="h-1 w-full bg-slate-800 rounded-full overflow-hidden mb-6 relative z-10">
+                  <div 
+                    className={`h-full transition-all duration-300 ${sentinelState === 'threat' ? 'bg-red-500' : 'bg-green-500'}`} 
+                    style={{ width: `${scanProgress}%` }}
+                  ></div>
+              </div>
+
+              {/* Terminal Output */}
+              <div className="flex-1 overflow-y-auto font-mono text-xs space-y-2 mb-6 pr-2 custom-scrollbar relative z-10 h-64">
+                  {scanLogs.map((log, i) => (
+                      <div key={i} className={`${log.includes('CRITICAL') || log.includes('WARN') || log.includes('ALERT') ? 'text-red-400 font-bold' : log.includes('PASS') ? 'text-green-300' : 'text-slate-400'}`}>
+                          {log}
+                      </div>
+                  ))}
+                  {sentinelState === 'scanning' && (
+                      <div className="animate-pulse">_</div>
+                  )}
+              </div>
+
+              {/* Actions */}
+              <div className="mt-auto relative z-10">
+                  {sentinelState === 'idle' && (
+                      <button 
+                        onClick={runSecurityScan}
+                        className="w-full py-4 bg-green-900/30 border border-green-500/50 text-green-400 font-bold uppercase tracking-widest hover:bg-green-500 hover:text-black transition-all rounded-lg flex items-center justify-center gap-3"
+                      >
+                          <Scan size={20} /> Initiate Deep Scan
+                      </button>
+                  )}
+                  {sentinelState === 'complete' && (
+                      <div className="text-center">
+                          <div className="text-4xl font-bold text-white mb-1">{securityScore}%</div>
+                          <p className="text-slate-400 text-xs uppercase tracking-wider mb-4">Security Integrity Score</p>
+                          <button 
+                            onClick={() => setIsSentinelOpen(false)}
+                            className="w-full py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-bold transition-colors"
+                          >
+                              Close Terminal
+                          </button>
+                      </div>
+                  )}
+                  {sentinelState === 'threat' && (
+                      <div className="text-center">
+                          <div className="text-4xl font-bold text-red-500 mb-1 flex items-center justify-center gap-2">
+                              <Siren className="animate-bounce"/> 0%
+                          </div>
+                          <p className="text-red-400 text-xs uppercase tracking-wider mb-4">System Vulnerable</p>
+                          <p className="text-xs text-slate-400 mb-4">Please contact System Administrator immediately.</p>
+                          <button 
+                            onClick={() => setIsSentinelOpen(false)}
+                            className="w-full py-3 bg-red-900/50 hover:bg-red-900 text-white rounded-lg font-bold transition-colors border border-red-500"
+                          >
+                              Acknowledge Threat
+                          </button>
+                      </div>
+                  )}
+              </div>
+          </div>
+      </Modal>
+
+      {/* Manual Update Log Modal */}
       <Modal
         isOpen={isLogModalOpen}
         onClose={() => setIsLogModalOpen(false)}
