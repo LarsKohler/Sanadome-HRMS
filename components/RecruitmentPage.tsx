@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useRef } from 'react';
 import { 
     UserPlus, Search, Briefcase, Plus, Calendar, 
@@ -12,6 +11,14 @@ import { Employee, Applicant, Vacancy, ApplicantStage, RecruitmentTimelineEvent,
 import { MOCK_VACANCIES, MOCK_APPLICANTS } from '../utils/mockData';
 import { Modal } from './Modal';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// --- PDF.JS SETUP ---
+const pdfjs = (pdfjsLib as any).default || pdfjsLib;
+if (typeof window !== 'undefined' && !pdfjs.GlobalWorkerOptions.workerSrc) {
+    const version = pdfjs.version;
+    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
+}
 
 interface RecruitmentPageProps {
     currentUser: Employee;
@@ -21,6 +28,16 @@ interface RecruitmentPageProps {
 }
 
 const STAGES: ApplicantStage[] = ['New', 'Screening', 'Interview 1', 'Interview 2', 'Offer', 'Hired'];
+
+const SKILL_KEYWORDS = [
+    'Engels', 'English', 'Duits', 'German', 'Frans', 'French',
+    'Spaans', 'Spanish', 'Nederlands', 'Dutch',
+    'Horeca', 'Hospitality', 'Hotel', 'Restaurant', 'Bar',
+    'Leidinggeven', 'Leadership', 'Management',
+    'Teamplayer', 'Stressbestendig', 'Flexibel',
+    'Office', 'Excel', 'Word', 'IDu PMS', 'MEWS', 'Opera',
+    'HACCP', 'Sociale Hygiëne', 'BHV'
+];
 
 const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowToast, onHireCandidate, onAddNotification }) => {
     const [activeTab, setActiveTab] = useState<'dashboard' | 'pipeline'>('pipeline');
@@ -38,7 +55,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
     const [selectedApplicant, setSelectedApplicant] = useState<Applicant | null>(null);
     const [isApplicantModalOpen, setIsApplicantModalOpen] = useState(false);
 
-    // CV Parsing Simulation State
+    // CV Parsing State
     const [uploadMode, setUploadMode] = useState<'auto' | 'manual'>('auto');
     const [uploadStep, setUploadStep] = useState<'upload' | 'scanning' | 'review'>('upload');
     const [scanProgress, setScanProgress] = useState(0);
@@ -141,7 +158,115 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
 
     // --- CV PARSING LOGIC ---
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const extractTextFromPDF = async (file: File): Promise<string> => {
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+            const pdf = await loadingTask.promise;
+            let fullText = '';
+
+            // Read first 2 pages max (usually enough for CVs)
+            const maxPages = Math.min(pdf.numPages, 2);
+            for (let i = 1; i <= maxPages; i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                const pageText = textContent.items.map((item: any) => item.str).join(' ');
+                fullText += pageText + '\n';
+            }
+            return fullText;
+        } catch (error) {
+            console.error("PDF Read Error", error);
+            throw new Error("Kon PDF niet lezen");
+        }
+    };
+
+    const analyzeCVText = (text: string) => {
+        const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        const fullTextLower = text.toLowerCase();
+
+        // 1. Email Extraction
+        const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/;
+        const emailMatch = text.match(emailRegex);
+        const email = emailMatch ? emailMatch[0] : '';
+
+        // 2. Phone Extraction (Dutch/Intl format loose match)
+        // Matches 06 12345678, +31 6 ..., 06-..., etc.
+        const phoneRegex = /((\+|00)(\d{1,3})[\s-]?)?(\d{10}|\d{2}[\s-]\d{2}[\s-]\d{2}[\s-]\d{2}[\s-]\d{2}|\d{3}[\s-]\d{3}[\s-]\d{2,4})/;
+        const phoneMatch = text.match(phoneRegex);
+        const phone = phoneMatch ? phoneMatch[0] : '';
+
+        // 3. Name Extraction (Heuristic)
+        // Usually the name is at the top of the resume. We look for the first line that is NOT an email, NOT a phone, and has 2-3 words.
+        let firstName = '';
+        let lastName = '';
+        
+        for (let i = 0; i < Math.min(lines.length, 10); i++) {
+            const line = lines[i];
+            // Skip headers like "Curriculum Vitae", "Resume", "CV"
+            if (/^(curriculum vitae|resume|cv|persoonsgegevens|personal details)$/i.test(line)) continue;
+            
+            // Skip lines with @ or digits (likely contact info)
+            if (line.includes('@') || /\d/.test(line)) continue;
+
+            const words = line.split(/\s+/);
+            if (words.length >= 2 && words.length <= 4) {
+                // Heuristic: First word is First Name, rest is Last Name
+                firstName = words[0];
+                // Capitalize first letter
+                firstName = firstName.charAt(0).toUpperCase() + firstName.slice(1).toLowerCase();
+                
+                const rest = words.slice(1).join(' ');
+                lastName = rest.charAt(0).toUpperCase() + rest.slice(1).toLowerCase();
+                break; // Stop after finding a plausible name
+            }
+        }
+
+        // Fallback if no name found
+        if (!firstName) {
+            firstName = "Nieuwe";
+            lastName = "Kandidaat";
+        }
+
+        // 4. Skills Extraction
+        const foundSkills = SKILL_KEYWORDS.filter(keyword => fullTextLower.includes(keyword.toLowerCase()));
+        // Deduplicate
+        const uniqueSkills = Array.from(new Set(foundSkills));
+
+        // 5. Calculate Score based on skills count and presence of contact info
+        let score = 50; // Base
+        if (email) score += 10;
+        if (phone) score += 10;
+        score += Math.min(uniqueSkills.length * 5, 30); // Up to 30 points for skills
+
+        // AI Reasoning
+        const pros: string[] = [];
+        const cons: string[] = [];
+
+        if (uniqueSkills.length > 3) pros.push(`Beschikt over ${uniqueSkills.length} relevante vaardigheden.`);
+        else cons.push('Weinig specifieke vaardigheden gevonden in tekst.');
+
+        if (fullTextLower.includes('ervaring') || fullTextLower.includes('experience')) {
+            pros.push('Werkervaring sectie gedetecteerd.');
+        }
+
+        if (score > 80) pros.push('Sterk profiel op basis van trefwoorden.');
+        
+        return {
+            firstName,
+            lastName,
+            email,
+            phone,
+            skills: uniqueSkills,
+            matchScore: Math.min(score, 99),
+            aiReasoning: {
+                pros,
+                cons,
+                summary: `Automatisch geanalyseerd op basis van ${lines.length} regels tekst.`
+            }
+        };
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
             setCvFile(file);
@@ -149,63 +274,56 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
             setUploadStep('scanning');
             setScanProgress(0);
             
-            // SIMULATE AI PARSING PROGRESS
-            const stages = [
-                { progress: 15, text: "Bestand uploaden..." },
-                { progress: 35, text: "Tekst extraheren (OCR)..." },
-                { progress: 50, text: "Naam en contactgegevens identificeren..." },
-                { progress: 75, text: "Vaardigheden matchen met vacature..." },
-                { progress: 90, text: "AI Match Score berekenen..." },
-                { progress: 100, text: "Voltooid!" }
-            ];
+            // 1. Start UI Progress
+            setScanStatusText("Bestand uploaden...");
+            await new Promise(r => setTimeout(r, 500));
+            setScanProgress(20);
 
-            let step = 0;
-            const interval = setInterval(() => {
-                if (step >= stages.length) {
-                    clearInterval(interval);
-                    // Mock Extracted Data
-                    const randomScore = Math.floor(Math.random() * (98 - 65 + 1) + 65);
-                    const mockSkills = ['Gastvrijheid', 'Engels', 'Duits', 'Stressbestendig', 'Teamplayer'].sort(() => 0.5 - Math.random()).slice(0, 3);
-                    
-                    // Generate smart reasons based on score
-                    const pros = [
-                        'Heeft relevante ervaring in hospitality.',
-                        'Spreekt meerdere talen (Engels, Duits).',
-                        'Skills matchen goed met functieprofiel.'
-                    ];
-                    const cons = [];
-                    if (randomScore < 80) cons.push('Geen leidinggevende ervaring gevonden.');
-                    if (randomScore < 70) cons.push('Woonplaats buiten directe regio.');
-
-                    setParsedCandidate({
-                        firstName: 'Nieuwe',
-                        lastName: 'Kandidaat',
-                        email: 'kandidaat@email.com',
-                        phone: '06-12345678',
-                        matchScore: randomScore,
-                        skills: mockSkills,
-                        rating: 0,
-                        stage: 'New',
-                        vacancyId: vacancies[0].id,
-                        aiReasoning: {
-                            pros,
-                            cons,
-                            summary: 'Sterke kandidaat met potentie, voldoet aan basiseisen.'
-                        }
-                    });
-                    setUploadStep('review');
-                } else {
-                    setScanProgress(stages[step].progress);
-                    setScanStatusText(stages[step].text);
-                    step++;
+            // 2. Extract Text (if PDF)
+            let extractedText = '';
+            if (file.type === 'application/pdf') {
+                setScanStatusText("Tekst extraheren (OCR)...");
+                try {
+                    extractedText = await extractTextFromPDF(file);
+                    setScanProgress(60);
+                } catch (err) {
+                    console.error(err);
+                    onShowToast("Kon PDF niet lezen. Probeer handmatige invoer.");
+                    setUploadStep('upload');
+                    return;
                 }
-            }, 600); // 600ms per step
+            } else {
+                // If not PDF (e.g. Word), we can't parse easily client-side without heavy libs.
+                // Fallback to simulation/warning or simple extraction if implemented.
+                // For now, we simulate extraction for non-PDF or just skip.
+                setScanStatusText("Document type analyseren...");
+                await new Promise(r => setTimeout(r, 1000));
+                extractedText = "Nieuwe Kandidaat \n Horeca ervaring \n Teamplayer"; // Fallback dummy content if not PDF
+            }
+
+            // 3. Analyze Text
+            setScanStatusText("Gegevens en Skills identificeren...");
+            const analysis = analyzeCVText(extractedText);
+            setScanProgress(90);
+            await new Promise(r => setTimeout(r, 500));
+
+            // 4. Finish
+            setParsedCandidate({
+                ...analysis,
+                rating: 0,
+                stage: 'New',
+                vacancyId: vacancies[0].id,
+            });
+            setScanProgress(100);
+            setUploadStep('review');
         }
     };
 
     const handleManualEntry = () => {
         setUploadMode('manual');
         setParsedCandidate({
+            firstName: '',
+            lastName: '',
             stage: 'New',
             vacancyId: vacancies[0].id,
             matchScore: 0,
@@ -487,7 +605,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                                         <Upload size={28} />
                                     </div>
                                     <h3 className="text-base font-bold text-slate-900">CV Uploaden</h3>
-                                    <p className="text-xs text-slate-500 mt-1">Automatisch uitlezen & vullen</p>
+                                    <p className="text-xs text-slate-500 mt-1">Automatisch uitlezen (PDF)</p>
                                 </div>
 
                                 <div 
@@ -506,7 +624,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                                 type="file" 
                                 ref={fileInputRef} 
                                 className="hidden" 
-                                accept=".pdf,.docx,.doc" 
+                                accept=".pdf" 
                                 onChange={handleFileUpload} 
                             />
                             
@@ -515,7 +633,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                                 <div>
                                     <h4 className="font-bold text-blue-900 text-sm">Smart AI Parsing</h4>
                                     <p className="text-xs text-blue-700 mt-1">
-                                        Upload een CV om automatisch naam, contactgegevens en vaardigheden te extraheren en een match-score te genereren.
+                                        Upload een PDF-CV om automatisch naam, contactgegevens en vaardigheden te extraheren.
                                     </p>
                                 </div>
                             </div>
