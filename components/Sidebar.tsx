@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
@@ -75,7 +76,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
     <>
       {/* Mobile Backdrop */}
       <div 
-        className={`fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300 ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        className={`fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-40 lg:hidden transition-opacity duration-300 print:hidden ${isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
         onClick={onClose}
       ></div>
 
@@ -86,7 +87,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
           h-full lg:h-screen w-72 
           bg-white border-r border-slate-200 
           transform transition-transform duration-300 ease-in-out
-          flex flex-col
+          flex flex-col print:hidden
           ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >

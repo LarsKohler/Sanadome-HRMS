@@ -54,7 +54,7 @@ const TopNav: React.FC<TopNavProps> = ({
   }, []);
 
   return (
-    <header className="h-16 lg:h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-40 transition-all duration-300">
+    <header className="h-16 lg:h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-40 transition-all duration-300 print:hidden">
       <div className="flex items-center gap-4">
         {/* Mobile Menu Button */}
         <button 

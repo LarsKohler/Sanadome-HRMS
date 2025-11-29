@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Truck, Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle, 
@@ -926,7 +927,13 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
             <style>{`
                 @media print {
                     @page { margin: 20mm; size: A4; }
-                    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; font-family: 'Inter', sans-serif; }
+                    body, #root, .App { 
+                        -webkit-print-color-adjust: exact; 
+                        print-color-adjust: exact; 
+                        font-family: 'Inter', sans-serif;
+                        background-color: white !important;
+                        background: white !important;
+                    }
                     .print-container { width: 100%; max-width: none; }
                     table { width: 100%; border-collapse: collapse; }
                     thead { display: table-header-group; }
@@ -984,14 +991,14 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         const diff = item.delivered - item.ordered;
                         const isIssue = diff !== 0;
                         return (
-                            <tr key={item.id} className={`border-b border-gray-200 ${isIssue ? 'bg-gray-100 font-bold' : ''}`}>
+                            <tr key={item.id} className={`border-b border-gray-300 ${isIssue ? 'font-bold' : ''}`}>
                                 <td className="py-2">{item.id}</td>
                                 <td className="py-2">{item.name}</td>
                                 <td className="py-2 text-center">{item.ordered}</td>
                                 <td className="py-2 text-center">{item.delivered}</td>
                                 <td className="py-2 text-right">
                                     {isIssue ? (
-                                        <span className={`inline-block px-1 rounded ${diff < 0 ? 'bg-black text-white' : 'border border-black'}`}>
+                                        <span className={`inline-block px-1`}>
                                             {diff > 0 ? '+' : ''}{diff}
                                         </span>
                                     ) : (
