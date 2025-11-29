@@ -19,11 +19,11 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOpen, onClose, systemVersion = 'v1.0' }) => {
   
-  // State to track collapsed sections. If key exists and is true, section is collapsed.
-  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+  // State to track expanded sections. Default is empty (all collapsed).
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
   const toggleSection = (label: string) => {
-    setCollapsedSections(prev => ({
+    setExpandedSections(prev => ({
       ...prev,
       [label]: !prev[label]
     }));
@@ -124,7 +124,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
 
               if (visibleItems.length === 0) return null;
 
-              const isCollapsed = collapsedSections[section.label];
+              // Check if expanded. Default (undefined) means false (collapsed) for collapsible sections.
+              const isExpanded = expandedSections[section.label];
 
               return (
                 <div key={section.label}>
@@ -135,12 +136,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
                     >
                       {section.label}
                       <span className="text-slate-300 group-hover:text-slate-500">
-                        {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                       </span>
                     </button>
                   )}
                   
-                  <div className={`transition-all duration-300 overflow-hidden ${sectionIdx > 0 && isCollapsed ? 'max-h-0 opacity-0' : 'max-h-[500px] opacity-100'}`}>
+                  <div className={`transition-all duration-300 overflow-hidden ${sectionIdx > 0 && !isExpanded ? 'max-h-0 opacity-0' : 'max-h-[500px] opacity-100'}`}>
                     <ul className="space-y-1.5">
                         {visibleItems.map((item) => {
                         const isActive = currentView === item.id;
