@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Truck, Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle, 
@@ -168,7 +167,12 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         for (const file of files) {
             try {
                 const arrayBuffer = await file.arrayBuffer();
-                const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+                // FIX: Add cMapUrl and cMapPacked to ensure fonts are read correctly in production builds
+                const loadingTask = pdfjsLib.getDocument({ 
+                    data: arrayBuffer,
+                    cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/cmaps/',
+                    cMapPacked: true,
+                });
                 const pdf = await loadingTask.promise;
                 
                 for (let i = 1; i <= pdf.numPages; i++) {
