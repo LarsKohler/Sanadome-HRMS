@@ -1,14 +1,15 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { 
     Truck, Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle, 
-    RefreshCw, Download, FileSpreadsheet, X 
+    RefreshCw, Download, FileSpreadsheet, X, MousePointerClick 
 } from 'lucide-react';
 import { Employee } from '../types';
 import * as XLSX from 'xlsx';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Config PDF.js worker
+// Initialize PDF.js worker
+// Using CDN to ensure availability without complex build steps
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs`;
 
 interface LinenAuditPageProps {
@@ -21,7 +22,7 @@ interface LinenItem {
     name: string;
     ordered: number;
     delivered: number;
-    locations?: string[]; // Optional: locations from excel
+    locations?: string[];
 }
 
 const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToast }) => {
@@ -31,22 +32,34 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     const [auditData, setAuditData] = useState<LinenItem[]>([]);
     const [isProcessing, setIsProcessing] = useState(false);
     
+    // Drag & Drop State
+    const [isDraggingOrder, setIsDraggingOrder] = useState(false);
+    const [isDraggingDelivery, setIsDraggingDelivery] = useState(false);
+    
     const excelInputRef = useRef<HTMLInputElement>(null);
     const pdfInputRef = useRef<HTMLInputElement>(null);
 
     // --- PARSING LOGIC ---
 
     const processFiles = async () => {
-        if (!orderFile) return;
+        if (!orderFile) {
+            onShowToast("Upload eerst een bestellijst (Excel).");
+            return;
+        }
+        
         setIsProcessing(true);
         setAuditData([]); // Reset
 
         try {
+            console.log("Starting processing...");
+            
             // 1. Parse Excel Order
             const orderItems = await parseExcelOrder(orderFile);
+            console.log("Excel parsed:", orderItems.size, "items");
             
             // 2. Parse PDF Deliveries
             const deliveredItems = await parsePDFDeliveries(deliveryFiles);
+            console.log("PDFs parsed:", deliveredItems.size, "unique items found");
 
             // 3. Merge Data
             const mergedData = mergeAuditData(orderItems, deliveredItems);
@@ -54,9 +67,9 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
             
             onShowToast("Audit succesvol berekend!");
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Audit error:", error);
-            onShowToast("Er is een fout opgetreden bij het verwerken.");
+            onShowToast(`Fout bij verwerken: ${error.message || 'Onbekende fout'}`);
         } finally {
             setIsProcessing(false);
         }
@@ -65,50 +78,66 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     const parseExcelOrder = (file: File): Promise<Map<string, LinenItem>> => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
+            
             reader.onload = (e) => {
                 try {
                     const data = new Uint8Array(e.target?.result as ArrayBuffer);
                     const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    // Assume first sheet
                     const sheetName = workbook.SheetNames[0];
                     const sheet = workbook.Sheets[sheetName];
-                    const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }); // Array of arrays
+                    
+                    // Convert to array of arrays
+                    const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
 
                     const itemsMap = new Map<string, LinenItem>();
 
-                    // Assuming structure: Col A=ID, B=Name, Col J(index 9)=Total
-                    // Start from row 2 (index 1) or 3 depending on header
-                    for (let i = 1; i < jsonData.length; i++) {
-                        const row: any = jsonData[i];
+                    // User Specification:
+                    // Col A (Index 0) = Article Number
+                    // Col B (Index 1) = Name
+                    // Col 9 (Index 8) = Total Count (Assuming A=1, then I=9)
+                    
+                    // We skip header row(s). We look for rows where Col A is numeric.
+                    for (let i = 0; i < jsonData.length; i++) {
+                        const row = jsonData[i];
                         if (!row || row.length < 2) continue;
 
                         const id = String(row[0] || '').trim(); // Col A
                         const name = String(row[1] || '').trim(); // Col B
                         
-                        // Parse 'totaal besteld' (Col J / index 9 usually)
-                        // Safety check: ensure it's a number
+                        // Look for Quantity in Index 8 (Column I)
+                        // Safety: Check if it's a valid number.
                         let ordered = 0;
-                        if (row[9] && !isNaN(parseFloat(row[9]))) {
-                            ordered = parseFloat(row[9]);
-                        } else if (row.length > 2) {
-                            // Fallback: search for last number in row if col 9 isn't obvious? 
-                            // For now, stick to spec: col 9.
+                        const qtyVal = row[8]; 
+                        
+                        if (typeof qtyVal === 'number') {
+                            ordered = qtyVal;
+                        } else if (typeof qtyVal === 'string') {
+                            ordered = parseFloat(qtyVal.replace(',', '.'));
                         }
 
-                        if (id && /^\d+$/.test(id)) {
+                        // Validation: ID must be numeric-ish (e.g. 8821) and Name must exist
+                        if (id && /^\d+$/.test(id) && name) {
                             itemsMap.set(id, {
                                 id,
                                 name,
-                                ordered,
+                                ordered: isNaN(ordered) ? 0 : ordered,
                                 delivered: 0
                             });
                         }
                     }
-                    resolve(itemsMap);
-                } catch (err) {
+                    
+                    if (itemsMap.size === 0) {
+                        reject(new Error("Geen geldige regels gevonden in Excel. Controleer het formaat (Kolom A=ID, I=Aantal)."));
+                    } else {
+                        resolve(itemsMap);
+                    }
+                } catch (err: any) {
                     reject(err);
                 }
             };
-            reader.onerror = reject;
+            reader.onerror = () => reject(new Error("Fout bij lezen Excel bestand"));
             reader.readAsArrayBuffer(file);
         });
     };
@@ -116,51 +145,42 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     const parsePDFDeliveries = async (files: File[]): Promise<Map<string, number>> => {
         const deliveryMap = new Map<string, number>();
 
+        if (files.length === 0) return deliveryMap;
+
         for (const file of files) {
-            const arrayBuffer = await file.arrayBuffer();
-            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-            
-            for (let i = 1; i <= pdf.numPages; i++) {
-                const page = await pdf.getPage(i);
-                const textContent = await page.getTextContent();
-                const textItems = textContent.items.map((item: any) => item.str).join(' ');
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
                 
-                // Parse Logic: Look for "ArticleID Description Quantity" pattern
-                // Example: "8821 Bad- en keukenlinnen - Baddoek 100"
-                // Regex: Find 4-5 digits at start of line (or preceded by space), then text, then digits at end
-                
-                // We split by newlines or rely on the stream. PDF.js text aggregation can be messy.
-                // Robust strategy: Since we know valid article IDs from Excel (ideally), we could search for those.
-                // But here we do it independently.
-                
-                // Let's try matching specific pattern from the OCR example.
-                // It seems lines are well structured in the PDF table.
-                
-                // Regex to find: (ID) (Description) (Count)
-                // Note: PDF extraction often loses table structure, resulting in a stream of text.
-                // We look for patterns like: "8821 ... 100"
-                const regex = /(\d{4,5})\s+(.*?)\s+(\d+)\s*$/gm; 
-                
-                // However, `textItems` is one big string. The layout preservation in PDF.js is tricky.
-                // A better approach with `textItems` is iterating array and reconstructing lines based on Y-coordinate, 
-                // but that's complex. 
-                // Simpler regex on the big string often works if items are sequential:
-                
-                // Pattern: (\d{4,5}) (Text) (\d+)
-                // We'll try to match specific typical linen IDs (4 digits starting with 8 usually based on example)
-                const simpleRegex = /(?:\b|^)(\d{4,5})\b\s+([^\d]+?)\s+(\d+)(?:\b|$)/g;
-                
-                let match;
-                while ((match = simpleRegex.exec(textItems)) !== null) {
-                    const id = match[1];
-                    // const name = match[2];
-                    const quantity = parseInt(match[3], 10);
+                for (let i = 1; i <= pdf.numPages; i++) {
+                    const page = await pdf.getPage(i);
+                    const textContent = await page.getTextContent();
                     
-                    if (!isNaN(quantity)) {
-                        const current = deliveryMap.get(id) || 0;
-                        deliveryMap.set(id, current + quantity);
+                    // Improved Text Extraction Strategy:
+                    // PDF text items are often fragmented. "8821" might be separate from "Baddoek".
+                    // We concatenate all text on the page with spaces, then use regex.
+                    const pageText = textContent.items.map((item: any) => item.str).join(' ');
+                    
+                    // Regex for: ID (4-6 digits) ... Description ... Quantity (digits at end of logical line or segment)
+                    // Looking for patterns like: "8821 Bad- en keukenlinnen - Baddoek 100"
+                    // We use a regex that looks for a number at the start of a sequence, followed by text, ending in a number
+                    // This is heuristic but works for standard tabular reports.
+                    const regex = /(?:\b|^)(\d{4,6})\b\s+([^\d]+?)\s+(\d+)(?:\b|$)/g;
+                    
+                    let match;
+                    while ((match = regex.exec(pageText)) !== null) {
+                        const id = match[1];
+                        const quantity = parseInt(match[3], 10);
+                        
+                        if (!isNaN(quantity)) {
+                            const current = deliveryMap.get(id) || 0;
+                            deliveryMap.set(id, current + quantity);
+                        }
                     }
                 }
+            } catch (e: any) {
+                console.error(`Error parsing PDF ${file.name}:`, e);
+                // We continue with other files even if one fails
             }
         }
         return deliveryMap;
@@ -169,11 +189,10 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     const mergeAuditData = (orderMap: Map<string, LinenItem>, deliveryMap: Map<string, number>): LinenItem[] => {
         const result: LinenItem[] = [];
 
-        // 1. Add ordered items
+        // 1. Process items from the Order (Excel)
         orderMap.forEach((item, id) => {
             const delivered = deliveryMap.get(id) || 0;
-            // Remove from deliveryMap so we know what's left (unexpected items)
-            deliveryMap.delete(id);
+            deliveryMap.delete(id); // Remove matched items
             
             result.push({
                 ...item,
@@ -181,7 +200,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
             });
         });
 
-        // 2. Add unexpected items (delivered but not in order file)
+        // 2. Add unexpected items (Delivered but not in Excel)
         deliveryMap.forEach((qty, id) => {
             result.push({
                 id,
@@ -194,25 +213,33 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         return result.sort((a, b) => a.id.localeCompare(b.id));
     };
 
-    // --- UI HELPERS ---
+    // --- UI EVENT HANDLERS ---
 
-    const resetAudit = () => {
-        setOrderFile(null);
-        setDeliveryFiles([]);
-        setAuditData([]);
-        if (excelInputRef.current) excelInputRef.current.value = '';
-        if (pdfInputRef.current) pdfInputRef.current.value = '';
+    const handleOrderDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDraggingOrder(false);
+        const file = e.dataTransfer.files[0];
+        if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
+            setOrderFile(file);
+        } else {
+            onShowToast("Alleen Excel bestanden (.xlsx, .xls) toegestaan.");
+        }
+    };
+
+    const handleDeliveryDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDraggingDelivery(false);
+        const files = Array.from(e.dataTransfer.files).filter(f => f.name.toLowerCase().endsWith('.pdf'));
+        if (files.length > 0) {
+            setDeliveryFiles(prev => [...prev, ...files]);
+        } else {
+            onShowToast("Sleep PDF bestanden hierheen.");
+        }
     };
 
     const handleOrderUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files?.[0]) {
             setOrderFile(e.target.files[0]);
-            // Auto-trigger calculation if deliveries already present
-            if (deliveryFiles.length > 0) {
-                // We need to wait for state update or pass file directly.
-                // For simplicity, user clicks "Berekenen" or we use a useEffect trigger.
-                // Let's rely on user clicking or auto-trigger via effect if both present.
-            }
         }
     };
 
@@ -227,6 +254,15 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         setDeliveryFiles(prev => prev.filter((_, i) => i !== index));
     };
 
+    const resetAudit = () => {
+        setOrderFile(null);
+        setDeliveryFiles([]);
+        setAuditData([]);
+        if (excelInputRef.current) excelInputRef.current.value = '';
+        if (pdfInputRef.current) pdfInputRef.current.value = '';
+    };
+
+    // Calculate totals
     const totalOrdered = auditData.reduce((acc, item) => acc + item.ordered, 0);
     const totalDelivered = auditData.reduce((acc, item) => acc + item.delivered, 0);
 
@@ -242,7 +278,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                         </div>
                         Linnen Audit
                     </h1>
-                    <p className="text-slate-500 mt-2 text-lg">Vergelijk bestellingen automatisch met leveringen.</p>
+                    <p className="text-slate-500 mt-2 text-lg">Sleep bestanden om bestellingen met leveringen te vergelijken.</p>
                 </div>
                 
                 <div className="flex gap-3">
@@ -260,7 +296,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
             {/* Upload Section */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
                 
-                {/* Order Input */}
+                {/* Order Input Card */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-full">
                     <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
                         <FileSpreadsheet className="text-blue-600"/> 1. Bestelling (Excel)
@@ -268,12 +304,19 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     
                     {!orderFile ? (
                         <div 
+                            onDragOver={(e) => { e.preventDefault(); setIsDraggingOrder(true); }}
+                            onDragLeave={() => setIsDraggingOrder(false)}
+                            onDrop={handleOrderDrop}
                             onClick={() => excelInputRef.current?.click()}
-                            className="flex-1 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 flex flex-col items-center justify-center p-8 cursor-pointer hover:border-blue-400 hover:bg-blue-50/50 transition-all group"
+                            className={`flex-1 border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-12 cursor-pointer transition-all group ${
+                                isDraggingOrder 
+                                ? 'border-blue-500 bg-blue-50' 
+                                : 'border-slate-300 bg-slate-50 hover:border-blue-400 hover:bg-blue-50/30'
+                            }`}
                         >
-                            <Upload className="text-slate-400 group-hover:text-blue-500 mb-3 transition-colors" size={32} />
-                            <p className="font-bold text-slate-600 text-sm">Klik om Excel bestand te kiezen</p>
-                            <p className="text-xs text-slate-400 mt-1">.xlsx of .xls</p>
+                            <Upload className={`mb-3 transition-colors ${isDraggingOrder ? 'text-blue-600' : 'text-slate-400 group-hover:text-blue-500'}`} size={32} />
+                            <p className="font-bold text-slate-600 text-sm">Sleep Excel bestand hierheen</p>
+                            <p className="text-xs text-slate-400 mt-1">of klik om te bladeren (.xlsx)</p>
                         </div>
                     ) : (
                         <div className="flex-1 bg-blue-50/50 border border-blue-100 rounded-xl p-6 flex flex-col items-center justify-center relative">
@@ -284,14 +327,14 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                                 <X size={20}/>
                             </button>
                             <FileSpreadsheet size={48} className="text-blue-500 mb-4" />
-                            <p className="font-bold text-slate-800">{orderFile.name}</p>
-                            <p className="text-xs text-blue-600 font-bold mt-1">Bestand Gereed</p>
+                            <p className="font-bold text-slate-800 text-lg">{orderFile.name}</p>
+                            <p className="text-xs text-blue-600 font-bold mt-1 uppercase tracking-wide">Bestand Gereed</p>
                         </div>
                     )}
                     <input type="file" ref={excelInputRef} className="hidden" accept=".xlsx, .xls" onChange={handleOrderUpload} />
                 </div>
 
-                {/* Deliveries Input */}
+                {/* Deliveries Input Card */}
                 <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col h-full">
                     <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
                         <FileText className="text-red-600"/> 2. Leveringen (PDF)
@@ -299,25 +342,32 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     
                     <div className="flex-1 flex flex-col gap-4">
                         <div 
+                            onDragOver={(e) => { e.preventDefault(); setIsDraggingDelivery(true); }}
+                            onDragLeave={() => setIsDraggingDelivery(false)}
+                            onDrop={handleDeliveryDrop}
                             onClick={() => pdfInputRef.current?.click()}
-                            className="border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 flex flex-col items-center justify-center p-6 cursor-pointer hover:border-red-400 hover:bg-red-50/50 transition-all group min-h-[120px]"
+                            className={`border-2 border-dashed rounded-xl flex flex-col items-center justify-center p-8 cursor-pointer transition-all group min-h-[160px] ${
+                                isDraggingDelivery 
+                                ? 'border-red-500 bg-red-50' 
+                                : 'border-slate-300 bg-slate-50 hover:border-red-400 hover:bg-red-50/30'
+                            }`}
                         >
-                            <Upload className="text-slate-400 group-hover:text-red-500 mb-2 transition-colors" size={24} />
-                            <p className="font-bold text-slate-600 text-sm">Voeg PDF leverbonnen toe</p>
-                            <p className="text-xs text-slate-400">Meerdere bestanden mogelijk</p>
+                            <Upload className={`mb-2 transition-colors ${isDraggingDelivery ? 'text-red-600' : 'text-slate-400 group-hover:text-red-500'}`} size={24} />
+                            <p className="font-bold text-slate-600 text-sm">Sleep PDF leverbonnen hierheen</p>
+                            <p className="text-xs text-slate-400">Je kunt meerdere bestanden tegelijk toevoegen</p>
                         </div>
                         <input type="file" ref={pdfInputRef} className="hidden" accept=".pdf" multiple onChange={handleDeliveryUpload} />
 
                         {/* File List */}
                         {deliveryFiles.length > 0 && (
-                            <div className="max-h-[200px] overflow-y-auto pr-2 space-y-2 custom-scrollbar">
+                            <div className="max-h-[200px] overflow-y-auto pr-2 space-y-2 custom-scrollbar bg-white rounded-lg">
                                 {deliveryFiles.map((file, idx) => (
-                                    <div key={idx} className="flex items-center justify-between p-3 bg-white border border-slate-200 rounded-lg text-sm shadow-sm">
+                                    <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm shadow-sm animate-in fade-in slide-in-from-top-1">
                                         <div className="flex items-center gap-3 truncate">
                                             <FileText size={16} className="text-red-500 flex-shrink-0"/>
                                             <span className="truncate font-medium text-slate-700">{file.name}</span>
                                         </div>
-                                        <button onClick={() => removeDeliveryFile(idx)} className="text-slate-300 hover:text-red-500 transition-colors">
+                                        <button onClick={() => removeDeliveryFile(idx)} className="text-slate-300 hover:text-red-500 transition-colors p-1 hover:bg-red-50 rounded">
                                             <X size={16}/>
                                         </button>
                                     </div>
@@ -333,7 +383,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 <button 
                     onClick={processFiles}
                     disabled={!orderFile || deliveryFiles.length === 0 || isProcessing}
-                    className="px-8 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-lg hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95 flex items-center gap-3 text-lg"
+                    className="px-10 py-4 bg-slate-900 text-white font-bold rounded-2xl shadow-lg hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all hover:scale-105 active:scale-95 flex items-center gap-3 text-lg"
                 >
                     {isProcessing ? <RefreshCw className="animate-spin" /> : <CheckCircle2 />}
                     {isProcessing ? 'Analyseren...' : 'Start Audit'}
@@ -377,16 +427,16 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                             <tbody className="divide-y divide-slate-50 text-sm">
                                 {auditData.map((item) => {
                                     const diff = item.delivered - item.ordered;
-                                    let statusClass = 'bg-green-50 text-green-700';
+                                    let statusClass = 'bg-green-50 text-green-700 border-green-100';
                                     let statusText = 'Correct';
                                     let rowClass = 'hover:bg-slate-50';
 
                                     if (diff < 0) {
-                                        statusClass = 'bg-red-50 text-red-700 font-bold';
+                                        statusClass = 'bg-red-50 text-red-700 border-red-100 font-bold';
                                         statusText = 'Tekort';
                                         rowClass = 'bg-red-50/30 hover:bg-red-50/50';
                                     } else if (diff > 0) {
-                                        statusClass = 'bg-amber-50 text-amber-700 font-bold';
+                                        statusClass = 'bg-amber-50 text-amber-700 border-amber-100 font-bold';
                                         statusText = 'Overschot';
                                         rowClass = 'bg-amber-50/30 hover:bg-amber-50/50';
                                     }
@@ -401,7 +451,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                                                 {diff > 0 ? '+' : ''}{diff}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className={`px-3 py-1 rounded-full text-xs uppercase tracking-wide ${statusClass}`}>
+                                                <span className={`px-3 py-1 rounded-full text-[10px] uppercase font-bold tracking-wide border ${statusClass}`}>
                                                     {statusText}
                                                 </span>
                                             </td>
