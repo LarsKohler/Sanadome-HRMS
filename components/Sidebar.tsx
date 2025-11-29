@@ -1,9 +1,8 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
   UserPlus, Trophy, FileText, PieChart, 
-  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Ticket, Medal, BookOpen, Truck
+  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Ticket, Medal, BookOpen, Truck, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { ViewState, Employee } from '../types';
 import { hasPermission } from '../utils/permissions';
@@ -19,6 +18,16 @@ interface SidebarProps {
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOpen, onClose, systemVersion = 'v1.0' }) => {
   
+  // State to track collapsed sections. If key exists and is true, section is collapsed.
+  const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({});
+
+  const toggleSection = (label: string) => {
+    setCollapsedSections(prev => ({
+      ...prev,
+      [label]: !prev[label]
+    }));
+  };
+
   const sections = [
     {
       label: 'Algemeen',
@@ -114,56 +123,67 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
 
               if (visibleItems.length === 0) return null;
 
+              const isCollapsed = collapsedSections[section.label];
+
               return (
                 <div key={section.label}>
                   {sectionIdx > 0 && (
-                    <h3 className="px-4 text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
+                    <button 
+                      onClick={() => toggleSection(section.label)}
+                      className="w-full flex items-center justify-between px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider hover:text-slate-600 transition-colors group mb-1"
+                    >
                       {section.label}
-                    </h3>
+                      <span className="text-slate-300 group-hover:text-slate-500">
+                        {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                      </span>
+                    </button>
                   )}
-                  <ul className="space-y-1.5">
-                    {visibleItems.map((item) => {
-                      const isActive = currentView === item.id;
-                      const isClickable = Object.values(ViewState).includes(item.id as ViewState);
-                      const isHighlight = item.highlight;
+                  
+                  <div className={`transition-all duration-300 overflow-hidden ${sectionIdx > 0 && isCollapsed ? 'max-h-0 opacity-0' : 'max-h-[500px] opacity-100'}`}>
+                    <ul className="space-y-1.5">
+                        {visibleItems.map((item) => {
+                        const isActive = currentView === item.id;
+                        const isClickable = Object.values(ViewState).includes(item.id as ViewState);
+                        const isHighlight = item.highlight;
 
-                      return (
-                        <li key={item.label}>
-                          <button
-                            onClick={() => {
-                              if (isClickable) {
-                                onChangeView(item.id as ViewState);
-                                onClose();
-                              }
-                            }}
-                            className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 group ${
-                              isActive
-                                ? 'text-teal-900 bg-teal-50 border border-teal-100 shadow-sm'
-                                : isHighlight 
-                                    ? 'bg-purple-50/50 text-purple-900 border border-purple-100 hover:bg-purple-100'
-                                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
-                            }`}
-                          >
-                            <item.icon 
-                                size={18} 
-                                className={`mr-3 transition-colors ${
-                                    isActive ? 'text-teal-600' : 
-                                    isHighlight ? 'text-purple-600' :
-                                    'text-slate-400 group-hover:text-slate-600'
-                                }`} 
-                                strokeWidth={isActive ? 2.5 : 2} 
-                            />
-                            <span className={isActive || isHighlight ? 'font-bold' : ''}>{item.label}</span>
-                            {item.badge && (
-                              <span className={`ml-auto py-0.5 px-2 rounded-md text-[10px] font-bold ${isActive ? 'bg-teal-200/50 text-teal-800' : 'bg-slate-100 text-slate-500'}`}>
-                                {item.badge}
-                              </span>
-                            )}
-                          </button>
-                        </li>
-                      );
-                    })}
-                  </ul>
+                        return (
+                            <li key={item.label}>
+                            <button
+                                onClick={() => {
+                                if (isClickable) {
+                                    onChangeView(item.id as ViewState);
+                                    onClose();
+                                }
+                                }}
+                                className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 group ${
+                                isActive
+                                    ? 'text-teal-900 bg-teal-50 border border-teal-100 shadow-sm'
+                                    : isHighlight 
+                                        ? 'bg-purple-50/50 text-purple-900 border border-purple-100 hover:bg-purple-100'
+                                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
+                                }`}
+                            >
+                                <item.icon 
+                                    size={18} 
+                                    className={`mr-3 transition-colors ${
+                                        isActive ? 'text-teal-600' : 
+                                        isHighlight ? 'text-purple-600' :
+                                        'text-slate-400 group-hover:text-slate-600'
+                                    }`} 
+                                    strokeWidth={isActive ? 2.5 : 2} 
+                                />
+                                <span className={isActive || isHighlight ? 'font-bold' : ''}>{item.label}</span>
+                                {item.badge && (
+                                <span className={`ml-auto py-0.5 px-2 rounded-md text-[10px] font-bold ${isActive ? 'bg-teal-200/50 text-teal-800' : 'bg-slate-100 text-slate-500'}`}>
+                                    {item.badge}
+                                </span>
+                                )}
+                            </button>
+                            </li>
+                        );
+                        })}
+                    </ul>
+                  </div>
                 </div>
               );
             })}
