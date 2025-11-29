@@ -101,6 +101,19 @@ export interface CandidateScorecard {
     recommendation: 'Hire' | 'No Hire' | 'Maybe';
 }
 
+export interface CandidateTask {
+    id: string;
+    text: string;
+    completed: boolean;
+}
+
+export interface EmailTemplate {
+    id: string;
+    name: string;
+    subject: string;
+    body: string; // Supports placeholders like {FirstName}
+}
+
 export interface Applicant {
   id: string;
   vacancyId: string;
@@ -116,6 +129,7 @@ export interface Applicant {
   
   // Advanced ATS features
   skills?: string[]; // Extracted from CV
+  tags?: string[]; // New: Talent pooling tags
   matchScore?: number; // AI calculated 0-100
   aiReasoning?: { // NEW: Explanation of the match score
       pros: string[];
@@ -126,6 +140,7 @@ export interface Applicant {
   coverLetter?: string;
   timeline: RecruitmentTimelineEvent[];
   scorecards: CandidateScorecard[];
+  tasks?: CandidateTask[]; // New: To-do list for this candidate
 }
 
 // --- KNOWLEDGE BASE TYPES ---
