@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import TopNav from './components/TopNav';
@@ -18,6 +19,7 @@ import DebtControlPage from './components/DebtControlPage';
 import TicketDashboard from './components/TicketDashboard'; 
 import BadgeManager from './components/BadgeManager';
 import KnowledgeBasePage from './components/KnowledgeBasePage'; 
+import LinenAuditPage from './components/LinenAuditPage';
 import Login from './components/Login';
 import { Toast } from './components/Toast';
 import { Modal } from './components/Modal'; 
@@ -61,7 +63,7 @@ const App: React.FC = () => {
   // --- PERMISSION MIGRATION & FIXES ---
   useEffect(() => {
       if (currentUser && currentUser.role === 'Manager') {
-          const requiredPerms = ['MANAGE_TICKETS', 'MANAGE_DEBTORS', 'MANAGE_BADGES', 'MANAGE_KNOWLEDGE'];
+          const requiredPerms = ['MANAGE_TICKETS', 'MANAGE_DEBTORS', 'MANAGE_BADGES', 'MANAGE_KNOWLEDGE', 'MANAGE_OPERATIONS'];
           let hasChanged = false;
           let newPerms = currentUser.customPermissions ? [...currentUser.customPermissions] : [];
           
@@ -284,6 +286,7 @@ const App: React.FC = () => {
           case ViewState.SYSTEM_STATUS: return 'Status';
           case ViewState.BADGES: return 'Badges';
           case ViewState.KNOWLEDGE_BASE: return 'Kennisbank';
+          case ViewState.LINEN_AUDIT: return 'Linnen Audit';
           default: return 'Algemeen';
       }
   };
@@ -719,6 +722,13 @@ const App: React.FC = () => {
 
           {currentView === ViewState.KNOWLEDGE_BASE && (
             <KnowledgeBasePage 
+               currentUser={currentUser}
+               onShowToast={showToast}
+            />
+          )}
+
+          {currentView === ViewState.LINEN_AUDIT && (
+            <LinenAuditPage 
                currentUser={currentUser}
                onShowToast={showToast}
             />

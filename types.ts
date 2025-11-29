@@ -16,6 +16,7 @@ export enum ViewState {
   TICKETS = 'TICKETS', // New: Ticket System
   BADGES = 'BADGES', // New: Badge Management
   KNOWLEDGE_BASE = 'KNOWLEDGE_BASE', // New: Knowledge Base
+  LINEN_AUDIT = 'LINEN_AUDIT', // New: Moderna Calculator
 }
 
 // --- PERMISSIONS SYSTEM ---
@@ -38,7 +39,8 @@ export type Permission =
   | 'MANAGE_CASES' // Access Arbo/Verzuim cases
   | 'MANAGE_TICKETS' // Access Ticket Dashboard
   | 'MANAGE_BADGES' // New: Manage and Award Badges
-  | 'MANAGE_KNOWLEDGE'; // New: Create/Edit Knowledge Articles
+  | 'MANAGE_KNOWLEDGE' // New: Create/Edit Knowledge Articles
+  | 'MANAGE_OPERATIONS'; // New: Operations & Audit Tools
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_REPORTS': 'Rapportages Inzien',
@@ -58,7 +60,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'MANAGE_CASES': 'Cases & Verzuim Dossiers',
   'MANAGE_TICKETS': 'Ticket Systeem Beheer',
   'MANAGE_BADGES': 'Badges & Waardering Beheren',
-  'MANAGE_KNOWLEDGE': 'Kennisbank Beheren'
+  'MANAGE_KNOWLEDGE': 'Kennisbank Beheren',
+  'MANAGE_OPERATIONS': 'Operationele Tools (Linnen)'
 };
 
 // --- KNOWLEDGE BASE TYPES ---
