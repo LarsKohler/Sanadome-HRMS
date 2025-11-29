@@ -1,4 +1,5 @@
 
+
 export enum ViewState {
   HOME = 'HOME',
   DIRECTORY = 'DIRECTORY',
@@ -17,6 +18,7 @@ export enum ViewState {
   BADGES = 'BADGES', // New: Badge Management
   KNOWLEDGE_BASE = 'KNOWLEDGE_BASE', // New: Knowledge Base
   LINEN_AUDIT = 'LINEN_AUDIT', // New: Moderna Calculator
+  RECRUITMENT = 'RECRUITMENT', // New: ATS System
 }
 
 // --- PERMISSIONS SYSTEM ---
@@ -63,6 +65,34 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'MANAGE_KNOWLEDGE': 'Kennisbank Beheren',
   'MANAGE_OPERATIONS': 'Operationele Tools (Linnen)'
 };
+
+// --- RECRUITMENT TYPES ---
+
+export type ApplicantStage = 'New' | 'Screening' | 'Interview 1' | 'Interview 2' | 'Offer' | 'Hired' | 'Rejected';
+
+export interface Vacancy {
+  id: string;
+  title: string;
+  department: string;
+  type: 'Full-Time' | 'Part-Time' | 'Stage';
+  status: 'Open' | 'Closed' | 'Draft';
+  applicantsCount: number;
+  postedDate: string;
+}
+
+export interface Applicant {
+  id: string;
+  vacancyId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  stage: ApplicantStage;
+  appliedDate: string;
+  rating?: number; // 1-5 stars
+  notes?: string;
+  avatar?: string; // Placeholder or uploaded
+}
 
 // --- KNOWLEDGE BASE TYPES ---
 
@@ -170,7 +200,7 @@ export interface Notification {
   id: string;
   recipientId: string;
   senderName: string;
-  type: 'LeaveRequest' | 'Document' | 'Note' | 'System' | 'News' | 'Onboarding' | 'Survey' | 'Evaluation' | 'Evaluation' | 'Ticket' | 'Badge' | 'Knowledge';
+  type: 'LeaveRequest' | 'Document' | 'Note' | 'System' | 'News' | 'Onboarding' | 'Survey' | 'Evaluation' | 'Evaluation' | 'Ticket' | 'Badge' | 'Knowledge' | 'Recruitment';
   title: string;
   message: string;
   date: string;

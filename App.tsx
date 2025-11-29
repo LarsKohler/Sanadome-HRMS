@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Employee, ViewState, Notification, NewsPost, Survey } from './types';
 import Sidebar from './components/Sidebar';
@@ -21,6 +22,7 @@ import BadgeManager from './components/BadgeManager';
 import LinenAuditPage from './components/LinenAuditPage';
 import KnowledgeBasePage from './components/KnowledgeBasePage';
 import EvaluationsPage from './components/EvaluationsPage';
+import RecruitmentPage from './components/RecruitmentPage';
 import { api, isLive } from './utils/api';
 
 function App() {
@@ -250,6 +252,37 @@ function App() {
                   onUpdateEmployee={handleUpdateEmployee}
                   onAddNotification={(n) => api.saveNotification(n)}
                   onShowToast={handleShowToast}
+              />;
+          case ViewState.RECRUITMENT:
+              return <RecruitmentPage 
+                  currentUser={currentUser!}
+                  onShowToast={handleShowToast}
+                  onHireCandidate={async (applicant) => {
+                      const newId = crypto.randomUUID();
+                      const newEmployee: Employee = {
+                          id: newId,
+                          name: `${applicant.firstName} ${applicant.lastName}`,
+                          role: 'Medewerker', // Default
+                          departments: ['Front Office'], // Needs specific logic or prompt
+                          email: applicant.email,
+                          phone: applicant.phone,
+                          avatar: applicant.avatar || `https://ui-avatars.com/api/?name=${applicant.firstName}+${applicant.lastName}&background=random`,
+                          linkedin: `${applicant.firstName} ${applicant.lastName}`,
+                          hiredOn: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
+                          employmentType: 'Full-Time',
+                          accountStatus: 'Pending',
+                          password: 'sanadome123', // Default
+                          leaveBalances: [],
+                          leaveRequests: [],
+                          documents: [],
+                          notes: [],
+                          onboardingStatus: 'Pending',
+                          onboardingTasks: []
+                      };
+                      await handleAddEmployee(newEmployee);
+                      // Navigate to directory to show success
+                      setCurrentView(ViewState.DIRECTORY);
+                  }}
               />;
           default:
               return <div className="p-10">Pagina niet gevonden of in ontwikkeling.</div>;

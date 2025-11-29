@@ -1,4 +1,6 @@
 
+
+
 import React, { useState } from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
@@ -48,7 +50,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
         { icon: UserCheck, label: 'Onboarding', id: ViewState.ONBOARDING },
         { icon: ClipboardList, label: 'Surveys', id: ViewState.SURVEYS },
         { icon: ClipboardCheck, label: 'Performance', id: ViewState.EVALUATIONS, permission: 'MANAGE_EVALUATIONS' },
-        { icon: UserPlus, label: 'Recruitment', id: 'recruitment', permission: 'MANAGE_RECRUITMENT' },
+        { icon: UserPlus, label: 'Recruitment', id: ViewState.RECRUITMENT, permission: 'MANAGE_RECRUITMENT' },
         { icon: Medal, label: 'Badges', id: ViewState.BADGES, permission: 'MANAGE_BADGES' },
         { icon: Calendar, label: 'Aanwezigheid', id: 'attendance', permission: 'MANAGE_ATTENDANCE' },
         { icon: FileText, label: 'Documenten', id: ViewState.DOCUMENTS }, 

@@ -1,5 +1,91 @@
 
-import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog, Ticket, BadgeDefinition, KnowledgeArticle, PersonalDevelopmentGoal } from '../types';
+
+
+import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog, Ticket, BadgeDefinition, KnowledgeArticle, PersonalDevelopmentGoal, Vacancy, Applicant } from '../types';
+
+// --- RECRUITMENT MOCK DATA ---
+export const MOCK_VACANCIES: Vacancy[] = [
+    {
+        id: 'vac-1',
+        title: 'Front Office Medewerker',
+        department: 'Front Office',
+        type: 'Full-Time',
+        status: 'Open',
+        applicantsCount: 3,
+        postedDate: '01 Nov 2023'
+    },
+    {
+        id: 'vac-2',
+        title: 'Zelfstandig Werkend Kok',
+        department: 'F&B',
+        type: 'Full-Time',
+        status: 'Open',
+        applicantsCount: 1,
+        postedDate: '15 Okt 2023'
+    },
+    {
+        id: 'vac-3',
+        title: 'Stagiair Marketing',
+        department: 'Management',
+        type: 'Stage',
+        status: 'Closed',
+        applicantsCount: 12,
+        postedDate: '01 Sep 2023'
+    }
+];
+
+export const MOCK_APPLICANTS: Applicant[] = [
+    {
+        id: 'app-1',
+        vacancyId: 'vac-1',
+        firstName: 'Sophie',
+        lastName: 'de Vries',
+        email: 'sophie.dv@email.com',
+        phone: '0612345678',
+        stage: 'Interview 1',
+        appliedDate: '10 Nov 2023',
+        rating: 4,
+        notes: 'Ervaring bij Van der Valk. Spreekt goed Duits.',
+        avatar: 'https://ui-avatars.com/api/?name=Sophie+de+Vries&background=random'
+    },
+    {
+        id: 'app-2',
+        vacancyId: 'vac-1',
+        firstName: 'Tom',
+        lastName: 'Jansen',
+        email: 'tom.jansen@email.com',
+        phone: '0687654321',
+        stage: 'New',
+        appliedDate: '14 Nov 2023',
+        rating: 0,
+        avatar: 'https://ui-avatars.com/api/?name=Tom+Jansen&background=random'
+    },
+    {
+        id: 'app-3',
+        vacancyId: 'vac-1',
+        firstName: 'Lisa',
+        lastName: 'Bakker',
+        email: 'lisa.b@email.com',
+        phone: '0655443322',
+        stage: 'Offer',
+        appliedDate: '05 Nov 2023',
+        rating: 5,
+        notes: 'Top kandidaat! Aanbod verstuurd op 15-11.',
+        avatar: 'https://ui-avatars.com/api/?name=Lisa+Bakker&background=random'
+    },
+    {
+        id: 'app-4',
+        vacancyId: 'vac-2',
+        firstName: 'Mehmet',
+        lastName: 'Yilmaz',
+        email: 'm.yilmaz@email.com',
+        phone: '0699887766',
+        stage: 'Screening',
+        appliedDate: '12 Nov 2023',
+        rating: 3,
+        avatar: 'https://ui-avatars.com/api/?name=Mehmet+Yilmaz&background=random'
+    }
+];
 
 // --- DEVELOPMENT LIBRARY (NEW) ---
 // Pre-programmed actionable goals for the evaluation system
