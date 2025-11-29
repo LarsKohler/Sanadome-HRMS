@@ -3,7 +3,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { 
     Truck, Upload, FileText, CheckCircle2, AlertTriangle, AlertCircle, 
     RefreshCw, Download, FileSpreadsheet, X, MousePointerClick, Calendar, Save, History, Trash2, Eye, ArrowRight, Printer, AlertOctagon,
-    BarChart3, TrendingUp, Filter, Search, PieChart, ArrowUpRight, ArrowDownRight, LayoutDashboard
+    BarChart3, TrendingUp, Filter, Search, PieChart, ArrowUpRight, ArrowDownRight, LayoutDashboard, Terminal
 } from 'lucide-react';
 import { Employee } from '../types';
 import { Modal } from './Modal';
@@ -58,6 +58,10 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     const [detectedDate, setDetectedDate] = useState<string>('');
     const [isProcessing, setIsProcessing] = useState(false);
     
+    // Debug State
+    const [debugLogs, setDebugLogs] = useState<string[]>([]);
+    const [showDebug, setShowDebug] = useState(false);
+    
     // Drag & Drop State
     const [isDraggingOrder, setIsDraggingOrder] = useState(false);
     const [isDraggingDelivery, setIsDraggingDelivery] = useState(false);
@@ -94,6 +98,11 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         });
     }, []);
 
+    const addDebugLog = (msg: string) => {
+        console.log(msg);
+        setDebugLogs(prev => [...prev, `[${new Date().toLocaleTimeString()}] ${msg}`]);
+    };
+
     // --- PARSING LOGIC ---
 
     const processFiles = async () => {
@@ -105,18 +114,28 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
         setIsProcessing(true);
         setAuditData([]); 
         setDetectedDate('');
+        setDebugLogs([]); // Clear logs on new run
+        addDebugLog("Start verwerking...");
 
         try {
-            console.log("Starting processing...");
+            addDebugLog("Parsing Excel order file...");
             const orderItems = await parseExcelOrder(orderFile);
+            addDebugLog(`Excel parsed. Found ${orderItems.size} items.`);
+            
+            addDebugLog(`Parsing ${deliveryFiles.length} PDF files...`);
             const { deliveryMap, deliveryDate } = await parsePDFDeliveries(deliveryFiles);
+            addDebugLog(`PDF Parsing complete. Found delivery date: ${deliveryDate}`);
+            addDebugLog(`Found ${deliveryMap.size} unique delivered items.`);
+            
             setDetectedDate(deliveryDate);
             const mergedData = mergeAuditData(orderItems, deliveryMap);
             setAuditData(mergedData);
+            
             onShowToast("Audit succesvol berekend!");
         } catch (error: any) {
             console.error("Audit error:", error);
             const msg = error instanceof Error ? error.message : 'Onbekende fout';
+            addDebugLog(`CRITICAL ERROR: ${msg}`);
             onShowToast(`Fout bij verwerken: ${msg}`);
         } finally {
             setIsProcessing(false);
@@ -167,17 +186,17 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     const parsePDFDeliveries = async (files: File[]): Promise<{ deliveryMap: Map<string, number>, deliveryDate: string }> => {
         const deliveryMap = new Map<string, number>();
         let foundDate = '';
-        // List of IDs to ignore (Postal codes, Reference numbers, etc.)
         const IGNORE_IDS = ['7772', '11172', '0524', '01469238', '2025', '6532', '6503', '31100']; 
 
         if (files.length === 0) return { deliveryMap, deliveryDate: '' };
 
         for (const file of files) {
+            addDebugLog(`Processing file: ${file.name}`);
             try {
                 const arrayBuffer = await file.arrayBuffer();
                 
-                // CRITICAL FIX: Use the 'pdfjs' proxy object, NOT 'pdfjsLib' directly
-                // Also provide standard font data for reliable text extraction
+                addDebugLog(`PDF Lib Version: ${pdfjs.version}`);
+                
                 const loadingTask = pdfjs.getDocument({ 
                     data: arrayBuffer,
                     cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/cmaps/',
@@ -186,17 +205,23 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 });
                 
                 const pdf = await loadingTask.promise;
+                addDebugLog(`Loaded PDF. Pages: ${pdf.numPages}`);
                 
                 for (let i = 1; i <= pdf.numPages; i++) {
                     const page = await pdf.getPage(i);
                     const textContent = await page.getTextContent();
                     
+                    if (!textContent || !textContent.items || textContent.items.length === 0) {
+                        addDebugLog(`Page ${i}: No text extracted.`);
+                        continue;
+                    }
+
                     // Improved Line Grouping
                     const lines: { y: number, items: { x: number, str: string }[] }[] = [];
-                    const tolerance = 8; // Increased tolerance for better grouping in prod
+                    const tolerance = 8; // Increased tolerance
 
                     for (const item of (textContent.items as any[])) {
-                        // Normalize spaces (remove non-breaking spaces)
+                        // Normalize spaces
                         const str = (item.str || '').replace(/\u00A0/g, ' ').trim();
                         if (!str) continue; 
                         
@@ -213,25 +238,32 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     
                     // Sort lines top to bottom
                     lines.sort((a, b) => b.y - a.y);
+                    
+                    addDebugLog(`Page ${i}: Grouped into ${lines.length} lines.`);
 
                     for (const line of lines) {
                         // Sort items left to right
                         line.items.sort((a, b) => a.x - b.x);
                         const lineText = line.items.map(item => item.str).join(' ').trim();
                         
+                        // Log suspicious lines to verify content
+                        // if (lineText.includes('8821') || lineText.includes('Baddoek')) addDebugLog(`Row Content: ${lineText}`);
+
                         // Date Extraction
                         if (!foundDate && lineText.includes('Afleverdatum')) {
                             const dateMatch = lineText.match(/(\d{1,2}-\d{1,2}-\d{4})/);
-                            if (dateMatch) foundDate = dateMatch[0];
+                            if (dateMatch) {
+                                foundDate = dateMatch[0];
+                                addDebugLog(`Found Date: ${foundDate}`);
+                            }
                         }
                         
-                        // Header Skip Check
                         if (lineText.includes('Hardenberg') || lineText.includes('Frankrijkweg') || lineText.includes('Debiteurnummer') || lineText.includes('Totaal')) continue;
 
                         let foundId = '';
                         let foundQty = 0;
 
-                        // Strategy 1: Check First and Last item (Best for structured columns)
+                        // Strategy 1: Check First and Last item
                         if (line.items.length >= 2) {
                             const firstStr = line.items[0].str.trim();
                             const lastStr = line.items[line.items.length - 1].str.trim();
@@ -239,16 +271,17 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                             if (/^\d{4,8}$/.test(firstStr) && /^\d+$/.test(lastStr)) {
                                 foundId = firstStr;
                                 foundQty = parseInt(lastStr, 10);
+                                addDebugLog(`Matched Strategy 1: ID ${foundId} Qty ${foundQty}`);
                             }
                         }
 
-                        // Strategy 2: Regex fallback (If items are merged or spaced weirdly)
+                        // Strategy 2: Regex fallback
                         if (!foundId) {
-                            // Look for ID at start ... number at end
                             const match = lineText.match(/^(\d{4,8})\s+.*?\s+(\d+)$/);
                             if (match) { 
                                 foundId = match[1]; 
                                 foundQty = parseInt(match[2], 10); 
+                                addDebugLog(`Matched Strategy 2: ID ${foundId} Qty ${foundQty}`);
                             }
                         }
 
@@ -261,7 +294,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 }
             } catch (e: any) { 
                 console.error(`Error parsing PDF ${file.name}:`, e);
-                // Optionally notify user of specific file failure, but continue processing others
+                addDebugLog(`Error in ${file.name}: ${e.message}`);
             }
         }
         return { deliveryMap, deliveryDate: foundDate };
@@ -339,7 +372,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
     };
 
     const resetAudit = () => {
-        setOrderFile(null); setDeliveryFiles([]); setAuditData([]); setDetectedDate('');
+        setOrderFile(null); setDeliveryFiles([]); setAuditData([]); setDetectedDate(''); setDebugLogs([]);
         if (excelInputRef.current) excelInputRef.current.value = '';
         if (pdfInputRef.current) pdfInputRef.current.value = '';
     };
@@ -356,7 +389,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
             // Use timestamp if available, else parse date string (fallback)
             let auditTime = audit.timestamp;
             if (!auditTime) {
-                // Parse "12 december 2023 14:30" - tough, simplified check
                 // Try parse deliveryDate dd-mm-yyyy
                 if (audit.deliveryDate && audit.deliveryDate !== 'Onbekend') {
                     const parts = audit.deliveryDate.split('-');
@@ -591,6 +623,35 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                             </button>
                         </div>
                     )}
+
+                    {/* Debug Console - Added for production troubleshooting */}
+                    <div className="bg-slate-900 rounded-xl p-4 mb-10 overflow-hidden shadow-lg border border-slate-700">
+                        <div 
+                            className="flex items-center justify-between cursor-pointer"
+                            onClick={() => setShowDebug(!showDebug)}
+                        >
+                            <h3 className="font-mono text-teal-400 font-bold flex items-center gap-2 text-sm">
+                                <Terminal size={16}/> Debug Console
+                            </h3>
+                            <button className="text-slate-400 hover:text-white text-xs font-bold uppercase">
+                                {showDebug ? 'Verberg Logs' : 'Toon Logs'}
+                            </button>
+                        </div>
+                        
+                        {showDebug && (
+                            <div className="mt-4 bg-black/50 p-4 rounded-lg h-64 overflow-y-auto font-mono text-xs text-slate-300 border border-slate-800">
+                                {debugLogs.length === 0 ? (
+                                    <p className="opacity-50 italic">Wachten op actie...</p>
+                                ) : (
+                                    debugLogs.map((log, i) => (
+                                        <div key={i} className="mb-1 border-b border-slate-800/50 pb-1 last:border-0 last:pb-0">
+                                            {log}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                    </div>
 
                     {/* Results */}
                     {auditData.length > 0 && (
