@@ -7,7 +7,7 @@ import {
     CheckCircle2, Loader2, X, Filter, MoreHorizontal, 
     Trash2, Check, ArrowRight, Zap, Target, Users, 
     ChevronDown, AlertCircle, Phone, Linkedin, MapPin, 
-    Download, Split, Send, BrainCircuit, TrendingUp, Save, ThumbsUp, ThumbsDown
+    Download, Split, Send, BrainCircuit, TrendingUp, Save, ThumbsUp, ThumbsDown, Archive, RefreshCcw, PenLine
 } from 'lucide-react';
 import { Employee, Applicant, Vacancy, ApplicantStage, RecruitmentTimelineEvent, Notification, ViewState, CandidateScorecard, CandidateTask } from '../types';
 import { MOCK_VACANCIES } from '../utils/mockData';
@@ -33,7 +33,7 @@ interface RecruitmentPageProps {
 const STAGES: ApplicantStage[] = ['New', 'Screening', 'Interview 1', 'Interview 2', 'Offer', 'Hired'];
 
 const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowToast, onHireCandidate, onAddNotification }) => {
-    const [activeView, setActiveView] = useState<'dashboard' | 'pipeline'>('pipeline');
+    const [activeView, setActiveView] = useState<'dashboard' | 'pipeline' | 'archive'>('pipeline');
     const [applicants, setApplicants] = useState<Applicant[]>([]);
     const [vacancies] = useState<Vacancy[]>(MOCK_VACANCIES);
     
@@ -48,6 +48,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
     
     // Scorecard Modal
     const [isScorecardModalOpen, setIsScorecardModalOpen] = useState(false);
+    const [scorecardStage, setScorecardStage] = useState<string>('Interview 1'); // New: Select Interview Stage
     const [newScorecard, setNewScorecard] = useState<Partial<CandidateScorecard>>({
         recommendation: 'Maybe',
         notes: '',
@@ -57,6 +58,10 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
             { name: 'Communicatie', score: 3 }
         ]
     });
+
+    // General Note Modal
+    const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
+    const [newNoteContent, setNewNoteContent] = useState('');
 
     // AI State
     const [aiScanStep, setAiScanStep] = useState<'idle' | 'uploading' | 'scanning' | 'analyzing' | 'complete'>('idle');
@@ -97,9 +102,13 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
             const matchVacancy = selectedVacancyId === 'All' || a.vacancyId === selectedVacancyId;
             const matchSearch = a.firstName.toLowerCase().includes(searchTerm.toLowerCase()) || 
                                 a.lastName.toLowerCase().includes(searchTerm.toLowerCase());
-            return matchVacancy && matchSearch;
+            
+            if (activeView === 'archive') {
+                return matchVacancy && matchSearch && a.stage === 'Rejected';
+            }
+            return matchVacancy && matchSearch && a.stage !== 'Rejected';
         });
-    }, [applicants, selectedVacancyId, searchTerm]);
+    }, [applicants, selectedVacancyId, searchTerm, activeView]);
 
     // --- ACTIONS ---
 
@@ -143,53 +152,39 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
     };
 
     const handleProcessCV = async (file: File) => {
+        // ... (Keep existing CV parsing logic unchanged)
         setAiScanStep('scanning');
-        setScannedFile(file); // Keep file reference for later storage
+        setScannedFile(file);
         
         try {
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-            
-            // Extract text from first TWO pages to be safe
             let textItems = '';
             for (let i = 1; i <= Math.min(pdf.numPages, 2); i++) {
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
-                // Add newlines to separate visual lines roughly
                 const pageText = textContent.items.map((item: any) => item.str + (item.hasEOL ? '\n' : ' ')).join('');
                 textItems += pageText + '\n';
             }
-            
             setAiScanStep('analyzing');
 
-            // --- SMARTER PARSING LOGIC ---
             let firstName = '';
             let lastName = '';
             let email = '';
             let phone = '';
 
-            // 1. EXTRACT EMAIL
             const emailMatch = textItems.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/);
-            if (emailMatch) {
-                email = emailMatch[0];
-            }
+            if (emailMatch) email = emailMatch[0];
 
-            // 2. EXTRACT PHONE
             const phoneMatch = textItems.match(/((\+|00)(\d|\s|-){9,})/);
-            if (phoneMatch) {
-                phone = phoneMatch[0].trim();
-            } else {
+            if (phoneMatch) phone = phoneMatch[0].trim();
+            else {
                 const mobileMatch = textItems.match(/(06\s?[-]?\s?\d{8})/);
                 if (mobileMatch) phone = mobileMatch[0];
             }
 
-            // 3. INTELLIGENT NAME EXTRACTION
             const lines = textItems.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-            
-            // Words to ignore in header lookup
             const forbiddenWords = ['cv', 'curriculum', 'vitae', 'resume', 'profiel', 'profile', 'personal', 'persoonlijk', 'details', 'contact', 'email', 'adres', 'address', 'telefoon', 'phone', 'opleiding', 'education', 'werkervaring', 'experience', 'skills', 'vaardigheden', 'talen', 'languages', 'hobby', 'over mij', 'about me', 'pagina', 'page'];
-
-            // First check for explicit "My name is" pattern
             const introRegex = /(?:Mijn naam is|My name is|Ik ben|I am)\s+([A-Z][a-z]+)\s+(?:((?:van|de|den|der|het|'t|ten|ter|el|al|da|di|du|la|le)\s+)+)?([A-Z][a-z]+)/i;
             const introMatch = textItems.match(introRegex);
 
@@ -198,30 +193,16 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                 const prefix = introMatch[2] ? introMatch[2].trim() + ' ' : '';
                 lastName = prefix + introMatch[3];
             } else {
-                // Heuristic: Scan first 15 lines. Name is often:
-                // - Top of doc
-                // - 2 to 4 words
-                // - Title Cased
-                // - Not a forbidden keyword
-                
                 for (let i = 0; i < Math.min(lines.length, 15); i++) {
                     const line = lines[i];
-                    // Strip non-letter chars for check
                     const cleanLine = line.replace(/[^a-zA-Z\s]/g, '').trim(); 
-                    
                     if (cleanLine.length < 3 || cleanLine.length > 35) continue;
                     if (forbiddenWords.some(w => cleanLine.toLowerCase().includes(w))) continue;
-                    
                     const words = line.trim().split(/\s+/);
                     if (words.length < 2 || words.length > 4) continue; 
-
-                    // Check Capitalization (heuristic: first letters caps, or Dutch prefix)
                     const isNameLike = words.every(w => /^[A-Z]/.test(w) || /^(van|de|der|den|ten|ter|el|al|in|op|t)$/i.test(w));
-                    
                     if (isNameLike) {
-                        // Found likely name
                         firstName = words[0];
-                        // Handle potential prefixes in the rest
                         const rest = words.slice(1);
                         lastName = rest.join(' ');
                         break; 
@@ -229,7 +210,6 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                 }
             }
 
-            // Strategy D: Fallback to Email (Only if all else fails)
             if (!firstName && email) {
                 const localPart = email.split('@')[0];
                 if (localPart.includes('.') || localPart.includes('_')) {
@@ -242,22 +222,11 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                 }
             }
 
-            // 4. SKILLS EXTRACTION (Keyword matching)
-            const commonSkills = [
-                'Horeca', 'Gastvrijheid', 'Engels', 'Duits', 'Frans', 'Spaans', 
-                'Excel', 'Word', 'Leidinggeven', 'Teamplayer', 'Flexibel', 
-                'Kassa', 'Receptie', 'Schoonmaak', 'Keuken', 'HACCP', 'Social Hygiene',
-                'IDu PMS', 'MEWS', 'Opera'
-            ];
-            const foundSkills = commonSkills.filter(skill => 
-                textItems.toLowerCase().includes(skill.toLowerCase())
-            );
+            const commonSkills = ['Horeca', 'Gastvrijheid', 'Engels', 'Duits', 'Frans', 'Spaans', 'Excel', 'Word', 'Leidinggeven', 'Teamplayer', 'Flexibel', 'Kassa', 'Receptie', 'Schoonmaak', 'Keuken', 'HACCP', 'Social Hygiene', 'IDu PMS', 'MEWS', 'Opera'];
+            const foundSkills = commonSkills.filter(skill => textItems.toLowerCase().includes(skill.toLowerCase()));
 
-            // Final Cleanup / Defaults
             if (!firstName) firstName = 'Nieuwe';
             if (!lastName) lastName = 'Kandidaat';
-
-            // Clean weird characters from lastName if needed
             lastName = lastName.replace(/[()]/g, '').trim();
 
             setTimeout(() => {
@@ -267,7 +236,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                     email: email || 'onbekend@email.com',
                     phone: phone || '06-xxxxxxxx',
                     skills: foundSkills.length > 0 ? foundSkills : ['Gemotiveerd'],
-                    matchScore: 70 + Math.floor(Math.random() * 25), // Random score for demo
+                    matchScore: 70 + Math.floor(Math.random() * 25),
                     aiReasoning: {
                         pros: foundSkills.length > 0 ? [`Ervaring met: ${foundSkills.slice(0,3).join(', ')}`] : ['Kandidaat toont inzet'],
                         cons: ['Handmatige review van details aangeraden'],
@@ -284,14 +253,10 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
         }
     };
 
-    const handleSaveCandidate = () => {
+    const handleSaveCandidate = async () => {
         if (scannedData) {
             let resumeUrl = undefined;
-            if (scannedFile) {
-                // For demo purposes and immediate feedback, we use createObjectURL. 
-                // Ideally this would await api.uploadFile(scannedFile)
-                resumeUrl = URL.createObjectURL(scannedFile); 
-            }
+            if (scannedFile) resumeUrl = URL.createObjectURL(scannedFile); 
 
             const newApp: Applicant = {
                 id: Math.random().toString(),
@@ -314,10 +279,8 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                 tags: ['#New', '#AI-Parsed']
             };
             
-            // Save to DB
-            api.saveApplicant(newApp);
+            await api.saveApplicant(newApp);
             setApplicants([newApp, ...applicants]);
-            
             setIsAIModalOpen(false);
             setAiScanStep('idle');
             setScannedData(null);
@@ -325,6 +288,8 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
             onShowToast("Kandidaat succesvol toegevoegd aan de pipeline.");
         }
     };
+
+    // --- SCORECARD & NOTE LOGIC ---
 
     const handleSaveScorecard = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -335,7 +300,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
             interviewer: currentUser.name,
             date: new Date().toLocaleDateString('nl-NL'),
             skills: newScorecard.skills || [],
-            notes: newScorecard.notes || '',
+            notes: `[${scorecardStage}] ${newScorecard.notes || ''}`, // Prepend stage to notes
             recommendation: newScorecard.recommendation as 'Hire' | 'No Hire' | 'Maybe'
         };
 
@@ -344,26 +309,24 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
             type: 'Scorecard',
             author: currentUser.name,
             date: new Date().toLocaleString('nl-NL'),
-            content: `Heeft een beoordeling toegevoegd: ${scorecard.recommendation}`
+            content: `Beoordeling toegevoegd voor ${scorecardStage}: ${scorecard.recommendation}`
         };
 
         const updatedApplicant = {
             ...selectedApplicant,
             scorecards: [scorecard, ...(selectedApplicant.scorecards || [])],
             timeline: [timelineEvent, ...(selectedApplicant.timeline || [])],
-            rating: scorecard.recommendation === 'Hire' ? 5 : (scorecard.recommendation === 'Maybe' ? 3 : 1) // Simple auto-rate
+            rating: scorecard.recommendation === 'Hire' ? 5 : (scorecard.recommendation === 'Maybe' ? 3 : 1)
         };
 
-        // Update list and DB
         const updatedList = applicants.map(a => a.id === updatedApplicant.id ? updatedApplicant : a);
         setApplicants(updatedList);
         setSelectedApplicant(updatedApplicant);
         await api.saveApplicant(updatedApplicant);
         
         setIsScorecardModalOpen(false);
-        onShowToast("Beoordeling opgeslagen.");
+        onShowToast("Beoordeling voor " + scorecardStage + " opgeslagen.");
         
-        // Reset form
         setNewScorecard({
             recommendation: 'Maybe',
             notes: '',
@@ -373,6 +336,80 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                 { name: 'Communicatie', score: 3 }
             ]
         });
+    };
+
+    const handleSaveNote = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedApplicant || !newNoteContent.trim()) return;
+
+        const timelineEvent: RecruitmentTimelineEvent = {
+            id: Math.random().toString(),
+            type: 'Note',
+            author: currentUser.name,
+            date: new Date().toLocaleString('nl-NL'),
+            content: newNoteContent
+        };
+
+        const updatedApplicant = {
+            ...selectedApplicant,
+            timeline: [timelineEvent, ...(selectedApplicant.timeline || [])]
+        };
+
+        const updatedList = applicants.map(a => a.id === updatedApplicant.id ? updatedApplicant : a);
+        setApplicants(updatedList);
+        setSelectedApplicant(updatedApplicant);
+        await api.saveApplicant(updatedApplicant);
+
+        setIsNoteModalOpen(false);
+        setNewNoteContent('');
+        onShowToast("Notitie toegevoegd.");
+    };
+
+    const handleRejectCandidate = async () => {
+        if (!selectedApplicant) return;
+        if (!confirm(`Weet je zeker dat je ${selectedApplicant.firstName} wilt afwijzen en naar het archief wilt verplaatsen?`)) return;
+
+        const timelineEvent: RecruitmentTimelineEvent = {
+            id: Math.random().toString(),
+            type: 'StatusChange',
+            author: currentUser.name,
+            date: new Date().toLocaleString('nl-NL'),
+            content: 'Kandidaat afgewezen en gearchiveerd.'
+        };
+
+        const updatedApplicant = {
+            ...selectedApplicant,
+            stage: 'Rejected' as ApplicantStage,
+            timeline: [timelineEvent, ...(selectedApplicant.timeline || [])]
+        };
+
+        const updatedList = applicants.map(a => a.id === updatedApplicant.id ? updatedApplicant : a);
+        setApplicants(updatedList);
+        await api.saveApplicant(updatedApplicant);
+        
+        setSelectedApplicant(null);
+        onShowToast("Kandidaat verplaatst naar archief.");
+    };
+
+    const handleRestoreCandidate = async (applicant: Applicant) => {
+        const timelineEvent: RecruitmentTimelineEvent = {
+            id: Math.random().toString(),
+            type: 'StatusChange',
+            author: currentUser.name,
+            date: new Date().toLocaleString('nl-NL'),
+            content: 'Kandidaat hersteld uit archief.'
+        };
+
+        const updatedApplicant = {
+            ...applicant,
+            stage: 'New' as ApplicantStage,
+            timeline: [timelineEvent, ...(applicant.timeline || [])]
+        };
+
+        const updatedList = applicants.map(a => a.id === updatedApplicant.id ? updatedApplicant : a);
+        setApplicants(updatedList);
+        await api.saveApplicant(updatedApplicant);
+        onShowToast("Kandidaat hersteld naar 'New'.");
     };
 
     // --- RENDERERS ---
@@ -502,6 +539,12 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                     >
                         <BarChart3 size={16}/> Analytics
                     </button>
+                    <button 
+                        onClick={() => setActiveView('archive')}
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeView === 'archive' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                    >
+                        <Archive size={16}/> Archief
+                    </button>
                 </div>
 
                 {/* Pipeline View */}
@@ -597,9 +640,77 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                         </div>
                     </div>
                 )}
+
+                {/* Archive View */}
+                {activeView === 'archive' && (
+                    <div className="p-8 overflow-y-auto">
+                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                                <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+                                    <Archive size={20} className="text-slate-400"/>
+                                    Afgewezen Kandidaten
+                                </h3>
+                                <span className="text-xs font-bold bg-slate-200 text-slate-600 px-3 py-1 rounded-full">{filteredApplicants.length} dossiers</span>
+                            </div>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
+                                        <tr>
+                                            <th className="px-6 py-4">Kandidaat</th>
+                                            <th className="px-6 py-4">Vacature</th>
+                                            <th className="px-6 py-4">Datum Sollicitatie</th>
+                                            <th className="px-6 py-4">Reden / Laatste Status</th>
+                                            <th className="px-6 py-4 text-right">Acties</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-100 text-sm">
+                                        {filteredApplicants.map(app => {
+                                            const lastEvent = app.timeline?.[0]; // Usually the rejection reason
+                                            return (
+                                                <tr key={app.id} className="hover:bg-slate-50 transition-colors">
+                                                    <td className="px-6 py-4 font-bold text-slate-900">{app.firstName} {app.lastName}</td>
+                                                    <td className="px-6 py-4 text-slate-600">{vacancies.find(v => v.id === app.vacancyId)?.title}</td>
+                                                    <td className="px-6 py-4 text-slate-500">{app.appliedDate}</td>
+                                                    <td className="px-6 py-4 text-slate-500 italic max-w-xs truncate">
+                                                        {lastEvent?.content || "Geen reden opgegeven"}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <div className="flex justify-end gap-2">
+                                                            <button 
+                                                                onClick={() => setSelectedApplicant(app)}
+                                                                className="p-2 border border-slate-200 rounded-lg hover:bg-slate-100 text-slate-500"
+                                                                title="Bekijk Dossier"
+                                                            >
+                                                                <FileText size={16}/>
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => handleRestoreCandidate(app)}
+                                                                className="p-2 border border-slate-200 rounded-lg hover:bg-teal-50 hover:text-teal-600 hover:border-teal-200 text-slate-500 transition-colors"
+                                                                title="Herstel naar Pipeline"
+                                                            >
+                                                                <RefreshCcw size={16}/>
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
+                                        {filteredApplicants.length === 0 && (
+                                            <tr>
+                                                <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">
+                                                    Geen afgewezen kandidaten in het archief.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
 
-            {/* --- AI SCANNER MODAL (The "Wow" Feature) --- */}
+            {/* ... (AI Scanner Modal remains unchanged) ... */}
             <Modal isOpen={isAIModalOpen} onClose={() => { setIsAIModalOpen(false); setAiScanStep('idle'); }} title="">
                 <div className="min-h-[500px] bg-slate-900 text-white rounded-xl overflow-hidden relative flex flex-col">
                     {/* Background Animation */}
@@ -815,15 +926,20 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                                             const currentIdx = STAGES.indexOf(selectedApplicant.stage);
                                             const isComplete = idx < currentIdx;
                                             const isCurrent = idx === currentIdx;
+                                            const isRejected = selectedApplicant.stage === 'Rejected';
                                             
                                             return (
                                                 <div key={stage} className="flex flex-col items-center gap-2 bg-white px-2 cursor-pointer" onClick={async () => {
-                                                    const updatedApp = { ...selectedApplicant, stage };
-                                                    setApplicants(prev => prev.map(a => a.id === selectedApplicant.id ? updatedApp : a));
-                                                    setSelectedApplicant(updatedApp);
-                                                    await api.saveApplicant(updatedApp);
+                                                    // Allow moving freely unless rejected (then use restore)
+                                                    if (!isRejected) {
+                                                        const updatedApp = { ...selectedApplicant, stage };
+                                                        setApplicants(prev => prev.map(a => a.id === selectedApplicant.id ? updatedApp : a));
+                                                        setSelectedApplicant(updatedApp);
+                                                        await api.saveApplicant(updatedApp);
+                                                    }
                                                 }}>
                                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${
+                                                        isRejected ? 'bg-slate-200 border-slate-300 text-slate-400' :
                                                         isComplete ? 'bg-teal-500 border-teal-500 text-white' :
                                                         isCurrent ? 'bg-white border-teal-500 text-teal-600 shadow-lg scale-110' :
                                                         'bg-white border-slate-200 text-slate-300'
@@ -844,12 +960,16 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                                         <div className="relative pl-6 border-l-2 border-slate-100 space-y-8">
                                             {selectedApplicant.timeline.map((event, i) => (
                                                 <div key={i} className="relative">
-                                                    <div className="absolute -left-[31px] top-0 w-4 h-4 rounded-full border-2 border-white ring-2 ring-slate-100 bg-slate-300"></div>
+                                                    <div className={`absolute -left-[31px] top-0 w-4 h-4 rounded-full border-2 border-white ring-2 ring-slate-100 ${event.type === 'Scorecard' ? 'bg-purple-400' : event.type === 'Note' ? 'bg-amber-400' : 'bg-slate-300'}`}></div>
                                                     <div className="flex justify-between items-start mb-1">
-                                                        <span className="font-bold text-slate-800 text-sm">{event.type === 'StatusChange' ? 'Status Gewijzigd' : event.type}</span>
+                                                        <span className="font-bold text-slate-800 text-sm">
+                                                            {event.type === 'StatusChange' ? 'Status Gewijzigd' : 
+                                                             event.type === 'Scorecard' ? 'Beoordeling' : 
+                                                             event.type === 'Note' ? 'Notitie' : event.type}
+                                                        </span>
                                                         <span className="text-xs text-slate-400">{event.date}</span>
                                                     </div>
-                                                    <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                                    <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100 whitespace-pre-wrap">
                                                         {event.content}
                                                     </p>
                                                 </div>
@@ -861,12 +981,20 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                                     <div className="space-y-6">
                                         <div className="flex justify-between items-center">
                                             <h3 className="font-bold text-slate-900 text-lg">Beoordelingen</h3>
-                                            <button 
-                                                onClick={() => setIsScorecardModalOpen(true)}
-                                                className="text-xs font-bold bg-slate-900 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors shadow-sm"
-                                            >
-                                                + Nieuwe Beoordeling
-                                            </button>
+                                            <div className="flex gap-2">
+                                                <button 
+                                                    onClick={() => setIsNoteModalOpen(true)}
+                                                    className="text-xs font-bold bg-white border border-slate-200 text-slate-600 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-1"
+                                                >
+                                                    <PenLine size={14}/> Notitie
+                                                </button>
+                                                <button 
+                                                    onClick={() => setIsScorecardModalOpen(true)}
+                                                    className="text-xs font-bold bg-slate-900 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors shadow-sm flex items-center gap-1"
+                                                >
+                                                    <Target size={14}/> Beoordeling
+                                                </button>
+                                            </div>
                                         </div>
                                         
                                         {selectedApplicant.scorecards.length > 0 ? selectedApplicant.scorecards.map(card => (
@@ -896,14 +1024,14 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                                                     ))}
                                                 </div>
                                                 {card.notes && (
-                                                    <div className="mt-4 text-xs text-slate-500 italic bg-white p-3 rounded-lg border border-slate-100">
+                                                    <div className="mt-4 text-xs text-slate-500 italic bg-white p-3 rounded-lg border border-slate-100 whitespace-pre-wrap">
                                                         "{card.notes}"
                                                     </div>
                                                 )}
                                             </div>
                                         )) : (
                                             <div className="text-center py-8 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-sm">
-                                                Nog geen beoordelingen.
+                                                Nog geen formele beoordelingen.
                                             </div>
                                         )}
                                     </div>
@@ -913,8 +1041,11 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
 
                         {/* Footer Actions */}
                         <div className="p-6 border-t border-slate-100 bg-white flex justify-end gap-3">
-                            <button className="px-6 py-3 border border-red-100 text-red-600 font-bold rounded-xl text-sm hover:bg-red-50 transition-colors">
-                                Afwijzen
+                            <button 
+                                onClick={handleRejectCandidate}
+                                className="px-6 py-3 border border-red-100 text-red-600 font-bold rounded-xl text-sm hover:bg-red-50 transition-colors"
+                            >
+                                Afwijzen & Archiveren
                             </button>
                             {selectedApplicant.stage !== 'Hired' && (
                                 <button 
@@ -945,6 +1076,20 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                 title="Beoordeling Invullen"
             >
                 <form onSubmit={handleSaveScorecard} className="space-y-6">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Betreft</label>
+                        <select 
+                            className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+                            value={scorecardStage}
+                            onChange={(e) => setScorecardStage(e.target.value)}
+                        >
+                            <option value="Screening">Telefonische Screening</option>
+                            <option value="Interview 1">1e Gesprek</option>
+                            <option value="Interview 2">2e Gesprek</option>
+                            <option value="Proefdraaien">Proefdag</option>
+                        </select>
+                    </div>
+
                     <div className="space-y-4">
                         {newScorecard.skills?.map((skill, idx) => (
                             <div key={idx} className="flex justify-between items-center">
@@ -991,7 +1136,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                                 type="button"
                                 onClick={() => setNewScorecard({ ...newScorecard, recommendation: 'Hire' })}
                                 className={`flex-1 py-3 rounded-xl font-bold text-sm border flex items-center justify-center gap-2 ${
-                                    newScorecard.recommendation === 'Hire' ? 'bg-green-50 border-green-500 text-green-700 ring-1 ring-green-500' : 'bg-white border-slate-200 text-slate-500'
+                                    newScorecard.recommendation === 'Hire' ? 'bg-green-100 text-green-700 ring-1 ring-green-500' : 'bg-white border-slate-200 text-slate-500'
                                 }`}
                             >
                                 <ThumbsUp size={16}/> Aannemen
@@ -1019,6 +1164,29 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
 
                     <button type="submit" className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold shadow-md hover:bg-slate-800 transition-colors">
                         Opslaan
+                    </button>
+                </form>
+            </Modal>
+
+            {/* General Note Modal */}
+            <Modal
+                isOpen={isNoteModalOpen}
+                onClose={() => setIsNoteModalOpen(false)}
+                title="Notitie Toevoegen"
+            >
+                <form onSubmit={handleSaveNote} className="space-y-6">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Inhoud</label>
+                        <textarea 
+                            className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 h-32 resize-none"
+                            placeholder="Typ hier je notitie, herinnering of opmerking..."
+                            value={newNoteContent}
+                            onChange={(e) => setNewNoteContent(e.target.value)}
+                            autoFocus
+                        />
+                    </div>
+                    <button type="submit" className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold shadow-md hover:bg-slate-800 transition-colors">
+                        Notitie Opslaan
                     </button>
                 </form>
             </Modal>

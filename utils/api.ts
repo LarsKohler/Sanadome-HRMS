@@ -5,7 +5,6 @@ import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpd
 import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_TICKETS, MOCK_BADGES, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
-// We explicitely check if supabase is not null
 export const isLive = !!supabase;
 
 // --- GITHUB CONFIGURATION ---
@@ -15,7 +14,6 @@ export const GITHUB_CONFIG = {
     ENABLE: true 
 };
 
-// ... (Helper functions remain unchanged)
 const generateDemoTasks = (): OnboardingTask[] => [
   { id: 'd-1', week: 1, category: 'Introductie', title: 'Rondleiding Hotel & Spa', description: 'Volledige rondleiding door faciliteiten.', completed: true, score: 100, completedBy: 'System', completedDate: 'Vandaag' },
   { id: 'd-2', week: 1, category: 'IT', title: 'IDu PMS Training', description: 'Basisnavigatie in het systeem.', completed: true, score: 100, completedBy: 'System', completedDate: 'Vandaag' },
@@ -24,8 +22,6 @@ const generateDemoTasks = (): OnboardingTask[] => [
 ];
 
 export const api = {
-  // ... (Existing methods like getSecurityStatus, loginUser, createDemoUser, seedDatabase, uploadFile, deleteFile, getEmployees, saveEmployee, deleteEmployee, getBadges, saveBadge, deleteBadge, getKnowledgeArticles, saveKnowledgeArticle, deleteKnowledgeArticle, getNews, saveNewsPost, updateNewsPost, deleteNewsPost, getNotifications, saveNotification, deleteNotification, markNotificationRead, markAllNotificationsRead, getSurveys, saveSurvey, deleteSurvey, getTemplates, saveTemplate, deleteTemplate, getDebtors, saveDebtors, deleteDebtor, deleteDebtors, subscribeToDebtors, getTickets, saveTicket, deleteTicket, getSystemLogs, saveSystemLog, subscribe)
-
   // --- RECRUITMENT (NEW) ---
   getApplicants: async (): Promise<Applicant[]> => {
       if (isLive && supabase) {
@@ -63,7 +59,7 @@ export const api = {
       }
   },
 
-  // --- EXISTING METHODS (Shortened for brevity, ensuring they are preserved in real file) ---
+  // --- EXISTING METHODS ---
   getSecurityStatus: async (): Promise<{ table_name: string, rls_enabled: boolean }[]> => {
       if (isLive && supabase) {
           try { const { data, error } = await supabase.rpc('get_table_security_stats'); if (error) throw error; return data; } catch (e) { return []; }

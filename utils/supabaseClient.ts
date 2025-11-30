@@ -19,7 +19,8 @@ import { createClient } from '@supabase/supabase-js';
   CREATE TABLE IF NOT EXISTS tickets ( id text PRIMARY KEY, data jsonb );
   CREATE TABLE IF NOT EXISTS knowledge_base ( id text PRIMARY KEY, data jsonb );
   CREATE TABLE IF NOT EXISTS system_updates ( id text PRIMARY KEY, data jsonb );
-  -- NIEUW: Recruitment
+  
+  -- NIEUW: Recruitment Tabel
   CREATE TABLE IF NOT EXISTS applicants ( id text PRIMARY KEY, data jsonb );
 
   -- 2. RLS Aanzetten
@@ -64,10 +65,9 @@ import { createClient } from '@supabase/supabase-js';
   CREATE POLICY "Debtors manage" ON debtors FOR ALL USING ( is_manager() );
   CREATE POLICY "System manage" ON system_updates FOR ALL USING ( is_manager() );
   
+  -- Recruitment Policies
   CREATE POLICY "Applicants manage" ON applicants FOR ALL USING ( is_manager() );
 */
-
-// ... (Rest of file unchanged)
 
 // Veilig ophalen van env vars, met fallback naar de door jou opgegeven keys
 const getEnvVar = (key: string, fallback: string) => {
