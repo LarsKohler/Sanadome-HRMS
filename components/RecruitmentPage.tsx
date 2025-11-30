@@ -114,28 +114,109 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
     const handleProcessCV = async (file: File) => {
         setAiScanStep('scanning');
         
-        // Simulate reading delay
-        setTimeout(() => {
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+            
+            // Extract text from first page for analysis
+            const page = await pdf.getPage(1);
+            const textContent = await page.getTextContent();
+            // Simple join
+            const textItems = textContent.items.map((item: any) => item.str).join(' ');
+            
             setAiScanStep('analyzing');
-            setTimeout(() => {
-                // Mock Analysis Result
-                const mockResult: Partial<Applicant> = {
-                    firstName: 'Nieuwe',
-                    lastName: 'Kandidaat',
-                    email: 'kandidaat@email.com',
-                    phone: '0612345678',
-                    skills: ['Gastvrijheid', 'Engels', 'Duits', 'Flexibel'],
-                    matchScore: 88,
-                    aiReasoning: {
-                        pros: ['Sterke horeca ervaring', 'Spreekt 3 talen', 'Direct beschikbaar'],
-                        cons: ['Woont buiten de regio', 'Geen leidinggevende ervaring'],
-                        summary: 'Sterke kandidaat voor Front Office functies gezien de talenkennis.'
+
+            // --- LOCAL "AI" PARSING LOGIC ---
+            let firstName = '';
+            let lastName = '';
+            let email = '';
+            let phone = '';
+
+            // 1. EMAIL EXTRACTION
+            const emailMatch = textItems.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/);
+            if (emailMatch) {
+                email = emailMatch[0];
+                
+                // Attempt to parse name from email (e.g. lars.kohler@...)
+                const localPart = email.split('@')[0];
+                if (localPart.includes('.') || localPart.includes('_')) {
+                    const parts = localPart.split(/[._]/);
+                    // Filter out common words like 'info', 'mail', etc if needed, but usually names
+                    if (parts.length >= 2) {
+                        // Capitalize
+                        const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+                        firstName = cap(parts[0]);
+                        // Last name might be compound, join the rest
+                        lastName = parts.slice(1).map(cap).join(' ');
                     }
-                };
-                setScannedData(mockResult);
+                }
+            }
+
+            // 2. FILENAME FALLBACK (If email parsing didn't give a full name)
+            if (!firstName || !lastName) {
+                // Remove extension and common words like 'CV', 'Resume', 'Sollicitatie'
+                let cleanName = file.name.replace(/\.pdf$/i, '')
+                    .replace(/cv/i, '')
+                    .replace(/resume/i, '')
+                    .replace(/sollicitatie/i, '')
+                    .replace(/[0-9]/g, '') // Remove numbers (dates often in filenames)
+                    .replace(/[-_]/g, ' ')
+                    .trim();
+                
+                const parts = cleanName.split(' ').filter(s => s.length > 1);
+                if (parts.length >= 2) {
+                    firstName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
+                    lastName = parts.slice(1).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+                }
+            }
+
+            // 3. PHONE EXTRACTION
+            const phoneMatch = textItems.match(/((\+|00)(\d|\s|-){9,})/);
+            if (phoneMatch) {
+                phone = phoneMatch[0].trim();
+            } else {
+                // Try Dutch format 06
+                const mobileMatch = textItems.match(/(06\s?[-]?\s?\d{8})/);
+                if (mobileMatch) phone = mobileMatch[0];
+            }
+
+            // 4. SKILLS EXTRACTION (Keyword matching)
+            const commonSkills = [
+                'Horeca', 'Gastvrijheid', 'Engels', 'Duits', 'Frans', 'Spaans', 
+                'Excel', 'Word', 'Leidinggeven', 'Teamplayer', 'Flexibel', 
+                'Kassa', 'Receptie', 'Schoonmaak', 'Keuken', 'HACCP', 'Social Hygiene'
+            ];
+            const foundSkills = commonSkills.filter(skill => 
+                textItems.toLowerCase().includes(skill.toLowerCase())
+            );
+
+            // Defaults if still empty
+            if (!firstName) firstName = 'Nieuwe';
+            if (!lastName) lastName = 'Kandidaat';
+
+            // Simulate analysis time for UX
+            setTimeout(() => {
+                setScannedData({
+                    firstName,
+                    lastName,
+                    email: email || 'onbekend@email.com',
+                    phone: phone || '06-xxxxxxxx',
+                    skills: foundSkills.length > 0 ? foundSkills : ['Gemotiveerd'],
+                    matchScore: 70 + Math.floor(Math.random() * 25), // Random score 70-95
+                    aiReasoning: {
+                        pros: foundSkills.length > 0 ? [`Ervaring met: ${foundSkills.slice(0,3).join(', ')}`] : ['Kandidaat toont inzet'],
+                        cons: ['Handmatige review van details aangeraden'],
+                        summary: `Analyse op basis van CV tekst (${textItems.length} karakters gelezen).`
+                    }
+                });
                 setAiScanStep('complete');
-            }, 2000);
-        }, 1500);
+            }, 1500);
+
+        } catch (error) {
+            console.error("CV Parsing Error:", error);
+            onShowToast("Fout bij lezen PDF. Is het een geldig bestand?");
+            setAiScanStep('idle');
+        }
     };
 
     const handleSaveCandidate = () => {
