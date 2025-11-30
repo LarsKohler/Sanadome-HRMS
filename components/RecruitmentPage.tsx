@@ -118,83 +118,122 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
             
-            // Extract text from first page for analysis
-            const page = await pdf.getPage(1);
-            const textContent = await page.getTextContent();
-            // Simple join
-            const textItems = textContent.items.map((item: any) => item.str).join(' ');
+            // Extract text from first TWO pages to be safe
+            let textItems = '';
+            for (let i = 1; i <= Math.min(pdf.numPages, 2); i++) {
+                const page = await pdf.getPage(i);
+                const textContent = await page.getTextContent();
+                // Add newlines to separate visual lines roughly
+                const pageText = textContent.items.map((item: any) => item.str + (item.hasEOL ? '\n' : ' ')).join('');
+                textItems += pageText + '\n';
+            }
             
             setAiScanStep('analyzing');
 
-            // --- LOCAL "AI" PARSING LOGIC ---
+            // --- SMARTER PARSING LOGIC ---
             let firstName = '';
             let lastName = '';
             let email = '';
             let phone = '';
 
-            // 1. EMAIL EXTRACTION
+            // 1. EXTRACT EMAIL
             const emailMatch = textItems.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/);
             if (emailMatch) {
                 email = emailMatch[0];
-                
-                // Attempt to parse name from email (e.g. lars.kohler@...)
-                const localPart = email.split('@')[0];
-                if (localPart.includes('.') || localPart.includes('_')) {
-                    const parts = localPart.split(/[._]/);
-                    // Filter out common words like 'info', 'mail', etc if needed, but usually names
-                    if (parts.length >= 2) {
-                        // Capitalize
-                        const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
-                        firstName = cap(parts[0]);
-                        // Last name might be compound, join the rest
-                        lastName = parts.slice(1).map(cap).join(' ');
-                    }
-                }
             }
 
-            // 2. FILENAME FALLBACK (If email parsing didn't give a full name)
-            if (!firstName || !lastName) {
-                // Remove extension and common words like 'CV', 'Resume', 'Sollicitatie'
-                let cleanName = file.name.replace(/\.pdf$/i, '')
-                    .replace(/cv/i, '')
-                    .replace(/resume/i, '')
-                    .replace(/sollicitatie/i, '')
-                    .replace(/[0-9]/g, '') // Remove numbers (dates often in filenames)
-                    .replace(/[-_]/g, ' ')
-                    .trim();
-                
-                const parts = cleanName.split(' ').filter(s => s.length > 1);
-                if (parts.length >= 2) {
-                    firstName = parts[0].charAt(0).toUpperCase() + parts[0].slice(1);
-                    lastName = parts.slice(1).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
-                }
-            }
-
-            // 3. PHONE EXTRACTION
+            // 2. EXTRACT PHONE
             const phoneMatch = textItems.match(/((\+|00)(\d|\s|-){9,})/);
             if (phoneMatch) {
                 phone = phoneMatch[0].trim();
             } else {
-                // Try Dutch format 06
                 const mobileMatch = textItems.match(/(06\s?[-]?\s?\d{8})/);
                 if (mobileMatch) phone = mobileMatch[0];
+            }
+
+            // 3. INTELLIGENT NAME EXTRACTION
+            
+            // Strategy A: Explicit "My Name Is" Pattern (Dutch/English)
+            // Finds: "Mijn naam is [Kirsty] [van] [Boekel]" or "Ik ben [Jan] [Jansen]"
+            const introRegex = /(?:Mijn naam is|My name is|Ik ben|I am)\s+([A-Z][a-z]+)\s+(?:((?:van|de|den|der|het|'t|ten|ter|el|al|da|di|du|la|le)\s+)+)?([A-Z][a-z]+)/i;
+            const introMatch = textItems.match(introRegex);
+
+            // Strategy B: Explicit Label "Naam:"
+            const labelRegex = /(?:Naam|Name):\s*([A-Z][a-z]+)\s+(?:((?:van|de|den|der|het|'t|ten|ter|el|al|da|di|du|la|le)\s+)+)?([A-Z][a-z]+)/i;
+            const labelMatch = textItems.match(labelRegex);
+
+            if (introMatch) {
+                firstName = introMatch[1];
+                // Check if there is a prefix (tussenvoegsel)
+                const prefix = introMatch[2] ? introMatch[2].trim() + ' ' : '';
+                lastName = prefix + introMatch[3];
+            } else if (labelMatch) {
+                firstName = labelMatch[1];
+                const prefix = labelMatch[2] ? labelMatch[2].trim() + ' ' : '';
+                lastName = prefix + labelMatch[3];
+            } else {
+                // Strategy C: Document Header Heuristic (First lines of text)
+                // Look for lines that look like a name (2-3 words, Title Cased, no numbers, no keywords)
+                const lines = textItems.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+                const forbiddenWords = ['cv', 'curriculum', 'vitae', 'resume', 'profiel', 'profile', 'personal', 'details', 'contact', 'email', 'adres', 'address', 'telefoon', 'phone', 'opleiding', 'education', 'werkervaring', 'experience', 'skills', 'vaardigheden', 'talen', 'languages', 'hobby', 'over mij', 'about me'];
+                
+                // We scan the first 10 non-empty lines
+                for (let i = 0; i < Math.min(lines.length, 10); i++) {
+                    const line = lines[i];
+                    // Clean symbols
+                    const cleanLine = line.replace(/[^a-zA-Z\s]/g, '').trim(); 
+                    
+                    if (cleanLine.length < 3 || cleanLine.length > 30) continue;
+                    
+                    const words = cleanLine.split(/\s+/);
+                    if (words.length < 2 || words.length > 4) continue; // Names are usually 2-4 words
+
+                    // Check forbidden words
+                    if (forbiddenWords.some(w => cleanLine.toLowerCase().includes(w))) continue;
+
+                    // Check Capitalization (heuristic: usually first letters are caps)
+                    const isTitleCased = words.every(w => /^[A-Z]/.test(w) || /^(van|de|der|den|ten|ter|el|al)$/i.test(w));
+                    
+                    if (isTitleCased) {
+                        firstName = words[0];
+                        // Join the rest as last name
+                        lastName = words.slice(1).join(' ');
+                        break; // Found it!
+                    }
+                }
+            }
+
+            // Strategy D: Fallback to Email (Only if all else fails)
+            if (!firstName && email) {
+                const localPart = email.split('@')[0];
+                if (localPart.includes('.') || localPart.includes('_')) {
+                    const parts = localPart.split(/[._]/);
+                    if (parts.length >= 2) {
+                        const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+                        firstName = cap(parts[0]);
+                        lastName = parts.slice(1).map(cap).join(' ');
+                    }
+                }
             }
 
             // 4. SKILLS EXTRACTION (Keyword matching)
             const commonSkills = [
                 'Horeca', 'Gastvrijheid', 'Engels', 'Duits', 'Frans', 'Spaans', 
                 'Excel', 'Word', 'Leidinggeven', 'Teamplayer', 'Flexibel', 
-                'Kassa', 'Receptie', 'Schoonmaak', 'Keuken', 'HACCP', 'Social Hygiene'
+                'Kassa', 'Receptie', 'Schoonmaak', 'Keuken', 'HACCP', 'Social Hygiene',
+                'IDu PMS', 'MEWS', 'Opera'
             ];
             const foundSkills = commonSkills.filter(skill => 
                 textItems.toLowerCase().includes(skill.toLowerCase())
             );
 
-            // Defaults if still empty
+            // Final Cleanup / Defaults
             if (!firstName) firstName = 'Nieuwe';
             if (!lastName) lastName = 'Kandidaat';
 
-            // Simulate analysis time for UX
+            // Clean weird characters from lastName if needed
+            lastName = lastName.replace(/[()]/g, '').trim();
+
             setTimeout(() => {
                 setScannedData({
                     firstName,
@@ -202,11 +241,11 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
                     email: email || 'onbekend@email.com',
                     phone: phone || '06-xxxxxxxx',
                     skills: foundSkills.length > 0 ? foundSkills : ['Gemotiveerd'],
-                    matchScore: 70 + Math.floor(Math.random() * 25), // Random score 70-95
+                    matchScore: 70 + Math.floor(Math.random() * 25), // Random score for demo
                     aiReasoning: {
                         pros: foundSkills.length > 0 ? [`Ervaring met: ${foundSkills.slice(0,3).join(', ')}`] : ['Kandidaat toont inzet'],
                         cons: ['Handmatige review van details aangeraden'],
-                        summary: `Analyse op basis van CV tekst (${textItems.length} karakters gelezen).`
+                        summary: `Analyse op basis van CV tekst (${textItems.length} karakters gelezen). Naam gedetecteerd: ${firstName} ${lastName}`
                     }
                 });
                 setAiScanStep('complete');
