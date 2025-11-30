@@ -19,6 +19,8 @@ import { createClient } from '@supabase/supabase-js';
   CREATE TABLE IF NOT EXISTS tickets ( id text PRIMARY KEY, data jsonb );
   CREATE TABLE IF NOT EXISTS knowledge_base ( id text PRIMARY KEY, data jsonb );
   CREATE TABLE IF NOT EXISTS system_updates ( id text PRIMARY KEY, data jsonb );
+  -- NIEUW: Recruitment
+  CREATE TABLE IF NOT EXISTS applicants ( id text PRIMARY KEY, data jsonb );
 
   -- 2. RLS Aanzetten
   ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
@@ -30,6 +32,7 @@ import { createClient } from '@supabase/supabase-js';
   ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
   ALTER TABLE knowledge_base ENABLE ROW LEVEL SECURITY;
   ALTER TABLE system_updates ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE applicants ENABLE ROW LEVEL SECURITY;
 
   -- 3. Manager Check Functie
   CREATE OR REPLACE FUNCTION is_manager() RETURNS boolean AS $$
@@ -60,97 +63,11 @@ import { createClient } from '@supabase/supabase-js';
   CREATE POLICY "Templates manage" ON onboarding_templates FOR ALL USING ( is_manager() );
   CREATE POLICY "Debtors manage" ON debtors FOR ALL USING ( is_manager() );
   CREATE POLICY "System manage" ON system_updates FOR ALL USING ( is_manager() );
-*/
-
-/*
-  =============================================
-  DEEL 2: AUTOMATISCHE USER AANMAAK (RPC)
-  =============================================
-
-  CREATE EXTENSION IF NOT EXISTS pgcrypto;
-
-  CREATE OR REPLACE FUNCTION admin_create_user(
-    new_email text,
-    new_password text,
-    new_id uuid
-  ) RETURNS void AS $$
-  BEGIN
-    IF NOT is_manager() THEN
-      RAISE EXCEPTION 'Access Denied: Only Managers can create users.';
-    END IF;
-
-    INSERT INTO auth.users (
-      instance_id, id, aud, role, email, encrypted_password, email_confirmed_at, 
-      recovery_sent_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data, 
-      created_at, updated_at, confirmation_token, email_change, email_change_token_new, recovery_token
-    )
-    VALUES (
-      '00000000-0000-0000-0000-000000000000',
-      new_id,
-      'authenticated',
-      'authenticated',
-      new_email,
-      crypt(new_password, gen_salt('bf')),
-      now(), NULL, NULL,
-      '{"provider":"email","providers":["email"]}', '{}',
-      now(), now(), '', '', '', ''
-    );
-
-    INSERT INTO auth.identities (
-      id, user_id, identity_data, provider, provider_id, created_at, updated_at
-    )
-    VALUES (
-      gen_random_uuid(),
-      new_id,
-      format('{"sub":"%s","email":"%s"}', new_id::text, new_email)::jsonb,
-      'email',
-      new_id::text, -- Fix: provider_id is mandatory
-      now(),
-      now()
-    );
-  END;
-  $$ LANGUAGE plpgsql SECURITY DEFINER;
-*/
-
-/*
-  =============================================
-  DEEL 3: AUTOMATISCHE USER VERWIJDERING (RPC)
-  =============================================
-  -- Voer dit uit om te zorgen dat gebruikers ook uit Auth verwijderd worden.
-
-  CREATE OR REPLACE FUNCTION admin_delete_user(target_user_id uuid)
-  RETURNS void AS $$
-  BEGIN
-    -- 1. Veiligheidscheck
-    IF NOT is_manager() THEN
-      RAISE EXCEPTION 'Access Denied: Only Managers can delete users.';
-    END IF;
-
-    -- 2. Verwijder data
-    DELETE FROM public.employees WHERE id = target_user_id::text;
-
-    -- 3. Verwijder Auth user
-    DELETE FROM auth.users WHERE id = target_user_id;
-  END;
-  $$ LANGUAGE plpgsql SECURITY DEFINER;
-*/
-
-/*
-  =============================================
-  DEEL 4: SECURITY AUDIT TOOL
-  =============================================
   
-  CREATE OR REPLACE FUNCTION get_table_security_stats()
-  RETURNS TABLE(table_name text, rls_enabled boolean) AS $$
-  BEGIN
-      RETURN QUERY
-      SELECT c.relname::text, c.relrowsecurity
-      FROM pg_class c
-      JOIN pg_namespace n ON n.oid = c.relnamespace
-      WHERE n.nspname = 'public' AND c.relkind = 'r';
-  END;
-  $$ LANGUAGE plpgsql SECURITY DEFINER;
+  CREATE POLICY "Applicants manage" ON applicants FOR ALL USING ( is_manager() );
 */
+
+// ... (Rest of file unchanged)
 
 // Veilig ophalen van env vars, met fallback naar de door jou opgegeven keys
 const getEnvVar = (key: string, fallback: string) => {

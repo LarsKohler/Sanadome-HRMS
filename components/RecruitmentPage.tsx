@@ -10,9 +10,10 @@ import {
     Download, Split, Send, BrainCircuit, TrendingUp, Save, ThumbsUp, ThumbsDown
 } from 'lucide-react';
 import { Employee, Applicant, Vacancy, ApplicantStage, RecruitmentTimelineEvent, Notification, ViewState, CandidateScorecard, CandidateTask } from '../types';
-import { MOCK_VACANCIES, MOCK_APPLICANTS, MOCK_EMAIL_TEMPLATES } from '../utils/mockData';
+import { MOCK_VACANCIES } from '../utils/mockData';
 import { Modal } from './Modal';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Legend, AreaChart, Area } from 'recharts';
+import { api } from '../utils/api';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // --- PDF.JS SETUP ---
@@ -33,7 +34,7 @@ const STAGES: ApplicantStage[] = ['New', 'Screening', 'Interview 1', 'Interview 
 
 const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowToast, onHireCandidate, onAddNotification }) => {
     const [activeView, setActiveView] = useState<'dashboard' | 'pipeline'>('pipeline');
-    const [applicants, setApplicants] = useState<Applicant[]>(MOCK_APPLICANTS);
+    const [applicants, setApplicants] = useState<Applicant[]>([]);
     const [vacancies] = useState<Vacancy[]>(MOCK_VACANCIES);
     
     // Filters
@@ -62,6 +63,20 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
     const [scannedData, setScannedData] = useState<Partial<Applicant> | null>(null);
     const [scannedFile, setScannedFile] = useState<File | null>(null); // Store file to attach later
     
+    // Initial Load
+    useEffect(() => {
+        loadApplicants();
+    }, []);
+
+    const loadApplicants = async () => {
+        try {
+            const data = await api.getApplicants();
+            setApplicants(data);
+        } catch (e) {
+            console.error("Failed to load applicants", e);
+        }
+    };
+
     // --- METRICS ---
     const metrics = useMemo(() => {
         const total = applicants.length;
@@ -93,16 +108,13 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
         e.dataTransfer.effectAllowed = 'move';
     };
 
-    const handleDrop = (e: React.DragEvent, stage: ApplicantStage) => {
+    const handleDrop = async (e: React.DragEvent, stage: ApplicantStage) => {
         e.preventDefault();
         const id = e.dataTransfer.getData('applicantId');
         if (id) {
             const app = applicants.find(a => a.id === id);
             if (app && app.stage !== stage) {
-                const updated = applicants.map(a => a.id === id ? { ...a, stage } : a);
-                setApplicants(updated);
-                
-                // Add timeline event
+                // Update Timeline
                 const newEvent: RecruitmentTimelineEvent = {
                     id: Math.random().toString(),
                     type: 'StatusChange',
@@ -111,10 +123,17 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                     content: `Kandidaat verplaatst naar ${stage}`
                 };
                 
-                const appWithEvent = updated.find(a => a.id === id);
-                if (appWithEvent) {
-                    appWithEvent.timeline = [newEvent, ...(appWithEvent.timeline || [])];
-                }
+                const updatedApp = { 
+                    ...app, 
+                    stage,
+                    timeline: [newEvent, ...(app.timeline || [])] 
+                };
+
+                // Optimistic UI Update
+                setApplicants(prev => prev.map(a => a.id === id ? updatedApp : a));
+                
+                // Save to DB
+                await api.saveApplicant(updatedApp);
                 
                 if (stage === 'Hired') {
                     onShowToast("Kandidaat aangenomen! Start onboarding.");
@@ -269,8 +288,9 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
         if (scannedData) {
             let resumeUrl = undefined;
             if (scannedFile) {
-                // Create a local blob URL for the file to enable download
-                resumeUrl = URL.createObjectURL(scannedFile);
+                // For demo purposes and immediate feedback, we use createObjectURL. 
+                // Ideally this would await api.uploadFile(scannedFile)
+                resumeUrl = URL.createObjectURL(scannedFile); 
             }
 
             const newApp: Applicant = {
@@ -286,14 +306,18 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                 skills: scannedData.skills || [],
                 rating: 0,
                 aiReasoning: scannedData.aiReasoning,
-                resumeUrl: resumeUrl, // Store blob URL
+                resumeUrl: resumeUrl, 
                 avatar: `https://ui-avatars.com/api/?name=${scannedData.firstName}+${scannedData.lastName}&background=random`,
                 timeline: [{ id: '1', type: 'StatusChange', author: 'System', date: 'Zojuist', content: 'CV geanalyseerd en toegevoegd.' }],
                 scorecards: [],
                 tasks: [],
                 tags: ['#New', '#AI-Parsed']
             };
+            
+            // Save to DB
+            api.saveApplicant(newApp);
             setApplicants([newApp, ...applicants]);
+            
             setIsAIModalOpen(false);
             setAiScanStep('idle');
             setScannedData(null);
@@ -302,7 +326,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
         }
     };
 
-    const handleSaveScorecard = (e: React.FormEvent) => {
+    const handleSaveScorecard = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!selectedApplicant) return;
 
@@ -315,13 +339,6 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
             recommendation: newScorecard.recommendation as 'Hire' | 'No Hire' | 'Maybe'
         };
 
-        const updatedApplicant = {
-            ...selectedApplicant,
-            scorecards: [scorecard, ...(selectedApplicant.scorecards || [])],
-            rating: scorecard.recommendation === 'Hire' ? 5 : (scorecard.recommendation === 'Maybe' ? 3 : 1) // Simple auto-rate
-        };
-
-        // Add to timeline
         const timelineEvent: RecruitmentTimelineEvent = {
             id: Math.random().toString(),
             type: 'Scorecard',
@@ -329,12 +346,20 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
             date: new Date().toLocaleString('nl-NL'),
             content: `Heeft een beoordeling toegevoegd: ${scorecard.recommendation}`
         };
-        updatedApplicant.timeline = [timelineEvent, ...(updatedApplicant.timeline || [])];
 
-        // Update list
+        const updatedApplicant = {
+            ...selectedApplicant,
+            scorecards: [scorecard, ...(selectedApplicant.scorecards || [])],
+            timeline: [timelineEvent, ...(selectedApplicant.timeline || [])],
+            rating: scorecard.recommendation === 'Hire' ? 5 : (scorecard.recommendation === 'Maybe' ? 3 : 1) // Simple auto-rate
+        };
+
+        // Update list and DB
         const updatedList = applicants.map(a => a.id === updatedApplicant.id ? updatedApplicant : a);
         setApplicants(updatedList);
         setSelectedApplicant(updatedApplicant);
+        await api.saveApplicant(updatedApplicant);
+        
         setIsScorecardModalOpen(false);
         onShowToast("Beoordeling opgeslagen.");
         
@@ -410,7 +435,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
     };
 
     return (
-        <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 min-h-[calc(100vh-80px)]">
+        <div className="p-6 md:p-10 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 min-h-[calc(100vh-80px)]">
             
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6">
@@ -792,10 +817,11 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                                             const isCurrent = idx === currentIdx;
                                             
                                             return (
-                                                <div key={stage} className="flex flex-col items-center gap-2 bg-white px-2 cursor-pointer" onClick={() => {
-                                                    const updated = applicants.map(a => a.id === selectedApplicant.id ? {...a, stage} : a);
-                                                    setApplicants(updated);
-                                                    setSelectedApplicant({...selectedApplicant, stage});
+                                                <div key={stage} className="flex flex-col items-center gap-2 bg-white px-2 cursor-pointer" onClick={async () => {
+                                                    const updatedApp = { ...selectedApplicant, stage };
+                                                    setApplicants(prev => prev.map(a => a.id === selectedApplicant.id ? updatedApp : a));
+                                                    setSelectedApplicant(updatedApp);
+                                                    await api.saveApplicant(updatedApp);
                                                 }}>
                                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${
                                                         isComplete ? 'bg-teal-500 border-teal-500 text-white' :
@@ -894,9 +920,10 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
                                 <button 
                                     onClick={() => {
                                         if(confirm(`Weet je zeker dat je ${selectedApplicant.firstName} wilt aannemen?`)) {
-                                            const updated = applicants.map(a => a.id === selectedApplicant.id ? { ...a, stage: 'Hired' as ApplicantStage } : a);
-                                            setApplicants(updated);
-                                            onHireCandidate(selectedApplicant);
+                                            const updatedApp = { ...selectedApplicant, stage: 'Hired' as ApplicantStage };
+                                            setApplicants(prev => prev.map(a => a.id === selectedApplicant.id ? updatedApp : a));
+                                            api.saveApplicant(updatedApp);
+                                            onHireCandidate(updatedApp);
                                             setSelectedApplicant(null);
                                             onShowToast(`${selectedApplicant.firstName} is aangenomen!`);
                                         }
