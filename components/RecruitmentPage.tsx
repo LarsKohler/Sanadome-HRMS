@@ -7,7 +7,7 @@ import {
     CheckCircle2, Loader2, X, Filter, MoreHorizontal, 
     Trash2, Check, ArrowRight, Zap, Target, Users, 
     ChevronDown, AlertCircle, Phone, Linkedin, MapPin, 
-    Download, Split, Send, BrainCircuit, TrendingUp
+    Download, Split, Send, BrainCircuit, TrendingUp, Save, ThumbsUp, ThumbsDown
 } from 'lucide-react';
 import { Employee, Applicant, Vacancy, ApplicantStage, RecruitmentTimelineEvent, Notification, ViewState, CandidateScorecard, CandidateTask } from '../types';
 import { MOCK_VACANCIES, MOCK_APPLICANTS, MOCK_EMAIL_TEMPLATES } from '../utils/mockData';
@@ -31,7 +31,7 @@ interface RecruitmentPageProps {
 
 const STAGES: ApplicantStage[] = ['New', 'Screening', 'Interview 1', 'Interview 2', 'Offer', 'Hired'];
 
-const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowToast, onHireCandidate, onAddNotification }) => {
+const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowToast, onHireCandidate, onAddNotification }) => {
     const [activeView, setActiveView] = useState<'dashboard' | 'pipeline'>('pipeline');
     const [applicants, setApplicants] = useState<Applicant[]>(MOCK_APPLICANTS);
     const [vacancies] = useState<Vacancy[]>(MOCK_VACANCIES);
@@ -44,10 +44,23 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
     const [selectedApplicant, setSelectedApplicant] = useState<Applicant | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [isAIModalOpen, setIsAIModalOpen] = useState(false);
+    
+    // Scorecard Modal
+    const [isScorecardModalOpen, setIsScorecardModalOpen] = useState(false);
+    const [newScorecard, setNewScorecard] = useState<Partial<CandidateScorecard>>({
+        recommendation: 'Maybe',
+        notes: '',
+        skills: [
+            { name: 'Algemene Indruk', score: 3 },
+            { name: 'Werkhouding', score: 3 },
+            { name: 'Communicatie', score: 3 }
+        ]
+    });
 
     // AI State
     const [aiScanStep, setAiScanStep] = useState<'idle' | 'uploading' | 'scanning' | 'analyzing' | 'complete'>('idle');
     const [scannedData, setScannedData] = useState<Partial<Applicant> | null>(null);
+    const [scannedFile, setScannedFile] = useState<File | null>(null); // Store file to attach later
     
     // --- METRICS ---
     const metrics = useMemo(() => {
@@ -105,7 +118,6 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
                 
                 if (stage === 'Hired') {
                     onShowToast("Kandidaat aangenomen! Start onboarding.");
-                    // Trigger confetti logic here if we had it
                 }
             }
         }
@@ -113,6 +125,7 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
 
     const handleProcessCV = async (file: File) => {
         setAiScanStep('scanning');
+        setScannedFile(file); // Keep file reference for later storage
         
         try {
             const arrayBuffer = await file.arrayBuffer();
@@ -152,53 +165,47 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
             }
 
             // 3. INTELLIGENT NAME EXTRACTION
+            const lines = textItems.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
             
-            // Strategy A: Explicit "My Name Is" Pattern (Dutch/English)
-            // Finds: "Mijn naam is [Kirsty] [van] [Boekel]" or "Ik ben [Jan] [Jansen]"
+            // Words to ignore in header lookup
+            const forbiddenWords = ['cv', 'curriculum', 'vitae', 'resume', 'profiel', 'profile', 'personal', 'persoonlijk', 'details', 'contact', 'email', 'adres', 'address', 'telefoon', 'phone', 'opleiding', 'education', 'werkervaring', 'experience', 'skills', 'vaardigheden', 'talen', 'languages', 'hobby', 'over mij', 'about me', 'pagina', 'page'];
+
+            // First check for explicit "My name is" pattern
             const introRegex = /(?:Mijn naam is|My name is|Ik ben|I am)\s+([A-Z][a-z]+)\s+(?:((?:van|de|den|der|het|'t|ten|ter|el|al|da|di|du|la|le)\s+)+)?([A-Z][a-z]+)/i;
             const introMatch = textItems.match(introRegex);
 
-            // Strategy B: Explicit Label "Naam:"
-            const labelRegex = /(?:Naam|Name):\s*([A-Z][a-z]+)\s+(?:((?:van|de|den|der|het|'t|ten|ter|el|al|da|di|du|la|le)\s+)+)?([A-Z][a-z]+)/i;
-            const labelMatch = textItems.match(labelRegex);
-
             if (introMatch) {
                 firstName = introMatch[1];
-                // Check if there is a prefix (tussenvoegsel)
                 const prefix = introMatch[2] ? introMatch[2].trim() + ' ' : '';
                 lastName = prefix + introMatch[3];
-            } else if (labelMatch) {
-                firstName = labelMatch[1];
-                const prefix = labelMatch[2] ? labelMatch[2].trim() + ' ' : '';
-                lastName = prefix + labelMatch[3];
             } else {
-                // Strategy C: Document Header Heuristic (First lines of text)
-                // Look for lines that look like a name (2-3 words, Title Cased, no numbers, no keywords)
-                const lines = textItems.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
-                const forbiddenWords = ['cv', 'curriculum', 'vitae', 'resume', 'profiel', 'profile', 'personal', 'details', 'contact', 'email', 'adres', 'address', 'telefoon', 'phone', 'opleiding', 'education', 'werkervaring', 'experience', 'skills', 'vaardigheden', 'talen', 'languages', 'hobby', 'over mij', 'about me'];
+                // Heuristic: Scan first 15 lines. Name is often:
+                // - Top of doc
+                // - 2 to 4 words
+                // - Title Cased
+                // - Not a forbidden keyword
                 
-                // We scan the first 10 non-empty lines
-                for (let i = 0; i < Math.min(lines.length, 10); i++) {
+                for (let i = 0; i < Math.min(lines.length, 15); i++) {
                     const line = lines[i];
-                    // Clean symbols
+                    // Strip non-letter chars for check
                     const cleanLine = line.replace(/[^a-zA-Z\s]/g, '').trim(); 
                     
-                    if (cleanLine.length < 3 || cleanLine.length > 30) continue;
-                    
-                    const words = cleanLine.split(/\s+/);
-                    if (words.length < 2 || words.length > 4) continue; // Names are usually 2-4 words
-
-                    // Check forbidden words
+                    if (cleanLine.length < 3 || cleanLine.length > 35) continue;
                     if (forbiddenWords.some(w => cleanLine.toLowerCase().includes(w))) continue;
-
-                    // Check Capitalization (heuristic: usually first letters are caps)
-                    const isTitleCased = words.every(w => /^[A-Z]/.test(w) || /^(van|de|der|den|ten|ter|el|al)$/i.test(w));
                     
-                    if (isTitleCased) {
+                    const words = line.trim().split(/\s+/);
+                    if (words.length < 2 || words.length > 4) continue; 
+
+                    // Check Capitalization (heuristic: first letters caps, or Dutch prefix)
+                    const isNameLike = words.every(w => /^[A-Z]/.test(w) || /^(van|de|der|den|ten|ter|el|al|in|op|t)$/i.test(w));
+                    
+                    if (isNameLike) {
+                        // Found likely name
                         firstName = words[0];
-                        // Join the rest as last name
-                        lastName = words.slice(1).join(' ');
-                        break; // Found it!
+                        // Handle potential prefixes in the rest
+                        const rest = words.slice(1);
+                        lastName = rest.join(' ');
+                        break; 
                     }
                 }
             }
@@ -245,7 +252,7 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
                     aiReasoning: {
                         pros: foundSkills.length > 0 ? [`Ervaring met: ${foundSkills.slice(0,3).join(', ')}`] : ['Kandidaat toont inzet'],
                         cons: ['Handmatige review van details aangeraden'],
-                        summary: `Analyse op basis van CV tekst (${textItems.length} karakters gelezen). Naam gedetecteerd: ${firstName} ${lastName}`
+                        summary: `Analyse op basis van CV tekst. Naam gedetecteerd: ${firstName} ${lastName}`
                     }
                 });
                 setAiScanStep('complete');
@@ -260,6 +267,12 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
 
     const handleSaveCandidate = () => {
         if (scannedData) {
+            let resumeUrl = undefined;
+            if (scannedFile) {
+                // Create a local blob URL for the file to enable download
+                resumeUrl = URL.createObjectURL(scannedFile);
+            }
+
             const newApp: Applicant = {
                 id: Math.random().toString(),
                 firstName: scannedData.firstName!,
@@ -273,6 +286,7 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
                 skills: scannedData.skills || [],
                 rating: 0,
                 aiReasoning: scannedData.aiReasoning,
+                resumeUrl: resumeUrl, // Store blob URL
                 avatar: `https://ui-avatars.com/api/?name=${scannedData.firstName}+${scannedData.lastName}&background=random`,
                 timeline: [{ id: '1', type: 'StatusChange', author: 'System', date: 'Zojuist', content: 'CV geanalyseerd en toegevoegd.' }],
                 scorecards: [],
@@ -283,8 +297,57 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
             setIsAIModalOpen(false);
             setAiScanStep('idle');
             setScannedData(null);
+            setScannedFile(null);
             onShowToast("Kandidaat succesvol toegevoegd aan de pipeline.");
         }
+    };
+
+    const handleSaveScorecard = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedApplicant) return;
+
+        const scorecard: CandidateScorecard = {
+            id: Math.random().toString(),
+            interviewer: currentUser.name,
+            date: new Date().toLocaleDateString('nl-NL'),
+            skills: newScorecard.skills || [],
+            notes: newScorecard.notes || '',
+            recommendation: newScorecard.recommendation as 'Hire' | 'No Hire' | 'Maybe'
+        };
+
+        const updatedApplicant = {
+            ...selectedApplicant,
+            scorecards: [scorecard, ...(selectedApplicant.scorecards || [])],
+            rating: scorecard.recommendation === 'Hire' ? 5 : (scorecard.recommendation === 'Maybe' ? 3 : 1) // Simple auto-rate
+        };
+
+        // Add to timeline
+        const timelineEvent: RecruitmentTimelineEvent = {
+            id: Math.random().toString(),
+            type: 'Scorecard',
+            author: currentUser.name,
+            date: new Date().toLocaleString('nl-NL'),
+            content: `Heeft een beoordeling toegevoegd: ${scorecard.recommendation}`
+        };
+        updatedApplicant.timeline = [timelineEvent, ...(updatedApplicant.timeline || [])];
+
+        // Update list
+        const updatedList = applicants.map(a => a.id === updatedApplicant.id ? updatedApplicant : a);
+        setApplicants(updatedList);
+        setSelectedApplicant(updatedApplicant);
+        setIsScorecardModalOpen(false);
+        onShowToast("Beoordeling opgeslagen.");
+        
+        // Reset form
+        setNewScorecard({
+            recommendation: 'Maybe',
+            notes: '',
+            skills: [
+                { name: 'Algemene Indruk', score: 3 },
+                { name: 'Werkhouding', score: 3 },
+                { name: 'Communicatie', score: 3 }
+            ]
+        });
     };
 
     // --- RENDERERS ---
@@ -347,43 +410,41 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
     };
 
     return (
-        <div className="flex flex-col h-[calc(100vh-64px)] bg-slate-50/50">
+        <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 min-h-[calc(100vh-80px)]">
             
-            {/* --- COMMAND BAR --- */}
-            <div className="px-6 py-4 bg-white border-b border-slate-200 flex flex-col xl:flex-row justify-between items-center gap-4 shadow-sm z-10">
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                        <UserPlus className="text-teal-600" size={28}/>
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
+                        <UserPlus className="text-teal-600" size={32}/>
                         Talent Command Center
                     </h1>
-                    <p className="text-xs text-slate-500 font-medium mt-0.5">Beheer de instroom van nieuw talent.</p>
+                    <p className="text-slate-500 mt-1 text-lg">Beheer de instroom van nieuw talent.</p>
                 </div>
 
-                {/* Filter & Search Island */}
-                <div className="flex items-center gap-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
-                    <div className="relative group">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors" size={16}/>
-                        <input 
-                            type="text" 
-                            placeholder="Zoek kandidaat..." 
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-9 pr-4 py-2 bg-white rounded-lg text-sm font-medium w-48 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 border border-transparent transition-all"
-                        />
-                    </div>
-                    <div className="h-6 w-px bg-slate-300 mx-1"></div>
-                    <select 
-                        value={selectedVacancyId}
-                        onChange={(e) => setSelectedVacancyId(e.target.value)}
-                        className="bg-transparent text-sm font-bold text-slate-600 focus:outline-none cursor-pointer hover:text-slate-900"
-                    >
-                        <option value="All">Alle Vacatures</option>
-                        {vacancies.map(v => <option key={v.id} value={v.id}>{v.title}</option>)}
-                    </select>
-                </div>
-
-                {/* Actions */}
                 <div className="flex gap-3">
+                    <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
+                        <div className="relative group">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors" size={16}/>
+                            <input 
+                                type="text" 
+                                placeholder="Zoek kandidaat..." 
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-9 pr-4 py-2 bg-transparent rounded-lg text-sm font-medium w-48 focus:outline-none"
+                            />
+                        </div>
+                        <div className="h-6 w-px bg-slate-200 mx-1"></div>
+                        <select 
+                            value={selectedVacancyId}
+                            onChange={(e) => setSelectedVacancyId(e.target.value)}
+                            className="bg-transparent text-sm font-bold text-slate-600 focus:outline-none cursor-pointer hover:text-slate-900 pr-2"
+                        >
+                            <option value="All">Alle Vacatures</option>
+                            {vacancies.map(v => <option key={v.id} value={v.id}>{v.title}</option>)}
+                        </select>
+                    </div>
+
                     <button 
                         onClick={() => setIsAIModalOpen(true)}
                         className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl font-bold text-sm shadow-md hover:shadow-lg hover:scale-105 transition-all"
@@ -399,27 +460,28 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
                 </div>
             </div>
 
-            {/* --- MAIN CONTENT --- */}
-            <div className="flex-1 overflow-hidden relative">
+            {/* Main Content Container */}
+            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[700px]">
                 
-                {/* View Switcher Tabs (Floating) */}
-                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 bg-white/90 backdrop-blur-md p-1 rounded-full border border-slate-200 shadow-sm flex gap-1">
+                {/* View Tabs */}
+                <div className="border-b border-slate-200 px-6 py-4 flex gap-4">
                     <button 
                         onClick={() => setActiveView('pipeline')}
-                        className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${activeView === 'pipeline' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeView === 'pipeline' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
                     >
-                        <LayoutDashboard size={14}/> Pipeline
+                        <LayoutDashboard size={16}/> Pipeline
                     </button>
                     <button 
                         onClick={() => setActiveView('dashboard')}
-                        className={`px-4 py-1.5 rounded-full text-xs font-bold transition-all flex items-center gap-2 ${activeView === 'dashboard' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-100'}`}
+                        className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeView === 'dashboard' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
                     >
-                        <BarChart3 size={14}/> Analytics
+                        <BarChart3 size={16}/> Analytics
                     </button>
                 </div>
 
+                {/* Pipeline View */}
                 {activeView === 'pipeline' && (
-                    <div className="h-full overflow-x-auto overflow-y-hidden p-6 pt-16">
+                    <div className="flex-1 overflow-x-auto overflow-y-hidden p-6 bg-slate-50/50">
                         <div className="flex gap-6 h-full min-w-max">
                             {STAGES.map((stage, idx) => {
                                 const stageApps = filteredApplicants.filter(a => a.stage === stage);
@@ -438,12 +500,12 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
                                             <span className="bg-slate-200 text-slate-600 px-2 py-0.5 rounded-md text-xs font-bold">{stageApps.length}</span>
                                         </div>
                                         
-                                        <div className={`flex-1 rounded-2xl border-2 border-dashed p-2 transition-colors overflow-y-auto custom-scrollbar space-y-3
+                                        <div className={`flex-1 rounded-2xl border-2 border-dashed p-3 transition-colors overflow-y-auto custom-scrollbar space-y-3
                                             ${stage === 'Hired' ? 'border-green-200 bg-green-50/30' : 'border-slate-200 bg-slate-100/50 hover:bg-slate-100'}
                                         `}>
                                             {stageApps.map(app => renderKanbanCard(app))}
                                             {stageApps.length === 0 && (
-                                                <div className="h-full flex flex-col items-center justify-center text-slate-300">
+                                                <div className="h-20 flex flex-col items-center justify-center text-slate-300">
                                                     <p className="text-xs font-medium">Sleep kandidaten hierheen</p>
                                                 </div>
                                             )}
@@ -455,10 +517,10 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
                     </div>
                 )}
 
+                {/* Dashboard View */}
                 {activeView === 'dashboard' && (
-                    <div className="h-full overflow-y-auto p-6 pt-16 max-w-7xl mx-auto space-y-8">
-                        {/* Stats Row */}
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div className="p-8 lg:p-12 overflow-y-auto">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
                             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between">
                                 <div>
                                     <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Totaal in Pipeline</p>
@@ -494,44 +556,18 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
                             </div>
                         </div>
 
-                        {/* Charts Row */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-                                <h3 className="text-lg font-bold text-slate-900 mb-6">Funnel Conversie</h3>
-                                <div className="h-72">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <BarChart data={metrics.funnelData}>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
-                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11}}/>
-                                            <YAxis axisLine={false} tickLine={false} tick={{fontSize: 11}}/>
-                                            <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'}} cursor={{fill: '#f8fafc'}}/>
-                                            <Bar dataKey="count" fill="#0f172a" radius={[6, 6, 0, 0]} barSize={40} />
-                                        </BarChart>
-                                    </ResponsiveContainer>
-                                </div>
-                            </div>
-                            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-                                <h3 className="text-lg font-bold text-slate-900 mb-6">Instroom (Laatste 6 Maanden)</h3>
-                                <div className="h-72">
-                                    <ResponsiveContainer width="100%" height="100%">
-                                        <AreaChart data={[
-                                            {name: 'Mei', count: 4}, {name: 'Jun', count: 7}, {name: 'Jul', count: 5},
-                                            {name: 'Aug', count: 12}, {name: 'Sep', count: 8}, {name: 'Okt', count: 15}
-                                        ]}>
-                                            <defs>
-                                                <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#0d9488" stopOpacity={0.2}/>
-                                                    <stop offset="95%" stopColor="#0d9488" stopOpacity={0}/>
-                                                </linearGradient>
-                                            </defs>
-                                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
-                                            <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11}}/>
-                                            <YAxis axisLine={false} tickLine={false} tick={{fontSize: 11}}/>
-                                            <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'}}/>
-                                            <Area type="monotone" dataKey="count" stroke="#0d9488" fillOpacity={1} fill="url(#colorCount)" strokeWidth={3} />
-                                        </AreaChart>
-                                    </ResponsiveContainer>
-                                </div>
+                        <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+                            <h3 className="text-lg font-bold text-slate-900 mb-6">Funnel Conversie</h3>
+                            <div className="h-72">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={metrics.funnelData}>
+                                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
+                                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fontSize: 11}}/>
+                                        <YAxis axisLine={false} tickLine={false} tick={{fontSize: 11}}/>
+                                        <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)'}} cursor={{fill: '#f8fafc'}}/>
+                                        <Bar dataKey="count" fill="#0f172a" radius={[6, 6, 0, 0]} barSize={60} />
+                                    </BarChart>
+                                </ResponsiveContainer>
                             </div>
                         </div>
                     </div>
@@ -720,16 +756,24 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
                                     <div>
                                         <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Documenten</h4>
                                         <div className="space-y-2">
-                                            <div className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-teal-300 transition-colors group">
-                                                <div className="w-8 h-8 bg-red-50 text-red-500 rounded-lg flex items-center justify-center group-hover:bg-red-100 transition-colors">
-                                                    <FileText size={16}/>
-                                                </div>
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="text-sm font-bold text-slate-900 truncate">CV_{selectedApplicant.lastName}.pdf</div>
-                                                    <div className="text-xs text-slate-400">1.2 MB • 24 okt</div>
-                                                </div>
-                                                <Download size={16} className="text-slate-300 group-hover:text-slate-600"/>
-                                            </div>
+                                            {selectedApplicant.resumeUrl ? (
+                                                <a 
+                                                    href={selectedApplicant.resumeUrl} 
+                                                    download={`CV_${selectedApplicant.lastName}.pdf`}
+                                                    className="flex items-center gap-3 p-3 bg-white rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:border-teal-300 transition-colors group"
+                                                >
+                                                    <div className="w-8 h-8 bg-red-50 text-red-500 rounded-lg flex items-center justify-center group-hover:bg-red-100 transition-colors">
+                                                        <FileText size={16}/>
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="text-sm font-bold text-slate-900 truncate">CV {selectedApplicant.lastName}</div>
+                                                        <div className="text-xs text-slate-400">PDF Document</div>
+                                                    </div>
+                                                    <Download size={16} className="text-slate-300 group-hover:text-slate-600"/>
+                                                </a>
+                                            ) : (
+                                                <div className="text-xs text-slate-400 italic text-center p-4 border-2 border-dashed border-slate-200 rounded-xl">Geen CV geüpload</div>
+                                            )}
                                         </div>
                                     </div>
                                 </div>
@@ -791,7 +835,12 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
                                     <div className="space-y-6">
                                         <div className="flex justify-between items-center">
                                             <h3 className="font-bold text-slate-900 text-lg">Beoordelingen</h3>
-                                            <button className="text-xs font-bold text-teal-600 hover:underline">+ Toevoegen</button>
+                                            <button 
+                                                onClick={() => setIsScorecardModalOpen(true)}
+                                                className="text-xs font-bold bg-slate-900 text-white px-3 py-1.5 rounded-lg hover:bg-slate-800 transition-colors shadow-sm"
+                                            >
+                                                + Nieuwe Beoordeling
+                                            </button>
                                         </div>
                                         
                                         {selectedApplicant.scorecards.length > 0 ? selectedApplicant.scorecards.map(card => (
@@ -821,7 +870,7 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
                                                     ))}
                                                 </div>
                                                 {card.notes && (
-                                                    <div className="mt-4 text-xs text-slate-500 italic">
+                                                    <div className="mt-4 text-xs text-slate-500 italic bg-white p-3 rounded-lg border border-slate-100">
                                                         "{card.notes}"
                                                     </div>
                                                 )}
@@ -862,8 +911,93 @@ const RecrutiementPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowT
                 </div>
             )}
 
+            {/* Scorecard Modal */}
+            <Modal
+                isOpen={isScorecardModalOpen}
+                onClose={() => setIsScorecardModalOpen(false)}
+                title="Beoordeling Invullen"
+            >
+                <form onSubmit={handleSaveScorecard} className="space-y-6">
+                    <div className="space-y-4">
+                        {newScorecard.skills?.map((skill, idx) => (
+                            <div key={idx} className="flex justify-between items-center">
+                                <span className="font-medium text-sm text-slate-700">{skill.name}</span>
+                                <div className="flex gap-2">
+                                    {[1, 2, 3, 4, 5].map(score => (
+                                        <button
+                                            key={score}
+                                            type="button"
+                                            onClick={() => {
+                                                const updatedSkills = [...(newScorecard.skills || [])];
+                                                updatedSkills[idx].score = score;
+                                                setNewScorecard({ ...newScorecard, skills: updatedSkills });
+                                            }}
+                                            className={`w-8 h-8 rounded-full font-bold text-sm transition-all ${
+                                                score <= skill.score 
+                                                ? 'bg-slate-900 text-white scale-110' 
+                                                : 'bg-slate-100 text-slate-400 hover:bg-slate-200'
+                                            }`}
+                                        >
+                                            {score}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Notities</label>
+                        <textarea 
+                            className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                            rows={3}
+                            placeholder="Wat viel op tijdens het gesprek?"
+                            value={newScorecard.notes}
+                            onChange={(e) => setNewScorecard({ ...newScorecard, notes: e.target.value })}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Advies</label>
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setNewScorecard({ ...newScorecard, recommendation: 'Hire' })}
+                                className={`flex-1 py-3 rounded-xl font-bold text-sm border flex items-center justify-center gap-2 ${
+                                    newScorecard.recommendation === 'Hire' ? 'bg-green-50 border-green-500 text-green-700 ring-1 ring-green-500' : 'bg-white border-slate-200 text-slate-500'
+                                }`}
+                            >
+                                <ThumbsUp size={16}/> Aannemen
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setNewScorecard({ ...newScorecard, recommendation: 'Maybe' })}
+                                className={`flex-1 py-3 rounded-xl font-bold text-sm border flex items-center justify-center gap-2 ${
+                                    newScorecard.recommendation === 'Maybe' ? 'bg-amber-50 border-amber-500 text-amber-700 ring-1 ring-amber-500' : 'bg-white border-slate-200 text-slate-500'
+                                }`}
+                            >
+                                Twijfel
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setNewScorecard({ ...newScorecard, recommendation: 'No Hire' })}
+                                className={`flex-1 py-3 rounded-xl font-bold text-sm border flex items-center justify-center gap-2 ${
+                                    newScorecard.recommendation === 'No Hire' ? 'bg-red-50 border-red-500 text-red-700 ring-1 ring-red-500' : 'bg-white border-slate-200 text-slate-500'
+                                }`}
+                            >
+                                <ThumbsDown size={16}/> Afwijzen
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit" className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold shadow-md hover:bg-slate-800 transition-colors">
+                        Opslaan
+                    </button>
+                </form>
+            </Modal>
+
         </div>
     );
 };
 
-export default RecrutiementPage;
+export default RecruitmentPage;
