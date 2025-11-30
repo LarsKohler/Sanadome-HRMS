@@ -7,7 +7,7 @@ import {
     CheckCircle2, Loader2, X, Filter, MoreHorizontal, 
     Trash2, Check, ArrowRight, Zap, Target, Users, 
     ChevronDown, AlertCircle, Phone, Linkedin, MapPin, 
-    Download, Split, Send, BrainCircuit
+    Download, Split, Send, BrainCircuit, TrendingUp
 } from 'lucide-react';
 import { Employee, Applicant, Vacancy, ApplicantStage, RecruitmentTimelineEvent, Notification, ViewState, CandidateScorecard, CandidateTask } from '../types';
 import { MOCK_VACANCIES, MOCK_APPLICANTS, MOCK_EMAIL_TEMPLATES } from '../utils/mockData';
