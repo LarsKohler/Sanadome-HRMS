@@ -17,8 +17,9 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGri
 import * as pdfjsLib from 'pdfjs-dist';
 
 // --- PDF.JS SETUP ---
+// Dynamically match the worker version to the library version
 const pdfjs = (pdfjsLib as any).default || pdfjsLib;
-if (typeof window !== 'undefined' && !pdfjs.GlobalWorkerOptions.workerSrc) {
+if (typeof window !== 'undefined') {
     const version = pdfjs.version;
     pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
 }

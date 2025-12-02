@@ -7,11 +7,11 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { Modal } from './Modal';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, Legend } from 'recharts';
 
-// Fix for PDF worker
+// Fix for PDF worker - Dynamically match the worker version to the library version
 const pdfjs = (pdfjsLib as any).default || pdfjsLib;
 if (typeof window !== 'undefined') {
-    // Explicitly set worker to the specific version to match the library
-    pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
+    const version = pdfjs.version;
+    pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${version}/build/pdf.worker.min.mjs`;
 }
 
 interface LinenAuditPageProps {
@@ -171,7 +171,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
       } catch (error: any) {
           console.error("PDF Read Error details:", error);
           const fileName = decodeURIComponent(file.name);
-          throw new Error(`PDF Error in '${fileName}': ${error.message || 'Onbekende fout'}`);
+          throw new Error(`Kon PDF niet lezen: ${fileName}. Is het bestand beschadigd? (${error.message})`);
       }
   };
 
