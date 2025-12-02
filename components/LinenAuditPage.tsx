@@ -805,42 +805,25 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
               </div>
 
               {/* PRINT HEADER (Hidden on Screen) */}
-              <div className="hidden print:block p-8 border-b-2 border-black">
-                  <div className="flex justify-between items-start mb-6">
+              <div className="hidden print:block p-6 border-b-2 border-black">
+                  <div className="flex justify-between items-center mb-4">
                       <div>
-                          <h1 className="text-3xl font-black text-black mb-1">LINNEN AUDIT RAPPORT</h1>
-                          <p className="text-lg font-medium text-gray-600">Moderna Verschillenanalyse</p>
+                          <h1 className="text-2xl font-black text-black uppercase tracking-tight">Linnen Audit Rapport</h1>
+                          <div className="flex gap-4 text-xs text-gray-600 mt-1">
+                              <span><strong>Datum:</strong> {new Date().toLocaleDateString('nl-NL')}</span>
+                              <span><strong>Door:</strong> {reportMetadata.generatedBy}</span>
+                              <span><strong>Bestanden:</strong> {reportMetadata.fileCount}</span>
+                          </div>
                       </div>
-                      <div className="text-right">
-                          <h2 className="font-bold text-lg">Sanadome Nijmegen</h2>
-                          <p>Weg door Jonkerbos 90</p>
-                          <p>6532 SZ Nijmegen</p>
-                      </div>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-8 text-sm mb-6">
-                      <div>
-                          <p><span className="font-bold inline-block w-32">Gegenereerd door:</span> {reportMetadata.generatedBy}</p>
-                          <p><span className="font-bold inline-block w-32">Datum & Tijd:</span> {new Date().toLocaleString('nl-NL')}</p>
-                          <p><span className="font-bold inline-block w-32">Bestanden:</span> 1 Bestelbon, {reportMetadata.fileCount} Leverbon(nen)</p>
+                      <div className="text-right text-xs text-gray-500">
+                          <h2 className="font-bold text-sm text-black">Sanadome Nijmegen</h2>
                       </div>
                   </div>
 
-                  <div className="border-t border-black pt-4 flex justify-between items-center">
-                      <div className="text-center">
-                          <p className="text-xs uppercase font-bold text-gray-500">Totaal Besteld</p>
-                          <p className="text-xl font-bold">{totalOrdered}</p>
-                      </div>
-                      <div className="text-center">
-                          <p className="text-xs uppercase font-bold text-gray-500">Totaal Geleverd</p>
-                          <p className="text-xl font-bold">{totalDelivered}</p>
-                      </div>
-                      <div className="text-center">
-                          <p className="text-xs uppercase font-bold text-gray-500">Netto Verschil</p>
-                          <p className={`text-xl font-bold ${diffTotal !== 0 ? 'text-black' : ''}`}>
-                              {diffTotal > 0 ? `+${diffTotal}` : diffTotal}
-                          </p>
-                      </div>
+                  <div className="flex gap-8 border-t border-gray-200 pt-3">
+                       <div><span className="text-[10px] uppercase font-bold text-gray-500 block">Besteld</span> <span className="font-bold text-lg">{totalOrdered}</span></div>
+                       <div><span className="text-[10px] uppercase font-bold text-gray-500 block">Geleverd</span> <span className="font-bold text-lg">{totalDelivered}</span></div>
+                       <div><span className="text-[10px] uppercase font-bold text-gray-500 block">Verschil</span> <span className={`font-bold text-lg ${diffTotal !== 0 ? 'text-black' : ''}`}>{diffTotal > 0 ? `+${diffTotal}` : diffTotal}</span></div>
                   </div>
               </div>
 
@@ -894,23 +877,6 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                           })}
                       </tbody>
                   </table>
-              </div>
-
-              {/* PRINT FOOTER (Hidden on Screen) */}
-              <div className="hidden print:block mt-8 pt-8 px-8 page-break-inside-avoid">
-                  <div className="flex justify-between items-end gap-12">
-                      <div className="w-1/2">
-                          <div className="h-16 border-b border-black mb-1"></div>
-                          <span className="text-[10px] font-bold uppercase text-black tracking-wider">Manager Handtekening</span>
-                      </div>
-                      <div className="w-1/3 text-right">
-                          <div className="h-16 border-b border-black mb-1"></div>
-                          <span className="text-[10px] font-bold uppercase text-black tracking-wider">Datum</span>
-                      </div>
-                  </div>
-                  <div className="mt-8 text-center text-[10px] text-gray-400">
-                      Generated by MijnSanadome HRMS
-                  </div>
               </div>
           </div>
       )}
