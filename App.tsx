@@ -280,8 +280,8 @@ function App() {
                           onboardingTasks: []
                       };
                       await handleAddEmployee(newEmployee);
-                      // Navigate to directory to show success
-                      setCurrentView(ViewState.DIRECTORY);
+                      // Do NOT redirect. Return ID so RecruitmentPage can show the invite link.
+                      return newId;
                   }}
               />;
           default:
