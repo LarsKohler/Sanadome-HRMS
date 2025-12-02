@@ -28,7 +28,8 @@ interface AuditItem {
 
 interface SavedReport {
     id: string;
-    date: string;
+    date: string; // Generation date
+    orderDate?: string; // Date extracted from Excel C2
     items: AuditItem[];
     totalDiff: number;
     accuracy: number;
@@ -45,7 +46,8 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
   
   // Data State
   const [auditData, setAuditData] = useState<AuditItem[] | null>(null);
-  const [auditDate, setAuditDate] = useState<string>('');
+  const [auditDate, setAuditDate] = useState<string>(''); // When report was generated
+  const [orderDate, setOrderDate] = useState<string>(''); // From Excel C2
   
   // Metadata State (for Print/Display consistency between fresh & archived)
   const [reportMetadata, setReportMetadata] = useState({ fileCount: 0, generatedBy: '' });
@@ -179,9 +181,24 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
       }
   };
 
-  const parseOrderSheet = async (file: File): Promise<Map<string, {name: string, qty: number}>> => {
+  const parseOrderSheet = async (file: File): Promise<{ items: Map<string, {name: string, qty: number}>, date: string }> => {
       const rows = await readExcel(file);
       const orders = new Map<string, {name: string, qty: number}>();
+      let extractedDate = '';
+
+      // Try extract date from C2 (Row 1, Col 2)
+      if (rows.length > 1 && rows[1].length > 2) {
+          const rawVal = rows[1][2];
+          if (typeof rawVal === 'number') {
+              // Convert Excel serial date
+              const dateObj = new Date(Math.round((rawVal - 25569) * 86400 * 1000));
+              if (!isNaN(dateObj.getTime())) {
+                  extractedDate = dateObj.toLocaleDateString('nl-NL');
+              }
+          } else if (rawVal) {
+              extractedDate = String(rawVal);
+          }
+      }
 
       const cleanId = (val: any) => {
           if (val === null || val === undefined) return '';
@@ -251,7 +268,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
           }
       });
 
-      return orders;
+      return { items: orders, date: extractedDate };
   };
 
   const parseDeliveryFiles = async (files: File[]): Promise<Map<string, { qty: number, name: string }>> => {
@@ -299,8 +316,11 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
       try {
           // Parse Order Sheet (Excel)
           let orderMap = new Map();
+          let parsedOrderDate = '';
           try {
-             orderMap = await parseOrderSheet(orderFile);
+             const result = await parseOrderSheet(orderFile);
+             orderMap = result.items;
+             parsedOrderDate = result.date;
           } catch (e: any) {
              console.error("Order Sheet Error", e);
              throw new Error("Fout bij lezen bestelbon: " + e.message);
@@ -350,6 +370,8 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
 
           setAuditData(results);
           setAuditDate(new Date().toLocaleDateString('nl-NL'));
+          setOrderDate(parsedOrderDate); // Set extracted date
+          
           // SAVE METADATA
           setReportMetadata({ fileCount: deliveryFiles.length, generatedBy: currentUser.name });
           
@@ -416,6 +438,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
       const report: SavedReport = {
           id: Math.random().toString(36).substr(2, 9),
           date: new Date().toLocaleString('nl-NL'),
+          orderDate: orderDate,
           items: auditData,
           totalDiff: diffTotal,
           accuracy,
@@ -439,6 +462,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
   const loadReport = (report: SavedReport) => {
       setAuditData(report.items);
       setAuditDate(report.date.split(' ')[0]); // Approx date
+      setOrderDate(report.orderDate || '');
       // LOAD METADATA
       setReportMetadata({ fileCount: report.fileCount || 0, generatedBy: currentUser.name }); 
       setActiveView('report');
@@ -582,7 +606,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
   );
 
   return (
-    <div className="p-6 md:p-10 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 min-h-[calc(100vh-80px)] print:p-0 print:m-0 print:h-auto print:bg-white print:overflow-visible">
+    <div className="p-6 md:p-10 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 min-h-[calc(100vh-80px)] print:p-0 print:m-0 print:h-auto print:bg-white print:overflow-visible relative">
       
       {/* HEADER (Screen Only) */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6 print:hidden">
@@ -814,13 +838,12 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                           <div className="text-sm text-slate-600 space-y-1">
                               <p><strong>Datum:</strong> {new Date().toLocaleDateString('nl-NL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
                               <p><strong>Tijd:</strong> {new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</p>
+                              <p><strong>Leverdatum:</strong> {orderDate || 'Onbekend'}</p>
                               <p><strong>Auditor:</strong> {reportMetadata.generatedBy}</p>
-                              <p><strong>Referentie:</strong> {deliveryFiles.length > 0 ? `${deliveryFiles.length} leverbonnen verwerkt` : 'Archief rapport'}</p>
                           </div>
                       </div>
                       <div className="text-right">
-                          <h2 className="text-xl font-bold text-slate-900">Sanadome Hotel & Spa</h2>
-                          <p className="text-sm text-slate-500">Weg door Jonkerbos 90<br/>6532 SZ Nijmegen</p>
+                          {/* Removed Sanadome Address Block as requested */}
                       </div>
                   </div>
 
@@ -978,6 +1001,11 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
               </div>
           </div>
       </Modal>
+
+      {/* MijnSanadome Footer (Print Only) */}
+      <div className="hidden print:block fixed bottom-0 left-0 w-full text-center text-[10px] text-slate-400 border-t border-slate-200 pt-2 pb-2">
+          Generated by MijnSanadome HRMS
+      </div>
 
       {/* PRINT LAYOUT OVERRIDE */}
       <style>{`
