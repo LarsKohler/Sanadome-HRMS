@@ -32,6 +32,7 @@ interface SavedReport {
     items: AuditItem[];
     totalDiff: number;
     accuracy: number;
+    fileCount: number; // Persist number of delivery notes
 }
 
 const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToast }) => {
@@ -45,6 +46,9 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
   // Data State
   const [auditData, setAuditData] = useState<AuditItem[] | null>(null);
   const [auditDate, setAuditDate] = useState<string>('');
+  
+  // Metadata State (for Print/Display consistency between fresh & archived)
+  const [reportMetadata, setReportMetadata] = useState({ fileCount: 0, generatedBy: '' });
 
   // Exclusion State
   const [isExclusionModalOpen, setIsExclusionModalOpen] = useState(false);
@@ -346,6 +350,9 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
 
           setAuditData(results);
           setAuditDate(new Date().toLocaleDateString('nl-NL'));
+          // SAVE METADATA
+          setReportMetadata({ fileCount: deliveryFiles.length, generatedBy: currentUser.name });
+          
           setActiveView('report');
           onShowToast("Audit succesvol voltooid.");
 
@@ -402,7 +409,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
       const totalDelivered = auditData.reduce((sum, item) => sum + item.delivered, 0);
       const diffTotal = totalDelivered - totalOrdered;
       
-      // Calculate simplistic accuracy score (items with 0 diff / total items)
+      // Calculate simplistic accuracy score
       const correctItems = auditData.filter(i => i.ordered === i.delivered).length;
       const accuracy = auditData.length > 0 ? Math.round((correctItems / auditData.length) * 100) : 0;
 
@@ -411,7 +418,8 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
           date: new Date().toLocaleString('nl-NL'),
           items: auditData,
           totalDiff: diffTotal,
-          accuracy
+          accuracy,
+          fileCount: reportMetadata.fileCount // Save file count
       };
 
       const updatedArchive = [report, ...archivedReports];
@@ -431,6 +439,8 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
   const loadReport = (report: SavedReport) => {
       setAuditData(report.items);
       setAuditDate(report.date.split(' ')[0]); // Approx date
+      // LOAD METADATA
+      setReportMetadata({ fileCount: report.fileCount || 0, generatedBy: currentUser.name }); 
       setActiveView('report');
   };
 
@@ -770,7 +780,8 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
       )}
 
       {activeView === 'report' && auditData && (
-          <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden print:border-none print:shadow-none print:rounded-none">
+          // IMPORTANT: Removed overflow-hidden from report container for print support
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-xl print:border-none print:shadow-none print:rounded-none print:overflow-visible print:h-auto">
               
               {/* Report Header (Screen) */}
               <div className="bg-slate-50 border-b border-slate-200 p-8 flex justify-between items-center print:hidden">
@@ -809,9 +820,9 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                   
                   <div className="grid grid-cols-2 gap-8 text-sm mb-6">
                       <div>
-                          <p><span className="font-bold inline-block w-32">Gegenereerd door:</span> {currentUser.name}</p>
+                          <p><span className="font-bold inline-block w-32">Gegenereerd door:</span> {reportMetadata.generatedBy}</p>
                           <p><span className="font-bold inline-block w-32">Datum & Tijd:</span> {new Date().toLocaleString('nl-NL')}</p>
-                          <p><span className="font-bold inline-block w-32">Bestanden:</span> 1 Bestelbon, {deliveryFiles.length} Leverbon(nen)</p>
+                          <p><span className="font-bold inline-block w-32">Bestanden:</span> 1 Bestelbon, {reportMetadata.fileCount} Leverbon(nen)</p>
                       </div>
                   </div>
 
@@ -834,53 +845,56 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
               </div>
 
               {/* Data Table */}
-              <table className="w-full text-left print:text-xs">
-                  <thead className="bg-slate-100 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase print:bg-white print:border-b-2 print:border-black print:text-black">
-                      <tr>
-                          <th className="px-8 py-4 print:py-2 print:px-2">Artikel</th>
-                          <th className="px-8 py-4 text-center print:py-2 print:px-2 w-32">Besteld</th>
-                          <th className="px-8 py-4 text-center print:py-2 print:px-2 w-32">Geleverd</th>
-                          <th className="px-8 py-4 text-right print:py-2 print:px-2 w-40">Verschil</th>
-                      </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 print:divide-slate-300">
-                      {auditData.map((item, index) => {
-                          const diff = item.delivered - item.ordered;
-                          const isError = diff !== 0;
-                          return (
-                              <tr key={index} className={`hover:bg-slate-50 print:hover:bg-transparent ${isError ? 'bg-red-50/30 print:bg-transparent' : ''}`}>
-                                  <td className="px-8 py-4 print:py-1 print:px-2">
-                                      <div className="font-bold text-slate-900 print:text-black text-sm flex items-center gap-2 group">
-                                          {item.name}
-                                          <button 
-                                            onClick={() => openEditNameModal(item)}
-                                            className="text-slate-300 hover:text-teal-600 opacity-0 group-hover:opacity-100 transition-opacity print:hidden"
-                                            title="Naam wijzigen"
-                                          >
-                                              <Edit2 size={14}/>
-                                          </button>
-                                      </div>
-                                      <div className="text-xs text-slate-400 font-mono print:text-slate-600">{item.id}</div>
-                                  </td>
-                                  <td className="px-8 py-4 text-center print:py-1 print:px-2 text-slate-600 font-medium print:text-black">{item.ordered}</td>
-                                  <td className="px-8 py-4 text-center print:py-1 print:px-2 text-slate-600 font-medium print:text-black">{item.delivered}</td>
-                                  <td className="px-8 py-4 text-right print:py-1 print:px-2 font-bold">
-                                      {diff === 0 ? (
-                                          <span className="text-green-600 flex items-center justify-end gap-1 print:hidden">
-                                              <CheckCircle2 size={16}/> OK
-                                          </span>
-                                      ) : (
-                                          <span className="text-red-600 flex items-center justify-end gap-1 print:text-black">
-                                              {diff > 0 ? `+${diff}` : diff}
-                                          </span>
-                                      )}
-                                      <span className="hidden print:inline">{diff === 0 ? '-' : (diff > 0 ? `+${diff}` : diff)}</span>
-                                  </td>
-                              </tr>
-                          );
-                      })}
-                  </tbody>
-              </table>
+              {/* Added print:overflow-visible to table container */}
+              <div className="print:overflow-visible">
+                  <table className="w-full text-left print:text-xs">
+                      <thead className="bg-slate-100 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase print:bg-white print:border-b-2 print:border-black print:text-black">
+                          <tr>
+                              <th className="px-8 py-4 print:py-2 print:px-2">Artikel</th>
+                              <th className="px-8 py-4 text-center print:py-2 print:px-2 w-32">Besteld</th>
+                              <th className="px-8 py-4 text-center print:py-2 print:px-2 w-32">Geleverd</th>
+                              <th className="px-8 py-4 text-right print:py-2 print:px-2 w-40">Verschil</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 print:divide-slate-300">
+                          {auditData.map((item, index) => {
+                              const diff = item.delivered - item.ordered;
+                              const isError = diff !== 0;
+                              return (
+                                  <tr key={index} className={`hover:bg-slate-50 print:hover:bg-transparent ${isError ? 'bg-red-50/30 print:bg-transparent' : ''}`}>
+                                      <td className="px-8 py-4 print:py-1 print:px-2">
+                                          <div className="font-bold text-slate-900 print:text-black text-sm flex items-center gap-2 group">
+                                              {item.name}
+                                              <button 
+                                                onClick={() => openEditNameModal(item)}
+                                                className="text-slate-300 hover:text-teal-600 opacity-0 group-hover:opacity-100 transition-opacity print:hidden"
+                                                title="Naam wijzigen"
+                                              >
+                                                  <Edit2 size={14}/>
+                                              </button>
+                                          </div>
+                                          <div className="text-xs text-slate-400 font-mono print:text-slate-600">{item.id}</div>
+                                      </td>
+                                      <td className="px-8 py-4 text-center print:py-1 print:px-2 text-slate-600 font-medium print:text-black">{item.ordered}</td>
+                                      <td className="px-8 py-4 text-center print:py-1 print:px-2 text-slate-600 font-medium print:text-black">{item.delivered}</td>
+                                      <td className="px-8 py-4 text-right print:py-1 print:px-2 font-bold">
+                                          {diff === 0 ? (
+                                              <span className="text-green-600 flex items-center justify-end gap-1 print:hidden">
+                                                  <CheckCircle2 size={16}/> OK
+                                              </span>
+                                          ) : (
+                                              <span className="text-red-600 flex items-center justify-end gap-1 print:text-black">
+                                                  {diff > 0 ? `+${diff}` : diff}
+                                              </span>
+                                          )}
+                                          <span className="hidden print:inline">{diff === 0 ? '-' : (diff > 0 ? `+${diff}` : diff)}</span>
+                                      </td>
+                                  </tr>
+                              );
+                          })}
+                      </tbody>
+                  </table>
+              </div>
 
               {/* PRINT FOOTER (Hidden on Screen) */}
               <div className="hidden print:block mt-8 pt-8 px-8 page-break-inside-avoid">
@@ -992,9 +1006,12 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
             
             .print\\:hidden { display: none !important; }
             .print\\:block { display: block !important; }
+            .print\\:overflow-visible { overflow: visible !important; }
+            .print\\:h-auto { height: auto !important; }
             
             aside, nav, header, .sidebar, .Toastify, button { display: none !important; }
             
+            /* Reset Layout Constraints */
             .max-w-\\[2400px\\], .max-w-5xl, .w-full { 
                 max-width: 100% !important; 
                 width: 100% !important; 
@@ -1005,10 +1022,10 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                 border-radius: 0 !important;
             }
             
-            table { width: 100% !important; font-size: 9pt; }
+            /* Table Print Styles */
+            table { width: 100% !important; font-size: 9pt; border-collapse: collapse; }
             th, td { padding: 4px 8px !important; }
-            
-            tr { page-break-inside: avoid; }
+            tr { break-inside: avoid; page-break-inside: avoid; }
             thead { display: table-header-group; }
             tfoot { display: table-footer-group; }
         }
