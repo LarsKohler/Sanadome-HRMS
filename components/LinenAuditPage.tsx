@@ -110,64 +110,76 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
           reader.onload = (e) => {
               try {
                   const data = e.target?.result;
-                  const workbook = XLSX.read(data, { type: 'binary' });
+                  // Use 'array' type for robustness with binary data
+                  const workbook = XLSX.read(data, { type: 'array' });
                   const sheetName = workbook.SheetNames[0];
                   const sheet = workbook.Sheets[sheetName];
                   const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) as any[][];
                   resolve(jsonData);
               } catch (err) {
-                  reject(err);
+                  console.error("Excel parse error:", err);
+                  reject(new Error("Ongeldig Excel formaat"));
               }
           };
-          reader.readAsBinaryString(file);
+          reader.onerror = () => reject(new Error("Fout bij lezen bestand"));
+          reader.readAsArrayBuffer(file);
       });
   };
 
   const readPdfText = async (file: File): Promise<string> => {
-      const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
-      let fullText = '';
-      
-      for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const textContent = await page.getTextContent();
+      try {
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+          let fullText = '';
           
-          const items = textContent.items.map((item: any) => ({
-              str: item.str,
-              x: item.transform[4],
-              y: item.transform[5],
-              h: item.height
-          }));
+          for (let i = 1; i <= pdf.numPages; i++) {
+              const page = await pdf.getPage(i);
+              const textContent = await page.getTextContent();
+              
+              const items = textContent.items.map((item: any) => ({
+                  str: item.str,
+                  x: item.transform[4],
+                  y: item.transform[5],
+                  h: item.height
+              }));
 
-          items.sort((a: any, b: any) => {
-              const yDiff = Math.abs(a.y - b.y);
-              if (yDiff > 5) return b.y - a.y; 
-              return a.x - b.x; 
-          });
+              items.sort((a: any, b: any) => {
+                  const yDiff = Math.abs(a.y - b.y);
+                  if (yDiff > 5) return b.y - a.y; 
+                  return a.x - b.x; 
+              });
 
-          let currentY = -9999;
-          let pageText = '';
-          
-          items.forEach((item: any) => {
-              if (currentY !== -9999 && Math.abs(item.y - currentY) > 5) {
-                  pageText += '\n'; 
-              } else if (currentY !== -9999) {
-                  pageText += ' '; 
-              }
-              pageText += item.str;
-              currentY = item.y;
-          });
+              let currentY = -9999;
+              let pageText = '';
+              
+              items.forEach((item: any) => {
+                  if (currentY !== -9999 && Math.abs(item.y - currentY) > 5) {
+                      pageText += '\n'; 
+                  } else if (currentY !== -9999) {
+                      pageText += ' '; 
+                  }
+                  pageText += item.str;
+                  currentY = item.y;
+              });
 
-          fullText += pageText + '\n';
+              fullText += pageText + '\n';
+          }
+          return fullText;
+      } catch (error) {
+          console.error("PDF Read Error:", error);
+          throw new Error("Kon PDF niet lezen. Is het bestand beschadigd?");
       }
-      return fullText;
   };
 
   const parseOrderSheet = async (file: File): Promise<Map<string, {name: string, qty: number}>> => {
       const rows = await readExcel(file);
       const orders = new Map<string, {name: string, qty: number}>();
 
-      const cleanId = (val: any) => String(val).trim();
+      const cleanId = (val: any) => {
+          if (val === null || val === undefined) return '';
+          return String(val).trim();
+      };
+      
       const getNum = (val: any) => {
           if (typeof val === 'number') return val;
           if (typeof val === 'string') return parseFloat(val.replace(',', '.')) || 0;
@@ -189,6 +201,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
           }
       });
 
+      // Handle Container Items (Row 23)
       const rowWellness = rows[23];
       if (rowWellness) {
           const containerCount = getNum(rowWellness[8]);
@@ -208,6 +221,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
           }
       }
 
+      // Handle Other Container Rows
       [33, 34, 35, 36].forEach(idx => {
           const row = rows[idx];
           if (row) {
@@ -242,7 +256,11 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
               text = rows.map(r => r.join(' ')).join('\n');
           }
 
-          const regex = /(\d{4,})\s+(.*?)\s+(\d+)$/gm;
+          // Regex to find ID, Name, Quantity
+          // ID = 4+ digits
+          // Name = text in between
+          // Qty = digits at end of line (possibly followed by whitespace)
+          const regex = /(\d{4,})\s+(.*?)\s+(\d+)\s*$/gm;
           let match;
 
           while ((match = regex.exec(text)) !== null) {
@@ -267,8 +285,23 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
       setIsProcessing(true);
 
       try {
-          const orderMap = await parseOrderSheet(orderFile);
-          const deliveryMap = await parseDeliveryFiles(deliveryFiles);
+          // Parse Order Sheet (Excel)
+          let orderMap = new Map();
+          try {
+             orderMap = await parseOrderSheet(orderFile);
+          } catch (e) {
+             console.error("Order Sheet Error", e);
+             throw new Error("Fout bij lezen bestelbon. Is het een geldig Excel bestand?");
+          }
+
+          // Parse Delivery Files (PDFs/Excel)
+          let deliveryMap = new Map();
+          try {
+             deliveryMap = await parseDeliveryFiles(deliveryFiles);
+          } catch (e) {
+             console.error("Delivery Files Error", e);
+             throw new Error("Fout bij lezen leverbonnen. Controleer de PDF bestanden.");
+          }
 
           const allIds = new Set([...orderMap.keys(), ...deliveryMap.keys()]);
           const results: AuditItem[] = [];
@@ -307,9 +340,9 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
           setActiveView('report');
           onShowToast("Audit succesvol voltooid.");
 
-      } catch (e) {
+      } catch (e: any) {
           console.error(e);
-          onShowToast("Er is een fout opgetreden bij het inlezen van de bestanden. Controleer het formaat.");
+          onShowToast(e.message || "Er is een onbekende fout opgetreden.");
       } finally {
           setIsProcessing(false);
       }
