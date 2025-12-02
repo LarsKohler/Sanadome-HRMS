@@ -1,6 +1,6 @@
 
 import React, { useState, useRef } from 'react';
-import { Upload, FileText, RefreshCw, Printer, AlertTriangle, CheckCircle2, FileCheck, X, ArrowRight } from 'lucide-react';
+import { Upload, FileText, RefreshCw, Printer, AlertTriangle, CheckCircle2, FileCheck, X, ArrowRight, Plus } from 'lucide-react';
 import { Employee } from '../types';
 
 interface LinenAuditPageProps {
@@ -18,7 +18,7 @@ interface AuditItem {
 const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToast }) => {
   // Upload State
   const [orderFile, setOrderFile] = useState<File | null>(null);
-  const [deliveryFile, setDeliveryFile] = useState<File | null>(null);
+  const [deliveryFiles, setDeliveryFiles] = useState<File[]>([]);
   
   // Process State
   const [isProcessing, setIsProcessing] = useState(false);
@@ -29,15 +29,43 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
   const deliveryInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'order' | 'delivery') => {
-      const file = e.target.files?.[0];
-      if (file) {
-          if (type === 'order') setOrderFile(file);
-          else setDeliveryFile(file);
+      if (type === 'order') {
+          const file = e.target.files?.[0];
+          if (file) setOrderFile(file);
+      } else {
+          if (e.target.files && e.target.files.length > 0) {
+              setDeliveryFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+          }
+      }
+      // Reset input value to allow selecting the same file again if needed
+      if (e.target) e.target.value = '';
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>, type: 'order' | 'delivery') => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      if (type === 'order') {
+          const file = e.dataTransfer.files?.[0];
+          if (file) setOrderFile(file);
+      } else {
+          if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+              setDeliveryFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)]);
+          }
       }
   };
 
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+      e.preventDefault();
+      e.stopPropagation();
+  };
+
+  const removeDeliveryFile = (index: number) => {
+      setDeliveryFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const generateReport = () => {
-      if (!orderFile || !deliveryFile) return;
+      if (!orderFile || deliveryFiles.length === 0) return;
       
       setIsProcessing(true);
       
@@ -68,7 +96,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
 
   const resetAudit = () => {
       setOrderFile(null);
-      setDeliveryFile(null);
+      setDeliveryFiles([]);
       setAuditData(null);
       setAuditDate('');
   };
@@ -112,7 +140,11 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
           <div className="max-w-4xl mx-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
                   {/* Order File Card */}
-                  <div className={`border-2 border-dashed rounded-3xl p-8 flex flex-col items-center justify-center text-center transition-all h-64 ${orderFile ? 'border-teal-500 bg-teal-50/50' : 'border-slate-200 hover:border-slate-300 bg-white'}`}>
+                  <div 
+                    className={`border-2 border-dashed rounded-3xl p-8 flex flex-col items-center justify-center text-center transition-all h-80 ${orderFile ? 'border-teal-500 bg-teal-50/50' : 'border-slate-200 hover:border-slate-300 bg-white'}`}
+                    onDrop={(e) => handleDrop(e, 'order')}
+                    onDragOver={handleDragOver}
+                  >
                       <input 
                         type="file" 
                         ref={orderInputRef}
@@ -126,9 +158,9 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                                   <FileCheck size={32}/>
                               </div>
                               <h3 className="font-bold text-slate-900 text-lg mb-1">Bestelbon Geüpload</h3>
-                              <p className="text-slate-500 text-sm mb-4 line-clamp-1">{orderFile.name}</p>
+                              <p className="text-slate-500 text-sm mb-4 line-clamp-1 break-all px-4">{orderFile.name}</p>
                               <button 
-                                onClick={() => setOrderFile(null)} 
+                                onClick={(e) => { e.stopPropagation(); setOrderFile(null); }} 
                                 className="text-red-500 text-xs font-bold hover:underline flex items-center gap-1"
                               >
                                   <X size={12}/> Verwijder bestand
@@ -154,46 +186,69 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                       )}
                   </div>
 
-                  {/* Delivery File Card */}
-                  <div className={`border-2 border-dashed rounded-3xl p-8 flex flex-col items-center justify-center text-center transition-all h-64 ${deliveryFile ? 'border-teal-500 bg-teal-50/50' : 'border-slate-200 hover:border-slate-300 bg-white'}`}>
+                  {/* Delivery File Card (Multi) */}
+                  <div 
+                    className={`border-2 border-dashed rounded-3xl p-6 flex flex-col items-center text-center transition-all h-80 relative ${deliveryFiles.length > 0 ? 'border-teal-500 bg-teal-50/30' : 'border-slate-200 hover:border-slate-300 bg-white'}`}
+                    onDrop={(e) => handleDrop(e, 'delivery')}
+                    onDragOver={handleDragOver}
+                  >
                       <input 
                         type="file" 
+                        multiple
                         ref={deliveryInputRef}
                         accept=".pdf,.xlsx,.csv" 
                         className="hidden"
                         onChange={(e) => handleFileChange(e, 'delivery')}
                       />
-                      {deliveryFile ? (
-                          <>
-                              <div className="w-16 h-16 bg-teal-100 text-teal-600 rounded-2xl flex items-center justify-center mb-4 shadow-sm">
-                                  <FileCheck size={32}/>
+                      
+                      {deliveryFiles.length > 0 ? (
+                          <div className="w-full h-full flex flex-col">
+                              <div className="flex items-center justify-between mb-4 pb-2 border-b border-teal-200/50">
+                                  <h3 className="font-bold text-slate-900 text-sm flex items-center gap-2">
+                                      <FileCheck size={16} className="text-teal-600"/>
+                                      {deliveryFiles.length} Pakbonnen
+                                  </h3>
+                                  <button 
+                                    onClick={() => deliveryInputRef.current?.click()}
+                                    className="p-1.5 bg-white text-teal-600 rounded-lg hover:bg-teal-50 border border-teal-100 shadow-sm"
+                                    title="Meer toevoegen"
+                                  >
+                                      <Plus size={16}/>
+                                  </button>
                               </div>
-                              <h3 className="font-bold text-slate-900 text-lg mb-1">Pakbon Geüpload</h3>
-                              <p className="text-slate-500 text-sm mb-4 line-clamp-1">{deliveryFile.name}</p>
-                              <button 
-                                onClick={() => setDeliveryFile(null)} 
-                                className="text-red-500 text-xs font-bold hover:underline flex items-center gap-1"
-                              >
-                                  <X size={12}/> Verwijder bestand
-                              </button>
-                          </>
+                              
+                              <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2 pr-1 text-left">
+                                  {deliveryFiles.map((file, idx) => (
+                                      <div key={idx} className="flex items-center justify-between bg-white/80 p-2.5 rounded-xl border border-teal-100 text-sm">
+                                          <span className="truncate text-slate-600 font-medium w-4/5" title={file.name}>{file.name}</span>
+                                          <button 
+                                            onClick={(e) => { e.stopPropagation(); removeDeliveryFile(idx); }}
+                                            className="text-slate-400 hover:text-red-500 p-1"
+                                          >
+                                              <X size={14}/>
+                                          </button>
+                                      </div>
+                                  ))}
+                              </div>
+                              <p className="text-[10px] text-slate-400 mt-2">Sleep meer bestanden hierheen</p>
+                          </div>
                       ) : (
-                          <>
+                          <div className="flex flex-col items-center justify-center h-full">
                               <div 
                                 onClick={() => deliveryInputRef.current?.click()}
                                 className="w-16 h-16 bg-slate-100 text-slate-400 rounded-2xl flex items-center justify-center mb-4 cursor-pointer hover:bg-slate-200 transition-colors"
                               >
                                   <Upload size={32}/>
                               </div>
-                              <h3 className="font-bold text-slate-900 text-lg mb-1">2. Upload Leverbon</h3>
-                              <p className="text-slate-400 text-sm mb-6">Sleep bestand hierheen of klik om te bladeren</p>
+                              <h3 className="font-bold text-slate-900 text-lg mb-1">2. Upload Leverbon(nen)</h3>
+                              <p className="text-slate-400 text-sm mb-6">Sleep één of meerdere bestanden hierheen</p>
                               <button 
                                 onClick={() => deliveryInputRef.current?.click()}
                                 className="px-4 py-2 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg text-sm hover:bg-slate-50 shadow-sm"
                               >
-                                  Kies Bestand
+                                  Kies Bestanden
                               </button>
-                          </>
+                          </div>
                       )}
                   </div>
               </div>
@@ -201,7 +256,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
               <div className="text-center">
                   <button 
                     onClick={generateReport}
-                    disabled={!orderFile || !deliveryFile || isProcessing}
+                    disabled={!orderFile || deliveryFiles.length === 0 || isProcessing}
                     className="group relative inline-flex items-center justify-center px-8 py-4 font-bold text-white transition-all duration-200 bg-slate-900 rounded-2xl hover:bg-slate-800 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-900 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                       {isProcessing ? (
@@ -330,12 +385,20 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     <span className="block text-[10px]">{new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
                 <div>
-                    <span className="block font-bold uppercase text-black mb-1 opacity-70">Bestand(en)</span>
+                    <span className="block font-bold uppercase text-black mb-1 opacity-70">Bestelbon</span>
                     <span className="block font-bold text-sm">{orderFile?.name}</span>
-                    <span className="block font-bold text-sm">{deliveryFile?.name}</span>
                 </div>
                 <div>
-                    <span className="block font-bold uppercase text-black mb-1 opacity-70">Resultaat</span>
+                    <span className="block font-bold uppercase text-black mb-1 opacity-70">Leverbon(nen)</span>
+                    <span className="block font-bold text-sm">
+                        {deliveryFiles.length} bestand(en)
+                    </span>
+                    <span className="block text-[10px] text-gray-600">
+                        {deliveryFiles.map(f => f.name).join(', ')}
+                    </span>
+                </div>
+                <div className="col-span-3 mt-2">
+                    <span className="block font-bold uppercase text-black mb-1 opacity-70">Resultaat Totaal</span>
                     <span className="block font-bold text-sm">
                         {diffTotal === 0 ? 'CORRECT' : diffTotal > 0 ? `+${diffTotal} Overschot` : `${diffTotal} Tekort`}
                     </span>
