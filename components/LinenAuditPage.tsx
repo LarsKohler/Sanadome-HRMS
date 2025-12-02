@@ -7,10 +7,9 @@ import * as pdfjsLib from 'pdfjs-dist';
 import { Modal } from './Modal';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell, Legend } from 'recharts';
 
-// Fix for PDF worker - Use specific ESM worker URL from jsdelivr to avoid dynamic import errors
+// Fix for PDF worker
 const pdfjs = (pdfjsLib as any).default || pdfjsLib;
 if (typeof window !== 'undefined') {
-    // Explicitly set the worker source to the .mjs file on jsdelivr matching the version in importmap
     pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
 }
 
@@ -129,20 +128,23 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
   const readPdfText = async (file: File): Promise<string> => {
       try {
           const arrayBuffer = await file.arrayBuffer();
-          const pdf = await pdfjs.getDocument({ data: arrayBuffer }).promise;
+          // Explicitly cast to Uint8Array for pdfjs
+          const uint8Array = new Uint8Array(arrayBuffer);
+          const pdf = await pdfjs.getDocument({ data: uint8Array }).promise;
           let fullText = '';
           
           for (let i = 1; i <= pdf.numPages; i++) {
               const page = await pdf.getPage(i);
               const textContent = await page.getTextContent();
               
-              const items = textContent.items.map((item: any) => ({
+              const items = textContent.items.filter((item: any) => item.str !== undefined).map((item: any) => ({
                   str: item.str,
                   x: item.transform[4],
                   y: item.transform[5],
                   h: item.height
               }));
 
+              // Sort by Y (top to bottom) then X (left to right)
               items.sort((a: any, b: any) => {
                   const yDiff = Math.abs(a.y - b.y);
                   if (yDiff > 5) return b.y - a.y; 
@@ -166,8 +168,8 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
           }
           return fullText;
       } catch (error) {
-          console.error("PDF Read Error:", error);
-          throw new Error("Kon PDF niet lezen. Is het bestand beschadigd?");
+          console.error("PDF Read Error details:", error);
+          throw new Error(`Kon PDF niet lezen: ${file.name}. Is het bestand beschadigd?`);
       }
   };
 
@@ -192,19 +194,20 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
           if (index < 5) return; 
           if (exceptionRowIndices.includes(index)) return; 
 
-          const id = cleanId(row[0]); 
-          const name = String(row[1] || 'Artikel'); 
-          const qty = getNum(row[9]); 
+          // Safe access to columns
+          const id = row.length > 0 ? cleanId(row[0]) : ''; 
+          const name = row.length > 1 ? String(row[1] || 'Artikel') : 'Artikel'; 
+          const qty = row.length > 9 ? getNum(row[9]) : 0; 
 
           if (id && id.length >= 4 && qty > 0) {
               orders.set(id, { name, qty: (orders.get(id)?.qty || 0) + qty });
           }
       });
 
-      // Handle Container Items (Row 23)
-      const rowWellness = rows[23];
-      if (rowWellness) {
-          const containerCount = getNum(rowWellness[8]);
+      // Handle Container Items (Row 23) - Safe Access
+      if (rows.length > 23) {
+          const rowWellness = rows[23];
+          const containerCount = rowWellness && rowWellness.length > 8 ? getNum(rowWellness[8]) : 0;
           if (containerCount > 0) {
               const items = [
                   { id: '88211', count: 80, name: 'Baddoek Beige' },
@@ -223,19 +226,21 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
 
       // Handle Other Container Rows
       [33, 34, 35, 36].forEach(idx => {
-          const row = rows[idx];
-          if (row) {
-              const id = cleanId(row[0]); 
-              const name = String(row[1] || 'Container Item');
-              const perContainer = getNum(row[2]); 
-              const containers = getNum(row[8]); 
-              
-              if (id && containers > 0) {
-                  const total = perContainer * containers;
-                  orders.set(id, { 
-                      name: orders.get(id)?.name || name, 
-                      qty: (orders.get(id)?.qty || 0) + total 
-                  });
+          if (rows.length > idx) {
+              const row = rows[idx];
+              if (row) {
+                  const id = row.length > 0 ? cleanId(row[0]) : ''; 
+                  const name = row.length > 1 ? String(row[1] || 'Container Item') : 'Container Item';
+                  const perContainer = row.length > 2 ? getNum(row[2]) : 0; 
+                  const containers = row.length > 8 ? getNum(row[8]) : 0; 
+                  
+                  if (id && containers > 0) {
+                      const total = perContainer * containers;
+                      orders.set(id, { 
+                          name: orders.get(id)?.name || name, 
+                          qty: (orders.get(id)?.qty || 0) + total 
+                      });
+                  }
               }
           }
       });
@@ -257,9 +262,9 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
           }
 
           // Regex to find ID, Name, Quantity
-          // ID = 4+ digits
-          // Name = text in between
-          // Qty = digits at end of line (possibly followed by whitespace)
+          // Group 1: ID (4+ digits)
+          // Group 2: Name (text in between, non-greedy)
+          // Group 3: Quantity (digits at end)
           const regex = /(\d{4,})\s+(.*?)\s+(\d+)\s*$/gm;
           let match;
 
@@ -272,6 +277,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                   const current = delivered.get(id);
                   delivered.set(id, { 
                       qty: (current?.qty || 0) + qty,
+                      // Capture name only if we don't have one, or if this one looks better (longer)
                       name: current?.name || extractedName
                   });
               }
@@ -289,18 +295,18 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
           let orderMap = new Map();
           try {
              orderMap = await parseOrderSheet(orderFile);
-          } catch (e) {
+          } catch (e: any) {
              console.error("Order Sheet Error", e);
-             throw new Error("Fout bij lezen bestelbon. Is het een geldig Excel bestand?");
+             throw new Error("Fout bij lezen bestelbon: " + e.message);
           }
 
           // Parse Delivery Files (PDFs/Excel)
           let deliveryMap = new Map();
           try {
              deliveryMap = await parseDeliveryFiles(deliveryFiles);
-          } catch (e) {
+          } catch (e: any) {
              console.error("Delivery Files Error", e);
-             throw new Error("Fout bij lezen leverbonnen. Controleer de PDF bestanden.");
+             throw new Error("Fout bij lezen leverbonnen: " + e.message);
           }
 
           const allIds = new Set([...orderMap.keys(), ...deliveryMap.keys()]);
@@ -320,7 +326,8 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
               // CHECK CUSTOM MAPPING (for unknown items)
               const mappedName = itemMappings[id];
               
-              // Logic: Order Name > Mapped Name > Delivery Name > Onbekend
+              // Logic: Order Name > Mapped Name > Delivery Name > "Onbekend"
+              // Fallback to delivery name if available and no official order name
               const name = orderInfo?.name || mappedName || deliveryName || 'Onbekend Artikel';
               
               if (ordered > 0 || delivered > 0) {
