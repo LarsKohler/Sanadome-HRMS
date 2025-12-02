@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { Upload, FileText, RefreshCw, Printer, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Employee } from '../types';
@@ -33,6 +34,11 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
             { id: 'MOD-103', name: 'Badmat', ordered: 50, delivered: 55 },
             { id: 'MOD-201', name: 'Dekbedovertrek 1P', ordered: 80, delivered: 80 },
             { id: 'MOD-202', name: 'Kussensloop', ordered: 160, delivered: 158 },
+            // Add more mock data to test overflow/paging if needed
+            { id: 'MOD-301', name: 'Tafelkleed Wit', ordered: 40, delivered: 40 },
+            { id: 'MOD-302', name: 'Servet Wit', ordered: 200, delivered: 200 },
+            { id: 'MOD-401', name: 'Keukendoek', ordered: 50, delivered: 45 },
+            { id: 'MOD-402', name: 'Glazendoek', ordered: 50, delivered: 50 },
         ];
         setAuditData(mockData);
         setDetectedDate(new Date().toLocaleDateString('nl-NL'));
@@ -46,7 +52,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
   const diffTotalNow = totalDeliveredNow - totalOrderedNow;
 
   return (
-    <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 min-h-[calc(100vh-80px)]">
+    <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 min-h-[calc(100vh-80px)] print:p-0 print:m-0 print:h-auto print:overflow-visible">
       {/* UI for uploading and viewing */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6 no-print">
         <div>
@@ -166,11 +172,11 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     }
 
                     /* Hide Sidebar, Header, Buttons, etc */
-                    aside, header, nav, .sidebar, .top-nav, button, input, select, .no-print, [role="dialog"] {
+                    aside, header, nav, .sidebar, .top-nav, button, input, select, .no-print, [role="dialog"], .Toastify {
                         display: none !important;
                     }
 
-                    /* Hide the screen content wrapper specifically */
+                    /* Hide the screen content wrapper specifically if it has this class */
                     .print\\:hidden {
                         display: none !important;
                     }
@@ -197,7 +203,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     thead { display: table-header-group !important; }
                     tfoot { display: table-footer-group !important; }
                     tr { page-break-inside: avoid !important; break-inside: avoid !important; }
-                    th { border-bottom: 2px solid black !important; padding: 8px 4px; text-transform: uppercase; font-size: 10px; }
+                    th { border-bottom: 2px solid black !important; padding: 8px 4px; text-transform: uppercase; font-size: 10px; text-align: left; }
                     td { border-bottom: 1px solid #eee !important; padding: 6px 4px; }
                     
                     /* Utilities */
@@ -211,9 +217,9 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                     .border-b-2 { border-bottom-width: 2px !important; }
                     .border-black { border-color: black !important; }
                     
-                    /* Hide scrollbars (slider) specifically */
-                    ::-webkit-scrollbar { display: none; }
-                    * { -ms-overflow-style: none; scrollbar-width: none; }
+                    /* HIDE SCROLLBARS COMPLETELY */
+                    ::-webkit-scrollbar { display: none !important; }
+                    body { -ms-overflow-style: none !important; scrollbar-width: none !important; }
                 }
             `}</style>
 
