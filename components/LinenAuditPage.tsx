@@ -1001,8 +1001,15 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
       <style>{`
         @media print {
             @page { margin: 10mm; size: A4; }
-            html, body { height: auto !important; overflow: visible !important; background: white !important; }
-            #root { height: auto !important; overflow: visible !important; width: 100% !important; margin: 0 !important; padding: 0 !important; }
+            html, body, #root, main, .h-screen, .flex, .overflow-hidden { 
+                height: auto !important; 
+                min-height: 0 !important;
+                overflow: visible !important; 
+                display: block !important;
+                position: static !important;
+            }
+            
+            body { background: white !important; }
             
             .print\\:hidden { display: none !important; }
             .print\\:block { display: block !important; }
@@ -1010,6 +1017,9 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
             .print\\:h-auto { height: auto !important; }
             
             aside, nav, header, .sidebar, .Toastify, button { display: none !important; }
+            
+            /* Hide scrollbars */
+            ::-webkit-scrollbar { display: none !important; }
             
             /* Reset Layout Constraints */
             .max-w-\\[2400px\\], .max-w-5xl, .w-full { 
