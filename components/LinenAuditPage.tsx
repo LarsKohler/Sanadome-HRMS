@@ -10,6 +10,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGri
 // Fix for PDF worker
 const pdfjs = (pdfjsLib as any).default || pdfjsLib;
 if (typeof window !== 'undefined') {
+    // Explicitly set worker to the specific version to match the library
     pdfjs.GlobalWorkerOptions.workerSrc = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/build/pdf.worker.min.mjs';
 }
 
@@ -167,9 +168,10 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
               fullText += pageText + '\n';
           }
           return fullText;
-      } catch (error) {
+      } catch (error: any) {
           console.error("PDF Read Error details:", error);
-          throw new Error(`Kon PDF niet lezen: ${file.name}. Is het bestand beschadigd?`);
+          const fileName = decodeURIComponent(file.name);
+          throw new Error(`PDF Error in '${fileName}': ${error.message || 'Onbekende fout'}`);
       }
   };
 
@@ -306,7 +308,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
              deliveryMap = await parseDeliveryFiles(deliveryFiles);
           } catch (e: any) {
              console.error("Delivery Files Error", e);
-             throw new Error("Fout bij lezen leverbonnen: " + e.message);
+             throw e; // Rethrow actual error (e.g. PDF Error)
           }
 
           const allIds = new Set([...orderMap.keys(), ...deliveryMap.keys()]);
@@ -348,7 +350,7 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
           onShowToast("Audit succesvol voltooid.");
 
       } catch (e: any) {
-          console.error(e);
+          console.error("Generate Report Error", e);
           onShowToast(e.message || "Er is een onbekende fout opgetreden.");
       } finally {
           setIsProcessing(false);
