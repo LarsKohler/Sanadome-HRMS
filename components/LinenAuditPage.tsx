@@ -805,30 +805,49 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
               </div>
 
               {/* PRINT HEADER (Hidden on Screen) */}
-              <div className="hidden print:block p-6 border-b-2 border-black">
-                  <div className="flex justify-between items-center mb-4">
+              <div className="hidden print:block p-8 border-b-2 border-slate-800 mb-6">
+                  <div className="flex justify-between items-start mb-8">
                       <div>
-                          <h1 className="text-2xl font-black text-black uppercase tracking-tight">Linnen Audit Rapport</h1>
-                          <div className="flex gap-4 text-xs text-gray-600 mt-1">
-                              <span><strong>Datum:</strong> {new Date().toLocaleDateString('nl-NL')}</span>
-                              <span><strong>Door:</strong> {reportMetadata.generatedBy}</span>
-                              <span><strong>Bestanden:</strong> {reportMetadata.fileCount}</span>
+                          <div className="flex items-center gap-3 mb-2">
+                              <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight">Linnen Audit</h1>
+                          </div>
+                          <div className="text-sm text-slate-600 space-y-1">
+                              <p><strong>Datum:</strong> {new Date().toLocaleDateString('nl-NL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
+                              <p><strong>Tijd:</strong> {new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })}</p>
+                              <p><strong>Auditor:</strong> {reportMetadata.generatedBy}</p>
+                              <p><strong>Referentie:</strong> {deliveryFiles.length > 0 ? `${deliveryFiles.length} leverbonnen verwerkt` : 'Archief rapport'}</p>
                           </div>
                       </div>
-                      <div className="text-right text-xs text-gray-500">
-                          <h2 className="font-bold text-sm text-black">Sanadome Nijmegen</h2>
+                      <div className="text-right">
+                          <h2 className="text-xl font-bold text-slate-900">Sanadome Hotel & Spa</h2>
+                          <p className="text-sm text-slate-500">Weg door Jonkerbos 90<br/>6532 SZ Nijmegen</p>
                       </div>
                   </div>
 
-                  <div className="flex gap-8 border-t border-gray-200 pt-3">
-                       <div><span className="text-[10px] uppercase font-bold text-gray-500 block">Besteld</span> <span className="font-bold text-lg">{totalOrdered}</span></div>
-                       <div><span className="text-[10px] uppercase font-bold text-gray-500 block">Geleverd</span> <span className="font-bold text-lg">{totalDelivered}</span></div>
-                       <div><span className="text-[10px] uppercase font-bold text-gray-500 block">Verschil</span> <span className={`font-bold text-lg ${diffTotal !== 0 ? 'text-black' : ''}`}>{diffTotal > 0 ? `+${diffTotal}` : diffTotal}</span></div>
+                  {/* Summary Cards Row for Print */}
+                  <div className="grid grid-cols-4 gap-4 mb-2">
+                      <div className="border border-slate-200 p-3 rounded">
+                          <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Totaal Besteld</span>
+                          <span className="text-2xl font-bold text-slate-900">{totalOrdered}</span>
+                      </div>
+                      <div className="border border-slate-200 p-3 rounded">
+                          <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Totaal Geleverd</span>
+                          <span className="text-2xl font-bold text-slate-900">{totalDelivered}</span>
+                      </div>
+                      <div className={`border p-3 rounded ${diffTotal === 0 ? 'border-slate-200 bg-slate-50' : diffTotal > 0 ? 'border-green-200 bg-green-50' : 'border-red-200 bg-red-50'}`}>
+                          <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Netto Verschil</span>
+                          <span className={`text-2xl font-bold ${diffTotal === 0 ? 'text-slate-900' : diffTotal > 0 ? 'text-green-700' : 'text-red-700'}`}>
+                              {diffTotal > 0 ? `+${diffTotal}` : diffTotal}
+                          </span>
+                      </div>
+                      <div className="border border-slate-200 p-3 rounded">
+                          <span className="text-[10px] uppercase font-bold text-slate-500 block mb-1">Nauwkeurigheid</span>
+                          <span className="text-2xl font-bold text-slate-900">{analysisData?.accuracy || 0}%</span>
+                      </div>
                   </div>
               </div>
 
               {/* Data Table */}
-              {/* Added print:overflow-visible to table container */}
               <div className="print:overflow-visible">
                   <table className="w-full text-left print:text-xs">
                       <thead className="bg-slate-100 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase print:bg-white print:border-b-2 print:border-black print:text-black">
@@ -860,17 +879,14 @@ const LinenAuditPage: React.FC<LinenAuditPageProps> = ({ currentUser, onShowToas
                                       </td>
                                       <td className="px-8 py-4 text-center print:py-1 print:px-2 text-slate-600 font-medium print:text-black">{item.ordered}</td>
                                       <td className="px-8 py-4 text-center print:py-1 print:px-2 text-slate-600 font-medium print:text-black">{item.delivered}</td>
-                                      <td className="px-8 py-4 text-right print:py-1 print:px-2 font-bold">
+                                      <td className="px-8 py-4 text-right print:py-1 print:px-2 font-bold font-mono">
                                           {diff === 0 ? (
-                                              <span className="text-green-600 flex items-center justify-end gap-1 print:hidden">
-                                                  <CheckCircle2 size={16}/> OK
-                                              </span>
+                                              <span className="text-slate-300">-</span>
                                           ) : (
-                                              <span className="text-red-600 flex items-center justify-end gap-1 print:text-black">
+                                              <span className={diff > 0 ? 'text-green-600' : 'text-red-600'}>
                                                   {diff > 0 ? `+${diff}` : diff}
                                               </span>
                                           )}
-                                          <span className="hidden print:inline">{diff === 0 ? '-' : (diff > 0 ? `+${diff}` : diff)}</span>
                                       </td>
                                   </tr>
                               );
