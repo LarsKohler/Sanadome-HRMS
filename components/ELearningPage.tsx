@@ -41,7 +41,9 @@ const ELearningPage: React.FC<ELearningPageProps> = ({
     const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
     const [assignTargetId, setAssignTargetId] = useState<string | null>(null); // Training ID to assign
 
-    const canManage = hasPermission(currentUser, 'MANAGE_TRAININGS');
+    // Robust Permission Check
+    const isManager = currentUser.role === 'Manager' || currentUser.role === 'Senior Medewerker';
+    const canManage = isManager || hasPermission(currentUser, 'MANAGE_TRAININGS');
 
     useEffect(() => {
         loadTrainings();
@@ -273,10 +275,10 @@ const ELearningPage: React.FC<ELearningPageProps> = ({
     const renderCatalog = () => (
         <div className="space-y-10 animate-in fade-in pb-20">
             {/* Header / Hero */}
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6 border-b border-slate-100 pb-6">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
-                        <GraduationCap className="text-teal-600" size={32} />
+                        <GraduationCap className="text-teal-600" size={36} />
                         Sanadome Academy
                     </h1>
                     <p className="text-slate-500 mt-2 text-lg">Blijf leren, groeien en excelleren.</p>
@@ -286,7 +288,7 @@ const ELearningPage: React.FC<ELearningPageProps> = ({
                     <div className="flex gap-3">
                         <button 
                             onClick={handleCreateNewModule}
-                            className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg transition-all"
+                            className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg transition-all hover:scale-105 active:scale-95"
                         >
                             <Plus size={18} />
                             Nieuwe Training
@@ -844,33 +846,7 @@ const ELearningPage: React.FC<ELearningPageProps> = ({
 
     return (
         <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
-            {viewMode === 'studio' ? renderStudio() : viewMode === 'player' ? renderPlayer() : (
-                <>
-                    <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6">
-                        <div>
-                            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
-                                <GraduationCap className="text-teal-600" size={32} />
-                                Sanadome Academy
-                            </h1>
-                            <p className="text-slate-500 mt-1">Blijf leren, groeien en excelleren.</p>
-                        </div>
-                        
-                        {canManage && (
-                            <div className="flex gap-3">
-                                <button 
-                                    onClick={handleCreateNewModule}
-                                    className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg transition-all"
-                                >
-                                    <Plus size={18} />
-                                    Nieuwe Training
-                                </button>
-                            </div>
-                        )}
-                    </div>
-
-                    {renderCatalog()}
-                </>
-            )}
+            {viewMode === 'studio' ? renderStudio() : viewMode === 'player' ? renderPlayer() : renderCatalog()}
 
             {/* ASSIGN MODAL */}
             <Modal
