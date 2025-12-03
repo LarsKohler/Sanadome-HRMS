@@ -43,6 +43,21 @@ function App() {
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [activeSurvey, setActiveSurvey] = useState<Survey | null>(null);
 
+  // Restore Session
+  useEffect(() => {
+      const savedUser = localStorage.getItem('hrms_session_user');
+      if (savedUser) {
+          try {
+              const parsedUser = JSON.parse(savedUser);
+              setCurrentUser(parsedUser);
+              setIsAuthenticated(true);
+          } catch (e) {
+              console.error("Failed to restore session", e);
+              localStorage.removeItem('hrms_session_user');
+          }
+      }
+  }, []);
+
   // Initialize Data
   useEffect(() => {
     const loadData = async () => {
@@ -80,6 +95,7 @@ function App() {
       if (user) {
           setCurrentUser(user);
           setIsAuthenticated(true);
+          localStorage.setItem('hrms_session_user', JSON.stringify(user));
           return true;
       }
       return false;
@@ -89,12 +105,18 @@ function App() {
       setCurrentUser(null);
       setIsAuthenticated(false);
       setCurrentView(ViewState.HOME);
+      localStorage.removeItem('hrms_session_user');
   };
 
   const handleUpdateEmployee = (updatedEmployee: Employee) => {
     // Optimistic Update
     setEmployees(prev => prev.map(emp => emp.id === updatedEmployee.id ? updatedEmployee : emp));
-    if (currentUser?.id === updatedEmployee.id) setCurrentUser(updatedEmployee);
+    
+    // Update current user session if it's the logged-in user
+    if (currentUser?.id === updatedEmployee.id) {
+        setCurrentUser(updatedEmployee);
+        localStorage.setItem('hrms_session_user', JSON.stringify(updatedEmployee));
+    }
     
     // Persist (Update existing, isNewUser = false)
     api.saveEmployee(updatedEmployee, false);
@@ -128,7 +150,7 @@ function App() {
   if (currentUser?.accountStatus === 'Pending') {
       return <WelcomeFlow employee={currentUser} onComplete={async (updated) => {
           await handleUpdateEmployee(updated);
-          setCurrentUser(updated);
+          setCurrentUser(updated); // handleUpdateEmployee handles storage, but extra safety
       }} />;
   }
 

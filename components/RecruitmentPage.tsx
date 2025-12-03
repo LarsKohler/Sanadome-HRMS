@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { 
     UserPlus, Search, Briefcase, Plus, Calendar, 
@@ -354,7 +355,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, onShowTo
     };
 
     const getInviteLink = () => {
-        const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://sanadome-hrms.vercel.app';
+        const baseUrl = 'https://sanadome-hrms.vercel.app';
         return `${baseUrl}/welcome/${createdAccountId?.substring(0,8)}`;
     };
 

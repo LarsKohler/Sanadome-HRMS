@@ -195,7 +195,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       const targetId = id || recentlyAddedEmployee?.id;
       if (!targetId) return;
 
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://sanadome-hrms.vercel.app';
+      const baseUrl = 'https://sanadome-hrms.vercel.app';
       const link = `${baseUrl}/welcome/${targetId.substring(0,8)}`;
       
       navigator.clipboard.writeText(link).catch(() => {});
@@ -210,7 +210,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
   };
 
   const getInviteLink = (id: string) => {
-      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://sanadome-hrms.vercel.app';
+      const baseUrl = 'https://sanadome-hrms.vercel.app';
       return `${baseUrl}/welcome/${id.substring(0,8)}`;
   };
 
