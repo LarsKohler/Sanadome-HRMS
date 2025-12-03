@@ -9,7 +9,79 @@
 
 
 
-import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog, Ticket, BadgeDefinition, KnowledgeArticle, PersonalDevelopmentGoal, Vacancy, Applicant, EmailTemplate } from '../types';
+
+
+import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog, Ticket, BadgeDefinition, KnowledgeArticle, PersonalDevelopmentGoal, Vacancy, Applicant, EmailTemplate, TrainingModule } from '../types';
+
+// --- TRAINING MOCK DATA ---
+export const MOCK_TRAININGS: TrainingModule[] = [
+    {
+        id: 't-1',
+        title: 'Brandveiligheid & Evacuatie',
+        description: 'Jaarlijkse verplichte cursus over veiligheidsprocedures en evacuatieroutes.',
+        category: 'Veiligheid',
+        recurrence: 'Yearly',
+        targetRoles: ['All'],
+        createdAt: '2023-01-01',
+        createdBy: 'Manager',
+        coverImage: 'https://images.unsplash.com/photo-1565514020125-9c8cc641cc76?auto=format&fit=crop&w=800&q=80',
+        steps: [
+            {
+                id: 's1',
+                title: 'Introductie Brandveiligheid',
+                type: 'Text',
+                content: '## Belang van Brandveiligheid\nBrandveiligheid is cruciaal voor de veiligheid van onze gasten en medewerkers. In deze module leer je de basisprincipes van preventie en actie.\n\n### Doelen\n- Herkennen van brandgevaar\n- Weten wat te doen bij alarm\n- Locatie van blusmiddelen',
+                durationMinutes: 2
+            },
+            {
+                id: 's2',
+                title: 'Evacuatieplan Video',
+                type: 'Video',
+                content: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // Placeholder
+                durationMinutes: 5
+            },
+            {
+                id: 's3',
+                title: 'Kennis Check',
+                type: 'Quiz',
+                durationMinutes: 3,
+                quizData: [
+                    { id: 'q1', question: 'Wat is het noodnummer intern?', options: ['112', '99', '1000'], correctOptionIndex: 1 },
+                    { id: 'q2', question: 'Waar verzamelen we bij evacuatie?', options: ['Lobby', 'Parkeerplaats P3', 'In de keuken'], correctOptionIndex: 1 }
+                ]
+            }
+        ]
+    },
+    {
+        id: 't-2',
+        title: 'Gastvrijheid & Etiquette',
+        description: 'De Sanadome standaarden voor gastinteractie.',
+        category: 'Hospitality',
+        recurrence: 'None',
+        targetRoles: ['All'],
+        createdAt: '2023-02-15',
+        createdBy: 'HR',
+        coverImage: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=800&q=80',
+        steps: [
+            {
+                id: 's1',
+                title: 'De 5 Gouden Regels',
+                type: 'Text',
+                content: '1. Begroet elke gast\n2. Maak oogcontact\n3. Glimlach\n4. Gebruik de naam van de gast indien bekend\n5. Bedank de gast bij vertrek',
+                durationMinutes: 3
+            },
+            {
+                id: 's2',
+                title: 'Situatie Quiz',
+                type: 'Quiz',
+                durationMinutes: 2,
+                quizData: [
+                    { id: 'q1', question: 'Een gast klaagt over de soep. Wat doe je?', options: ['Zeggen dat de soep prima is', 'Luisteren, excuses aanbieden en oplossen (LEARN)', 'De manager roepen en weglopen'], correctOptionIndex: 1 }
+                ]
+            }
+        ]
+    }
+];
 
 // --- RECRUITMENT MOCK DATA ---
 export const MOCK_VACANCIES: Vacancy[] = [
@@ -279,18 +351,18 @@ export const MOCK_TICKETS: Ticket[] = [
 
 // --- AUTO UPDATE LOGGER ---
 export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
-    id: 'update-v4.3.0-kb-complete', 
-    version: 'v4.3.0',
+    id: 'update-v4.4.0-academy', 
+    version: 'v4.4.0',
     date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
     timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
     author: 'AI Assistant',
     type: 'Feature',
     impact: 'High',
-    affectedArea: 'Kennisbank',
+    affectedArea: 'Academy',
     description: `
-- Kennisbank volledig vernieuwd met 30 "slimme" artikelen.
-- Uitgebreide markdown ondersteuning en instructies.
-- Categorieën geherstructureerd voor betere vindbaarheid.`,
+- Nieuwe module: Sanadome Academy.
+- Managers kunnen interactieve trainingen maken (video, quiz).
+- Automatische toewijzing en herhaling van compliance trainingen (bv. Brandveiligheid).`,
     status: 'Success'
 };
 

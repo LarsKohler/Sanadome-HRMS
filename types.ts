@@ -19,6 +19,7 @@ export enum ViewState {
   KNOWLEDGE_BASE = 'KNOWLEDGE_BASE', // New: Knowledge Base
   LINEN_AUDIT = 'LINEN_AUDIT', // New: Moderna Calculator
   RECRUITMENT = 'RECRUITMENT', // New: ATS System
+  ELEARNING = 'ELEARNING', // New: Sanadome Academy
 }
 
 // --- PERMISSIONS SYSTEM ---
@@ -42,7 +43,8 @@ export type Permission =
   | 'MANAGE_TICKETS' // Access Ticket Dashboard
   | 'MANAGE_BADGES' // New: Manage and Award Badges
   | 'MANAGE_KNOWLEDGE' // New: Create/Edit Knowledge Articles
-  | 'MANAGE_OPERATIONS'; // New: Operations & Audit Tools
+  | 'MANAGE_OPERATIONS' // New: Operations & Audit Tools
+  | 'MANAGE_TRAININGS'; // New: Create and assign e-learnings
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_REPORTS': 'Rapportages Inzien',
@@ -63,8 +65,56 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'MANAGE_TICKETS': 'Ticket Systeem Beheer',
   'MANAGE_BADGES': 'Badges & Waardering Beheren',
   'MANAGE_KNOWLEDGE': 'Kennisbank Beheren',
-  'MANAGE_OPERATIONS': 'Operationele Tools (Linnen)'
+  'MANAGE_OPERATIONS': 'Operationele Tools (Linnen)',
+  'MANAGE_TRAININGS': 'E-Learning & Trainingen Beheren'
 };
+
+// --- E-LEARNING TYPES ---
+
+export type TrainingStepType = 'Video' | 'Text' | 'Quiz' | 'PDF';
+
+export interface QuizQuestion {
+    id: string;
+    question: string;
+    options: string[];
+    correctOptionIndex: number;
+}
+
+export interface TrainingStep {
+    id: string;
+    title: string;
+    type: TrainingStepType;
+    content?: string; // Markdown text or Video URL
+    quizData?: QuizQuestion[];
+    pdfUrl?: string;
+    durationMinutes: number;
+}
+
+export interface TrainingModule {
+    id: string;
+    title: string;
+    description: string;
+    category: string; // e.g. 'Safety', 'Hospitality', 'Systems'
+    coverImage?: string;
+    steps: TrainingStep[];
+    recurrence: 'None' | 'Yearly' | 'Monthly' | 'Quarterly';
+    targetRoles: string[]; // ['All'] or specific roles
+    createdAt: string;
+    createdBy: string;
+}
+
+export interface AssignedTraining {
+    id: string;
+    trainingId: string;
+    employeeId: string;
+    status: 'Not Started' | 'In Progress' | 'Completed';
+    progress: number; // 0-100
+    currentStepIndex: number;
+    assignedDate: string;
+    dueDate?: string;
+    completedDate?: string;
+    score?: number; // For quizzes
+}
 
 // --- RECRUITMENT TYPES ---
 
@@ -249,7 +299,7 @@ export interface Notification {
   id: string;
   recipientId: string;
   senderName: string;
-  type: 'LeaveRequest' | 'Document' | 'Note' | 'System' | 'News' | 'Onboarding' | 'Survey' | 'Evaluation' | 'Evaluation' | 'Ticket' | 'Badge' | 'Knowledge' | 'Recruitment';
+  type: 'LeaveRequest' | 'Document' | 'Note' | 'System' | 'News' | 'Onboarding' | 'Survey' | 'Evaluation' | 'Evaluation' | 'Ticket' | 'Badge' | 'Knowledge' | 'Recruitment' | 'Training';
   title: string;
   message: string;
   date: string;
@@ -489,6 +539,9 @@ export interface Employee {
   
   // New: Personal Growth Path
   growthGoals?: PersonalDevelopmentGoal[];
+  
+  // New: E-Learning
+  trainings?: AssignedTraining[];
 }
 
 export interface HeadcountData {

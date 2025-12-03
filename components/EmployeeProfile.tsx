@@ -1,3 +1,5 @@
+
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Briefcase, MapPin, 
@@ -389,10 +391,10 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       // Actions (Only for owner/manager)
       const openOnboardingTasks = employee.onboardingTasks?.filter(t => t.score !== 100) || [];
       const pendingEvaluations = employee.evaluations?.filter(ev => ev.status === 'EmployeeInput' || ev.status === 'ManagerInput') || [];
-      const totalActions = openOnboardingTasks.length + pendingEvaluations.length + urgentDebtCount;
+      const pendingTrainings = employee.trainings?.filter(t => t.status !== 'Completed') || [];
+      const totalActions = openOnboardingTasks.length + pendingEvaluations.length + pendingTrainings.length + urgentDebtCount;
 
       // Active Growth Goal (The most recent in-progress one)
-      // Changed: Show all NON-completed goals (In Progress AND Not Started) to ensure consistency
       const activeGrowthGoal = (employee.growthGoals || [])
           .filter(g => g.status !== 'Completed')
           .sort((a,b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0];
@@ -509,6 +511,22 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                               </div>
                               
                               <div className="divide-y divide-slate-50">
+                                  {/* PENDING TRAININGS */}
+                                  {pendingTrainings.slice(0,3).map(training => (
+                                      <div key={training.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.ELEARNING)}>
+                                          <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
+                                              <GraduationCap size={18} />
+                                          </div>
+                                          <div className="flex-1">
+                                              <div className="text-sm font-bold text-slate-900">Training: {training.trainingId}</div>
+                                              <div className="text-xs text-slate-500">
+                                                  {training.dueDate ? `Deadline: ${training.dueDate}` : 'Geen deadline'} • {training.progress}% Voltooid
+                                              </div>
+                                          </div>
+                                          <ChevronRight size={16} className="text-slate-300 group-hover:text-blue-600" />
+                                      </div>
+                                  ))}
+
                                   {urgentDebtCount > 0 && (
                                       <div className="p-4 hover:bg-red-50/30 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.DEBT_CONTROL)}>
                                           <div className="p-2 bg-red-100 text-red-600 rounded-lg">

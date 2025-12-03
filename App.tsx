@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import { Employee, ViewState, Notification, NewsPost, Survey } from './types';
 import Sidebar from './components/Sidebar';
@@ -23,6 +25,7 @@ import LinenAuditPage from './components/LinenAuditPage';
 import KnowledgeBasePage from './components/KnowledgeBasePage';
 import EvaluationsPage from './components/EvaluationsPage';
 import RecruitmentPage from './components/RecruitmentPage';
+import ELearningPage from './components/ELearningPage';
 import { api, isLive } from './utils/api';
 
 function App() {
@@ -305,6 +308,14 @@ function App() {
                       // Do NOT redirect. Return ID so RecruitmentPage can show the invite link.
                       return newId;
                   }}
+              />;
+          case ViewState.ELEARNING:
+              return <ELearningPage 
+                  currentUser={currentUser!}
+                  employees={employees}
+                  onUpdateEmployee={handleUpdateEmployee}
+                  onShowToast={handleShowToast}
+                  onAddNotification={(n) => api.saveNotification(n)}
               />;
           default:
               return <div className="p-10">Pagina niet gevonden of in ontwikkeling.</div>;

@@ -1,8 +1,10 @@
 
+
+
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, Ticket, BadgeDefinition, KnowledgeArticle, Applicant } from '../types';
-import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_TICKETS, MOCK_BADGES, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS } from './mockData';
+import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, Ticket, BadgeDefinition, KnowledgeArticle, Applicant, TrainingModule } from '../types';
+import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_TICKETS, MOCK_BADGES, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_TRAININGS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
 export const isLive = !!supabase;
@@ -22,7 +24,44 @@ const generateDemoTasks = (): OnboardingTask[] => [
 ];
 
 export const api = {
-  // --- RECRUITMENT (NEW) ---
+  // --- E-LEARNING (NEW) ---
+  getTrainings: async (): Promise<TrainingModule[]> => {
+      if (isLive && supabase) {
+          try {
+              const { data, error } = await supabase.from('trainings').select('data');
+              if (!error && data && data.length > 0) return data.map((row: any) => row.data);
+              return MOCK_TRAININGS;
+          } catch (e) {
+              return MOCK_TRAININGS;
+          }
+      }
+      const local = localStorage.getItem('hrms_trainings');
+      return local ? JSON.parse(local) : MOCK_TRAININGS;
+  },
+
+  saveTraining: async (training: TrainingModule) => {
+      if (isLive && supabase) {
+          await supabase.from('trainings').upsert({ id: training.id, data: training });
+      } else {
+          const current = await api.getTrainings();
+          const index = current.findIndex(t => t.id === training.id);
+          if (index >= 0) current[index] = training;
+          else current.unshift(training);
+          localStorage.setItem('hrms_trainings', JSON.stringify(current));
+      }
+  },
+
+  deleteTraining: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('trainings').delete().eq('id', id);
+      } else {
+          const current = await api.getTrainings();
+          const filtered = current.filter(t => t.id !== id);
+          localStorage.setItem('hrms_trainings', JSON.stringify(filtered));
+      }
+  },
+
+  // --- RECRUITMENT ---
   getApplicants: async (): Promise<Applicant[]> => {
       if (isLive && supabase) {
           try {
