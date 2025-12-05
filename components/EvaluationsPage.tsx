@@ -58,7 +58,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   onAddNotification,
   onShowToast
 }) => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'trajectories'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'trajectories' | 'planning'>('dashboard');
   const [selectedEvaluationId, setSelectedEvaluationId] = useState<string | null>(null);
   
   // Creation State
@@ -733,6 +733,79 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
   // --- VIEWS ---
 
+  const renderPlanning = () => (
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in">
+          <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+              <div>
+                  <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                      <Calendar size={20} className="text-teal-600"/> Evaluatie Planning
+                  </h3>
+                  <p className="text-sm text-slate-500 mt-1">Overzicht van alle geplande evaluatiemomenten voor de komende periode.</p>
+              </div>
+              <div className="text-xs font-bold bg-white border border-slate-200 px-3 py-1 rounded-lg text-slate-600">
+                  {plannedEvaluations.length} Gepland
+              </div>
+          </div>
+          
+          <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                  <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
+                      <tr>
+                          <th className="px-6 py-4">Datum</th>
+                          <th className="px-6 py-4">Medewerker</th>
+                          <th className="px-6 py-4">Type Evaluatie</th>
+                          <th className="px-6 py-4">Status</th>
+                          <th className="px-6 py-4 text-right">Actie</th>
+                      </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-sm">
+                      {plannedEvaluations.map(({ evaluation, employee }) => (
+                          <tr key={evaluation.id} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-6 py-4 font-bold text-slate-900 font-mono">
+                                  {evaluation.plannedDate}
+                              </td>
+                              <td className="px-6 py-4">
+                                  <div className="flex items-center gap-3">
+                                      <img src={employee.avatar} className="w-8 h-8 rounded-full border border-slate-100" alt="Av"/>
+                                      <span className="font-medium text-slate-700">{employee.name}</span>
+                                  </div>
+                              </td>
+                              <td className="px-6 py-4 text-slate-600">
+                                  {evaluation.type}
+                              </td>
+                              <td className="px-6 py-4">
+                                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 text-xs font-bold border border-amber-100">
+                                      <Clock size={12}/> Gepland
+                                  </span>
+                              </td>
+                              <td className="px-6 py-4 text-right">
+                                  <button 
+                                    onClick={() => {
+                                        if(confirm("Wil je deze evaluatie nu al starten?")) {
+                                            handleUpdateEvaluation(evaluation, { status: 'ManagerInput' }); 
+                                            onShowToast("Evaluatie gestart (vervroegd).");
+                                        }
+                                    }}
+                                    className="text-xs font-bold text-slate-400 hover:text-teal-600 border border-slate-200 hover:border-teal-200 px-3 py-1.5 rounded-lg transition-colors bg-white"
+                                  >
+                                      Start Nu
+                                  </button>
+                              </td>
+                          </tr>
+                      ))}
+                      {plannedEvaluations.length === 0 && (
+                          <tr>
+                              <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">
+                                  Geen evaluaties gepland voor de toekomst.
+                              </td>
+                          </tr>
+                      )}
+                  </tbody>
+              </table>
+          </div>
+      </div>
+  );
+
   const renderDashboard = () => (
       <div className="space-y-8 animate-in fade-in">
           {/* Header */}
@@ -765,25 +838,40 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                     <BarChart3 size={18} /> Evaluatie Cycli
                 </button>
                 {isManager && (
-                    <button 
-                        onClick={() => setActiveTab('trajectories')}
-                        className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
-                            activeTab === 'trajectories' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-700'
-                        }`}
-                    >
-                        <Target size={18} /> Actieve Trajecten
-                    </button>
+                    <>
+                        <button 
+                            onClick={() => setActiveTab('planning')}
+                            className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
+                                activeTab === 'planning' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-700'
+                            }`}
+                        >
+                            <Calendar size={18} /> Planning
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('trajectories')}
+                            className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
+                                activeTab === 'trajectories' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-700'
+                            }`}
+                        >
+                            <Target size={18} /> Actieve Trajecten
+                        </button>
+                    </>
                 )}
           </div>
 
-          {/* Upcoming / Planned Grid (Manager Only) */}
+          {/* Upcoming / Planned Grid (Manager Only) - Summary View */}
           {activeTab === 'dashboard' && isManager && plannedEvaluations.length > 0 && (
               <div className="mb-8">
-                  <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-                      <Clock size={18} className="text-amber-500"/> Geplande Evaluaties
-                  </h3>
+                  <div className="flex justify-between items-center mb-4">
+                      <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                          <Clock size={18} className="text-amber-500"/> Eerstvolgende Evaluaties
+                      </h3>
+                      <button onClick={() => setActiveTab('planning')} className="text-xs font-bold text-teal-600 hover:underline">
+                          Bekijk alles ({plannedEvaluations.length})
+                      </button>
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                      {plannedEvaluations.map(({ evaluation, employee }) => (
+                      {plannedEvaluations.slice(0, 4).map(({ evaluation, employee }) => (
                           <div key={evaluation.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4 opacity-80 hover:opacity-100 transition-all">
                               <div className="flex items-center gap-3 mb-2">
                                   <img src={employee.avatar} className="w-8 h-8 rounded-full" alt="Avatar"/>
@@ -1453,622 +1541,491 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                                           <div className={`text-sm font-bold ${supportLevel === opt.id ? 'text-teal-900' : 'text-slate-700'}`}>{opt.label}</div>
                                                           <div className="text-xs text-slate-500">{opt.desc}</div>
                                                       </div>
-                                                      {supportLevel === opt.id && <div className="ml-auto text-teal-600"><CheckCircle size={18}/></div>}
+                                                      {supportLevel === opt.id && <div className="ml-auto text-teal-600"><CheckCircle size={16}/></div>}
                                                   </div>
                                               ))}
                                           </div>
                                       </div>
 
-                                      <div>
-                                          <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Streefdatum Afronding</label>
-                                          <input 
-                                            type="date" 
-                                            className="w-full p-3 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-teal-500 outline-none"
-                                            value={newDevGoal.deadline || ''}
-                                            onChange={(e) => setNewDevGoal({...newDevGoal, deadline: e.target.value})}
-                                          />
-                                      </div>
-                                  </div>
+                                      {/* Right: Preview & Save */}
+                                      <div className="space-y-6">
+                                          <div>
+                                              <label className="text-xs font-bold text-slate-500 uppercase block mb-2">Deadline (Doel)</label>
+                                              <input 
+                                                type="date" 
+                                                className="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                                value={newDevGoal.deadline ? safeDateToInput(newDevGoal.deadline) : ''}
+                                                onChange={(e) => setNewDevGoal({...newDevGoal, deadline: e.target.value})}
+                                              />
+                                          </div>
 
-                                  {/* Right: Preview */}
-                                  <div className="bg-slate-50 rounded-xl p-5 border border-slate-200">
-                                      <h5 className="font-bold text-slate-700 text-sm mb-4 flex items-center gap-2">
-                                          <CalendarDays size={16} className="text-slate-400"/>
-                                          Traject Voorbeeld
-                                      </h5>
-                                      
-                                      {previewSchedule.length > 0 ? (
-                                          <div className="relative pl-4 space-y-6 before:absolute before:left-[21px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-                                              {/* Start Node */}
-                                              <div className="relative flex items-center gap-4">
-                                                  <div className="z-10 w-4 h-4 rounded-full bg-teal-500 border-2 border-white ring-2 ring-teal-100"></div>
-                                                  <div>
-                                                      <span className="text-xs font-bold text-slate-900 block">Vandaag</span>
-                                                      <span className="text-[10px] text-slate-500 uppercase tracking-wide">Start Traject</span>
-                                                  </div>
-                                              </div>
-
-                                              {/* Check-ins */}
-                                              {previewSchedule.map((ci, idx) => (
-                                                  <div key={idx} className="relative flex items-center gap-4">
-                                                      <div className="z-10 w-4 h-4 rounded-full bg-white border-2 border-slate-300"></div>
-                                                      <div className="bg-white px-3 py-2 rounded-lg border border-slate-100 shadow-sm w-full">
-                                                          <div className="flex justify-between items-center">
-                                                              <span className="text-xs font-bold text-slate-700">Check-in {idx + 1}</span>
-                                                              <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500 font-mono">{ci.date}</span>
+                                          {/* Preview Schedule */}
+                                          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                              <h5 className="font-bold text-slate-700 text-xs mb-3 flex items-center gap-2">
+                                                  <Calendar size={14}/> Geplande Check-ins
+                                              </h5>
+                                              {previewSchedule.length > 0 ? (
+                                                  <div className="space-y-2 max-h-32 overflow-y-auto pr-2 custom-scrollbar">
+                                                      {previewSchedule.map(ci => (
+                                                          <div key={ci.id} className="text-xs flex justify-between bg-white p-2 rounded border border-slate-100">
+                                                              <span className="font-medium text-slate-600">Check-in</span>
+                                                              <span className="font-bold text-slate-900">{ci.date}</span>
                                                           </div>
-                                                      </div>
+                                                      ))}
                                                   </div>
-                                              ))}
+                                              ) : (
+                                                  <p className="text-xs text-slate-400 italic">Selecteer een datum om planning te zien.</p>
+                                              )}
+                                          </div>
 
-                                              {/* End Node */}
-                                              <div className="relative flex items-center gap-4">
-                                                  <div className="z-10 w-4 h-4 rounded-full bg-slate-900 border-2 border-white"></div>
-                                                  <div>
-                                                      <span className="text-xs font-bold text-slate-900 block">{newDevGoal.deadline?.split('-').reverse().join('-')}</span>
-                                                      <span className="text-[10px] text-slate-500 uppercase tracking-wide">Deadline</span>
-                                                  </div>
-                                              </div>
-                                          </div>
-                                      ) : (
-                                          <div className="h-40 flex flex-col items-center justify-center text-slate-400 text-center">
-                                              <Milestone size={32} className="mb-2 opacity-20"/>
-                                              <p className="text-xs">Selecteer een datum om een planning te zien.</p>
-                                          </div>
-                                      )}
+                                          <button 
+                                            onClick={() => handleAddDevelopmentGoal(evaluation)}
+                                            className="w-full py-3 bg-teal-600 text-white rounded-xl font-bold text-sm shadow-md hover:bg-teal-700 transition-colors flex items-center justify-center gap-2"
+                                          >
+                                              <Plus size={16}/> Traject Starten
+                                          </button>
+                                      </div>
                                   </div>
-                              </div>
-
-                              <div className="flex justify-end pt-4 border-t border-slate-100">
-                                  <button 
-                                    onClick={() => handleAddDevelopmentGoal(evaluation)}
-                                    className="px-6 py-3 bg-slate-900 text-white font-bold rounded-xl text-sm hover:bg-slate-800 shadow-md transition-all flex items-center gap-2"
-                                  >
-                                      <Save size={16}/> Plan Vastleggen
-                                  </button>
                               </div>
                           </div>
                       )}
 
-                      <div className="grid grid-cols-1 gap-6">
-                          {evaluation.developmentPlan?.map(goal => (
-                              <div key={goal.id} className="bg-white p-6 rounded-lg border border-slate-200 shadow-sm relative">
-                                  <div className="flex justify-between items-start mb-3">
-                                      <div>
-                                          <h4 className="font-bold text-slate-900 text-base">{goal.title}</h4>
-                                          <p className="text-sm text-slate-600 mt-1">{goal.description}</p>
+                      {/* Active Goals List */}
+                      <div className="space-y-4">
+                          {(evaluation.developmentPlan || []).map((goal, idx) => (
+                              <div key={goal.id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-6">
+                                  <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-1">
+                                          <span className="text-[10px] font-bold bg-teal-50 text-teal-700 px-2 py-0.5 rounded uppercase tracking-wide border border-teal-100">{goal.category}</span>
+                                          <span className="text-xs text-slate-400 font-medium">Start: {goal.startDate}</span>
                                       </div>
-                                      <div className="flex flex-col items-end gap-1">
-                                          <span className="text-[10px] font-bold bg-teal-50 text-teal-700 px-2 py-1 rounded uppercase tracking-wide border border-teal-100">
-                                              {goal.category}
-                                          </span>
-                                          {goal.supportLevel && (
-                                              <span className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
-                                                  <Activity size={10} /> {goal.supportLevel === 'High' ? 'Intensief' : goal.supportLevel === 'Low' ? 'Zelfstandig' : 'Normaal'}
-                                              </span>
-                                          )}
+                                      <h4 className="font-bold text-slate-900 text-lg">{goal.title}</h4>
+                                      <p className="text-sm text-slate-600 mt-1">{goal.description}</p>
+                                      
+                                      <div className="flex items-center gap-4 mt-4 text-xs text-slate-500">
+                                          <span className="flex items-center gap-1"><Flag size={12}/> Deadline: <strong>{goal.deadline}</strong></span>
+                                          <span className="flex items-center gap-1"><Milestone size={12}/> {goal.checkIns.filter(ci => ci.status === 'Completed').length}/{goal.checkIns.length} Check-ins</span>
                                       </div>
                                   </div>
                                   
-                                  {/* Timeline Visualization inside report */}
-                                  <div className="mt-6 border-t border-slate-50 pt-4">
-                                      <h5 className="text-xs font-bold text-slate-400 uppercase mb-3">Geplande Evaluatiemomenten</h5>
-                                      <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
-                                          {/* SAFEGUARD: Using (goal.checkIns || []).map to prevent crash */}
-                                          {(goal.checkIns || []).map((ci, idx) => (
-                                              <div key={idx} className="flex-shrink-0 flex flex-col items-center min-w-[80px]">
-                                                  <div className="w-3 h-3 rounded-full bg-slate-200 mb-2 border-2 border-white ring-1 ring-slate-100"></div>
-                                                  <span className="text-[10px] font-bold text-slate-600">{ci.date}</span>
-                                                  <span className="text-[9px] text-slate-400 uppercase">Check-in {idx+1}</span>
-                                              </div>
-                                          ))}
-                                          <div className="h-px bg-slate-200 flex-1 mx-2"></div>
-                                          <div className="flex-shrink-0 flex flex-col items-center min-w-[80px]">
-                                              <div className="w-3 h-3 rounded-full bg-slate-900 mb-2"></div>
-                                              <span className="text-[10px] font-bold text-slate-900">{goal.deadline}</span>
-                                              <span className="text-[9px] text-slate-400 uppercase">Deadline</span>
-                                          </div>
+                                  <div className="flex flex-col justify-between items-end gap-4 min-w-[150px]">
+                                      <div className="text-right">
+                                          <div className="text-2xl font-bold text-teal-600">{goal.progress}%</div>
+                                          <div className="text-[10px] font-bold text-slate-400 uppercase">Voortgang</div>
                                       </div>
-                                  </div>
-
-                                  {isManager && evaluation.status === 'Review' && (
-                                      <button 
-                                        onClick={() => handleRemoveGoal(evaluation, goal.id)}
-                                        className="absolute top-4 right-12 text-slate-300 hover:text-red-500 transition-colors p-1"
-                                        title="Plan verwijderen"
-                                      >
-                                          <Trash2 size={16}/>
-                                      </button>
-                                  )}
-                              </div>
-                          ))}
-                          {(!evaluation.developmentPlan || evaluation.developmentPlan.length === 0) && (
-                              <p className="text-slate-400 italic text-center text-sm py-4">
-                                  {isManager 
-                                    ? "Nog geen groeipad vastgesteld. Gebruik de knop hierboven om een traject te starten."
-                                    : "Het groeipad wordt samen met je manager vastgesteld tijdens het gesprek."
-                                  }
-                              </p>
-                          )}
-                      </div>
-                  </div>
-
-                  {/* Signatures Area */}
-                  <div className="grid grid-cols-2 gap-20 pt-8 border-t-2 border-slate-900">
-                      <div>
-                          <div className="h-24 border-b border-slate-300 mb-2 flex items-center justify-center relative bg-slate-50/30">
-                              {evaluation.signatures.find(s => s.role === 'Manager') ? (
-                                  <>
-                                      <div className="absolute inset-0 border-4 border-slate-900 opacity-10 rotate-3"></div>
-                                      <div className="font-script text-3xl text-slate-900 transform -rotate-3 z-10">
-                                          {evaluation.signatures.find(s => s.role === 'Manager')?.signedBy}
-                                      </div>
-                                      <div className="absolute bottom-1 right-2 text-[10px] text-slate-400 font-mono">DIGITALLY SIGNED</div>
-                                  </>
-                              ) : (
-                                  <div className="text-xs text-slate-300">Handtekening Manager</div>
-                              )}
-                          </div>
-                          <div className="font-bold text-slate-900">Manager</div>
-                          <div className="text-xs text-slate-500">
-                              {evaluation.signatures.find(s => s.role === 'Manager')?.signedAt || '...'}
-                          </div>
-                      </div>
-                      <div>
-                          <div className="h-24 border-b border-slate-300 mb-2 flex items-center justify-center relative bg-slate-50/30">
-                              {evaluation.signatures.find(s => s.role === 'Employee') ? (
-                                  <>
-                                      <div className="absolute inset-0 border-4 border-slate-900 opacity-10 -rotate-2"></div>
-                                      <div className="font-script text-3xl text-slate-900 transform rotate-2 z-10">
-                                          {evaluation.signatures.find(s => s.role === 'Employee')?.signedBy}
-                                      </div>
-                                      <div className="absolute bottom-1 right-2 text-[10px] text-slate-400 font-mono">DIGITALLY SIGNED</div>
-                                  </>
-                              ) : (
-                                  <div className="text-xs text-slate-300">Handtekening Medewerker</div>
-                              )}
-                          </div>
-                          <div className="font-bold text-slate-900">Medewerker</div>
-                          <div className="text-xs text-slate-500">
-                              {evaluation.signatures.find(s => s.role === 'Employee')?.signedAt || '...'}
-                          </div>
-                      </div>
-                  </div>
-
-              </div>
-          </div>
-      );
-  };
-
-  const renderTrajectoryDashboard = () => {
-      if (!managingGoalData) return null;
-      const { goal, employeeId } = managingGoalData;
-      const emp = employees.find(e => e.id === employeeId);
-
-      const allocated = goal.budget?.allocated || 0;
-      const spent = goal.budget?.spent || 0;
-      const budgetPercent = allocated > 0 ? Math.min(100, Math.round((spent / allocated) * 100)) : 0;
-
-      return (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-300 pb-20">
-              {/* Header Bar */}
-              <div className="bg-slate-900 text-white rounded-2xl p-6 mb-8 shadow-lg flex flex-col md:flex-row justify-between md:items-center gap-6">
-                  <div>
-                      <div className="flex items-center gap-2 text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">
-                          <button onClick={handleBackToDashboard} className="hover:text-white transition-colors">Trajecten</button>
-                          <ChevronRight size={12} />
-                          <span>{emp?.name}</span>
-                      </div>
-                      <h1 className="text-2xl font-bold">{goal.title}</h1>
-                      <div className="flex items-center gap-4 mt-2 text-sm text-slate-300">
-                          <span className="flex items-center gap-1"><User size={14}/> {emp?.name}</span>
-                          <span className="flex items-center gap-1"><Calendar size={14}/> Start: {goal.startDate}</span>
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${goal.status === 'Completed' ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'}`}>
-                              {goal.status}
-                          </span>
-                      </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-4">
-                      <div className="text-right">
-                          <div className="text-3xl font-bold">{goal.progress}%</div>
-                          <div className="text-[10px] uppercase text-slate-400 tracking-wider font-bold">Progressie</div>
-                      </div>
-                      <div className="h-12 w-px bg-slate-700"></div>
-                      <button 
-                        onClick={handleSaveGoalChanges}
-                        className="bg-teal-600 hover:bg-teal-500 text-white px-6 py-3 rounded-xl font-bold shadow-md transition-all flex items-center gap-2"
-                      >
-                          <Save size={18} /> Opslaan
-                      </button>
-                  </div>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  {/* LEFT COLUMN (2/3) */}
-                  <div className="lg:col-span-2 space-y-8">
-                      
-                      {/* Navigation Pills */}
-                      <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
-                          {[
-                              { id: 'overview', label: 'Overzicht', icon: LayoutDashboard },
-                              { id: 'planning', label: 'Planning', icon: Calendar },
-                              { id: 'resources', label: 'Kennis & Links', icon: LinkIcon },
-                          ].map(tab => (
-                              <button
-                                key={tab.id}
-                                onClick={() => setCockpitTab(tab.id as any)}
-                                className={`px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition-all ${
-                                    cockpitTab === tab.id 
-                                    ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200' 
-                                    : 'text-slate-500 hover:bg-white/50'
-                                }`}
-                              >
-                                  <tab.icon size={16} /> {tab.label}
-                              </button>
-                          ))}
-                      </div>
-
-                      {/* Content Area */}
-                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 min-h-[400px]">
-                          
-                          {cockpitTab === 'overview' && (
-                              <div className="space-y-6 animate-in fade-in">
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                      <div>
-                                          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Titel</label>
-                                          <input 
-                                            type="text" 
-                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                            value={goal.title}
-                                            onChange={(e) => setManagingGoalData({...managingGoalData!, goal: {...goal, title: e.target.value}})}
-                                          />
-                                      </div>
-                                      <div>
-                                          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Categorie</label>
-                                          <input 
-                                            type="text" 
-                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                            value={goal.category}
-                                            onChange={(e) => setManagingGoalData({...managingGoalData!, goal: {...goal, category: e.target.value}})}
-                                          />
-                                      </div>
-                                  </div>
-                                  
-                                  <div>
-                                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Beschrijving</label>
-                                      <textarea 
-                                        rows={3}
-                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                        value={goal.description}
-                                        onChange={(e) => setManagingGoalData({...managingGoalData!, goal: {...goal, description: e.target.value}})}
-                                      />
-                                  </div>
-
-                                  <div>
-                                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Actieplan</label>
-                                      <textarea 
-                                        rows={6}
-                                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
-                                        value={goal.actionPlan}
-                                        onChange={(e) => setManagingGoalData({...managingGoalData!, goal: {...goal, actionPlan: e.target.value}})}
-                                      />
-                                  </div>
-                              </div>
-                          )}
-
-                          {cockpitTab === 'planning' && (
-                              <div className="space-y-6 animate-in fade-in">
-                                  <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
-                                      <div>
-                                          <span className="text-xs font-bold text-slate-500 uppercase block">Deadline</span>
-                                          <input 
-                                            type="date" 
-                                            className="bg-transparent font-bold text-slate-900 border-none p-0 focus:ring-0 text-lg"
-                                            value={safeDateToInput(goal.deadline)}
-                                            onChange={(e) => {
-                                                const d = new Date(e.target.value);
-                                                if(!isNaN(d.getTime())) {
-                                                    setManagingGoalData({...managingGoalData!, goal: {...goal, deadline: d.toLocaleDateString('nl-NL')}});
-                                                }
-                                            }}
-                                          />
-                                      </div>
-                                      <button onClick={handleManualAddCheckIn} className="text-xs font-bold text-teal-600 bg-white border border-teal-200 px-4 py-2 rounded-lg hover:bg-teal-50 transition-colors shadow-sm flex items-center gap-2">
-                                          <Plus size={14}/> Extra Check-in
-                                      </button>
-                                  </div>
-
-                                  <div className="relative pl-6 space-y-8 before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
-                                      {goal.checkIns?.map((ci, idx) => (
-                                          <div key={ci.id} className="relative">
-                                              {/* Node */}
-                                              <div className={`absolute -left-[23px] top-4 w-4 h-4 rounded-full border-2 border-white shadow-sm z-10 ${ci.status === 'Completed' ? 'bg-green-500' : 'bg-slate-300'}`}></div>
-                                              
-                                              <div className="bg-slate-50 rounded-xl border border-slate-200 p-4 flex items-center gap-4 group hover:border-teal-300 transition-colors">
-                                                  <div className="flex flex-col items-center justify-center w-12 h-12 bg-white rounded-lg border border-slate-200 shadow-sm font-bold text-slate-700">
-                                                      <span className="text-xs uppercase text-slate-400">{idx + 1}</span>
-                                                  </div>
-                                                  <div className="flex-1">
-                                                      <div className="flex items-center gap-2 mb-1">
-                                                          <input 
-                                                              type="date"
-                                                              className="bg-transparent font-bold text-slate-900 text-sm border-none p-0 focus:ring-0 w-28"
-                                                              defaultValue={safeDateToInput(ci.date)}
-                                                              onChange={(e) => {
-                                                                  const date = new Date(e.target.value);
-                                                                  if (!isNaN(date.getTime())) {
-                                                                      const newDateStr = date.toLocaleDateString('nl-NL');
-                                                                      const newCheckIns = [...goal.checkIns];
-                                                                      newCheckIns[idx] = { ...ci, date: newDateStr };
-                                                                      setManagingGoalData({
-                                                                          ...managingGoalData!,
-                                                                          goal: { ...goal, checkIns: newCheckIns }
-                                                                      });
-                                                                  }
-                                                              }}
-                                                          />
-                                                          {ci.status === 'Completed' && <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold">VOLTOOID</span>}
-                                                      </div>
-                                                      <div className="text-xs text-slate-500">
-                                                          {ci.status === 'Completed' ? `Score: ${ci.score}%` : 'Nog niet uitgevoerd'}
-                                                      </div>
-                                                  </div>
-                                                  {ci.status !== 'Completed' && (
-                                                      <button onClick={() => handleDeleteCheckIn(ci.id)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100">
-                                                          <Trash2 size={18}/>
-                                                      </button>
-                                                  )}
-                                              </div>
-                                          </div>
-                                      ))}
-                                  </div>
-                              </div>
-                          )}
-
-                          {cockpitTab === 'resources' && (
-                              <div className="space-y-6 animate-in fade-in">
-                                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                                      <h4 className="font-bold text-slate-900 text-sm mb-4">Nieuwe bron toevoegen</h4>
-                                      <div className="flex gap-3">
-                                          <input 
-                                            type="text" 
-                                            placeholder="Titel (bv. Cursus PDF)" 
-                                            className="flex-1 p-2 rounded-lg border border-slate-300 text-sm"
-                                            value={newResource.title}
-                                            onChange={e => setNewResource({...newResource, title: e.target.value})}
-                                          />
-                                          <input 
-                                            type="text" 
-                                            placeholder="URL (https://...)" 
-                                            className="flex-1 p-2 rounded-lg border border-slate-300 text-sm"
-                                            value={newResource.url}
-                                            onChange={e => setNewResource({...newResource, url: e.target.value})}
-                                          />
+                                      
+                                      {isManager && (
                                           <button 
-                                            onClick={handleAddResource}
-                                            disabled={!newResource.title || !newResource.url}
-                                            className="px-4 bg-slate-900 text-white rounded-lg font-bold text-sm disabled:opacity-50 hover:bg-slate-800"
+                                            onClick={() => handleRemoveGoal(evaluation, goal.id)}
+                                            className="text-red-400 hover:text-red-600 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="Verwijder doel"
                                           >
-                                              Toevoegen
+                                              <Trash2 size={16}/>
                                           </button>
-                                      </div>
-                                  </div>
-
-                                  <div className="space-y-2">
-                                      {(goal.resources || []).map(res => (
-                                          <div key={res.id} className="flex items-center justify-between p-3 rounded-xl border border-slate-100 hover:border-slate-300 hover:shadow-sm transition-all group">
-                                              <div className="flex items-center gap-3">
-                                                  <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
-                                                      <LinkIcon size={16}/>
-                                                  </div>
-                                                  <a href={res.url} target="_blank" rel="noopener noreferrer" className="font-bold text-sm text-slate-700 hover:text-blue-600 hover:underline flex items-center gap-1">
-                                                      {res.title} <ExternalLink size={10} className="opacity-50"/>
-                                                  </a>
-                                              </div>
-                                              <button onClick={() => handleDeleteResource(res.id)} className="text-slate-300 hover:text-red-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                  <X size={16}/>
-                                              </button>
-                                          </div>
-                                      ))}
-                                      {(!goal.resources || goal.resources.length === 0) && (
-                                          <div className="text-center py-10 text-slate-400 italic text-sm">Nog geen bronnen toegevoegd.</div>
                                       )}
                                   </div>
                               </div>
+                          ))}
+                          
+                          {(evaluation.developmentPlan || []).length === 0 && (
+                              <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-xl">
+                                  <p className="text-slate-400 text-sm">Nog geen ontwikkeldoelen vastgelegd.</p>
+                              </div>
                           )}
                       </div>
-                  </div>
-
-                  {/* RIGHT COLUMN (1/3) */}
-                  <div className="space-y-6">
-                      
-                      {/* Budget Widget */}
-                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                          <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-                              <Wallet size={18} className="text-teal-600"/> Budget
-                          </h3>
-                          <div className="space-y-4">
-                              <div className="relative pt-2">
-                                  <div className="flex justify-between text-xs font-bold text-slate-500 mb-1">
-                                      <span>Besteed: €{spent}</span>
-                                      <span>Totaal: €{allocated}</span>
-                                  </div>
-                                  <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-                                      <div className={`h-full transition-all duration-1000 ${budgetPercent > 100 ? 'bg-red-500' : 'bg-teal-500'}`} style={{width: `${Math.min(100, budgetPercent)}%`}}></div>
-                                  </div>
-                              </div>
-
-                              <div className="grid grid-cols-2 gap-3">
-                                  <div>
-                                      <label className="text-[10px] font-bold text-slate-400 uppercase">Gealloceerd</label>
-                                      <div className="relative">
-                                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">€</span>
-                                          <input 
-                                            type="number" 
-                                            className="w-full pl-6 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold focus:ring-1 focus:ring-teal-500"
-                                            value={allocated}
-                                            onChange={e => handleBudgetChange('allocated', e.target.value)}
-                                          />
-                                      </div>
-                                  </div>
-                                  <div>
-                                      <label className="text-[10px] font-bold text-slate-400 uppercase">Besteed</label>
-                                      <div className="relative">
-                                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">€</span>
-                                          <input 
-                                            type="number" 
-                                            className="w-full pl-6 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold focus:ring-1 focus:ring-teal-500"
-                                            value={spent}
-                                            onChange={e => handleBudgetChange('spent', e.target.value)}
-                                          />
-                                      </div>
-                                  </div>
-                              </div>
-                          </div>
-                      </div>
-
-                      {/* Status Widget */}
-                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                          <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-                              <Settings size={18} className="text-slate-400"/> Instellingen
-                          </h3>
-                          <div className="space-y-4">
-                              <div>
-                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Status</label>
-                                  <select 
-                                    className="w-full p-2 border border-slate-200 rounded-lg text-sm font-bold"
-                                    value={goal.status}
-                                    onChange={(e) => setManagingGoalData({...managingGoalData!, goal: {...goal, status: e.target.value as any}})}
-                                  >
-                                      <option value="Not Started">Nog niet gestart</option>
-                                      <option value="In Progress">In Uitvoering</option>
-                                      <option value="Completed">Afgerond</option>
-                                  </select>
-                              </div>
-                              <div>
-                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Support Level</label>
-                                  <select 
-                                    className="w-full p-2 border border-slate-200 rounded-lg text-sm font-bold"
-                                    value={goal.supportLevel || 'Medium'}
-                                    onChange={(e) => setManagingGoalData({...managingGoalData!, goal: {...goal, supportLevel: e.target.value as any}})}
-                                  >
-                                      <option value="High">Intensief (High)</option>
-                                      <option value="Medium">Normaal (Medium)</option>
-                                      <option value="Low">Zelfstandig (Low)</option>
-                                  </select>
-                              </div>
-                          </div>
-                      </div>
-
-                      {/* Logbook Widget */}
-                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col h-full max-h-[400px]">
-                          <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-                              <Lock size={18} className="text-amber-500"/> Logboek
-                          </h3>
-                          <div className="bg-amber-50 rounded-lg p-2 text-xs text-amber-800 mb-2 border border-amber-100">
-                              Alleen zichtbaar voor management.
-                          </div>
-                          <textarea 
-                            className="flex-1 w-full p-3 border border-slate-200 rounded-xl text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none font-medium text-slate-600"
-                            placeholder="Notities over voortgang..."
-                            value={goal.managementNotes || ''}
-                            onChange={(e) => setManagingGoalData({...managingGoalData!, goal: {...goal, managementNotes: e.target.value}})}
-                          />
-                      </div>
-
-                      <button 
-                        onClick={handleDeleteGoal}
-                        className="w-full py-3 border border-red-100 bg-red-50 text-red-600 font-bold rounded-xl text-sm hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
-                      >
-                          <Trash2 size={16}/> Traject Verwijderen
-                      </button>
-
                   </div>
               </div>
           </div>
       );
   };
 
+  const renderTrajectoryCockpit = () => {
+      if (!managingGoalData) return null;
+      const { goal, employeeId } = managingGoalData;
+      const emp = employees.find(e => e.id === employeeId);
+      if (!emp) return null;
+
+      const spent = goal.budget?.spent || 0;
+      const allocated = goal.budget?.allocated || 0;
+      const budgetPercent = allocated > 0 ? (spent / allocated) * 100 : 0;
+
+      return (
+          <div className="animate-in slide-in-from-right-8 duration-500 h-full flex flex-col">
+              <div className="mb-6 flex items-center justify-between">
+                  <button onClick={handleBackToDashboard} className="flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-900 transition-colors">
+                      <ArrowLeft size={18} /> Terug naar overzicht
+                  </button>
+                  <div className="flex gap-3">
+                      <button onClick={handleDeleteGoal} className="px-4 py-2 border border-red-200 text-red-600 hover:bg-red-50 rounded-xl text-sm font-bold transition-colors">
+                          <Trash2 size={16} className="inline mr-2"/> Verwijderen
+                      </button>
+                      <button onClick={handleSaveGoalChanges} className="px-6 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-colors shadow-lg">
+                          <Save size={16} className="inline mr-2"/> Wijzigingen Opslaan
+                      </button>
+                  </div>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex-1 overflow-hidden flex flex-col">
+                  {/* Header */}
+                  <div className="p-8 border-b border-slate-100 bg-slate-50/50">
+                      <div className="flex justify-between items-start">
+                          <div className="flex items-center gap-4">
+                              <div className="w-16 h-16 bg-teal-50 rounded-2xl flex items-center justify-center text-teal-600 shadow-sm border border-teal-100">
+                                  <Target size={32} />
+                              </div>
+                              <div>
+                                  <h2 className="text-2xl font-bold text-slate-900">{goal.title}</h2>
+                                  <div className="flex items-center gap-4 mt-1 text-sm text-slate-500">
+                                      <span className="flex items-center gap-1"><User size={14}/> {emp.name}</span>
+                                      <span className="flex items-center gap-1"><Tag size={14}/> {goal.category}</span>
+                                      <span className="flex items-center gap-1"><Flag size={14}/> {goal.deadline}</span>
+                                  </div>
+                              </div>
+                          </div>
+                          <div className="text-right">
+                              <div className="text-3xl font-bold text-slate-900">{goal.progress}%</div>
+                              <div className="text-xs text-slate-400 font-bold uppercase tracking-wide">Voortgang</div>
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* Tabs */}
+                  <div className="border-b border-slate-100 px-8 flex gap-8 bg-white">
+                      {[
+                          { id: 'overview', label: 'Details', icon: LayoutDashboard },
+                          { id: 'planning', label: 'Check-ins', icon: Calendar },
+                          { id: 'budget', label: 'Budget', icon: Wallet },
+                          { id: 'resources', label: 'Bronnen', icon: LinkIcon },
+                      ].map(tab => (
+                          <button
+                            key={tab.id}
+                            onClick={() => setCockpitTab(tab.id as any)}
+                            className={`py-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
+                                cockpitTab === tab.id ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-700'
+                            }`}
+                          >
+                              <tab.icon size={16} /> {tab.label}
+                          </button>
+                      ))}
+                  </div>
+
+                  {/* Content */}
+                  <div className="p-8 overflow-y-auto flex-1 bg-slate-50/30">
+                      {cockpitTab === 'overview' && (
+                          <div className="max-w-3xl space-y-6">
+                              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Titel</label>
+                                  <input 
+                                    className="w-full border-b border-slate-200 pb-2 text-lg font-bold text-slate-900 focus:outline-none focus:border-teal-500 transition-colors"
+                                    value={managingGoalData.goal.title}
+                                    onChange={(e) => setManagingGoalData({...managingGoalData, goal: {...managingGoalData.goal, title: e.target.value}})}
+                                  />
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-6">
+                                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Deadline</label>
+                                      <input 
+                                        type="date"
+                                        className="w-full p-2 border border-slate-200 rounded-lg text-sm"
+                                        value={safeDateToInput(managingGoalData.goal.deadline)}
+                                        onChange={(e) => setManagingGoalData({...managingGoalData, goal: {...managingGoalData.goal, deadline: new Date(e.target.value).toLocaleDateString('nl-NL')}})}
+                                      />
+                                  </div>
+                                  <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Categorie</label>
+                                      <select 
+                                        className="w-full p-2 border border-slate-200 rounded-lg text-sm"
+                                        value={managingGoalData.goal.category}
+                                        onChange={(e) => setManagingGoalData({...managingGoalData, goal: {...managingGoalData.goal, category: e.target.value}})}
+                                      >
+                                          <option value="General">Algemeen</option>
+                                          <option value="Hard Skills">Hard Skills</option>
+                                          <option value="Soft Skills">Soft Skills</option>
+                                          <option value="Leadership">Leiderschap</option>
+                                      </select>
+                                  </div>
+                              </div>
+
+                              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Beschrijving</label>
+                                  <textarea 
+                                    className="w-full p-3 border border-slate-200 rounded-lg text-sm min-h-[100px]"
+                                    value={managingGoalData.goal.description}
+                                    onChange={(e) => setManagingGoalData({...managingGoalData, goal: {...managingGoalData.goal, description: e.target.value}})}
+                                  />
+                              </div>
+
+                              <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Actieplan</label>
+                                  <textarea 
+                                    className="w-full p-3 border border-slate-200 rounded-lg text-sm min-h-[150px]"
+                                    value={managingGoalData.goal.actionPlan}
+                                    onChange={(e) => setManagingGoalData({...managingGoalData, goal: {...managingGoalData.goal, actionPlan: e.target.value}})}
+                                  />
+                              </div>
+                          </div>
+                      )}
+
+                      {cockpitTab === 'planning' && (
+                          <div className="max-w-3xl">
+                              <div className="flex justify-between items-center mb-6">
+                                  <h3 className="font-bold text-slate-900">Check-in Planning</h3>
+                                  <button onClick={handleManualAddCheckIn} className="text-xs font-bold bg-white border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1">
+                                      <Plus size={14}/> Toevoegen
+                                  </button>
+                              </div>
+                              <div className="space-y-3">
+                                  {managingGoalData.goal.checkIns.map((ci, idx) => (
+                                      <div key={ci.id} className="bg-white p-4 rounded-xl border border-slate-200 flex items-center gap-4 group">
+                                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
+                                              ci.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'
+                                          }`}>
+                                              {idx + 1}
+                                          </div>
+                                          <div className="flex-1">
+                                              <div className="flex items-center gap-2">
+                                                  <input 
+                                                    type="date"
+                                                    className="font-bold text-sm bg-transparent border-b border-transparent hover:border-slate-300 focus:border-teal-500 focus:outline-none transition-colors"
+                                                    value={safeDateToInput(ci.date)}
+                                                    onChange={(e) => {
+                                                        const newDate = new Date(e.target.value).toLocaleDateString('nl-NL');
+                                                        const newCheckIns = [...managingGoalData.goal.checkIns];
+                                                        newCheckIns[idx] = { ...ci, date: newDate };
+                                                        // Keep array, sort later or let user manage
+                                                        setManagingGoalData({...managingGoalData, goal: {...managingGoalData.goal, checkIns: newCheckIns}});
+                                                    }}
+                                                  />
+                                                  <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${
+                                                      ci.status === 'Completed' ? 'bg-green-50 text-green-600' : 'bg-slate-100 text-slate-500'
+                                                  }`}>{ci.status}</span>
+                                              </div>
+                                              {ci.managerNotes && <p className="text-xs text-slate-500 mt-1 italic truncate">{ci.managerNotes}</p>}
+                                          </div>
+                                          {ci.status === 'Completed' && (
+                                              <div className="text-right">
+                                                  <span className="block text-xl font-bold text-slate-900">{ci.score}%</span>
+                                              </div>
+                                          )}
+                                          <button 
+                                            onClick={() => handleDeleteCheckIn(ci.id)}
+                                            className="p-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                                          >
+                                              <Trash2 size={16}/>
+                                          </button>
+                                      </div>
+                                  ))}
+                                  {managingGoalData.goal.checkIns.length === 0 && (
+                                      <div className="text-center py-8 text-slate-400 italic bg-white rounded-xl border border-dashed border-slate-200">
+                                          Geen check-ins gepland.
+                                      </div>
+                                  )}
+                              </div>
+                          </div>
+                      )}
+
+                      {cockpitTab === 'budget' && (
+                          <div className="max-w-2xl">
+                              <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm text-center mb-8">
+                                  <div className="relative w-40 h-40 mx-auto mb-6">
+                                      <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                          <path className="text-slate-100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                                          <path className={`transition-all duration-1000 ease-out ${budgetPercent > 100 ? 'text-red-500' : 'text-teal-500'}`} strokeDasharray={`${Math.min(budgetPercent, 100)}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                                      </svg>
+                                      <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                          <span className="text-3xl font-bold text-slate-900">{budgetPercent.toFixed(0)}%</span>
+                                          <span className="text-[10px] text-slate-400 uppercase font-bold">Verbruikt</span>
+                                      </div>
+                                  </div>
+                                  
+                                  <div className="grid grid-cols-2 gap-8 text-left">
+                                      <div>
+                                          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Budget (€)</label>
+                                          <input 
+                                            type="number"
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900"
+                                            value={allocated}
+                                            onChange={(e) => handleBudgetChange('allocated', e.target.value)}
+                                          />
+                                      </div>
+                                      <div>
+                                          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Besteed (€)</label>
+                                          <input 
+                                            type="number"
+                                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900"
+                                            value={spent}
+                                            onChange={(e) => handleBudgetChange('spent', e.target.value)}
+                                          />
+                                      </div>
+                                  </div>
+                              </div>
+                              
+                              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex gap-3 text-sm text-blue-800">
+                                  <Info size={20} className="shrink-0"/>
+                                  <p>Dit budget is specifiek toegewezen aan dit ontwikkeltraject (bijv. voor externe trainingen of materiaal).</p>
+                              </div>
+                          </div>
+                      )}
+
+                      {cockpitTab === 'resources' && (
+                          <div className="max-w-3xl">
+                              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-6">
+                                  <h4 className="font-bold text-slate-900 mb-4 text-sm uppercase">Nieuwe Bron Toevoegen</h4>
+                                  <div className="flex gap-4 mb-4">
+                                      <input 
+                                        className="flex-1 p-2 border border-slate-200 rounded-lg text-sm"
+                                        placeholder="Titel (bv. Cursus Materiaal)"
+                                        value={newResource.title}
+                                        onChange={(e) => setNewResource({...newResource, title: e.target.value})}
+                                      />
+                                      <input 
+                                        className="flex-1 p-2 border border-slate-200 rounded-lg text-sm"
+                                        placeholder="URL (https://...)"
+                                        value={newResource.url}
+                                        onChange={(e) => setNewResource({...newResource, url: e.target.value})}
+                                      />
+                                  </div>
+                                  <button 
+                                    onClick={handleAddResource}
+                                    disabled={!newResource.title || !newResource.url}
+                                    className="w-full py-2 bg-slate-100 text-slate-600 font-bold rounded-lg hover:bg-slate-200 disabled:opacity-50 transition-colors text-sm"
+                                  >
+                                      Toevoegen
+                                  </button>
+                              </div>
+
+                              <div className="space-y-3">
+                                  {(managingGoalData.goal.resources || []).map(res => (
+                                      <div key={res.id} className="bg-white p-4 rounded-xl border border-slate-200 flex justify-between items-center group">
+                                          <div className="flex items-center gap-3">
+                                              <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center">
+                                                  <LinkIcon size={20}/>
+                                              </div>
+                                              <div>
+                                                  <div className="font-bold text-slate-900">{res.title}</div>
+                                                  <a href={res.url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline flex items-center gap-1">
+                                                      {res.url} <ExternalLink size={10}/>
+                                                  </a>
+                                              </div>
+                                          </div>
+                                          <button 
+                                            onClick={() => handleDeleteResource(res.id)}
+                                            className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all p-2"
+                                          >
+                                              <Trash2 size={18}/>
+                                          </button>
+                                      </div>
+                                  ))}
+                                  {(managingGoalData.goal.resources || []).length === 0 && (
+                                      <div className="text-center py-10 text-slate-400 bg-white rounded-xl border border-dashed border-slate-200">
+                                          Nog geen bronnen toegevoegd.
+                                      </div>
+                                  )}
+                              </div>
+                          </div>
+                      )}
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
+  if (viewMode === 'trajectory-details') {
+      return (
+          <div className="p-6 h-[calc(100vh-80px)] w-full max-w-[2400px] mx-auto">
+              {renderTrajectoryCockpit()}
+          </div>
+      );
+  }
+
   return (
-    <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
-        {viewMode === 'trajectory-details' ? (
-            renderTrajectoryDashboard()
-        ) : (
-            selectedEvaluationId ? renderWizard() : renderDashboard()
-        )}
+    <div className="p-6 md:p-10 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
+      
+      {renderDashboard()}
 
-        <Modal
-            isOpen={isCreateModalOpen}
-            onClose={() => setIsCreateModalOpen(false)}
-            title="Nieuwe Evaluatie Starten"
-        >
-            <div className="space-y-6">
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Medewerker</label>
-                    <select 
-                        className="w-full rounded-xl border border-slate-200 p-3 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-teal-500"
-                        value={createEmployeeId}
-                        onChange={(e) => setCreateEmployeeId(e.target.value)}
-                    >
-                        <option value="">Selecteer medewerker...</option>
-                        {employees.filter(e => e.id !== currentUser.id).map(e => (
-                            <option key={e.id} value={e.id}>{e.name}</option>
-                        ))}
-                    </select>
-                </div>
-                <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Type Evaluatie</label>
-                    <select 
-                        className="w-full rounded-xl border border-slate-200 p-3 bg-slate-50 text-sm font-medium focus:ring-2 focus:ring-teal-500"
-                        value={createType}
-                        onChange={(e) => setCreateType(e.target.value as any)}
-                    >
-                        <option value="Month 1">Maand 1 Evaluatie</option>
-                        <option value="Month 3">Maand 3 Evaluatie</option>
-                        <option value="Annual">Jaarlijkse Beoordeling</option>
-                        <option value="Performance">Performance Review</option>
-                    </select>
-                </div>
-                <button 
-                    onClick={handleCreateEvaluation}
-                    disabled={!createEmployeeId}
-                    className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold shadow-md hover:bg-slate-800 transition-all disabled:opacity-50"
-                >
-                    Start Cyclus
-                </button>
-            </div>
-        </Modal>
+      {/* Create Evaluation Modal */}
+      <Modal 
+        isOpen={isCreateModalOpen} 
+        onClose={() => setIsCreateModalOpen(false)} 
+        title="Nieuwe Evaluatie Starten"
+      >
+          <div className="space-y-4">
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Medewerker</label>
+                  <select 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl"
+                    value={createEmployeeId}
+                    onChange={(e) => setCreateEmployeeId(e.target.value)}
+                  >
+                      <option value="">Selecteer medewerker...</option>
+                      {employees.filter(e => e.id !== currentUser.id).map(e => (
+                          <option key={e.id} value={e.id}>{e.name}</option>
+                      ))}
+                  </select>
+              </div>
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Type Gesprek</label>
+                  <select 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl"
+                    value={createType}
+                    onChange={(e) => setCreateType(e.target.value as any)}
+                  >
+                      <option value="Month 1">1 Maand Evaluatie</option>
+                      <option value="Month 3">3 Maanden Evaluatie</option>
+                      <option value="Annual">Jaargesprek</option>
+                      <option value="Performance">Beoordelingsgesprek</option>
+                  </select>
+              </div>
+              <button 
+                onClick={handleCreateEvaluation}
+                disabled={!createEmployeeId}
+                className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl disabled:opacity-50 hover:bg-slate-800 transition-colors mt-4"
+              >
+                  Start Cyclus
+              </button>
+          </div>
+      </Modal>
 
-        {/* Development Library Picker Modal */}
-        <Modal
-            isOpen={isLibraryModalOpen}
-            onClose={() => setIsLibraryModalOpen(false)}
-            title="Development Library"
-        >
-            <div className="max-h-[60vh] overflow-y-auto pr-2">
-                <p className="text-sm text-slate-500 mb-6">Selecteer een voorgeprogrammeerd ontwikkeldoel.</p>
-                <div className="space-y-4">
-                    {MOCK_DEVELOPMENT_LIBRARY.map(libItem => (
-                        <div 
-                            key={libItem.id} 
-                            onClick={() => {
-                                if (activeEvaluationData) {
-                                    handleAddFromLibrary(activeEvaluationData.evaluation, libItem);
-                                }
-                            }}
-                            className="p-4 rounded-xl border border-slate-200 hover:border-teal-500 hover:shadow-md cursor-pointer transition-all bg-white group"
-                        >
-                            <div className="flex justify-between items-start mb-2">
-                                <h4 className="font-bold text-slate-900 group-hover:text-teal-700">{libItem.title}</h4>
-                                <span className="text-[10px] font-bold bg-slate-100 px-2 py-0.5 rounded text-slate-500">{libItem.category}</span>
-                            </div>
-                            <p className="text-xs text-slate-500 line-clamp-2">{libItem.description}</p>
-                        </div>
-                    ))}
-                </div>
-            </div>
-        </Modal>
+      {/* Library Modal */}
+      <Modal
+        isOpen={isLibraryModalOpen}
+        onClose={() => setIsLibraryModalOpen(false)}
+        title="Ontwikkeldoelen Bibliotheek"
+      >
+          <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+              {MOCK_DEVELOPMENT_LIBRARY.map(item => (
+                  <div key={item.id} className="p-4 border border-slate-200 rounded-xl hover:border-teal-500 hover:shadow-md transition-all cursor-pointer bg-white group"
+                       onClick={() => activeEvaluationData && handleAddFromLibrary(activeEvaluationData.evaluation, item)}
+                  >
+                      <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-bold text-slate-900 group-hover:text-teal-700">{item.title}</h4>
+                          <span className="text-[10px] uppercase font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded">{item.category}</span>
+                      </div>
+                      <p className="text-xs text-slate-500 line-clamp-2">{item.description}</p>
+                  </div>
+              ))}
+              
+              <div className="border-t border-slate-100 pt-4 mt-4">
+                  <button 
+                    onClick={() => { setIsLibraryModalOpen(false); setShowPlanBuilder(true); setNewDevGoal({ title: '', category: 'General', actionPlan: '' }); setSupportLevel('Medium'); setPreviewSchedule([]); }}
+                    className="w-full py-3 border-2 border-dashed border-slate-300 text-slate-500 font-bold rounded-xl hover:border-teal-500 hover:text-teal-600 transition-colors flex items-center justify-center gap-2"
+                  >
+                      <Plus size={18}/> Eigen doel opstellen
+                  </button>
+              </div>
+          </div>
+      </Modal>
+
+      {/* Wizard Modal Overlay */}
+      {selectedEvaluationId && !viewMode.includes('trajectory') && (
+          <div className="fixed inset-0 z-50 bg-slate-100 overflow-y-auto animate-in slide-in-from-bottom-10 duration-300">
+              <div className="p-4 md:p-8">
+                  {renderWizard()}
+              </div>
+          </div>
+      )}
+
     </div>
   );
 };
