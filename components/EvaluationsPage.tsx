@@ -180,9 +180,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           isPinned: true
       };
       
-      // Send notification via API
-      await api.saveNotification(notification);
-      // Update local state if needed via callback
+      // Use the passed handler to ensure state update + API save
       onAddNotification(notification);
   };
 
@@ -305,7 +303,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           targetView: ViewState.EVALUATIONS,
           targetEmployeeId: employee.id
       };
-      await api.saveNotification(notification);
+      
       onAddNotification(notification);
 
       setIsAssignModalOpen(false);
@@ -320,7 +318,11 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           ev.id === evaluationId ? { ...ev, ...updates } : ev
       );
       const targetEval = updatedEvaluations.find(ev => ev.id === evaluationId);
-      onUpdateEmployee({ ...employee, evaluations: updatedEvaluations });
+      
+      // DEEP COPY to ensure React state update works reliably
+      const updatedEmployee = { ...employee, evaluations: updatedEvaluations };
+      
+      onUpdateEmployee(updatedEmployee);
       if (targetEval) api.saveEvaluation(targetEval);
   };
 
@@ -341,7 +343,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           targetEmployeeId: data.employee.id,
           isPinned: true
       };
-      api.saveNotification(notification);
       onAddNotification(notification);
   };
 
@@ -361,7 +362,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           read: false,
           targetView: ViewState.EVALUATIONS
       };
-      api.saveNotification(notification);
       onAddNotification(notification);
   };
 
@@ -381,7 +381,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           read: false,
           targetView: ViewState.EVALUATIONS
       };
-      api.saveNotification(notification);
       onAddNotification(notification);
   };
 

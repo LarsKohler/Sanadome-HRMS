@@ -49,12 +49,13 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
       setIsProcessing(true);
       setError('');
       try {
-          // Ensure we have a password set in the object
+          // FORCE accountStatus to 'Active' to ensure we exit the pending loop
           const updated = { 
               ...employee, 
-              password: password || employee.password || 'sanadome123', // Fallback only if absolutely necessary, though validation should prevent this
-              accountStatus: 'Active' as const
+              password: password || employee.password || 'sanadome123',
+              accountStatus: 'Active' as const 
           };
+          
           await onComplete(updated);
           // Success is handled by parent (unmounting this component)
       } catch (e: any) {

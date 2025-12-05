@@ -81,10 +81,19 @@ function App() {
   useEffect(() => {
       if (currentUser && employees.length > 0) {
           const freshUser = employees.find(e => e.id === currentUser.id);
-          // Only update if data has actually changed to prevent loops
-          if (freshUser && JSON.stringify(freshUser) !== JSON.stringify(currentUser)) {
-              setCurrentUser(freshUser);
-              localStorage.setItem('hrms_current_user', JSON.stringify(freshUser));
+          
+          if (freshUser) {
+              // PREVENT PENDING LOOP: 
+              // If local is Active but fresh is Pending (due to stale API fetch), DO NOT revert.
+              if (currentUser.accountStatus === 'Active' && freshUser.accountStatus === 'Pending') {
+                  return;
+              }
+
+              // Only update if data has actually changed to prevent loops
+              if (JSON.stringify(freshUser) !== JSON.stringify(currentUser)) {
+                  setCurrentUser(freshUser);
+                  localStorage.setItem('hrms_current_user', JSON.stringify(freshUser));
+              }
           }
       }
   }, [employees, currentUser]);
@@ -113,8 +122,9 @@ function App() {
   };
 
   const handleUpdateEmployee = (updatedEmployee: Employee) => {
-    // Optimistic Update
+    // Optimistic Update: Update list AND current user immediately
     setEmployees(prev => prev.map(emp => emp.id === updatedEmployee.id ? updatedEmployee : emp));
+    
     if (currentUser?.id === updatedEmployee.id) {
         setCurrentUser(updatedEmployee);
         localStorage.setItem('hrms_current_user', JSON.stringify(updatedEmployee));
@@ -135,6 +145,13 @@ function App() {
       setEmployees(prev => prev.filter(e => e.id !== id));
   };
 
+  const handleAddNotification = (notification: Notification) => {
+      // Optimistically update local state immediately
+      setNotifications(prev => [notification, ...prev]);
+      // Persist to API
+      api.saveNotification(notification);
+  };
+
   const handleRemoveNotification = (id: string) => {
       api.deleteNotification(id);
       setNotifications(prev => prev.filter(n => n.id !== id));
@@ -151,7 +168,9 @@ function App() {
 
   if (currentUser?.accountStatus === 'Pending') {
       return <WelcomeFlow employee={currentUser} onComplete={async (updated) => {
+          // Explicitly update both list and user state to break the Pending loop
           await handleUpdateEmployee(updated);
+          // Set current user explicitly to ensure re-render gets 'Active' status
           setCurrentUser(updated);
       }} />;
   }
@@ -164,7 +183,7 @@ function App() {
                   currentUser={currentUser!}
                   onUpdateEmployee={handleUpdateEmployee}
                   onChangeView={setCurrentView}
-                  onAddNotification={(n) => { api.saveNotification(n); }}
+                  onAddNotification={handleAddNotification}
                   onShowToast={handleShowToast}
                   onNext={() => {}} onPrevious={() => {}}
                   managers={employees.filter(e => e.role === 'Manager')}
@@ -186,7 +205,7 @@ function App() {
                   currentUser={currentUser!}
                   onUpdateEmployee={handleUpdateEmployee}
                   onChangeView={setCurrentView}
-                  onAddNotification={(n) => { api.saveNotification(n); }}
+                  onAddNotification={handleAddNotification}
                   onShowToast={handleShowToast}
                   onNext={() => {}} onPrevious={() => {}}
                   onBack={() => setCurrentView(ViewState.DIRECTORY)}
@@ -197,7 +216,7 @@ function App() {
                   employees={employees}
                   currentUser={currentUser!}
                   onUpdateEmployee={handleUpdateEmployee}
-                  onAddNotification={(n) => { api.saveNotification(n); }}
+                  onAddNotification={handleAddNotification}
                   onShowToast={handleShowToast}
                   selectedEmployeeId={selectedProfileId}
                   onSelectEmployee={setSelectedProfileId}
@@ -224,7 +243,7 @@ function App() {
                   employees={employees}
                   currentUser={currentUser!}
                   onUpdateEmployee={handleUpdateEmployee}
-                  onAddNotification={(n) => { api.saveNotification(n); }}
+                  onAddNotification={handleAddNotification}
                   onShowToast={handleShowToast}
               />;
           case ViewState.REPORTS:
@@ -257,7 +276,7 @@ function App() {
                   employees={employees}
                   onUpdateEmployee={handleUpdateEmployee}
                   onShowToast={handleShowToast}
-                  onAddNotification={(n) => { api.saveNotification(n); }}
+                  onAddNotification={handleAddNotification}
               />;
           case ViewState.LINEN_AUDIT:
               return <LinenAuditPage currentUser={currentUser!} onShowToast={handleShowToast} />;
@@ -268,7 +287,7 @@ function App() {
                   currentUser={currentUser!}
                   employees={employees}
                   onUpdateEmployee={handleUpdateEmployee}
-                  onAddNotification={(n) => api.saveNotification(n)}
+                  onAddNotification={handleAddNotification}
                   onShowToast={handleShowToast}
               />;
           case ViewState.RECRUITMENT:
