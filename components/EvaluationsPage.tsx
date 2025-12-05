@@ -1,15 +1,15 @@
-
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
     ClipboardCheck, Calendar, User, ArrowRight, CheckCircle2, 
     MessageSquare, Star, Lock, Unlock, TrendingUp, TrendingDown, 
     MoreVertical, Clock, Check, AlertCircle, Search, Filter, PenTool,
-    ChevronRight, LayoutDashboard, History, Plus
+    ChevronRight, LayoutDashboard, History, Plus, Trash2, Edit2, Settings, AlertTriangle
 } from 'lucide-react';
 import { Employee, EvaluationCycle, Notification, ViewState, EvaluationStatus } from '../types';
 import { EVALUATION_TEMPLATES } from '../utils/mockData';
 import { hasPermission } from '../utils/permissions';
 import { api } from '../utils/api';
+import { Modal } from './Modal';
 
 interface EvaluationsPageProps {
   currentUser: Employee;
@@ -63,8 +63,31 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   const [activeTab, setActiveTab] = useState<'active' | 'planning' | 'archive'>('active');
   const [selectedEvaluationId, setSelectedEvaluationId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Management State
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const settingsMenuRef = useRef<HTMLDivElement>(null);
+  
+  // Edit Modal State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editFormData, setEditFormData] = useState<{
+      id: string;
+      type: string;
+      plannedDate: string;
+      status: EvaluationStatus;
+  } | null>(null);
 
   const isManager = hasPermission(currentUser, 'MANAGE_EVALUATIONS');
+
+  useEffect(() => {
+      const handleClickOutside = (event: MouseEvent) => {
+          if (settingsMenuRef.current && !settingsMenuRef.current.contains(event.target as Node)) {
+              setShowSettingsMenu(false);
+          }
+      };
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // --- DATA PREPARATION ---
 
@@ -120,6 +143,63 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           api.saveEvaluation(targetEval);
       }
   };
+
+  // --- MANAGEMENT ACTIONS ---
+
+  const handleDeleteEvaluation = async () => {
+      if (!selectedData || !isManager) return;
+      
+      if (confirm(`Weet je zeker dat je de evaluatie van ${selectedData.employee.name} definitief wilt verwijderen? Dit kan niet ongedaan gemaakt worden.`)) {
+          const { evaluation, employee } = selectedData;
+          
+          // Remove from local state
+          const updatedEvaluations = (employee.evaluations || []).filter(ev => ev.id !== evaluation.id);
+          const updatedEmployee = { ...employee, evaluations: updatedEvaluations };
+          
+          // Optimistic update
+          onUpdateEmployee(updatedEmployee);
+          setSelectedEvaluationId(null);
+          setShowSettingsMenu(false);
+          
+          // Delete from DB
+          await api.deleteEvaluation(evaluation.id);
+          onShowToast("Evaluatie succesvol verwijderd.");
+      }
+  };
+
+  const handleEditOpen = () => {
+      if (!selectedData) return;
+      // Convert NL date to Input Date format (YYYY-MM-DD)
+      const dateObj = parseNLDate(selectedData.evaluation.plannedDate || selectedData.evaluation.createdAt);
+      const isoDate = dateObj.toISOString().split('T')[0];
+
+      setEditFormData({
+          id: selectedData.evaluation.id,
+          type: selectedData.evaluation.type,
+          plannedDate: isoDate,
+          status: selectedData.evaluation.status
+      });
+      setIsEditModalOpen(true);
+      setShowSettingsMenu(false);
+  };
+
+  const handleSaveEdit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!selectedData || !editFormData) return;
+
+      const formattedDate = new Date(editFormData.plannedDate).toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+      updateEvaluation(selectedData.employee, editFormData.id, {
+          type: editFormData.type as any,
+          plannedDate: formattedDate,
+          status: editFormData.status
+      });
+
+      setIsEditModalOpen(false);
+      onShowToast("Evaluatie details bijgewerkt.");
+  };
+
+  // --- WORKFLOW ACTIONS ---
 
   const handleStartEarly = (data: { evaluation: EvaluationCycle, employee: Employee }) => {
       updateEvaluation(data.employee, data.evaluation.id, { status: 'EmployeeInput' });
@@ -324,8 +404,8 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                           </div>
                       </div>
                       
-                      {/* Workflow Actions */}
-                      <div className="flex gap-3">
+                      {/* Workflow & Management Actions */}
+                      <div className="flex gap-3 items-center">
                           {evaluation.status === 'Planned' && isManager && (
                               <button 
                                 onClick={() => handleStartEarly(selectedData)}
@@ -360,6 +440,34 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                               >
                                   <CheckCircle2 size={16}/> Ondertekenen & Afronden
                               </button>
+                          )}
+
+                          {/* MANAGER DROPDOWN */}
+                          {isManager && (
+                              <div className="relative ml-2" ref={settingsMenuRef}>
+                                  <button 
+                                    onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+                                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                                  >
+                                      <MoreVertical size={20} />
+                                  </button>
+                                  {showSettingsMenu && (
+                                      <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                          <button 
+                                            onClick={handleEditOpen}
+                                            className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                                          >
+                                              <Edit2 size={14}/> Details Bewerken
+                                          </button>
+                                          <button 
+                                            onClick={handleDeleteEvaluation}
+                                            className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-slate-50"
+                                          >
+                                              <Trash2 size={14}/> Verwijderen
+                                          </button>
+                                      </div>
+                                  )}
+                              </div>
                           )}
                       </div>
                   </div>
@@ -638,6 +746,68 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
         <div className="flex-1 overflow-hidden">
             {renderDetailView()}
         </div>
+
+        {/* EDIT MODAL */}
+        <Modal 
+            isOpen={isEditModalOpen} 
+            onClose={() => setIsEditModalOpen(false)} 
+            title="Evaluatie Details Bewerken"
+        >
+            {editFormData && (
+                <form onSubmit={handleSaveEdit} className="space-y-6">
+                    <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 flex items-start gap-3 text-amber-800 text-sm">
+                        <AlertTriangle className="shrink-0 mt-0.5" size={18} />
+                        <p>Let op: Het handmatig wijzigen van de status kan de workflow verstoren. Gebruik dit alleen indien nodig.</p>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Datum</label>
+                        <input 
+                            type="date" 
+                            required
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900"
+                            value={editFormData.plannedDate}
+                            onChange={(e) => setEditFormData({...editFormData, plannedDate: e.target.value})}
+                        />
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Type</label>
+                        <select
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900"
+                            value={editFormData.type}
+                            onChange={(e) => setEditFormData({...editFormData, type: e.target.value})}
+                        >
+                            <option value="Quarterly">Kwartaal Evaluatie</option>
+                            <option value="Annual">Jaarlijkse Beoordeling</option>
+                            <option value="Month 1">Maand 1</option>
+                            <option value="Month 3">Maand 3</option>
+                            <option value="Performance">Performance Review</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Status (Force Override)</label>
+                        <select
+                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900"
+                            value={editFormData.status}
+                            onChange={(e) => setEditFormData({...editFormData, status: e.target.value as EvaluationStatus})}
+                        >
+                            <option value="Planned">Planned (Ingepland)</option>
+                            <option value="EmployeeInput">EmployeeInput (Zelfreflectie)</option>
+                            <option value="ManagerInput">ManagerInput (Beoordeling)</option>
+                            <option value="Review">Review (Bespreking)</option>
+                            <option value="Signed">Signed (Afgerond)</option>
+                            <option value="Archived">Archived (Gearchiveerd)</option>
+                        </select>
+                    </div>
+
+                    <button type="submit" className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors">
+                        Opslaan
+                    </button>
+                </form>
+            )}
+        </Modal>
     </div>
   );
 };

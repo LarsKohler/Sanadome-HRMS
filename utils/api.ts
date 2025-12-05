@@ -167,6 +167,17 @@ export const api = {
       }
   },
 
+  // NEW: Delete Evaluation
+  deleteEvaluation: async (id: string) => {
+      if (isLive && supabase) {
+          try {
+              await supabase.from('evaluations').delete().eq('id', id);
+          } catch (e) {
+              console.error("Error deleting evaluation:", e);
+          }
+      }
+  },
+
   deleteEmployee: async (id: string) => { if (isLive && supabase) { await supabase.rpc('admin_delete_user', { target_user_id: id }); } else { const current = storage.getEmployees(); const filtered = current.filter(e => e.id !== id); storage.saveEmployees(filtered); } },
   getBadges: async () => { const local = localStorage.getItem('hrms_badges'); return local ? JSON.parse(local) : MOCK_BADGES; },
   saveBadge: async (badge: BadgeDefinition) => { const current = await api.getBadges(); const index = current.findIndex(b => b.id === badge.id); if (index >= 0) current[index] = badge; else current.push(badge); localStorage.setItem('hrms_badges', JSON.stringify(current)); },
