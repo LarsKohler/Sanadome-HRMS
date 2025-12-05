@@ -1,7 +1,8 @@
+
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, BadgeDefinition, KnowledgeArticle, Applicant, Ticket, EvaluationCycle } from '../types';
-import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_BADGES, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_TICKETS } from './mockData';
+import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, BadgeDefinition, KnowledgeArticle, Applicant, Ticket, EvaluationCycle, EvaluationTemplate } from '../types';
+import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_BADGES, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_TICKETS, MOCK_EVALUATION_TEMPLATES } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
 export const isLive = !!supabase;
@@ -175,6 +176,45 @@ export const api = {
           } catch (e) {
               console.error("Error deleting evaluation:", e);
           }
+      }
+  },
+
+  // NEW: Evaluation Templates Logic
+  getEvaluationTemplates: async (): Promise<EvaluationTemplate[]> => {
+      if (isLive && supabase) {
+          // Assuming a table 'evaluation_templates' exists, otherwise fallback or create
+          try {
+              const { data, error } = await supabase.from('evaluation_templates').select('data');
+              if (!error && data && data.length > 0) return data.map((row: any) => row.data);
+              // Fallback if table empty
+              return MOCK_EVALUATION_TEMPLATES;
+          } catch (e) {
+              return MOCK_EVALUATION_TEMPLATES;
+          }
+      }
+      const local = localStorage.getItem('hrms_evaluation_templates');
+      return local ? JSON.parse(local) : MOCK_EVALUATION_TEMPLATES;
+  },
+
+  saveEvaluationTemplate: async (template: EvaluationTemplate) => {
+      if (isLive && supabase) {
+          await supabase.from('evaluation_templates').upsert({ id: template.id, data: template });
+      } else {
+          const current = await api.getEvaluationTemplates();
+          const index = current.findIndex(t => t.id === template.id);
+          if (index >= 0) current[index] = template;
+          else current.push(template);
+          localStorage.setItem('hrms_evaluation_templates', JSON.stringify(current));
+      }
+  },
+
+  deleteEvaluationTemplate: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('evaluation_templates').delete().eq('id', id);
+      } else {
+          const current = await api.getEvaluationTemplates();
+          const filtered = current.filter(t => t.id !== id);
+          localStorage.setItem('hrms_evaluation_templates', JSON.stringify(filtered));
       }
   },
 

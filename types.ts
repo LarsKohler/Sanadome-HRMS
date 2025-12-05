@@ -234,6 +234,23 @@ export interface OnboardingTemplate {
 // --- EVALUATIONS ---
 export type EvaluationStatus = 'Planned' | 'EmployeeInput' | 'ManagerInput' | 'Review' | 'Signed' | 'Archived';
 
+// NEW: Evaluation Template Structure
+export interface EvaluationTemplateSection {
+    id: string;
+    title: string;
+    description?: string;
+    questions: { id: string; text: string; description?: string }[];
+}
+
+export interface EvaluationTemplate {
+    id: string;
+    title: string;
+    description: string;
+    sections: EvaluationTemplateSection[];
+    createdAt: string;
+    updatedAt: string;
+}
+
 export interface EvaluationScore {
     category: string;
     topic: string;
@@ -244,7 +261,6 @@ export interface EvaluationScore {
 }
 
 export interface EvaluationGoal {
-    // Deprecated in favor of PersonalDevelopmentGoal, kept for legacy if needed or simplified goals within eval
     id: string;
     description: string;
 }
@@ -304,7 +320,8 @@ export interface EvaluationCycle {
     id: string;
     employeeId: string;
     managerId: string;
-    type: 'Month 1' | 'Month 3' | 'Annual' | 'Performance' | 'Quarterly';
+    type: string; // Changed from literal to string to support custom templates
+    templateId?: string; // Reference to the template used
     status: EvaluationStatus;
     createdAt: string;
     plannedDate?: string; 

@@ -4,10 +4,9 @@ import {
     ClipboardCheck, Calendar, User, ArrowRight, CheckCircle2, 
     MessageSquare, Star, Lock, Unlock, TrendingUp, TrendingDown, 
     MoreVertical, Clock, Check, AlertCircle, Search, Filter, PenTool,
-    ChevronRight, LayoutDashboard, History, Plus, Trash2, Edit2, Settings, AlertTriangle
+    ChevronRight, LayoutDashboard, History, Plus, Trash2, Edit2, Settings, AlertTriangle, FileText, Printer, Save, Copy
 } from 'lucide-react';
-import { Employee, EvaluationCycle, Notification, ViewState, EvaluationStatus } from '../types';
-import { EVALUATION_TEMPLATES } from '../utils/mockData';
+import { Employee, EvaluationCycle, Notification, ViewState, EvaluationStatus, EvaluationTemplate, EvaluationTemplateSection } from '../types';
 import { hasPermission } from '../utils/permissions';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
@@ -61,7 +60,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   onAddNotification,
   onShowToast
 }) => {
-  const [activeTab, setActiveTab] = useState<'active' | 'planning' | 'archive'>('active');
+  const [activeTab, setActiveTab] = useState<'active' | 'planning' | 'templates' | 'archive'>('active');
   const [selectedEvaluationId, setSelectedEvaluationId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
@@ -69,7 +68,16 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const settingsMenuRef = useRef<HTMLDivElement>(null);
   
-  // Edit Modal State
+  // Template State
+  const [templates, setTemplates] = useState<EvaluationTemplate[]>([]);
+  const [editingTemplate, setEditingTemplate] = useState<EvaluationTemplate | null>(null);
+  const [isTemplateModalOpen, setIsTemplateModalOpen] = useState(false);
+
+  // Assignment Modal
+  const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
+  const [assignForm, setAssignForm] = useState({ employeeId: '', templateId: '', date: '' });
+
+  // Edit Evaluation Meta Modal
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editFormData, setEditFormData] = useState<{
       id: string;
@@ -79,6 +87,15 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   } | null>(null);
 
   const isManager = hasPermission(currentUser, 'MANAGE_EVALUATIONS');
+
+  useEffect(() => {
+      loadTemplates();
+  }, []);
+
+  const loadTemplates = async () => {
+      const data = await api.getEvaluationTemplates();
+      setTemplates(data);
+  };
 
   useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
@@ -102,7 +119,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           }
       });
       return list.sort((a, b) => {
-          // Sort by date descending usually, but for planning ascending
           const dateA = parseNLDate(a.evaluation.plannedDate || a.evaluation.createdAt);
           const dateB = parseNLDate(b.evaluation.plannedDate || b.evaluation.createdAt);
           return dateB.getTime() - dateA.getTime();
@@ -117,8 +133,8 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
           if (activeTab === 'planning') return evaluation.status === 'Planned';
           if (activeTab === 'archive') return evaluation.status === 'Signed' || evaluation.status === 'Archived';
-          // Active
-          return ['EmployeeInput', 'ManagerInput', 'Review'].includes(evaluation.status);
+          if (activeTab === 'active') return ['EmployeeInput', 'ManagerInput', 'Review'].includes(evaluation.status);
+          return false;
       });
   }, [allEvaluations, activeTab, searchTerm]);
 
@@ -127,88 +143,131 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       return allEvaluations.find(i => i.evaluation.id === selectedEvaluationId);
   }, [selectedEvaluationId, allEvaluations]);
 
-  // --- ACTIONS ---
+  // --- TEMPLATE MANAGEMENT ---
+
+  const handleCreateTemplate = () => {
+      const newTemplate: EvaluationTemplate = {
+          id: crypto.randomUUID(),
+          title: 'Nieuw Evaluatie Formulier',
+          description: '',
+          sections: [
+              { id: crypto.randomUUID(), title: 'Algemene Vaardigheden', questions: [{ id: crypto.randomUUID(), text: 'Vraag 1' }] }
+          ],
+          createdAt: new Date().toLocaleDateString('nl-NL'),
+          updatedAt: new Date().toLocaleDateString('nl-NL')
+      };
+      setEditingTemplate(newTemplate);
+      setIsTemplateModalOpen(true);
+  };
+
+  const handleSaveTemplate = async () => {
+      if (!editingTemplate) return;
+      await api.saveEvaluationTemplate(editingTemplate);
+      await loadTemplates();
+      setIsTemplateModalOpen(false);
+      onShowToast("Template opgeslagen.");
+  };
+
+  const handleDeleteTemplate = async (id: string) => {
+      if (confirm("Weet je zeker dat je dit template wilt verwijderen?")) {
+          await api.deleteEvaluationTemplate(id);
+          await loadTemplates();
+          onShowToast("Template verwijderd.");
+      }
+  };
+
+  const updateTemplateSection = (idx: number, field: string, value: any) => {
+      if (!editingTemplate) return;
+      const sections = [...editingTemplate.sections];
+      sections[idx] = { ...sections[idx], [field]: value };
+      setEditingTemplate({ ...editingTemplate, sections });
+  };
+
+  const addTemplateSection = () => {
+      if (!editingTemplate) return;
+      setEditingTemplate({
+          ...editingTemplate,
+          sections: [...editingTemplate.sections, { id: crypto.randomUUID(), title: 'Nieuwe Sectie', questions: [] }]
+      });
+  };
+
+  const addTemplateQuestion = (sectionIdx: number) => {
+      if (!editingTemplate) return;
+      const sections = [...editingTemplate.sections];
+      sections[sectionIdx].questions.push({ id: crypto.randomUUID(), text: 'Nieuwe vraag' });
+      setEditingTemplate({ ...editingTemplate, sections });
+  };
+
+  const updateTemplateQuestion = (sectionIdx: number, qIdx: number, text: string) => {
+      if (!editingTemplate) return;
+      const sections = [...editingTemplate.sections];
+      sections[sectionIdx].questions[qIdx].text = text;
+      setEditingTemplate({ ...editingTemplate, sections });
+  };
+
+  // --- ASSIGNMENT LOGIC ---
+
+  const handleAssignEvaluation = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!assignForm.employeeId || !assignForm.templateId || !assignForm.date) return;
+
+      const template = templates.find(t => t.id === assignForm.templateId);
+      const employee = employees.find(emp => emp.id === assignForm.employeeId);
+      
+      if (!template || !employee) return;
+
+      // Transform Template to Scores
+      const scores = [];
+      template.sections.forEach(section => {
+          section.questions.forEach(q => {
+              scores.push({
+                  category: section.title,
+                  topic: q.text,
+                  employeeScore: 0,
+                  managerScore: 0
+              });
+          });
+      });
+
+      const newEvaluation: EvaluationCycle = {
+          id: crypto.randomUUID(),
+          employeeId: employee.id,
+          managerId: currentUser.id,
+          type: template.title, // Store title for display
+          templateId: template.id,
+          status: 'Planned',
+          createdAt: new Date().toLocaleDateString('nl-NL'),
+          plannedDate: new Date(assignForm.date).toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+          scores: scores,
+          goals: [],
+          signatures: [],
+          developmentPlan: []
+      };
+
+      // Save
+      await api.saveEvaluation(newEvaluation);
+      const updatedEvals = [...(employee.evaluations || []), newEvaluation];
+      onUpdateEmployee({ ...employee, evaluations: updatedEvals });
+
+      setIsAssignModalOpen(false);
+      onShowToast("Evaluatie ingepland!");
+      setAssignForm({ employeeId: '', templateId: '', date: '' });
+  };
+
+  // --- EXISTING LOGIC (UPDATED) ---
 
   const updateEvaluation = (employee: Employee, evaluationId: string, updates: Partial<EvaluationCycle>) => {
       const updatedEvaluations = (employee.evaluations || []).map(ev => 
           ev.id === evaluationId ? { ...ev, ...updates } : ev
       );
-      
       const targetEval = updatedEvaluations.find(ev => ev.id === evaluationId);
-      
-      // Update locally for smooth UI - Ensure we pass a full fresh object
       onUpdateEmployee({ ...employee, evaluations: updatedEvaluations });
-      
-      // Persist directly to DB table
-      if (targetEval) {
-          api.saveEvaluation(targetEval);
-      }
+      if (targetEval) api.saveEvaluation(targetEval);
   };
-
-  // --- MANAGEMENT ACTIONS ---
-
-  const handleDeleteEvaluation = async () => {
-      if (!selectedData || !isManager) return;
-      
-      if (confirm(`Weet je zeker dat je de evaluatie van ${selectedData.employee.name} definitief wilt verwijderen? Dit kan niet ongedaan gemaakt worden.`)) {
-          const { evaluation, employee } = selectedData;
-          
-          // Remove from local state
-          const updatedEvaluations = (employee.evaluations || []).filter(ev => ev.id !== evaluation.id);
-          const updatedEmployee = { ...employee, evaluations: updatedEvaluations };
-          
-          // Optimistic update
-          onUpdateEmployee(updatedEmployee);
-          setSelectedEvaluationId(null);
-          setShowSettingsMenu(false);
-          
-          // Delete from DB
-          await api.deleteEvaluation(evaluation.id);
-          onShowToast("Evaluatie succesvol verwijderd.");
-      }
-  };
-
-  const handleEditOpen = () => {
-      if (!selectedData) return;
-      // Convert NL date to Input Date format (YYYY-MM-DD)
-      const dateObj = parseNLDate(selectedData.evaluation.plannedDate || selectedData.evaluation.createdAt);
-      // Fallback if parsing failed
-      const safeDate = !isNaN(dateObj.getTime()) ? dateObj : new Date();
-      const isoDate = safeDate.toISOString().split('T')[0];
-
-      setEditFormData({
-          id: selectedData.evaluation.id,
-          type: selectedData.evaluation.type,
-          plannedDate: isoDate,
-          status: selectedData.evaluation.status
-      });
-      setIsEditModalOpen(true);
-      setShowSettingsMenu(false);
-  };
-
-  const handleSaveEdit = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!selectedData || !editFormData) return;
-
-      const formattedDate = new Date(editFormData.plannedDate).toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
-
-      updateEvaluation(selectedData.employee, editFormData.id, {
-          type: editFormData.type as any,
-          plannedDate: formattedDate,
-          status: editFormData.status
-      });
-
-      setIsEditModalOpen(false);
-      onShowToast("Evaluatie details bijgewerkt.");
-  };
-
-  // --- WORKFLOW ACTIONS ---
 
   const handleStartEarly = (data: { evaluation: EvaluationCycle, employee: Employee }) => {
-      // Force status update
       updateEvaluation(data.employee, data.evaluation.id, { status: 'EmployeeInput' });
       onShowToast("Evaluatie geopend. Medewerker heeft bericht ontvangen.");
-      
       onAddNotification({
           id: crypto.randomUUID(),
           recipientId: data.employee.id,
@@ -226,7 +285,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       if (!selectedData) return;
       updateEvaluation(selectedData.employee, selectedData.evaluation.id, { status: 'ManagerInput' });
       onShowToast("Zelfreflectie ingediend.");
-      
       onAddNotification({
           id: crypto.randomUUID(),
           recipientId: selectedData.evaluation.managerId,
@@ -244,7 +302,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       if (!selectedData) return;
       updateEvaluation(selectedData.employee, selectedData.evaluation.id, { status: 'Review' });
       onShowToast("Beoordeling opgeslagen. Klaar voor bespreking.");
-
       onAddNotification({
           id: crypto.randomUUID(),
           recipientId: selectedData.employee.id,
@@ -260,62 +317,19 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
   const handleSignOff = () => {
       if (!selectedData) return;
-      
-      // 1. Mark current as Signed
-      const completedDate = new Date();
-      
-      // Create new updated object
       const completedEval = { 
           ...selectedData.evaluation,
           status: 'Signed' as const,
-          completedAt: completedDate.toLocaleDateString('nl-NL')
+          completedAt: new Date().toLocaleDateString('nl-NL')
       };
-
-      // 2. Schedule NEXT cycle (+3 months)
-      let nextEvaluation: EvaluationCycle | null = null;
-      if (selectedData.evaluation.type === 'Quarterly' || selectedData.evaluation.type === 'Month 3') {
-          const nextDate = new Date();
-          nextDate.setMonth(nextDate.getMonth() + 3);
-          
-          nextEvaluation = {
-              id: crypto.randomUUID(),
-              employeeId: selectedData.employee.id,
-              managerId: currentUser.id,
-              type: 'Quarterly',
-              status: 'Planned',
-              createdAt: new Date().toLocaleDateString('nl-NL'),
-              plannedDate: nextDate.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' }),
-              scores: EVALUATION_TEMPLATES.FRONT_OFFICE.map(t => ({ ...t, employeeScore: 0, managerScore: 0 })),
-              goals: [],
-              signatures: [],
-              developmentPlan: []
-          };
-      }
-
-      // Update Local State
+      
       const updatedEvals = (selectedData.employee.evaluations || []).map(ev => 
           ev.id === selectedData.evaluation.id ? completedEval : ev
       );
-      if (nextEvaluation) updatedEvals.push(nextEvaluation);
-
-      const updatedEmployee = {
-          ...selectedData.employee,
-          evaluations: updatedEvals
-      };
       
-      onUpdateEmployee(updatedEmployee);
-      
-      // PERSIST DIRECTLY
+      onUpdateEmployee({ ...selectedData.employee, evaluations: updatedEvals });
       api.saveEvaluation(completedEval);
-      if (nextEvaluation) api.saveEvaluation(nextEvaluation);
-
-      if (nextEvaluation) {
-          onShowToast("Evaluatie afgerond. De volgende cyclus is automatisch gepland.");
-      } else {
-          onShowToast("Evaluatie afgerond.");
-      }
-      
-      setSelectedEvaluationId(null);
+      onShowToast("Evaluatie afgerond en gearchiveerd.");
   };
 
   const handleScoreChange = (index: number, field: string, value: any) => {
@@ -330,76 +344,198 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       updateEvaluation(selectedData.employee, selectedData.evaluation.id, { [field]: value });
   };
 
-  // --- RENDER HELPERS ---
+  // --- VIEWS ---
 
-  const renderSidebarItem = (item: { evaluation: EvaluationCycle, employee: Employee }) => {
-      const { evaluation, employee } = item;
-      const isSelected = selectedEvaluationId === evaluation.id;
-      const isPlanned = evaluation.status === 'Planned';
-      
-      let dateLabel = evaluation.createdAt;
-      if (isPlanned && evaluation.plannedDate) dateLabel = `Gepland: ${evaluation.plannedDate}`;
-      
-      return (
-          <div 
-            key={evaluation.id}
-            onClick={() => setSelectedEvaluationId(evaluation.id)}
-            className={`p-4 border-b border-slate-100 cursor-pointer transition-colors hover:bg-slate-50 ${isSelected ? 'bg-blue-50/50 border-l-4 border-l-blue-500' : 'border-l-4 border-l-transparent'}`}
-          >
-              <div className="flex justify-between items-start mb-1">
-                  <span className="font-bold text-slate-900 text-sm">{employee.name}</span>
-                  {isPlanned && (
-                      <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full uppercase tracking-wide">
-                          {evaluation.type}
-                      </span>
-                  )}
+  const renderTemplates = () => (
+      <div className="p-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div 
+                onClick={handleCreateTemplate}
+                className="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-8 flex flex-col items-center justify-center cursor-pointer hover:border-teal-500 hover:bg-teal-50/20 transition-all min-h-[250px]"
+              >
+                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 mb-4">
+                      <Plus size={32} />
+                  </div>
+                  <h3 className="font-bold text-slate-600">Nieuw Template</h3>
               </div>
-              <div className="flex justify-between items-center text-xs">
-                  <span className="text-slate-500">{dateLabel}</span>
-                  {!isPlanned && (
-                      <span className={`px-2 py-0.5 rounded-md font-bold uppercase tracking-wider text-[10px] ${
-                          evaluation.status === 'EmployeeInput' ? 'bg-amber-100 text-amber-700' :
-                          evaluation.status === 'ManagerInput' ? 'bg-purple-100 text-purple-700' :
-                          evaluation.status === 'Review' ? 'bg-blue-100 text-blue-700' :
-                          'bg-green-100 text-green-700'
-                      }`}>
-                          {getStatusLabel(evaluation.status)}
-                      </span>
-                  )}
+              {templates.map(tpl => (
+                  <div key={tpl.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col">
+                      <div className="flex justify-between items-start mb-4">
+                          <div className="p-2 bg-teal-50 text-teal-600 rounded-lg">
+                              <ClipboardCheck size={24} />
+                          </div>
+                          <button onClick={() => handleDeleteTemplate(tpl.id)} className="text-slate-400 hover:text-red-500 p-2"><Trash2 size={16}/></button>
+                      </div>
+                      <h3 className="font-bold text-slate-900 text-lg mb-2">{tpl.title}</h3>
+                      <p className="text-sm text-slate-500 mb-6 line-clamp-2">{tpl.description || 'Geen beschrijving'}</p>
+                      <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center">
+                          <span className="text-xs font-bold text-slate-400 uppercase">{tpl.sections.length} Secties</span>
+                          <button 
+                            onClick={() => { setEditingTemplate(tpl); setIsTemplateModalOpen(true); }}
+                            className="text-sm font-bold text-teal-600 hover:underline flex items-center gap-1"
+                          >
+                              <Edit2 size={14}/> Bewerken
+                          </button>
+                      </div>
+                  </div>
+              ))}
+          </div>
+      </div>
+  );
+
+  const renderReportView = (data: { evaluation: EvaluationCycle, employee: Employee }) => {
+      const { evaluation, employee } = data;
+      
+      const totalScore = evaluation.scores.reduce((acc, s) => acc + (s.managerScore || 0), 0);
+      const maxScore = evaluation.scores.length * 5;
+      const percentage = Math.round((totalScore / maxScore) * 100);
+
+      return (
+          <div className="h-full bg-slate-50 p-8 overflow-y-auto">
+              <div className="max-w-4xl mx-auto bg-white rounded-none md:rounded-2xl shadow-lg print:shadow-none print:w-full overflow-hidden">
+                  
+                  {/* Report Header */}
+                  <div className="p-8 border-b-4 border-teal-600 bg-slate-50 flex justify-between items-start print:bg-white">
+                      <div>
+                          <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight mb-2">Evaluatie Rapport</h1>
+                          <p className="text-slate-500 text-sm font-medium">{evaluation.type}</p>
+                      </div>
+                      <div className="text-right">
+                          <div className="text-sm font-bold text-slate-900">{employee.name}</div>
+                          <div className="text-xs text-slate-500">{employee.role}</div>
+                          <div className="mt-2 text-xs font-mono text-slate-400">Ref: {evaluation.id.slice(0,8)}</div>
+                      </div>
+                  </div>
+
+                  <div className="p-8">
+                      {/* Summary Stats */}
+                      <div className="grid grid-cols-3 gap-6 mb-10">
+                          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center">
+                              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Datum Afgerond</div>
+                              <div className="font-bold text-slate-900">{evaluation.completedAt || '-'}</div>
+                          </div>
+                          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center">
+                              <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Manager</div>
+                              <div className="font-bold text-slate-900">{currentUser.name}</div>
+                          </div>
+                          <div className="p-4 bg-teal-50 border border-teal-200 rounded-xl text-center">
+                              <div className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-1">Score</div>
+                              <div className="font-bold text-teal-800 text-xl">{percentage}% ({totalScore}/{maxScore})</div>
+                          </div>
+                      </div>
+
+                      {/* Scores List */}
+                      <div className="mb-10">
+                          <h3 className="font-bold text-slate-900 text-lg mb-4 border-b border-slate-200 pb-2">Competenties</h3>
+                          <div className="space-y-6">
+                              {evaluation.scores.map((score, idx) => (
+                                  <div key={idx} className="flex gap-4 items-start">
+                                      <div className="w-1/3">
+                                          <div className="text-xs font-bold text-slate-400 uppercase">{score.category}</div>
+                                          <div className="font-bold text-slate-800">{score.topic}</div>
+                                      </div>
+                                      <div className="flex-1">
+                                          <div className="flex items-center gap-2 mb-1">
+                                              <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+                                                  <div 
+                                                    className={`h-full ${score.managerScore >= 4 ? 'bg-green-500' : score.managerScore === 3 ? 'bg-amber-400' : 'bg-red-400'}`} 
+                                                    style={{width: `${(score.managerScore / 5) * 100}%`}}
+                                                  ></div>
+                                              </div>
+                                              <span className="font-bold text-slate-900 w-6 text-right">{score.managerScore}</span>
+                                          </div>
+                                          {score.managerComment && (
+                                              <p className="text-xs text-slate-500 italic bg-slate-50 p-2 rounded">
+                                                  "{score.managerComment}"
+                                              </p>
+                                          )}
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      </div>
+
+                      {/* Feedback Sections */}
+                      <div className="grid grid-cols-2 gap-8 mb-10">
+                          <div>
+                              <h3 className="font-bold text-slate-900 mb-3 border-b border-slate-200 pb-2 flex items-center gap-2"><TrendingUp size={16} className="text-green-600"/> Successen</h3>
+                              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{evaluation.managerWins || evaluation.employeeWins || 'Geen input.'}</p>
+                          </div>
+                          <div>
+                              <h3 className="font-bold text-slate-900 mb-3 border-b border-slate-200 pb-2 flex items-center gap-2"><TrendingDown size={16} className="text-amber-600"/> Aandachtspunten</h3>
+                              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{evaluation.managerStruggles || evaluation.employeeStruggles || 'Geen input.'}</p>
+                          </div>
+                      </div>
+
+                      {/* Conclusion */}
+                      <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-10">
+                          <h3 className="font-bold text-slate-900 mb-2">Samenvatting & Conclusie</h3>
+                          <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{evaluation.managerGeneralFeedback || 'Geen conclusie genoteerd.'}</p>
+                      </div>
+
+                      {/* Signatures */}
+                      <div className="grid grid-cols-2 gap-20 pt-10 border-t border-slate-200">
+                          <div>
+                              <div className="h-16 border-b border-slate-300 mb-2 relative">
+                                  {evaluation.completedAt && (
+                                      <div className="absolute bottom-2 left-0 font-handwriting text-2xl text-slate-600 transform -rotate-2">
+                                          {currentUser.name}
+                                      </div>
+                                  )}
+                              </div>
+                              <p className="text-xs font-bold text-slate-400 uppercase">Manager ({currentUser.name})</p>
+                              <p className="text-xs text-slate-400">{evaluation.completedAt}</p>
+                          </div>
+                          <div>
+                              <div className="h-16 border-b border-slate-300 mb-2 relative">
+                                  {evaluation.completedAt && (
+                                      <div className="absolute bottom-2 left-0 font-handwriting text-2xl text-slate-600 transform rotate-1">
+                                          {employee.name}
+                                      </div>
+                                  )}
+                              </div>
+                              <p className="text-xs font-bold text-slate-400 uppercase">Medewerker ({employee.name})</p>
+                              <p className="text-xs text-slate-400">{evaluation.completedAt}</p>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+              
+              <div className="flex justify-center mt-8 gap-4 print:hidden">
+                  <button onClick={() => window.print()} className="px-6 py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-slate-800 transition-all flex items-center gap-2">
+                      <Printer size={18} /> Print Rapport
+                  </button>
               </div>
           </div>
       );
   };
 
   const renderDetailView = () => {
-      if (!selectedData) {
-          return (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                  <LayoutDashboard size={48} className="mb-4 opacity-20"/>
-                  <p>Selecteer een evaluatie uit de lijst.</p>
-              </div>
-          );
+      if (!selectedData) return null;
+      
+      const { evaluation, employee } = selectedData;
+      
+      // If signed, show report
+      if (['Signed', 'Archived'].includes(evaluation.status)) {
+          return renderReportView(selectedData);
       }
 
-      const { evaluation, employee } = selectedData;
       const step = getStatusStep(evaluation.status);
       const isMyProfile = employee.id === currentUser.id;
       
-      // Permission Checks
       const canEditEmployee = isMyProfile && evaluation.status === 'EmployeeInput';
       const canEditManager = isManager && evaluation.status === 'ManagerInput';
       const isReviewMode = evaluation.status === 'Review';
-      const isReadOnly = evaluation.status === 'Signed' || evaluation.status === 'Archived';
 
       return (
           <div className="h-full flex flex-col bg-white">
-              {/* Header */}
+              {/* Interactive Form Header */}
               <div className="p-6 border-b border-slate-200">
                   <div className="flex justify-between items-start mb-6">
                       <div className="flex items-center gap-4">
                           <img src={employee.avatar} className="w-16 h-16 rounded-xl object-cover border border-slate-100" />
                           <div>
-                              <h2 className="text-2xl font-bold text-slate-900">{evaluation.type} Evaluatie</h2>
+                              <h2 className="text-2xl font-bold text-slate-900">{evaluation.type}</h2>
                               <div className="flex items-center gap-2 text-slate-500 text-sm">
                                   <User size={14}/> {employee.name}
                                   <span className="text-slate-300">•</span>
@@ -408,70 +544,29 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                           </div>
                       </div>
                       
-                      {/* Workflow & Management Actions */}
                       <div className="flex gap-3 items-center">
                           {evaluation.status === 'Planned' && isManager && (
-                              <button 
-                                onClick={() => handleStartEarly(selectedData)}
-                                className="px-4 py-2 bg-slate-900 text-white text-sm font-bold rounded-xl shadow hover:bg-slate-800 transition-colors flex items-center gap-2"
-                              >
+                              <button onClick={() => handleStartEarly(selectedData)} className="px-4 py-2 bg-slate-900 text-white text-sm font-bold rounded-xl shadow hover:bg-slate-800 transition-colors flex items-center gap-2">
                                   <Unlock size={16}/> Vervroegd Starten
                               </button>
                           )}
                           
                           {canEditEmployee && (
-                              <button 
-                                onClick={handleSubmitEmployee}
-                                className="px-6 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl shadow hover:bg-blue-700 transition-colors flex items-center gap-2"
-                              >
+                              <button onClick={handleSubmitEmployee} className="px-6 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl shadow hover:bg-blue-700 transition-colors flex items-center gap-2">
                                   Indienen <ArrowRight size={16}/>
                               </button>
                           )}
 
                           {canEditManager && (
-                              <button 
-                                onClick={handleSubmitManager}
-                                className="px-6 py-2 bg-purple-600 text-white text-sm font-bold rounded-xl shadow hover:bg-purple-700 transition-colors flex items-center gap-2"
-                              >
+                              <button onClick={handleSubmitManager} className="px-6 py-2 bg-purple-600 text-white text-sm font-bold rounded-xl shadow hover:bg-purple-700 transition-colors flex items-center gap-2">
                                   Naar Bespreking <MessageSquare size={16}/>
                               </button>
                           )}
 
                           {isReviewMode && isManager && (
-                              <button 
-                                onClick={handleSignOff}
-                                className="px-6 py-2 bg-green-600 text-white text-sm font-bold rounded-xl shadow hover:bg-green-700 transition-colors flex items-center gap-2"
-                              >
+                              <button onClick={handleSignOff} className="px-6 py-2 bg-green-600 text-white text-sm font-bold rounded-xl shadow hover:bg-green-700 transition-colors flex items-center gap-2">
                                   <CheckCircle2 size={16}/> Ondertekenen & Afronden
                               </button>
-                          )}
-
-                          {/* MANAGER DROPDOWN */}
-                          {isManager && (
-                              <div className="relative ml-2" ref={settingsMenuRef}>
-                                  <button 
-                                    onClick={() => setShowSettingsMenu(!showSettingsMenu)}
-                                    className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
-                                  >
-                                      <MoreVertical size={20} />
-                                  </button>
-                                  {showSettingsMenu && (
-                                      <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                                          <button 
-                                            onClick={handleEditOpen}
-                                            className="w-full text-left px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                                          >
-                                              <Edit2 size={14}/> Details Bewerken
-                                          </button>
-                                          <button 
-                                            onClick={handleDeleteEvaluation}
-                                            className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 border-t border-slate-50"
-                                          >
-                                              <Trash2 size={14}/> Verwijderen
-                                          </button>
-                                      </div>
-                                  )}
-                              </div>
                           )}
                       </div>
                   </div>
@@ -497,7 +592,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                   </div>
               </div>
 
-              {/* Content Area */}
+              {/* Form Content */}
               <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50">
                   {evaluation.status === 'Planned' ? (
                       <div className="flex flex-col items-center justify-center h-full text-center max-w-md mx-auto">
@@ -509,11 +604,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                               Deze evaluatie staat gepland voor <strong>{evaluation.plannedDate}</strong>. 
                               Het formulier wordt 2 weken van tevoren automatisch vrijgegeven.
                           </p>
-                          {isManager && (
-                              <p className="text-xs text-slate-400 bg-white p-3 rounded-lg border border-slate-200">
-                                  Als manager kun je dit proces nu al handmatig starten via de knop hierboven.
-                              </p>
-                          )}
                       </div>
                   ) : (
                       <div className="max-w-4xl mx-auto space-y-8">
@@ -553,7 +643,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                                           </div>
                                                       )}
                                                   </div>
-                                                  {/* Manager Input (Hidden for Employee in early stage) */}
+                                                  {/* Manager Input */}
                                                   <div className="w-24 flex justify-center">
                                                       {canEditManager ? (
                                                           <select 
@@ -596,7 +686,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                                       )}
                                                   </div>
                                               )}
-                                              {/* Mgr Comment */}
+                                              {/* Mgr Comment - Hidden during employee input */}
                                               {(canEditManager || (score.managerComment && evaluation.status !== 'EmployeeInput')) && (
                                                   <div className="relative">
                                                       {canEditManager ? (
@@ -688,8 +778,9 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
   return (
     <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-slate-50">
-        {/* SIDEBAR LIST */}
-        <div className="w-96 bg-white border-r border-slate-200 flex flex-col flex-shrink-0">
+        
+        {/* SIDEBAR NAVIGATION */}
+        <div className="w-80 bg-white border-r border-slate-200 flex flex-col flex-shrink-0">
             <div className="p-4 border-b border-slate-100 space-y-4">
                 <div className="flex items-center justify-between">
                     <h2 className="font-bold text-lg text-slate-800">Evaluaties</h2>
@@ -699,7 +790,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                 </div>
                 
                 {/* Tabs */}
-                <div className="flex bg-slate-100 p-1 rounded-xl">
+                <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-xl">
                     <button 
                         onClick={() => setActiveTab('active')}
                         className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'active' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
@@ -707,12 +798,20 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                         Actief
                     </button>
                     {isManager && (
-                        <button 
-                            onClick={() => setActiveTab('planning')}
-                            className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'planning' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
-                        >
-                            Planning
-                        </button>
+                        <>
+                            <button 
+                                onClick={() => setActiveTab('planning')}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'planning' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
+                            >
+                                Planning
+                            </button>
+                            <button 
+                                onClick={() => setActiveTab('templates')}
+                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'templates' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
+                            >
+                                Templates
+                            </button>
+                        </>
                     )}
                     <button 
                         onClick={() => setActiveTab('archive')}
@@ -722,96 +821,205 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                     </button>
                 </div>
 
-                {/* Search */}
-                <div className="relative">
-                    <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input 
-                        type="text" 
-                        placeholder="Zoek medewerker..." 
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                </div>
+                {activeTab !== 'templates' && (
+                    <div className="relative">
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input 
+                            type="text" 
+                            placeholder="Zoek medewerker..." 
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                )}
             </div>
 
             <div className="flex-1 overflow-y-auto">
-                {filteredList.length > 0 ? (
-                    filteredList.map(renderSidebarItem)
-                ) : (
-                    <div className="p-8 text-center text-slate-400 text-sm">
-                        Geen evaluaties gevonden.
+                {activeTab === 'templates' ? (
+                    <div className="p-4 space-y-2">
+                        <button 
+                            onClick={handleCreateTemplate}
+                            className="w-full py-2 bg-slate-900 text-white rounded-lg text-xs font-bold shadow-sm mb-4"
+                        >
+                            + Nieuw Template
+                        </button>
+                        {templates.map(tpl => (
+                            <div key={tpl.id} className="p-3 border rounded-lg hover:bg-slate-50 cursor-pointer text-sm" onClick={() => { setEditingTemplate(tpl); setIsTemplateModalOpen(true); }}>
+                                <div className="font-bold text-slate-900">{tpl.title}</div>
+                                <div className="text-xs text-slate-500">{tpl.sections.length} secties</div>
+                            </div>
+                        ))}
                     </div>
+                ) : activeTab === 'planning' ? (
+                    <div className="p-4 space-y-2">
+                        <button 
+                            onClick={() => setIsAssignModalOpen(true)}
+                            className="w-full py-2 bg-teal-600 text-white rounded-lg text-xs font-bold shadow-sm mb-4"
+                        >
+                            + Evaluatie Inplannen
+                        </button>
+                        {filteredList.map(item => (
+                            <div 
+                                key={item.evaluation.id}
+                                onClick={() => setSelectedEvaluationId(item.evaluation.id)}
+                                className={`p-3 border-l-4 rounded cursor-pointer ${selectedEvaluationId === item.evaluation.id ? 'bg-blue-50 border-blue-500' : 'bg-white border-transparent hover:bg-slate-50'}`}
+                            >
+                                <div className="font-bold text-sm">{item.employee.name}</div>
+                                <div className="text-xs text-slate-500">{item.evaluation.type}</div>
+                                <div className="text-xs text-slate-400 mt-1">{item.evaluation.plannedDate}</div>
+                            </div>
+                        ))}
+                    </div>
+                ) : (
+                    filteredList.map(item => (
+                        <div 
+                            key={item.evaluation.id}
+                            onClick={() => setSelectedEvaluationId(item.evaluation.id)}
+                            className={`p-4 border-b border-slate-100 cursor-pointer transition-colors hover:bg-slate-50 ${selectedEvaluationId === item.evaluation.id ? 'bg-blue-50/50 border-l-4 border-l-blue-500' : 'border-l-4 border-l-transparent'}`}
+                        >
+                            <div className="flex justify-between items-start mb-1">
+                                <span className="font-bold text-slate-900 text-sm">{item.employee.name}</span>
+                            </div>
+                            <div className="flex justify-between items-center text-xs">
+                                <span className="text-slate-500">{item.evaluation.type}</span>
+                                <span className={`px-2 py-0.5 rounded-md font-bold uppercase tracking-wider text-[10px] ${
+                                    item.evaluation.status === 'EmployeeInput' ? 'bg-amber-100 text-amber-700' :
+                                    item.evaluation.status === 'ManagerInput' ? 'bg-purple-100 text-purple-700' :
+                                    item.evaluation.status === 'Review' ? 'bg-blue-100 text-blue-700' :
+                                    'bg-green-100 text-green-700'
+                                }`}>
+                                    {getStatusLabel(item.evaluation.status)}
+                                </span>
+                            </div>
+                        </div>
+                    ))
                 )}
             </div>
         </div>
 
-        {/* MAIN CONTENT */}
-        <div className="flex-1 overflow-hidden">
-            {renderDetailView()}
+        {/* MAIN CONTENT AREA */}
+        <div className="flex-1 overflow-hidden relative">
+            {activeTab === 'templates' ? (
+                renderTemplates()
+            ) : selectedData ? (
+                renderDetailView()
+            ) : (
+                <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                    <LayoutDashboard size={48} className="mb-4 opacity-20"/>
+                    <p>Selecteer een item uit de lijst.</p>
+                </div>
+            )}
         </div>
 
-        {/* EDIT MODAL */}
-        <Modal 
-            isOpen={isEditModalOpen} 
-            onClose={() => setIsEditModalOpen(false)} 
-            title="Evaluatie Details Bewerken"
-        >
-            {editFormData && (
-                <form onSubmit={handleSaveEdit} className="space-y-6">
-                    <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 flex items-start gap-3 text-amber-800 text-sm">
-                        <AlertTriangle className="shrink-0 mt-0.5" size={18} />
-                        <p>Let op: Het handmatig wijzigen van de status kan de workflow verstoren. Gebruik dit alleen indien nodig.</p>
-                    </div>
+        {/* --- MODALS --- */}
 
+        {/* TEMPLATE EDITOR */}
+        <Modal 
+            isOpen={isTemplateModalOpen} 
+            onClose={() => setIsTemplateModalOpen(false)} 
+            title="Template Bewerken"
+        >
+            {editingTemplate && (
+                <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Datum</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Titel</label>
                         <input 
-                            type="date" 
-                            required
-                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900"
-                            value={editFormData.plannedDate}
-                            onChange={(e) => setEditFormData({...editFormData, plannedDate: e.target.value})}
+                            type="text" 
+                            className="w-full p-2 border rounded-lg font-bold"
+                            value={editingTemplate.title}
+                            onChange={(e) => setEditingTemplate({...editingTemplate, title: e.target.value})}
                         />
                     </div>
-
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Type</label>
-                        <select
-                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900"
-                            value={editFormData.type}
-                            onChange={(e) => setEditFormData({...editFormData, type: e.target.value})}
-                        >
-                            <option value="Quarterly">Kwartaal Evaluatie</option>
-                            <option value="Annual">Jaarlijkse Beoordeling</option>
-                            <option value="Month 1">Maand 1</option>
-                            <option value="Month 3">Maand 3</option>
-                            <option value="Performance">Performance Review</option>
-                        </select>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Omschrijving</label>
+                        <input 
+                            type="text" 
+                            className="w-full p-2 border rounded-lg text-sm"
+                            value={editingTemplate.description}
+                            onChange={(e) => setEditingTemplate({...editingTemplate, description: e.target.value})}
+                        />
+                    </div>
+                    
+                    <div className="space-y-4">
+                        {editingTemplate.sections.map((section, sIdx) => (
+                            <div key={section.id} className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                <div className="flex justify-between mb-2">
+                                    <input 
+                                        className="bg-transparent font-bold text-slate-800 text-sm border-b border-transparent focus:border-blue-500 outline-none"
+                                        value={section.title}
+                                        onChange={(e) => updateTemplateSection(sIdx, 'title', e.target.value)}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    {section.questions.map((q, qIdx) => (
+                                        <div key={q.id} className="flex gap-2">
+                                            <input 
+                                                className="flex-1 text-sm p-2 border rounded bg-white"
+                                                value={q.text}
+                                                onChange={(e) => updateTemplateQuestion(sIdx, qIdx, e.target.value)}
+                                            />
+                                        </div>
+                                    ))}
+                                    <button onClick={() => addTemplateQuestion(sIdx)} className="text-xs text-blue-600 font-bold hover:underline">+ Vraag Toevoegen</button>
+                                </div>
+                            </div>
+                        ))}
+                        <button onClick={addTemplateSection} className="w-full py-2 border-2 border-dashed border-slate-300 text-slate-500 rounded-xl font-bold text-xs hover:border-blue-400 hover:text-blue-600">
+                            + Sectie Toevoegen
+                        </button>
                     </div>
 
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Status (Force Override)</label>
-                        <select
-                            className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900"
-                            value={editFormData.status}
-                            onChange={(e) => setEditFormData({...editFormData, status: e.target.value as EvaluationStatus})}
-                        >
-                            <option value="Planned">Planned (Ingepland)</option>
-                            <option value="EmployeeInput">EmployeeInput (Zelfreflectie)</option>
-                            <option value="ManagerInput">ManagerInput (Beoordeling)</option>
-                            <option value="Review">Review (Bespreking)</option>
-                            <option value="Signed">Signed (Afgerond)</option>
-                            <option value="Archived">Archived (Gearchiveerd)</option>
-                        </select>
-                    </div>
-
-                    <button type="submit" className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors">
-                        Opslaan
-                    </button>
-                </form>
+                    <button onClick={handleSaveTemplate} className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl">Opslaan</button>
+                </div>
             )}
         </Modal>
+
+        {/* ASSIGNMENT MODAL */}
+        <Modal
+            isOpen={isAssignModalOpen}
+            onClose={() => setIsAssignModalOpen(false)}
+            title="Evaluatie Inplannen"
+        >
+            <form onSubmit={handleAssignEvaluation} className="space-y-4">
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Medewerker</label>
+                    <select 
+                        className="w-full p-3 border rounded-xl bg-white"
+                        value={assignForm.employeeId}
+                        onChange={(e) => setAssignForm({...assignForm, employeeId: e.target.value})}
+                        required
+                    >
+                        <option value="">Selecteer medewerker...</option>
+                        {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Template</label>
+                    <select 
+                        className="w-full p-3 border rounded-xl bg-white"
+                        value={assignForm.templateId}
+                        onChange={(e) => setAssignForm({...assignForm, templateId: e.target.value})}
+                        required
+                    >
+                        <option value="">Selecteer formulier...</option>
+                        {templates.map(t => <option key={t.id} value={t.id}>{t.title}</option>)}
+                    </select>
+                </div>
+                <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Geplande Datum</label>
+                    <input 
+                        type="date"
+                        className="w-full p-3 border rounded-xl"
+                        value={assignForm.date}
+                        onChange={(e) => setAssignForm({...assignForm, date: e.target.value})}
+                        required
+                    />
+                </div>
+                <button type="submit" className="w-full py-3 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700">Inplannen</button>
+            </form>
+        </Modal>
+
     </div>
   );
 };

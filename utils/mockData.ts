@@ -1,374 +1,219 @@
+import { Employee, NewsPost, Survey, OnboardingTemplate, SystemUpdateLog, BadgeDefinition, KnowledgeArticle, Applicant, Ticket, Vacancy, EvaluationTemplate } from '../types';
 
-
-
-
-
-
-
-
-
-
-
-
-
-import { Employee, NewsPost, OnboardingTask, OnboardingTemplate, SystemUpdateLog, Ticket, BadgeDefinition, KnowledgeArticle, PersonalDevelopmentGoal, Vacancy, Applicant, EmailTemplate } from '../types';
-
-// --- RECRUITMENT MOCK DATA ---
-export const MOCK_VACANCIES: Vacancy[] = [
-    {
-        id: 'vac-1',
-        title: 'Front Office Medewerker',
-        department: 'Front Office',
-        type: 'Full-Time',
-        status: 'Open',
-        applicantsCount: 3,
-        postedDate: '01 Nov 2023',
-        description: 'Wij zoeken een gastvrij talent voor onze receptie.',
-        salaryRange: '€2.300 - €2.600',
-        requirements: ['Ervaring met IDu PMS', 'Vloeiend Engels', 'Gastvrij']
-    },
-    {
-        id: 'vac-2',
-        title: 'Zelfstandig Werkend Kok',
-        department: 'F&B',
-        type: 'Full-Time',
-        status: 'Open',
-        applicantsCount: 1,
-        postedDate: '15 Okt 2023',
-        salaryRange: '€2.800 - €3.200',
-        requirements: ['HACCP Kennis', 'Creatief', 'Teamplayer']
-    },
-    {
-        id: 'vac-3',
-        title: 'Stagiair Marketing',
-        department: 'Management',
-        type: 'Stage',
-        status: 'Closed',
-        applicantsCount: 12,
-        postedDate: '01 Sep 2023'
-    }
+export const MOCK_EMPLOYEES: Employee[] = [
+  {
+    id: '1',
+    name: 'Lars Kohler',
+    role: 'Manager',
+    departments: ['Management', 'Front Office'],
+    email: 'lars.kohler@sanadome.nl',
+    phone: '+31 6 1234 5678',
+    avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+    hiredOn: '01-01-2020',
+    employmentType: 'Full-Time',
+    accountStatus: 'Active',
+    documents: [],
+    notes: [],
+    badges: [],
+    onboardingStatus: 'Completed',
+    customPermissions: [],
+    evaluations: []
+  },
+  {
+    id: '2',
+    name: 'Janique Vink',
+    role: 'Senior Medewerker',
+    departments: ['Front Office'],
+    email: 'janique.vink@sanadome.nl',
+    phone: '+31 6 8765 4321',
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+    hiredOn: '15-03-2021',
+    employmentType: 'Full-Time',
+    accountStatus: 'Active',
+    documents: [],
+    notes: [],
+    badges: [],
+    onboardingStatus: 'Completed',
+    evaluations: []
+  }
 ];
 
-export const MOCK_EMAIL_TEMPLATES: EmailTemplate[] = [
-    {
-        id: 'tpl-1',
-        name: 'Uitnodiging 1e Gesprek',
-        subject: 'Uitnodiging sollicitatiegesprek bij Sanadome',
-        body: 'Beste {FirstName},\n\nBedankt voor je interesse in de vacature. We waren onder de indruk van je profiel en willen je graag uitnodigen voor een kennismakingsgesprek.\n\nKun je aangeven welke momenten voor jou goed uitkomen volgende week?\n\nMet vriendelijke groet,\nRecruitment Team Sanadome'
-    },
-    {
-        id: 'tpl-2',
-        name: 'Afwijzing (Standaard)',
-        subject: 'Update sollicitatie Sanadome',
-        body: 'Beste {FirstName},\n\nHartelijk dank voor je interesse in Sanadome. Helaas hebben we besloten om met andere kandidaten verder te gaan die beter aansluiten bij het profiel.\n\nWe wensen je veel succes met je verdere zoektocht.\n\nMet vriendelijke groet,\nRecruitment Team'
-    },
-    {
-        id: 'tpl-3',
-        name: 'Aanbod / Contract',
-        subject: 'Aanbod Sanadome',
-        body: 'Beste {FirstName},\n\nWe hebben het gesprek als zeer positief ervaren en doen je hierbij graag een aanbod!\n\nIn de bijlage vind je het conceptcontract. Laat ons weten of je akkoord bent.\n\nGroet,\nHR Sanadome'
-    }
+export const MOCK_NEWS: NewsPost[] = [
+  {
+    id: '1',
+    title: 'Zomerrooster 2023',
+    shortDescription: 'Het nieuwe rooster voor de zomermaanden is beschikbaar.',
+    content: 'Beste collega\'s, het zomerrooster staat online. Graag uiterlijk vrijdag je voorkeuren doorgeven.',
+    authorName: 'Lars Kohler',
+    authorRole: 'Manager',
+    authorAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
+    date: '12 Juni 2023',
+    likes: 5,
+    likedBy: ['2']
+  }
+];
+
+export const MOCK_TEMPLATES: OnboardingTemplate[] = [
+  {
+    id: 't1',
+    title: 'Standaard Front Office',
+    description: 'Het standaard inwerktraject voor nieuwe receptionisten.',
+    role: 'Medewerker',
+    tasks: [
+      { id: 't1-1', week: 1, category: 'Introductie', title: 'Rondleiding', description: 'Rondleiding door het hotel.', completed: false },
+      { id: 't1-2', week: 1, category: 'IT', title: 'IDu PMS Uitleg', description: 'Basis training IDu PMS.', completed: false },
+      { id: 't1-3', week: 2, category: 'Front Office', title: 'Check-in Procedure', description: 'Zelfstandig check-ins uitvoeren.', completed: false }
+    ],
+    createdAt: '01-01-2023'
+  }
+];
+
+export const MOCK_SYSTEM_LOGS: SystemUpdateLog[] = [
+  {
+    id: 'log-1',
+    version: 'v2.1.0',
+    date: '20-10-2023',
+    timestamp: '14:30',
+    author: 'Dev Team',
+    type: 'Feature',
+    impact: 'Medium',
+    affectedArea: 'Recruitment',
+    description: 'Nieuwe recruitment module toegevoegd.',
+    status: 'Success'
+  }
+];
+
+export const MOCK_BADGES: BadgeDefinition[] = [
+  { id: 'b1', name: 'Klantheld', description: 'Voor uitmuntende gastvrijheid.', icon: 'Star', color: 'yellow', createdAt: '01-01-2023' },
+  { id: 'b2', name: 'Probleemoplosser', description: 'Voor het creatief oplossen van problemen.', icon: 'Lightbulb', color: 'blue', createdAt: '01-01-2023' }
+];
+
+export const MOCK_KNOWLEDGE_BASE: KnowledgeArticle[] = [
+  {
+    id: 'kb1',
+    title: 'Kassa Afsluiting',
+    category: 'Financieel',
+    content: '## Stappenplan\n1. Tel de lade\n2. Print het Z-rapport\n3. Noteer verschillen in het logboek.',
+    tags: ['kassa', 'geld', 'afsluiting'],
+    authorName: 'Janique Vink',
+    authorRole: 'Senior Medewerker',
+    lastUpdated: '10-10-2023',
+    allowedRoles: ['All'],
+    allowedDepartments: ['Front Office', 'F&B'],
+    views: 120,
+    isPinned: true
+  }
 ];
 
 export const MOCK_APPLICANTS: Applicant[] = [
-    {
-        id: 'app-1',
-        vacancyId: 'vac-1',
-        firstName: 'Sophie',
-        lastName: 'de Vries',
-        email: 'sophie.dv@email.com',
-        phone: '0612345678',
-        stage: 'Interview 1',
-        appliedDate: '10 Nov 2023',
-        rating: 4,
-        notes: 'Ervaring bij Van der Valk. Spreekt goed Duits.',
-        avatar: 'https://ui-avatars.com/api/?name=Sophie+de+Vries&background=random',
-        matchScore: 85,
-        skills: ['Engels', 'Duits', 'IDu PMS', 'Horeca'],
-        tags: ['#HighPotential', '#DuitsSprekend'],
-        tasks: [
-            { id: 't1', text: 'Referentie checken bij vorige werkgever', completed: false },
-            { id: 't2', text: 'ID kaart controleren', completed: false }
-        ],
-        timeline: [
-            { id: 't1', type: 'StatusChange', author: 'System', date: '10 Nov 2023 09:00', content: 'Sollicitatie ontvangen' },
-            { id: 't2', type: 'Note', author: 'Manager', date: '11 Nov 2023 10:30', content: 'Goede ervaring, uitnodigen voor gesprek.' },
-            { id: 't3', type: 'Email', author: 'Recruiter', date: '11 Nov 2023 11:00', content: 'Uitnodiging verstuurd voor 15 nov.' },
-            { id: 't4', type: 'Interview', author: 'Manager', date: '15 Nov 2023 14:00', content: 'Gesprek gevoerd. Positieve indruk.' }
-        ],
-        scorecards: [
-            { id: 'sc1', interviewer: 'Manager', date: '15 Nov 2023', skills: [{name: 'Communicatie', score: 5}, {name: 'Ervaring', score: 4}], notes: 'Sterke kandidaat.', recommendation: 'Hire' }
-        ]
-    },
-    {
-        id: 'app-2',
-        vacancyId: 'vac-1',
-        firstName: 'Tom',
-        lastName: 'Jansen',
-        email: 'tom.jansen@email.com',
-        phone: '0687654321',
-        stage: 'New',
-        appliedDate: '14 Nov 2023',
-        rating: 0,
-        avatar: 'https://ui-avatars.com/api/?name=Tom+Jansen&background=random',
-        matchScore: 45,
-        skills: ['Engels', 'Retail'],
-        tags: [],
-        tasks: [],
-        timeline: [
-            { id: 't1', type: 'StatusChange', author: 'System', date: '14 Nov 2023 15:00', content: 'Sollicitatie ontvangen' }
-        ],
-        scorecards: []
-    },
-    {
-        id: 'app-3',
-        vacancyId: 'vac-1',
-        firstName: 'Lisa',
-        lastName: 'Bakker',
-        email: 'lisa.b@email.com',
-        phone: '0655443322',
-        stage: 'Offer',
-        appliedDate: '05 Nov 2023',
-        rating: 5,
-        notes: 'Top kandidaat! Aanbod verstuurd op 15-11.',
-        avatar: 'https://ui-avatars.com/api/?name=Lisa+Bakker&background=random',
-        matchScore: 95,
-        skills: ['Engels', 'Duits', 'Frans', 'Receptie', 'Leiderschap'],
-        tags: ['#Topper', '#PerDirect'],
-        tasks: [
-            { id: 't1', text: 'Contract opstellen', completed: true },
-            { id: 't2', text: 'Kledingmaten opvragen', completed: false }
-        ],
-        timeline: [
-            { id: 't1', type: 'StatusChange', author: 'System', date: '05 Nov 2023 09:00', content: 'Sollicitatie ontvangen' },
-            { id: 't2', type: 'Interview', author: 'Manager', date: '08 Nov 2023 10:00', content: 'Eerste gesprek: Uitstekend.' },
-            { id: 't3', type: 'Interview', author: 'HR', date: '12 Nov 2023 14:00', content: 'Tweede gesprek: Culture fit is perfect.' },
-            { id: 't4', type: 'StatusChange', author: 'Manager', date: '15 Nov 2023 16:00', content: 'Status gewijzigd naar Offer' }
-        ],
-        scorecards: [
-            { id: 'sc1', interviewer: 'Manager', date: '08 Nov 2023', skills: [{name: 'Vakkennis', score: 5}], notes: 'Weet alles al.', recommendation: 'Hire' }
-        ]
-    },
-    {
-        id: 'app-4',
-        vacancyId: 'vac-2',
-        firstName: 'Mehmet',
-        lastName: 'Yilmaz',
-        email: 'm.yilmaz@email.com',
-        phone: '0699887766',
-        stage: 'Screening',
-        appliedDate: '12 Nov 2023',
-        rating: 3,
-        avatar: 'https://ui-avatars.com/api/?name=Mehmet+Yilmaz&background=random',
-        matchScore: 60,
-        skills: ['Koken', 'HACCP'],
-        tags: ['#Keuken'],
-        tasks: [],
-        timeline: [
-            { id: 't1', type: 'StatusChange', author: 'System', date: '12 Nov 2023 11:00', content: 'Sollicitatie ontvangen' }
-        ],
-        scorecards: []
-    }
+  {
+    id: 'app1',
+    firstName: 'Sophie',
+    lastName: 'de Vries',
+    email: 'sophie@example.com',
+    phone: '0612345678',
+    vacancyId: 'v1',
+    stage: 'Interview 1',
+    appliedDate: '15-10-2023',
+    matchScore: 85,
+    skills: ['Horeca', 'Engels', 'Flexibel'],
+    timeline: [],
+    scorecards: [],
+    tasks: []
+  }
 ];
 
-// ... (Rest of file unchanged)
-export const MOCK_DEVELOPMENT_LIBRARY: PersonalDevelopmentGoal[] = [
-    {
-        id: 'lib-1',
-        title: 'Masterclass Upselling',
-        category: 'Sales & Revenue',
-        description: 'Verhogen van de gemiddelde besteding per gast door effectieve verkooptechnieken.',
-        actionPlan: '1. Volg de online module "Upselling at Check-in".\n2. Pas de "Top-Down" methode toe bij 5 gasten per dienst.\n3. Evalueer wekelijks de upsell cijfers met de supervisor.',
-        status: 'Not Started',
-        progress: 0,
-        startDate: '',
-        deadline: '',
-        reflections: [],
-        checkIns: [],
-        isLibraryItem: true
-    },
-    {
-        id: 'lib-2',
-        title: 'MEWS Advanced User',
-        category: 'Technische Vaardigheden',
-        description: 'Diepgaande kennis van het PMS systeem om fouten te verminderen en snelheid te verhogen.',
-        actionPlan: '1. Leer alle sneltoetsen uit het hoofd.\n2. Bestudeer de rapportage functies (Manager Report).\n3. Geef een mini-training aan een nieuwe collega.',
-        status: 'Not Started',
-        progress: 0,
-        startDate: '',
-        deadline: '',
-        reflections: [],
-        checkIns: [],
-        isLibraryItem: true
-    },
-    {
-        id: 'lib-3',
-        title: 'Leiderschap: Feedback Geven',
-        category: 'Leiderschap',
-        description: 'Effectief en constructief feedback geven aan teamleden zonder de relatie te schaden.',
-        actionPlan: '1. Lees het document "De 4 G\'s van Feedback".\n2. Oefen het geven van 1 compliment en 1 ontwikkelpunt per dienst.\n3. Vraag na 2 weken feedback aan het team over jouw stijl.',
-        status: 'Not Started',
-        progress: 0,
-        startDate: '',
-        deadline: '',
-        reflections: [],
-        checkIns: [],
-        isLibraryItem: true
-    },
-    {
-        id: 'lib-4',
-        title: 'Stressbestendigheid & Piekmomenten',
-        category: 'Persoonlijke Effectiviteit',
-        description: 'Kalm en georganiseerd blijven tijdens drukke check-in/out momenten.',
-        actionPlan: '1. Maak een stappenplan voor "Ritsen" tijdens drukte.\n2. Focus op één gast tegelijk, laat je niet afleiden door de rij.\n3. Ademhalingstechnieken toepassen tussen interacties door.',
-        status: 'Not Started',
-        progress: 0,
-        startDate: '',
-        deadline: '',
-        reflections: [],
-        checkIns: [],
-        isLibraryItem: true
-    },
-    {
-        id: 'lib-5',
-        title: 'Engelse Conversatie (Zakelijk)',
-        category: 'Communicatie',
-        description: 'Professionaliseren van Engels taalgebruik richting internationale zakelijke gasten.',
-        actionPlan: '1. Leer de standaard woordenlijst "Business Hotel English".\n2. Oefen telefoongesprekken met een senior collega.\n3. Voer minstens 3 volledige check-ins in het Engels uit zonder hulp.',
-        status: 'Not Started',
-        progress: 0,
-        startDate: '',
-        deadline: '',
-        reflections: [],
-        checkIns: [],
-        isLibraryItem: true
-    },
-    {
-        id: 'lib-6',
-        title: 'Klachtafhandeling: Van Klacht naar Fan',
-        category: 'Gastvrijheid',
-        description: 'Klachten zelfstandig oplossen en ombuigen naar een positieve ervaring.',
-        actionPlan: '1. Pas de LEARN-methode toe (Listen, Empathize, Apologize, React, Notify).\n2. Krijg mandaat voor kleine compensaties (drankje/upgrade).\n3. Documenteer 3 casussen in het ticketsysteem ter evaluatie.',
-        status: 'Not Started',
-        progress: 0,
-        startDate: '',
-        deadline: '',
-        reflections: [],
-        checkIns: [],
-        isLibraryItem: true
-    }
-];
-
-// --- MOCK BADGES ---
-export const MOCK_BADGES: BadgeDefinition[] = [
-    { id: 'b1', name: 'Super Start', description: 'Voltooide de onboarding binnen 2 weken met 100% score.', icon: 'Rocket', color: 'blue', createdAt: '2023-01-01' },
-    { id: 'b2', name: 'Klantheld', description: 'Ging boven en buiten verwachting voor een gast.', icon: 'Heart', color: 'red', createdAt: '2023-01-01' },
-    { id: 'b3', name: 'Team Player', description: 'Altijd bereid om een dienst over te nemen.', icon: 'Users', color: 'green', createdAt: '2023-01-01' }, 
-    { id: 'b4', name: 'Sales Tijger', description: 'Hoogste upsell percentage van de maand.', icon: 'Trophy', color: 'yellow', createdAt: '2023-01-01' },
-    { id: 'b5', name: 'Scherp Oog', description: 'Ontdekte een kritieke fout in een boeking.', icon: 'Eye', color: 'purple', createdAt: '2023-01-01' },
-    { id: 'b6', name: 'Probleemoplosser', description: 'Heeft zelfstandig een complex gastprobleem opgelost.', icon: 'Zap', color: 'orange', createdAt: '2023-01-01' }
-];
-
-// --- MOCK KNOWLEDGE BASE ---
-export const MOCK_KNOWLEDGE_BASE: KnowledgeArticle[] = [
-    // ... (Keep existing articles)
-];
-
-// --- MOCK TICKETS ---
 export const MOCK_TICKETS: Ticket[] = [
+  {
+    id: 'tic1',
+    title: 'Foutmelding bij inloggen',
+    description: 'Ik krijg soms een 500 error als ik probeer in te loggen op mobiel.',
+    type: 'Bug',
+    priority: 'High',
+    status: 'Open',
+    submittedBy: 'Janique Vink',
+    submittedById: '2',
+    submittedAt: new Date().toISOString(),
+    messages: []
+  }
+];
+
+export const MOCK_VACANCIES: Vacancy[] = [
+  {
+    id: 'v1',
+    title: 'Front Office Medewerker',
+    department: 'Front Office',
+    type: 'Full-Time',
+    status: 'Open',
+    applicantsCount: 5,
+    postedDate: '01-10-2023'
+  }
+];
+
+export const MOCK_EVALUATION_TEMPLATES: EvaluationTemplate[] = [
     {
-        id: 't1',
-        title: 'Verlofuren worden niet goed berekend',
-        description: 'Bij het aanvragen van verlof voor volgende maand lijkt het saldo niet te kloppen. Het geeft aan dat ik -4 uur heb, terwijl ik nog 20 uur heb staan.',
-        type: 'Bug',
-        priority: 'High',
-        page: 'Verlof',
-        status: 'Open',
-        submittedBy: 'Sophie de Vries',
-        submittedById: 'emp-1',
-        submittedAt: '2023-11-10T09:30:00.000Z',
-        messages: []
+        id: 'tpl-1',
+        title: 'Kwartaal Evaluatie (Front Office)',
+        description: 'Standaard evaluatie voor receptiemedewerkers.',
+        createdAt: '01-01-2023',
+        updatedAt: '01-01-2023',
+        sections: [
+            {
+                id: 'sec-1',
+                title: 'Operationele Vaardigheden',
+                questions: [
+                    { id: 'q1', text: 'MEWS PMS Kennis', description: 'Beheersing van het systeem.' },
+                    { id: 'q2', text: 'Kassa & Financiën', description: 'Nauwkeurigheid bij afrekenen.' },
+                    { id: 'q3', text: 'Check-in Flow', description: 'Snelheid en gastvrijheid.' }
+                ]
+            },
+            {
+                id: 'sec-2',
+                title: 'Soft Skills',
+                questions: [
+                    { id: 'q4', text: 'Gastvrijheid', description: 'Algemene houding naar gasten.' },
+                    { id: 'q5', text: 'Samenwerking', description: 'Communicatie met collega\'s.' },
+                    { id: 'q6', text: 'Punctualiteit', description: 'Op tijd komen en afspraken nakomen.' }
+                ]
+            }
+        ]
     },
     {
-        id: 't2',
-        title: 'Suggestie: Dark Mode',
-        description: 'Het zou fijn zijn als we een donkere modus hebben voor de avonddiensten. Het witte scherm is erg fel.',
-        type: 'Idea',
-        priority: 'Low',
-        page: 'Instellingen',
-        status: 'In Progress',
-        submittedBy: 'Tom Jansen',
-        submittedById: 'emp-2',
-        submittedAt: '2023-11-12T14:15:00.000Z',
-        messages: [
+        id: 'tpl-2',
+        title: 'Jaargesprek & Beoordeling',
+        description: 'Uitgebreide jaarlijkse review.',
+        createdAt: '01-01-2023',
+        updatedAt: '01-01-2023',
+        sections: [
             {
-                id: 'm1',
-                senderId: 'sys-admin',
-                senderName: 'System Admin',
-                content: 'Bedankt voor de suggestie! We zetten dit op de roadmap.',
-                timestamp: '2023-11-12T15:00:00.000Z',
-                type: 'public'
+                id: 'sec-1',
+                title: 'Competenties',
+                questions: [
+                    { id: 'q1', text: 'Vakkennis', description: '' },
+                    { id: 'q2', text: 'Kwaliteit van werk', description: '' },
+                    { id: 'q3', text: 'Productiviteit', description: '' },
+                    { id: 'q4', text: 'Initiatief', description: '' }
+                ]
+            },
+            {
+                id: 'sec-2',
+                title: 'Leiderschap (Indien van toepassing)',
+                questions: [
+                    { id: 'q5', text: 'Coaching', description: '' },
+                    { id: 'q6', text: 'Delegeren', description: '' }
+                ]
             }
         ]
     }
 ];
 
-// --- AUTO UPDATE LOGGER ---
-export const LATEST_SYSTEM_UPDATE: SystemUpdateLog = {
-    id: 'update-v4.3.0-kb-complete', 
-    version: 'v4.3.0',
-    date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
-    timestamp: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
-    author: 'AI Assistant',
-    type: 'Feature',
-    impact: 'High',
-    affectedArea: 'Kennisbank',
-    description: `
-- Kennisbank volledig vernieuwd met 30 "slimme" artikelen.
-- Uitgebreide markdown ondersteuning en instructies.
-- Categorieën geherstructureerd voor betere vindbaarheid.`,
-    status: 'Success'
-};
-
-// ... (Previous imports and helper functions remain, but keeping file concise)
-const generateOnboardingTasks = (): OnboardingTask[] => [
-  // ... (Keep existing tasks)
-];
-
-export const MOCK_TEMPLATES: OnboardingTemplate[] = [
-    // ... (Keep existing templates)
-    {
-        id: 'template-basis',
-        title: 'Sanadome Basis (Front Office)',
-        description: 'Standaard inwerktraject voor nieuwe receptiemedewerkers.',
-        role: 'Medewerker',
-        createdAt: '2023-01-01',
-        tasks: [] // Simplification for brevity, assume filled
-    },
-];
-
 export const EVALUATION_TEMPLATES = {
     FRONT_OFFICE: [
-        { category: 'Hard Skills', topic: 'MEWS PMS Kennis' },
-        { category: 'Hard Skills', topic: 'Kassa & Financiën' },
-        { category: 'Hard Skills', topic: 'Reserveringen Invoeren' },
-        { category: 'Front Office', topic: 'Check-in Flow' },
-        { category: 'Front Office', topic: 'Upselling & Sales' },
-        { category: 'Front Office', topic: 'Klachtafhandeling' },
-        { category: 'Soft Skills', topic: 'Gastvrijheid' },
-        { category: 'Soft Skills', topic: 'Samenwerking' },
-        { category: 'Soft Skills', topic: 'Punctualiteit' },
+        { category: 'Operationele Vaardigheden', topic: 'MEWS PMS Kennis', employeeScore: 0, managerScore: 0 },
+        { category: 'Operationele Vaardigheden', topic: 'Kassa & Financiën', employeeScore: 0, managerScore: 0 },
+        { category: 'Operationele Vaardigheden', topic: 'Check-in Flow', employeeScore: 0, managerScore: 0 },
+        { category: 'Soft Skills', topic: 'Gastvrijheid', employeeScore: 0, managerScore: 0 },
+        { category: 'Soft Skills', topic: 'Samenwerking', employeeScore: 0, managerScore: 0 },
+        { category: 'Soft Skills', topic: 'Punctualiteit', employeeScore: 0, managerScore: 0 }
     ]
 };
-
-export const MOCK_SYSTEM_LOGS: SystemUpdateLog[] = [
-    // ... (Keep existing logs)
-];
-
-export const MOCK_NEWS: NewsPost[] = [
-  // ... (Keep existing news)
-];
-
-export const MOCK_EMPLOYEES: Employee[] = [
-  // ... (Keep existing employees)
-];
