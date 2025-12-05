@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Employee, ViewState, Notification, NewsPost, Survey } from './types';
 import Sidebar from './components/Sidebar';
@@ -25,8 +26,13 @@ import UpdateNotifier from './components/UpdateNotifier';
 import { api, isLive } from './utils/api';
 
 function App() {
-  const [currentUser, setCurrentUser] = useState<Employee | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<Employee | null>(() => {
+      const saved = localStorage.getItem('hrms_current_user');
+      return saved ? JSON.parse(saved) : null;
+  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+      return !!localStorage.getItem('hrms_current_user');
+  });
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.HOME);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -79,6 +85,7 @@ function App() {
       if (user) {
           setCurrentUser(user);
           setIsAuthenticated(true);
+          localStorage.setItem('hrms_current_user', JSON.stringify(user));
           return true;
       }
       return false;
@@ -88,12 +95,16 @@ function App() {
       setCurrentUser(null);
       setIsAuthenticated(false);
       setCurrentView(ViewState.HOME);
+      localStorage.removeItem('hrms_current_user');
   };
 
   const handleUpdateEmployee = (updatedEmployee: Employee) => {
     // Optimistic Update
     setEmployees(prev => prev.map(emp => emp.id === updatedEmployee.id ? updatedEmployee : emp));
-    if (currentUser?.id === updatedEmployee.id) setCurrentUser(updatedEmployee);
+    if (currentUser?.id === updatedEmployee.id) {
+        setCurrentUser(updatedEmployee);
+        localStorage.setItem('hrms_current_user', JSON.stringify(updatedEmployee));
+    }
     
     // Persist (Update existing, isNewUser = false)
     api.saveEmployee(updatedEmployee, false);
