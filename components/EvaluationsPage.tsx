@@ -97,6 +97,8 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       employees.forEach(emp => {
           (emp.evaluations || []).forEach(ev => {
               if (isManager || emp.id === currentUser.id) {
+                  // Only show 'Planned' if manager
+                  if (ev.status === 'Planned' && !isManager) return;
                   list.push({ evaluation: ev, employee: emp });
               }
           });
@@ -111,6 +113,17 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           return parseNLDate(b.evaluation.createdAt).getTime() - parseNLDate(a.evaluation.createdAt).getTime();
       });
   }, [employees, isManager, currentUser.id]);
+
+  // Filter for planned evaluations (Upcoming)
+  const plannedEvaluations = useMemo(() => {
+      return allEvaluations.filter(item => item.evaluation.status === 'Planned').sort((a, b) => {
+          return parseNLDate(a.evaluation.plannedDate || a.evaluation.createdAt).getTime() - parseNLDate(b.evaluation.plannedDate || b.evaluation.createdAt).getTime();
+      });
+  }, [allEvaluations]);
+
+  const activeEvaluations = useMemo(() => {
+      return allEvaluations.filter(item => item.evaluation.status !== 'Planned');
+  }, [allEvaluations]);
 
   // Consolidate all active trajectories
   const allTrajectories = useMemo(() => {
@@ -199,7 +212,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       const targetEmp = employees.find(e => e.id === evaluation.employeeId);
       if (!targetEmp) return;
 
-      const updatedEvaluations = (targetEmp.evaluations || []).map(ev => 
+      let updatedEvaluations = (targetEmp.evaluations || []).map(ev => 
           ev.id === evaluation.id ? { ...ev, ...updates } : ev
       );
 
@@ -219,9 +232,11 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
            updatedEval.smartAdvice = advice;
       }
 
-      // Check if signed, then promote Development Goals to Profile Goals
+      // Check if signed, then promote Development Goals to Profile Goals AND schedule next quarter
       if (updates.status === 'Signed') {
           const evalToSign = updatedEvaluations.find(ev => ev.id === evaluation.id);
+          
+          // 1. Promote Goals
           if (evalToSign && evalToSign.developmentPlan) {
               const newProfileGoals = evalToSign.developmentPlan.map(g => ({
                   ...g,
@@ -232,6 +247,33 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
               
               // Add to existing goals
               const updatedGoals = [...(targetEmp.growthGoals || []), ...newProfileGoals];
+              
+              // 2. Schedule Next Evaluation (3 months later)
+              const nextDate = new Date();
+              nextDate.setMonth(nextDate.getMonth() + 3);
+              const formattedNextDate = nextDate.toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' });
+
+              const nextEvaluation: EvaluationCycle = {
+                  id: crypto.randomUUID(),
+                  employeeId: targetEmp.id,
+                  managerId: currentUser.id,
+                  type: 'Quarterly',
+                  status: 'Planned',
+                  createdAt: new Date().toLocaleDateString('nl-NL'),
+                  plannedDate: formattedNextDate,
+                  scores: EVALUATION_TEMPLATES.FRONT_OFFICE.map(t => ({
+                      ...t,
+                      employeeScore: 0,
+                      managerScore: 0
+                  })),
+                  goals: [],
+                  developmentPlan: [],
+                  signatures: []
+              };
+              
+              // Push next evaluation to list
+              updatedEvaluations = [...updatedEvaluations, nextEvaluation];
+
               onUpdateEmployee({ ...targetEmp, evaluations: updatedEvaluations, growthGoals: updatedGoals });
               return;
           }
@@ -589,6 +631,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           case 'Review': return 'Bespreking';
           case 'Signed': return 'Ondertekend';
           case 'Archived': return 'Gearchiveerd';
+          case 'Planned': return 'Gepland';
           default: return status;
       }
   };
@@ -733,10 +776,35 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                 )}
           </div>
 
+          {/* Upcoming / Planned Grid (Manager Only) */}
+          {activeTab === 'dashboard' && isManager && plannedEvaluations.length > 0 && (
+              <div className="mb-8">
+                  <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                      <Clock size={18} className="text-amber-500"/> Geplande Evaluaties
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                      {plannedEvaluations.map(({ evaluation, employee }) => (
+                          <div key={evaluation.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4 opacity-80 hover:opacity-100 transition-all">
+                              <div className="flex items-center gap-3 mb-2">
+                                  <img src={employee.avatar} className="w-8 h-8 rounded-full" alt="Avatar"/>
+                                  <div>
+                                      <div className="font-bold text-sm text-slate-900">{employee.name}</div>
+                                      <div className="text-[10px] text-slate-500">{evaluation.type}</div>
+                                  </div>
+                              </div>
+                              <div className="flex items-center gap-2 text-xs font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded w-fit">
+                                  <Calendar size={12}/> {evaluation.plannedDate}
+                              </div>
+                          </div>
+                      ))}
+                  </div>
+              </div>
+          )}
+
           {/* Active Cycles Grid */}
           {activeTab === 'dashboard' && (
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                  {allEvaluations.map(({ evaluation, employee }) => {
+                  {activeEvaluations.map(({ evaluation, employee }) => {
                       const percent = 
                         evaluation.status === 'EmployeeInput' ? 25 :
                         evaluation.status === 'ManagerInput' ? 50 :
@@ -798,10 +866,10 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                           </div>
                       );
                   })}
-                  {allEvaluations.length === 0 && (
+                  {activeEvaluations.length === 0 && (
                       <div className="col-span-full text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200 text-slate-400">
                           <ClipboardCheck size={48} className="mx-auto mb-4 opacity-20"/>
-                          <p>Nog geen evaluaties gestart.</p>
+                          <p>Nog geen actieve evaluaties.</p>
                       </div>
                   )}
               </div>

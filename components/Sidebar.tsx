@@ -1,15 +1,10 @@
-
-
-
-
-
 import React, { useState } from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
   UserPlus, Trophy, FileText, PieChart, 
   Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Medal, BookOpen, Truck, ChevronDown, ChevronRight
 } from 'lucide-react';
-import { ViewState, Employee } from '../types';
+import { ViewState, Employee, Permission } from '../types';
 import { hasPermission } from '../utils/permissions';
 
 interface SidebarProps {
@@ -19,6 +14,19 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   systemVersion?: string;
+}
+
+interface SidebarItem {
+  icon: React.ElementType;
+  label: string;
+  id: string | ViewState;
+  badge?: number | string;
+  permission?: Permission;
+}
+
+interface SidebarSection {
+  label: string;
+  items: SidebarItem[];
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOpen, onClose, systemVersion = 'v1.0' }) => {
@@ -33,7 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
     }));
   };
 
-  const sections = [
+  const sections: SidebarSection[] = [
     {
       label: 'Algemeen',
       items: [
@@ -120,7 +128,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
               // Filter items based on permissions
               const visibleItems = section.items.filter(item => {
                 if (item.permission) {
-                    return hasPermission(user || null, item.permission as any);
+                    return hasPermission(user || null, item.permission);
                 }
                 return true;
               });

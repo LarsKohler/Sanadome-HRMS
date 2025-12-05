@@ -1,12 +1,13 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Briefcase, MapPin, 
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Medal, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy
+  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Medal, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy, Lock
 } from 'lucide-react';
-import { Employee, EmployeeNote, EmployeeDocument, Notification, ViewState, NewsPost, BadgeDefinition, PersonalDevelopmentGoal, InterimCheckIn } from '../types';
+import { Employee, EmployeeNote, EmployeeDocument, Notification, ViewState, NewsPost, BadgeDefinition, PersonalDevelopmentGoal, InterimCheckIn, EvaluationCycle } from '../types';
 import { Modal } from './Modal';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { api } from '../utils/api';
@@ -25,6 +26,20 @@ interface EmployeeProfileProps {
   managers: Employee[];
   latestNews?: NewsPost | null;
 }
+
+// Helper to check if a planned evaluation is within 14 days
+const isEvaluationUnlockable = (dateStr?: string) => {
+    if (!dateStr) return false;
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return false;
+    
+    // Parse NL Date (dd-mm-yyyy)
+    const plannedDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+    const unlockDate = new Date(plannedDate);
+    unlockDate.setDate(unlockDate.getDate() - 14); // 2 weeks before
+    
+    return new Date() >= unlockDate;
+};
 
 const EmployeeProfile: React.FC<EmployeeProfileProps> = ({ 
   employee, 
@@ -372,7 +387,12 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       // Actions (Only for owner/manager)
       const openOnboardingTasks = employee.onboardingTasks?.filter(t => t.score !== 100) || [];
       const pendingEvaluations = employee.evaluations?.filter(ev => ev.status === 'EmployeeInput' || ev.status === 'ManagerInput') || [];
-      const totalActions = openOnboardingTasks.length + pendingEvaluations.length + urgentDebtCount;
+      const plannedEvaluations = employee.evaluations?.filter(ev => ev.status === 'Planned') || [];
+      
+      // Calculate unlockable planned evaluations (within 2 weeks)
+      const actionablePlanned = plannedEvaluations.filter(ev => isEvaluationUnlockable(ev.plannedDate));
+      
+      const totalActions = openOnboardingTasks.length + pendingEvaluations.length + urgentDebtCount + actionablePlanned.length;
 
       // Active Growth Goal (The most recent in-progress one)
       // Changed: Show all NON-completed goals (In Progress AND Not Started) to ensure consistency
@@ -493,6 +513,31 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                           <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
                                       </div>
                                   ))}
+
+                                  {/* PLANNED EVALUATIONS */}
+                                  {plannedEvaluations.map(ev => {
+                                      const isUnlockable = isEvaluationUnlockable(ev.plannedDate);
+                                      return (
+                                          <div key={ev.id} 
+                                            className={`p-4 transition-colors flex items-center gap-4 group ${isUnlockable ? 'cursor-pointer hover:bg-slate-50' : 'opacity-70 bg-slate-50/50'}`} 
+                                            onClick={() => isUnlockable && onChangeView(ViewState.EVALUATIONS)}
+                                          >
+                                              <div className={`p-2 rounded-lg ${isUnlockable ? 'bg-teal-100 text-teal-600' : 'bg-slate-200 text-slate-500'}`}>
+                                                  {isUnlockable ? <ClipboardCheck size={18} /> : <Lock size={18} />}
+                                              </div>
+                                              <div className="flex-1">
+                                                  <div className="text-sm font-bold text-slate-900">{ev.type} (Ingepland)</div>
+                                                  <div className="text-xs text-slate-500">
+                                                      {isUnlockable 
+                                                        ? 'Beschikbaar om in te vullen' 
+                                                        : `Opent automatisch rond ${ev.plannedDate}`
+                                                      }
+                                                  </div>
+                                              </div>
+                                              {isUnlockable && <ChevronRight size={16} className="text-slate-300 group-hover:text-teal-600" />}
+                                          </div>
+                                      );
+                                  })}
 
                                   {openOnboardingTasks.slice(0, 3).map(task => (
                                       <div key={task.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.ONBOARDING)}>
@@ -1030,37 +1075,78 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {(employee.evaluations || []).length > 0 ? (
-                    employee.evaluations?.map(ev => (
-                        <div key={ev.id} className="group relative bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden" onClick={() => onChangeView(ViewState.EVALUATIONS)}>
-                            <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-bl-[100px] -mr-4 -mt-4 transition-all group-hover:bg-teal-50"></div>
-                            
-                            <div className="relative z-10">
-                                <div className="flex justify-between items-start mb-4">
-                                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shadow-sm ${
-                                        ev.overallRating && ev.overallRating >= 4 ? 'bg-green-100 text-green-700' : 
-                                        ev.overallRating && ev.overallRating >= 3 ? 'bg-blue-100 text-blue-700' :
-                                        'bg-slate-100 text-slate-600'
-                                    }`}>
-                                        {ev.overallRating || '-'}
+                    employee.evaluations?.map(ev => {
+                        // Check locked status
+                        const isPlanned = ev.status === 'Planned';
+                        const isLocked = isPlanned && !isEvaluationUnlockable(ev.plannedDate);
+                        
+                        return (
+                            <div 
+                                key={ev.id} 
+                                className={`group relative p-5 rounded-2xl border shadow-sm transition-all overflow-hidden ${
+                                    isLocked 
+                                        ? 'bg-slate-50 border-slate-200 opacity-80 cursor-not-allowed' 
+                                        : 'bg-white border-slate-200 hover:shadow-md cursor-pointer'
+                                }`} 
+                                onClick={() => {
+                                    if(!isLocked) {
+                                        // If planned and unlocked, clicking it could theoretically transition it to 'EmployeeInput'
+                                        // For now just navigate
+                                        onChangeView(ViewState.EVALUATIONS);
+                                    }
+                                }}
+                            >
+                                {isLocked && (
+                                    <div className="absolute top-3 right-3 text-slate-400">
+                                        <Lock size={16} />
                                     </div>
-                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${
-                                        ev.status === 'Signed' ? 'bg-green-50 text-green-700 border-green-100' : 
-                                        ev.status === 'Review' ? 'bg-purple-50 text-purple-700 border-purple-100' :
-                                        'bg-slate-50 text-slate-500 border-slate-100'
-                                    }`}>
-                                        {ev.status}
-                                    </span>
-                                </div>
+                                )}
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-slate-50 rounded-bl-[100px] -mr-4 -mt-4 transition-all group-hover:bg-teal-50 pointer-events-none"></div>
                                 
-                                <h4 className="font-bold text-slate-900 text-lg mb-1">{ev.type}</h4>
-                                <p className="text-xs text-slate-500 mb-4">{ev.createdAt}</p>
-                                
-                                <div className="flex items-center gap-2 text-xs font-bold text-slate-400 group-hover:text-teal-600 transition-colors">
-                                    Bekijk Rapport <ArrowRight size={14}/>
+                                <div className="relative z-10">
+                                    <div className="flex justify-between items-start mb-4">
+                                        {isPlanned ? (
+                                            <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-xs shadow-sm">
+                                                <Calendar size={16}/>
+                                            </div>
+                                        ) : (
+                                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shadow-sm ${
+                                                ev.overallRating && ev.overallRating >= 4 ? 'bg-green-100 text-green-700' : 
+                                                ev.overallRating && ev.overallRating >= 3 ? 'bg-blue-100 text-blue-700' :
+                                                'bg-slate-100 text-slate-600'
+                                            }`}>
+                                                {ev.overallRating || '-'}
+                                            </div>
+                                        )}
+                                        <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider border ${
+                                            ev.status === 'Signed' ? 'bg-green-50 text-green-700 border-green-100' : 
+                                            ev.status === 'Review' ? 'bg-purple-50 text-purple-700 border-purple-100' :
+                                            ev.status === 'Planned' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                            'bg-slate-50 text-slate-500 border-slate-100'
+                                        }`}>
+                                            {ev.status === 'Planned' ? 'Gepland' : ev.status}
+                                        </span>
+                                    </div>
+                                    
+                                    <h4 className="font-bold text-slate-900 text-lg mb-1">{ev.type}</h4>
+                                    <p className="text-xs text-slate-500 mb-4">
+                                        {isPlanned && ev.plannedDate ? `Gepland: ${ev.plannedDate}` : ev.createdAt}
+                                    </p>
+                                    
+                                    {!isLocked && (
+                                        <div className="flex items-center gap-2 text-xs font-bold text-slate-400 group-hover:text-teal-600 transition-colors">
+                                            {isPlanned ? 'Start Evaluatie' : 'Bekijk Rapport'} <ArrowRight size={14}/>
+                                        </div>
+                                    )}
+                                    {isLocked && (
+                                        <div className="text-xs text-slate-400 italic">
+                                            Nog niet beschikbaar
+                                        </div>
+                                    )}
                                 </div>
                             </div>
-                        </div>
-                    ))
+                        );
+                    })
                 ) : (
                     <div className="col-span-full p-8 text-center text-slate-400 italic bg-white rounded-2xl border border-dashed border-slate-200">
                         Nog geen evaluaties beschikbaar.

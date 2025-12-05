@@ -1,11 +1,10 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, MoreHorizontal, Mail, Phone, UserPlus, Pencil, Trash2, Lock, Copy, ExternalLink, Check, Clock, CheckCircle2, XCircle, Eye } from 'lucide-react';
-import { Employee } from '../types';
+import { Employee, EvaluationCycle } from '../types';
 import { Modal } from './Modal';
 import { hasPermission } from '../utils/permissions';
+import { EVALUATION_TEMPLATES } from '../utils/mockData';
 
 interface EmployeeDirectoryProps {
   employees: Employee[];
@@ -161,6 +160,29 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
     const dateObj = formData.hiredOn ? new Date(formData.hiredOn) : new Date();
     const formattedDate = dateObj.toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' });
 
+    // Calculate first quarterly evaluation date (3 months from start)
+    const firstEvalDate = new Date(dateObj);
+    firstEvalDate.setMonth(firstEvalDate.getMonth() + 3);
+    const formattedEvalDate = firstEvalDate.toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' });
+
+    const firstEvaluation: EvaluationCycle = {
+        id: crypto.randomUUID(),
+        employeeId: newId,
+        managerId: currentUser.id,
+        type: 'Quarterly',
+        status: 'Planned',
+        createdAt: new Date().toLocaleDateString('nl-NL'),
+        plannedDate: formattedEvalDate,
+        scores: EVALUATION_TEMPLATES.FRONT_OFFICE.map(t => ({
+            ...t,
+            employeeScore: 0,
+            managerScore: 0
+        })),
+        goals: [],
+        signatures: [],
+        developmentPlan: []
+    };
+
     const newEmployee: Employee = {
       id: newId,
       name: fullName,
@@ -177,7 +199,8 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       password: formData.password || 'sanadome123', // Default or provided
       documents: [],
       notes: [],
-      onboardingTasks: [] 
+      onboardingTasks: [],
+      evaluations: [firstEvaluation] // Add the planned evaluation
     };
 
     onAddEmployee(newEmployee);
@@ -597,7 +620,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                  <div>
                      <h3 className="text-xl font-bold font-serif text-slate-900">Account Aangemaakt!</h3>
                      <p className="text-sm text-slate-600 mt-2 max-w-xs mx-auto">
-                         <strong>{recentlyAddedEmployee?.name}</strong> is toegevoegd aan het systeem en kan direct inloggen.
+                         <strong>{recentlyAddedEmployee?.name}</strong> is toegevoegd aan het systeem. De eerste evaluatie is automatisch ingepland.
                      </p>
                  </div>
 
