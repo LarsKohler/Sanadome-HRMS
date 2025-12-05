@@ -5,7 +5,7 @@ import {
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Medal, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy, Lock
+  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Medal, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy, Lock, Pencil
 } from 'lucide-react';
 import { Employee, EmployeeNote, EmployeeDocument, Notification, ViewState, NewsPost, BadgeDefinition, PersonalDevelopmentGoal, InterimCheckIn, EvaluationCycle } from '../types';
 import { Modal } from './Modal';
@@ -503,14 +503,20 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
 
                                   {pendingEvaluations.map(ev => (
                                       <div key={ev.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.EVALUATIONS)}>
-                                          <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
-                                              <ClipboardCheck size={18} />
+                                          <div className={`p-2 rounded-lg ${ev.status === 'EmployeeInput' ? 'bg-teal-100 text-teal-600' : 'bg-purple-100 text-purple-600'}`}>
+                                              {ev.status === 'EmployeeInput' ? <Pencil size={18}/> : <ClipboardCheck size={18} />}
                                           </div>
                                           <div className="flex-1">
-                                              <div className="text-sm font-bold text-slate-900">Evaluatie: {ev.type}</div>
-                                              <div className="text-xs text-slate-500">Jouw input wordt verwacht.</div>
+                                              <div className="text-sm font-bold text-slate-900">{ev.type}</div>
+                                              <div className="text-xs font-bold text-slate-500">
+                                                  {ev.status === 'EmployeeInput' ? 'Jouw beurt: Invullen' : 'Wachten op manager'}
+                                              </div>
                                           </div>
-                                          <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                                          {ev.status === 'EmployeeInput' ? (
+                                              <button className="px-3 py-1 bg-teal-600 text-white text-xs font-bold rounded-lg hover:bg-teal-700 transition-colors">Invullen</button>
+                                          ) : (
+                                              <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                                          )}
                                       </div>
                                   ))}
 
@@ -1078,20 +1084,25 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                     employee.evaluations?.map(ev => {
                         // Check locked status
                         const isPlanned = ev.status === 'Planned';
+                        // IMPORTANT: Only consider it locked if it is strictly 'Planned' AND date is in future
+                        // If status is 'EmployeeInput', it is UNLOCKED regardless of date
                         const isLocked = isPlanned && !isEvaluationUnlockable(ev.plannedDate);
                         
+                        // New Logic: If status is EmployeeInput, show distinct actionable state
+                        const isActionable = ev.status === 'EmployeeInput' && isOwnProfile;
+
                         return (
                             <div 
                                 key={ev.id} 
                                 className={`group relative p-5 rounded-2xl border shadow-sm transition-all overflow-hidden ${
                                     isLocked 
                                         ? 'bg-slate-50 border-slate-200 opacity-80 cursor-not-allowed' 
-                                        : 'bg-white border-slate-200 hover:shadow-md cursor-pointer'
+                                        : isActionable
+                                            ? 'bg-white border-teal-200 ring-2 ring-teal-50 hover:shadow-md cursor-pointer'
+                                            : 'bg-white border-slate-200 hover:shadow-md cursor-pointer'
                                 }`} 
                                 onClick={() => {
                                     if(!isLocked) {
-                                        // If planned and unlocked, clicking it could theoretically transition it to 'EmployeeInput'
-                                        // For now just navigate
                                         onChangeView(ViewState.EVALUATIONS);
                                     }
                                 }}
@@ -1109,6 +1120,10 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                             <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-xs shadow-sm">
                                                 <Calendar size={16}/>
                                             </div>
+                                        ) : isActionable ? (
+                                            <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-600 flex items-center justify-center font-bold text-xs shadow-sm animate-pulse">
+                                                <Pencil size={16}/>
+                                            </div>
                                         ) : (
                                             <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm shadow-sm ${
                                                 ev.overallRating && ev.overallRating >= 4 ? 'bg-green-100 text-green-700' : 
@@ -1122,9 +1137,12 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                             ev.status === 'Signed' ? 'bg-green-50 text-green-700 border-green-100' : 
                                             ev.status === 'Review' ? 'bg-purple-50 text-purple-700 border-purple-100' :
                                             ev.status === 'Planned' ? 'bg-amber-50 text-amber-700 border-amber-100' :
+                                            ev.status === 'EmployeeInput' ? 'bg-teal-50 text-teal-700 border-teal-100' :
                                             'bg-slate-50 text-slate-500 border-slate-100'
                                         }`}>
-                                            {ev.status === 'Planned' ? 'Gepland' : ev.status}
+                                            {ev.status === 'Planned' ? 'Gepland' : 
+                                             ev.status === 'EmployeeInput' ? 'Jouw Beurt' :
+                                             ev.status}
                                         </span>
                                     </div>
                                     
@@ -1134,8 +1152,8 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                     </p>
                                     
                                     {!isLocked && (
-                                        <div className="flex items-center gap-2 text-xs font-bold text-slate-400 group-hover:text-teal-600 transition-colors">
-                                            {isPlanned ? 'Start Evaluatie' : 'Bekijk Rapport'} <ArrowRight size={14}/>
+                                        <div className={`flex items-center gap-2 text-xs font-bold transition-colors ${isActionable ? 'text-teal-600' : 'text-slate-400 group-hover:text-teal-600'}`}>
+                                            {isActionable ? 'Start Evaluatie' : (isPlanned ? 'Start Evaluatie' : 'Bekijk Rapport')} <ArrowRight size={14}/>
                                         </div>
                                     )}
                                     {isLocked && (

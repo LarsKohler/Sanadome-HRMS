@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { 
     ClipboardCheck, Calendar, User, ArrowRight, CheckCircle2, 
@@ -111,7 +112,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       
       const targetEval = updatedEvaluations.find(ev => ev.id === evaluationId);
       
-      // Update locally for smooth UI
+      // Update locally for smooth UI - Ensure we pass a full fresh object
       onUpdateEmployee({ ...employee, evaluations: updatedEvaluations });
       
       // Persist directly to DB table
