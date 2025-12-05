@@ -163,7 +163,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
     // Calculate first quarterly evaluation date (3 months from start)
     const firstEvalDate = new Date(dateObj);
     firstEvalDate.setMonth(firstEvalDate.getMonth() + 3);
-    const formattedEvalDate = firstEvalDate.toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' });
+    const formattedEvalDate = firstEvalDate.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
     const firstEvaluation: EvaluationCycle = {
         id: crypto.randomUUID(),
