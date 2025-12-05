@@ -75,6 +75,20 @@ function App() {
     }
   }, [isAuthenticated]);
 
+  // SYNC CURRENT USER WITH EMPLOYEE DATA
+  // This ensures that if the current user object is updated in the database (e.g. evaluations added),
+  // the local currentUser state reflects those changes immediately.
+  useEffect(() => {
+      if (currentUser && employees.length > 0) {
+          const freshUser = employees.find(e => e.id === currentUser.id);
+          // Only update if data has actually changed to prevent loops
+          if (freshUser && JSON.stringify(freshUser) !== JSON.stringify(currentUser)) {
+              setCurrentUser(freshUser);
+              localStorage.setItem('hrms_current_user', JSON.stringify(freshUser));
+          }
+      }
+  }, [employees, currentUser]);
+
   const handleShowToast = (msg: string) => {
       setToastMessage(msg);
       setShowToast(true);

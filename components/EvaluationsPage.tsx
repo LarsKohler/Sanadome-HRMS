@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
     ClipboardCheck, Calendar, User, ArrowRight, CheckCircle2, 
@@ -171,7 +172,9 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       if (!selectedData) return;
       // Convert NL date to Input Date format (YYYY-MM-DD)
       const dateObj = parseNLDate(selectedData.evaluation.plannedDate || selectedData.evaluation.createdAt);
-      const isoDate = dateObj.toISOString().split('T')[0];
+      // Fallback if parsing failed
+      const safeDate = !isNaN(dateObj.getTime()) ? dateObj : new Date();
+      const isoDate = safeDate.toISOString().split('T')[0];
 
       setEditFormData({
           id: selectedData.evaluation.id,
@@ -202,6 +205,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   // --- WORKFLOW ACTIONS ---
 
   const handleStartEarly = (data: { evaluation: EvaluationCycle, employee: Employee }) => {
+      // Force status update
       updateEvaluation(data.employee, data.evaluation.id, { status: 'EmployeeInput' });
       onShowToast("Evaluatie geopend. Medewerker heeft bericht ontvangen.");
       

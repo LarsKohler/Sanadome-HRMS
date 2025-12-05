@@ -386,16 +386,17 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
 
       // Actions (Only for owner/manager)
       const openOnboardingTasks = employee.onboardingTasks?.filter(t => t.score !== 100) || [];
-      const pendingEvaluations = employee.evaluations?.filter(ev => ev.status === 'EmployeeInput' || ev.status === 'ManagerInput') || [];
+      
+      // EXPLICITLY SEPARATE actionable from planned
+      const actionableEvaluations = employee.evaluations?.filter(ev => ev.status === 'EmployeeInput' || ev.status === 'ManagerInput') || [];
       const plannedEvaluations = employee.evaluations?.filter(ev => ev.status === 'Planned') || [];
       
       // Calculate unlockable planned evaluations (within 2 weeks)
-      const actionablePlanned = plannedEvaluations.filter(ev => isEvaluationUnlockable(ev.plannedDate));
+      const unlockablePlanned = plannedEvaluations.filter(ev => isEvaluationUnlockable(ev.plannedDate));
       
-      const totalActions = openOnboardingTasks.length + pendingEvaluations.length + urgentDebtCount + actionablePlanned.length;
+      const totalActions = openOnboardingTasks.length + actionableEvaluations.length + urgentDebtCount + unlockablePlanned.length;
 
       // Active Growth Goal (The most recent in-progress one)
-      // Changed: Show all NON-completed goals (In Progress AND Not Started) to ensure consistency
       const activeGrowthGoal = (employee.growthGoals || [])
           .filter(g => g.status !== 'Completed')
           .sort((a,b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0];
@@ -501,7 +502,8 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                       </div>
                                   )}
 
-                                  {pendingEvaluations.map(ev => (
+                                  {/* ACTIONABLE EVALUATIONS */}
+                                  {actionableEvaluations.map(ev => (
                                       <div key={ev.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.EVALUATIONS)}>
                                           <div className={`p-2 rounded-lg ${ev.status === 'EmployeeInput' ? 'bg-teal-100 text-teal-600' : 'bg-purple-100 text-purple-600'}`}>
                                               {ev.status === 'EmployeeInput' ? <Pencil size={18}/> : <ClipboardCheck size={18} />}
@@ -1153,7 +1155,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                     
                                     {!isLocked && (
                                         <div className={`flex items-center gap-2 text-xs font-bold transition-colors ${isActionable ? 'text-teal-600' : 'text-slate-400 group-hover:text-teal-600'}`}>
-                                            {isActionable ? 'Start Evaluatie' : (isPlanned ? 'Start Evaluatie' : 'Bekijk Rapport')} <ArrowRight size={14}/>
+                                            {isActionable ? 'Nu Invullen' : (isPlanned ? 'Start Evaluatie' : 'Bekijk Rapport')} <ArrowRight size={14}/>
                                         </div>
                                     )}
                                     {isLocked && (
