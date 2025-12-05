@@ -165,7 +165,6 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
     setNoteCategory(note.category);
     setNoteContent(note.content);
     setNoteVisible(note.visibleToEmployee);
-    // Handling score/impact for edit could be complex, simplifying for now
     setIsEditNoteModalOpen(true);
     setActiveDropdownId(null);
   };
@@ -223,7 +222,7 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
             const newDoc: EmployeeDocument = {
               id: Math.random().toString(36).substr(2, 9),
               name: docName || uploadFile.name,
-              type: 'PDF', // Simplified for demo, ideally detect MIME type
+              type: 'PDF',
               category: docCategory,
               date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
               size: fileSize,
@@ -313,113 +312,110 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
            <p className="text-slate-500 mt-1">Beheer personeelsdossiers, contracten en notities.</p>
         </div>
 
-        {canViewAll && (
-          <div className="relative z-20" ref={selectorRef}>
-             <button 
-                onClick={() => setIsEmployeeSelectorOpen(!isEmployeeSelectorOpen)}
-                className="flex items-center gap-3 bg-white border border-slate-200 shadow-sm px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-all min-w-[280px] justify-between group"
-             >
-                <div className="flex items-center gap-3">
-                    <img src={selectedEmployee.avatar} className="w-8 h-8 rounded-full border border-slate-200" alt="Avatar"/>
-                    <div className="text-left">
-                        <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">Geselecteerd</div>
-                        <div className="text-sm font-bold text-slate-800">{selectedEmployee.name}</div>
-                    </div>
-                </div>
-                <ChevronDown size={16} className={`text-slate-400 transition-transform duration-200 ${isEmployeeSelectorOpen ? 'rotate-180' : ''}`} />
-             </button>
-
-             {isEmployeeSelectorOpen && (
-                 <div className="absolute right-0 top-full mt-2 w-[320px] bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                     <div className="p-3 border-b border-slate-50 bg-slate-50/50">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
-                            <input 
-                                type="text" 
-                                autoFocus
-                                placeholder="Zoek medewerker..." 
-                                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
+        <div className="flex gap-4 items-center">
+            {canViewAll && (
+            <div className="relative z-20" ref={selectorRef}>
+                <button 
+                    onClick={() => setIsEmployeeSelectorOpen(!isEmployeeSelectorOpen)}
+                    className="flex items-center gap-3 bg-white border border-slate-200 shadow-sm px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-all min-w-[280px] justify-between group"
+                >
+                    <div className="flex items-center gap-3">
+                        <img src={selectedEmployee.avatar} className="w-8 h-8 rounded-full border border-slate-200" alt="Avatar"/>
+                        <div className="text-left">
+                            <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">Geselecteerd</div>
+                            <div className="text-sm font-bold text-slate-800">{selectedEmployee.name}</div>
                         </div>
-                     </div>
-                     <div className="max-h-[300px] overflow-y-auto">
-                        {filteredEmployees.map(emp => (
-                            <button
-                                key={emp.id}
-                                onClick={() => {
-                                    onSelectEmployee(emp.id);
-                                    setIsEmployeeSelectorOpen(false);
-                                }}
-                                className={`w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-3 ${selectedEmployeeId === emp.id ? 'bg-teal-50/50' : ''}`}
-                            >
-                                <img src={emp.avatar} className="w-8 h-8 rounded-full object-cover" alt={emp.name}/>
-                                <div className="flex-1 min-w-0">
-                                    <div className={`text-sm font-bold truncate ${selectedEmployeeId === emp.id ? 'text-teal-900' : 'text-slate-900'}`}>{emp.name}</div>
-                                    <div className="text-xs text-slate-500 truncate">{emp.role}</div>
-                                </div>
-                                {selectedEmployeeId === emp.id && <Check size={16} className="text-teal-600"/>}
-                            </button>
-                        ))}
-                     </div>
-                 </div>
-             )}
-          </div>
-        )}
+                    </div>
+                    <ChevronDown size={16} className={`text-slate-400 transition-transform duration-200 ${isEmployeeSelectorOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {isEmployeeSelectorOpen && (
+                    <div className="absolute right-0 top-full mt-2 w-[320px] bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-3 border-b border-slate-50 bg-slate-50/50">
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                                <input 
+                                    type="text" 
+                                    autoFocus
+                                    placeholder="Zoek medewerker..." 
+                                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                        <div className="max-h-[300px] overflow-y-auto">
+                            {filteredEmployees.map(emp => (
+                                <button
+                                    key={emp.id}
+                                    onClick={() => {
+                                        onSelectEmployee(emp.id);
+                                        setIsEmployeeSelectorOpen(false);
+                                    }}
+                                    className={`w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-3 ${selectedEmployeeId === emp.id ? 'bg-teal-50/50' : ''}`}
+                                >
+                                    <img src={emp.avatar} className="w-8 h-8 rounded-full object-cover" alt={emp.name}/>
+                                    <div className="flex-1 min-w-0">
+                                        <div className={`text-sm font-bold truncate ${selectedEmployeeId === emp.id ? 'text-teal-900' : 'text-slate-900'}`}>{emp.name}</div>
+                                        <div className="text-xs text-slate-500 truncate">{emp.role}</div>
+                                    </div>
+                                    {selectedEmployeeId === emp.id && <Check size={16} className="text-teal-600"/>}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+            )}
+
+            {activeTab === 'files' ? (
+                canManageDocs && (
+                <button 
+                    onClick={handleOpenUpload}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 text-sm font-bold transition-all shadow-sm"
+                >
+                    <Upload size={16} />
+                    Uploaden
+                </button>
+                )
+            ) : (
+            canManageDocs && (
+                <button 
+                    onClick={handleOpenAddNote}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 text-sm font-bold transition-all shadow-sm"
+                >
+                    <Plus size={16} />
+                    Notitie
+                </button>
+            )
+            )}
+        </div>
+      </div>
+
+      {/* TABS */}
+      <div className="border-b border-slate-200 mb-8 flex gap-8">
+        <button 
+            onClick={() => setActiveTab('notes')}
+            className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'notes' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+        >
+            <StickyNote size={18} />
+            Notities & Tijdlijn
+        </button>
+        <button 
+            onClick={() => setActiveTab('files')}
+            className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
+            activeTab === 'files' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-700'
+            }`}
+        >
+            <FolderOpen size={18} />
+            Bestanden ({selectedEmployee.documents?.length || 0})
+        </button>
       </div>
 
       {/* Main Content Card */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden min-h-[600px] flex flex-col">
-          
-          {/* Toolbar */}
-          <div className="border-b border-slate-200 px-6 md:px-8 py-4 bg-slate-50/30 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <div className="flex gap-6 overflow-x-auto no-scrollbar w-full md:w-auto">
-                <button 
-                    onClick={() => setActiveTab('notes')}
-                    className={`pb-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
-                    activeTab === 'notes' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-700'
-                    }`}
-                >
-                    <StickyNote size={18} />
-                    Notities & Tijdlijn
-                </button>
-                <button 
-                    onClick={() => setActiveTab('files')}
-                    className={`pb-2 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
-                    activeTab === 'files' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-700'
-                    }`}
-                >
-                    <FolderOpen size={18} />
-                    Bestanden ({selectedEmployee.documents?.length || 0})
-                </button>
-              </div>
-
-              <div className="flex gap-3">
-                 {activeTab === 'files' ? (
-                     canManageDocs && (
-                        <button 
-                            onClick={handleOpenUpload}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 text-sm font-bold transition-all shadow-sm"
-                        >
-                            <Upload size={16} />
-                            Uploaden
-                        </button>
-                     )
-                 ) : (
-                    canManageDocs && (
-                        <button 
-                            onClick={handleOpenAddNote}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl hover:bg-slate-800 text-sm font-bold transition-all shadow-sm"
-                        >
-                            <Plus size={16} />
-                            Notitie
-                        </button>
-                    )
-                 )}
-              </div>
-          </div>
-
           {/* Content Body */}
           <div className="flex-1 bg-slate-50/30 p-6 md:p-10 overflow-y-auto">
              

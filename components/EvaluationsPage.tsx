@@ -4,7 +4,7 @@ import {
     ClipboardCheck, Calendar, User, ArrowRight, CheckCircle2, 
     MessageSquare, Star, Lock, Unlock, TrendingUp, TrendingDown, 
     MoreVertical, Clock, Check, AlertCircle, Search, Filter, PenTool,
-    ChevronRight, LayoutDashboard, History, Plus, Trash2, Edit2, Settings, AlertTriangle, FileText, Printer, Save, Copy
+    ChevronRight, LayoutDashboard, History, Plus, Trash2, Edit2, Settings, AlertTriangle, FileText, Printer, Save, Copy, X, BarChart3, ChevronDown
 } from 'lucide-react';
 import { Employee, EvaluationCycle, Notification, ViewState, EvaluationStatus, EvaluationTemplate, EvaluationTemplateSection } from '../types';
 import { hasPermission } from '../utils/permissions';
@@ -18,16 +18,6 @@ interface EvaluationsPageProps {
   onAddNotification: (notification: Notification) => void;
   onShowToast: (message: string) => void;
 }
-
-// Helper to parse DD-MM-YYYY
-const parseNLDate = (dateStr?: string): Date => {
-    if (!dateStr) return new Date();
-    const parts = dateStr.split('-');
-    if (parts.length === 3) {
-        return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-    }
-    return new Date();
-};
 
 const getStatusLabel = (status: EvaluationStatus) => {
     switch (status) {
@@ -64,10 +54,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   const [selectedEvaluationId, setSelectedEvaluationId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
-  // Management State
-  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
-  const settingsMenuRef = useRef<HTMLDivElement>(null);
-  
   // Template State
   const [templates, setTemplates] = useState<EvaluationTemplate[]>([]);
   const [editingTemplate, setEditingTemplate] = useState<EvaluationTemplate | null>(null);
@@ -76,15 +62,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   // Assignment Modal
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [assignForm, setAssignForm] = useState({ employeeId: '', templateId: '', date: '' });
-
-  // Edit Evaluation Meta Modal
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editFormData, setEditFormData] = useState<{
-      id: string;
-      type: string;
-      plannedDate: string;
-      status: EvaluationStatus;
-  } | null>(null);
 
   const isManager = hasPermission(currentUser, 'MANAGE_EVALUATIONS');
 
@@ -97,16 +74,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       setTemplates(data);
   };
 
-  useEffect(() => {
-      const handleClickOutside = (event: MouseEvent) => {
-          if (settingsMenuRef.current && !settingsMenuRef.current.contains(event.target as Node)) {
-              setShowSettingsMenu(false);
-          }
-      };
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   // --- DATA PREPARATION ---
 
   const allEvaluations = useMemo(() => {
@@ -118,16 +85,13 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
               });
           }
       });
-      return list.sort((a, b) => {
-          const dateA = parseNLDate(a.evaluation.plannedDate || a.evaluation.createdAt);
-          const dateB = parseNLDate(b.evaluation.plannedDate || b.evaluation.createdAt);
-          return dateB.getTime() - dateA.getTime();
-      });
+      // Sort by date desc
+      return list.sort((a, b) => new Date(b.evaluation.createdAt).getTime() - new Date(a.evaluation.createdAt).getTime());
   }, [employees, isManager, currentUser.id]);
 
   const filteredList = useMemo(() => {
       return allEvaluations.filter(({ evaluation, employee }) => {
-          const matchesSearch = employee.name.toLowerCase().includes(searchTerm.toLowerCase());
+          const matchesSearch = employee.name.toLowerCase().includes(searchTerm.toLowerCase()) || evaluation.type.toLowerCase().includes(searchTerm.toLowerCase());
           
           if (!matchesSearch) return false;
 
@@ -216,7 +180,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       
       if (!template || !employee) return;
 
-      // Transform Template to Scores
       const scores = [];
       template.sections.forEach(section => {
           section.questions.forEach(q => {
@@ -233,7 +196,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           id: crypto.randomUUID(),
           employeeId: employee.id,
           managerId: currentUser.id,
-          type: template.title, // Store title for display
+          type: template.title,
           templateId: template.id,
           status: 'Planned',
           createdAt: new Date().toLocaleDateString('nl-NL'),
@@ -244,7 +207,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           developmentPlan: []
       };
 
-      // Save
       await api.saveEvaluation(newEvaluation);
       const updatedEvals = [...(employee.evaluations || []), newEvaluation];
       onUpdateEmployee({ ...employee, evaluations: updatedEvals });
@@ -254,7 +216,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       setAssignForm({ employeeId: '', templateId: '', date: '' });
   };
 
-  // --- EXISTING LOGIC (UPDATED) ---
+  // --- EVALUATION ACTIONS ---
 
   const updateEvaluation = (employee: Employee, evaluationId: string, updates: Partial<EvaluationCycle>) => {
       const updatedEvaluations = (employee.evaluations || []).map(ev => 
@@ -332,6 +294,19 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       onShowToast("Evaluatie afgerond en gearchiveerd.");
   };
 
+  const handleDeleteEvaluation = (evaluationId: string, employeeId: string) => {
+      if(confirm("Weet je zeker dat je deze evaluatie wilt verwijderen?")) {
+          const employee = employees.find(e => e.id === employeeId);
+          if (employee) {
+              const updatedEvals = (employee.evaluations || []).filter(e => e.id !== evaluationId);
+              onUpdateEmployee({ ...employee, evaluations: updatedEvals });
+              api.deleteEvaluation(evaluationId);
+              onShowToast("Evaluatie verwijderd.");
+              if (selectedEvaluationId === evaluationId) setSelectedEvaluationId(null);
+          }
+      }
+  };
+
   const handleScoreChange = (index: number, field: string, value: any) => {
       if (!selectedData) return;
       const scores = [...selectedData.evaluation.scores];
@@ -344,44 +319,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       updateEvaluation(selectedData.employee, selectedData.evaluation.id, { [field]: value });
   };
 
-  // --- VIEWS ---
-
-  const renderTemplates = () => (
-      <div className="p-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <div 
-                onClick={handleCreateTemplate}
-                className="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-8 flex flex-col items-center justify-center cursor-pointer hover:border-teal-500 hover:bg-teal-50/20 transition-all min-h-[250px]"
-              >
-                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 mb-4">
-                      <Plus size={32} />
-                  </div>
-                  <h3 className="font-bold text-slate-600">Nieuw Template</h3>
-              </div>
-              {templates.map(tpl => (
-                  <div key={tpl.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col">
-                      <div className="flex justify-between items-start mb-4">
-                          <div className="p-2 bg-teal-50 text-teal-600 rounded-lg">
-                              <ClipboardCheck size={24} />
-                          </div>
-                          <button onClick={() => handleDeleteTemplate(tpl.id)} className="text-slate-400 hover:text-red-500 p-2"><Trash2 size={16}/></button>
-                      </div>
-                      <h3 className="font-bold text-slate-900 text-lg mb-2">{tpl.title}</h3>
-                      <p className="text-sm text-slate-500 mb-6 line-clamp-2">{tpl.description || 'Geen beschrijving'}</p>
-                      <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center">
-                          <span className="text-xs font-bold text-slate-400 uppercase">{tpl.sections.length} Secties</span>
-                          <button 
-                            onClick={() => { setEditingTemplate(tpl); setIsTemplateModalOpen(true); }}
-                            className="text-sm font-bold text-teal-600 hover:underline flex items-center gap-1"
-                          >
-                              <Edit2 size={14}/> Bewerken
-                          </button>
-                      </div>
-                  </div>
-              ))}
-          </div>
-      </div>
-  );
+  // --- RENDER HELPERS ---
 
   const renderReportView = (data: { evaluation: EvaluationCycle, employee: Employee }) => {
       const { evaluation, employee } = data;
@@ -393,8 +331,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       return (
           <div className="h-full bg-slate-50 p-8 overflow-y-auto">
               <div className="max-w-4xl mx-auto bg-white rounded-none md:rounded-2xl shadow-lg print:shadow-none print:w-full overflow-hidden">
-                  
-                  {/* Report Header */}
                   <div className="p-8 border-b-4 border-teal-600 bg-slate-50 flex justify-between items-start print:bg-white">
                       <div>
                           <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight mb-2">Evaluatie Rapport</h1>
@@ -408,7 +344,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                   </div>
 
                   <div className="p-8">
-                      {/* Summary Stats */}
                       <div className="grid grid-cols-3 gap-6 mb-10">
                           <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center">
                               <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Datum Afgerond</div>
@@ -424,7 +359,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                           </div>
                       </div>
 
-                      {/* Scores List */}
                       <div className="mb-10">
                           <h3 className="font-bold text-slate-900 text-lg mb-4 border-b border-slate-200 pb-2">Competenties</h3>
                           <div className="space-y-6">
@@ -455,7 +389,6 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                           </div>
                       </div>
 
-                      {/* Feedback Sections */}
                       <div className="grid grid-cols-2 gap-8 mb-10">
                           <div>
                               <h3 className="font-bold text-slate-900 mb-3 border-b border-slate-200 pb-2 flex items-center gap-2"><TrendingUp size={16} className="text-green-600"/> Successen</h3>
@@ -467,13 +400,11 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                           </div>
                       </div>
 
-                      {/* Conclusion */}
                       <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-10">
                           <h3 className="font-bold text-slate-900 mb-2">Samenvatting & Conclusie</h3>
                           <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{evaluation.managerGeneralFeedback || 'Geen conclusie genoteerd.'}</p>
                       </div>
 
-                      {/* Signatures */}
                       <div className="grid grid-cols-2 gap-20 pt-10 border-t border-slate-200">
                           <div>
                               <div className="h-16 border-b border-slate-300 mb-2 relative">
@@ -501,7 +432,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                   </div>
               </div>
               
-              <div className="flex justify-center mt-8 gap-4 print:hidden">
+              <div className="flex justify-center mt-8 gap-4 print:hidden pb-10">
                   <button onClick={() => window.print()} className="px-6 py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-slate-800 transition-all flex items-center gap-2">
                       <Printer size={18} /> Print Rapport
                   </button>
@@ -510,33 +441,32 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       );
   };
 
-  const renderDetailView = () => {
+  const renderDetailOverlay = () => {
       if (!selectedData) return null;
-      
       const { evaluation, employee } = selectedData;
-      
-      // If signed, show report
-      if (['Signed', 'Archived'].includes(evaluation.status)) {
-          return renderReportView(selectedData);
-      }
-
       const step = getStatusStep(evaluation.status);
       const isMyProfile = employee.id === currentUser.id;
-      
       const canEditEmployee = isMyProfile && evaluation.status === 'EmployeeInput';
       const canEditManager = isManager && evaluation.status === 'ManagerInput';
       const isReviewMode = evaluation.status === 'Review';
 
       return (
-          <div className="h-full flex flex-col bg-white">
-              {/* Interactive Form Header */}
-              <div className="p-6 border-b border-slate-200">
-                  <div className="flex justify-between items-start mb-6">
-                      <div className="flex items-center gap-4">
-                          <img src={employee.avatar} className="w-16 h-16 rounded-xl object-cover border border-slate-100" />
+          <div className="fixed inset-0 z-50 flex justify-end">
+              <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm transition-opacity" onClick={() => setSelectedEvaluationId(null)}></div>
+              <div className="relative w-full max-w-5xl bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
+                  
+                  {/* HEADER */}
+                  <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                      <div className="flex items-center gap-6">
+                          <div className="relative">
+                              <img src={employee.avatar} className="w-16 h-16 rounded-xl object-cover border-2 border-slate-100" alt="Avatar"/>
+                              <div className={`absolute -bottom-2 -right-2 p-1.5 rounded-full border-2 border-white ${evaluation.status === 'Signed' ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'}`}>
+                                  {evaluation.status === 'Signed' ? <CheckCircle2 size={12}/> : <Clock size={12}/>}
+                              </div>
+                          </div>
                           <div>
                               <h2 className="text-2xl font-bold text-slate-900">{evaluation.type}</h2>
-                              <div className="flex items-center gap-2 text-slate-500 text-sm">
+                              <div className="flex items-center gap-2 text-slate-500 text-sm mt-1">
                                   <User size={14}/> {employee.name}
                                   <span className="text-slate-300">•</span>
                                   <Calendar size={14}/> {evaluation.plannedDate || evaluation.createdAt}
@@ -547,373 +477,402 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                       <div className="flex gap-3 items-center">
                           {evaluation.status === 'Planned' && isManager && (
                               <button onClick={() => handleStartEarly(selectedData)} className="px-4 py-2 bg-slate-900 text-white text-sm font-bold rounded-xl shadow hover:bg-slate-800 transition-colors flex items-center gap-2">
-                                  <Unlock size={16}/> Vervroegd Starten
+                                  <Unlock size={16}/> Starten
                               </button>
                           )}
-                          
                           {canEditEmployee && (
                               <button onClick={handleSubmitEmployee} className="px-6 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl shadow hover:bg-blue-700 transition-colors flex items-center gap-2">
                                   Indienen <ArrowRight size={16}/>
                               </button>
                           )}
-
                           {canEditManager && (
                               <button onClick={handleSubmitManager} className="px-6 py-2 bg-purple-600 text-white text-sm font-bold rounded-xl shadow hover:bg-purple-700 transition-colors flex items-center gap-2">
                                   Naar Bespreking <MessageSquare size={16}/>
                               </button>
                           )}
-
                           {isReviewMode && isManager && (
                               <button onClick={handleSignOff} className="px-6 py-2 bg-green-600 text-white text-sm font-bold rounded-xl shadow hover:bg-green-700 transition-colors flex items-center gap-2">
-                                  <CheckCircle2 size={16}/> Ondertekenen & Afronden
+                                  <CheckCircle2 size={16}/> Ondertekenen
                               </button>
                           )}
+                          <div className="w-px h-8 bg-slate-100 mx-2"></div>
+                          <button onClick={() => setSelectedEvaluationId(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"><X size={24}/></button>
                       </div>
                   </div>
 
-                  {/* Stepper */}
-                  <div className="relative flex justify-between items-center max-w-3xl mx-auto">
-                      <div className="absolute left-0 top-1/2 w-full h-1 bg-slate-100 -z-10 rounded-full"></div>
-                      <div className="absolute left-0 top-1/2 h-1 bg-blue-500 -z-10 rounded-full transition-all duration-500" style={{ width: `${step * 25}%` }}></div>
-                      
-                      {['Ingepland', 'Zelfreflectie', 'Beoordeling', 'Bespreking', 'Afgerond'].map((label, idx) => {
-                          const active = idx <= step;
-                          return (
-                              <div key={idx} className="flex flex-col items-center gap-2 bg-white px-2">
-                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${
-                                      active ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-slate-200 text-slate-300'
-                                  }`}>
-                                      {idx < step ? <Check size={16} strokeWidth={3}/> : <div className={`w-2.5 h-2.5 rounded-full ${active ? 'bg-blue-500' : 'bg-slate-300'}`}></div>}
+                  {/* CONTENT */}
+                  <div className="flex-1 overflow-y-auto bg-slate-50/50">
+                      {['Signed', 'Archived'].includes(evaluation.status) ? (
+                          renderReportView(selectedData)
+                      ) : (
+                          <div className="p-8">
+                              {/* Stepper */}
+                              <div className="mb-10 max-w-3xl mx-auto">
+                                  <div className="flex justify-between items-center relative">
+                                      <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-200 -z-10 rounded-full"></div>
+                                      <div className="absolute left-0 top-1/2 h-1 bg-blue-500 -z-10 rounded-full transition-all duration-500" style={{ width: `${step * 25}%` }}></div>
+                                      
+                                      {['Ingepland', 'Zelfreflectie', 'Beoordeling', 'Bespreking', 'Afgerond'].map((label, idx) => {
+                                          const active = idx <= step;
+                                          return (
+                                              <div key={idx} className="flex flex-col items-center gap-2 bg-slate-50/50 px-2">
+                                                  <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${
+                                                      active ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-slate-300 bg-white text-slate-300'
+                                                  }`}>
+                                                      {idx < step ? <Check size={16} strokeWidth={3}/> : <div className={`w-2.5 h-2.5 rounded-full ${active ? 'bg-blue-500' : 'bg-slate-300'}`}></div>}
+                                                  </div>
+                                                  <span className={`text-[10px] font-bold uppercase tracking-wider ${active ? 'text-slate-900' : 'text-slate-400'}`}>{label}</span>
+                                              </div>
+                                          );
+                                      })}
                                   </div>
-                                  <span className={`text-[10px] font-bold uppercase tracking-wider ${active ? 'text-slate-900' : 'text-slate-400'}`}>{label}</span>
                               </div>
-                          );
-                      })}
+
+                              {evaluation.status === 'Planned' ? (
+                                  <div className="flex flex-col items-center justify-center py-20 text-center">
+                                      <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-6 text-slate-300">
+                                          <Lock size={32} />
+                                      </div>
+                                      <h3 className="text-xl font-bold text-slate-900">Nog even geduld</h3>
+                                      <p className="text-slate-500 mt-2 mb-6 max-w-md">
+                                          Deze evaluatie staat gepland voor <strong>{evaluation.plannedDate}</strong>. 
+                                          Het formulier wordt automatisch vrijgegeven.
+                                      </p>
+                                  </div>
+                              ) : (
+                                  <div className="max-w-4xl mx-auto space-y-8">
+                                      {/* Competencies */}
+                                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                          <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                                              <h4 className="font-bold text-slate-900">Competenties & Scores</h4>
+                                              <div className="flex gap-8 text-xs font-bold text-slate-500 uppercase tracking-wider mr-4">
+                                                  <span className="w-24 text-center">Medewerker</span>
+                                                  <span className="w-24 text-center">Manager</span>
+                                              </div>
+                                          </div>
+                                          <div className="divide-y divide-slate-100">
+                                              {evaluation.scores.map((score, idx) => (
+                                                  <div key={idx} className="p-6 hover:bg-slate-50 transition-colors">
+                                                      <div className="flex justify-between items-start mb-4">
+                                                          <div className="flex-1 pr-8">
+                                                              <div className="text-xs font-bold text-slate-400 uppercase mb-1">{score.category}</div>
+                                                              <div className="font-bold text-slate-900">{score.topic}</div>
+                                                          </div>
+                                                          <div className="flex gap-8">
+                                                              {/* Employee Input */}
+                                                              <div className="w-24 flex justify-center">
+                                                                  {canEditEmployee ? (
+                                                                      <select 
+                                                                        value={score.employeeScore}
+                                                                        onChange={(e) => handleScoreChange(idx, 'employeeScore', parseInt(e.target.value))}
+                                                                        className="bg-slate-100 border-transparent rounded-lg font-bold text-slate-900 focus:ring-blue-500 cursor-pointer"
+                                                                      >
+                                                                          <option value="0">-</option>
+                                                                          {[1,2,3,4,5].map(v => <option key={v} value={v}>{v}</option>)}
+                                                                      </select>
+                                                                  ) : (
+                                                                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold ${score.employeeScore > 0 ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-400'}`}>
+                                                                          {score.employeeScore || '-'}
+                                                                      </div>
+                                                                  )}
+                                                              </div>
+                                                              {/* Manager Input */}
+                                                              <div className="w-24 flex justify-center">
+                                                                  {canEditManager ? (
+                                                                      <select 
+                                                                        value={score.managerScore}
+                                                                        onChange={(e) => handleScoreChange(idx, 'managerScore', parseInt(e.target.value))}
+                                                                        className="bg-slate-100 border-transparent rounded-lg font-bold text-slate-900 focus:ring-purple-500 cursor-pointer"
+                                                                      >
+                                                                          <option value="0">-</option>
+                                                                          {[1,2,3,4,5].map(v => <option key={v} value={v}>{v}</option>)}
+                                                                      </select>
+                                                                  ) : (
+                                                                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold ${
+                                                                          evaluation.status === 'EmployeeInput' ? 'bg-slate-50 text-slate-200' :
+                                                                          score.managerScore > 0 ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-400'
+                                                                      }`}>
+                                                                          {evaluation.status === 'EmployeeInput' ? '?' : score.managerScore || '-'}
+                                                                      </div>
+                                                                  )}
+                                                              </div>
+                                                          </div>
+                                                      </div>
+                                                      
+                                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                          {(canEditEmployee || score.employeeComment) && (
+                                                              <div className="relative">
+                                                                  {canEditEmployee ? (
+                                                                      <textarea 
+                                                                        placeholder="Licht je score toe..."
+                                                                        className="w-full bg-blue-50/50 border border-blue-100 rounded-xl p-3 text-sm focus:outline-none focus:border-blue-300 resize-none"
+                                                                        rows={2}
+                                                                        value={score.employeeComment || ''}
+                                                                        onChange={(e) => handleScoreChange(idx, 'employeeComment', e.target.value)}
+                                                                      />
+                                                                  ) : (
+                                                                      <div className="bg-blue-50/30 border border-blue-100 p-3 rounded-xl text-sm text-slate-600 italic">
+                                                                          "{score.employeeComment}"
+                                                                      </div>
+                                                                  )}
+                                                              </div>
+                                                          )}
+                                                          {(canEditManager || (score.managerComment && evaluation.status !== 'EmployeeInput')) && (
+                                                              <div className="relative">
+                                                                  {canEditManager ? (
+                                                                      <textarea 
+                                                                        placeholder="Feedback manager..."
+                                                                        className="w-full bg-purple-50/50 border border-purple-100 rounded-xl p-3 text-sm focus:outline-none focus:border-purple-300 resize-none"
+                                                                        rows={2}
+                                                                        value={score.managerComment || ''}
+                                                                        onChange={(e) => handleScoreChange(idx, 'managerComment', e.target.value)}
+                                                                      />
+                                                                  ) : (
+                                                                      <div className={`bg-purple-50/30 border border-purple-100 p-3 rounded-xl text-sm text-slate-600 italic ${evaluation.status === 'EmployeeInput' ? 'opacity-50 blur-sm' : ''}`}>
+                                                                          {evaluation.status === 'EmployeeInput' ? "Feedback verborgen" : `"${score.managerComment}"`}
+                                                                      </div>
+                                                                  )}
+                                                              </div>
+                                                          )}
+                                                      </div>
+                                                  </div>
+                                              ))}
+                                          </div>
+                                      </div>
+
+                                      {/* Open Questions */}
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                          <div className="bg-white p-6 rounded-2xl border border-green-100 shadow-sm">
+                                              <div className="flex items-center gap-2 mb-4 text-green-700">
+                                                  <TrendingUp size={20}/>
+                                                  <h4 className="font-bold">Successen & Wins</h4>
+                                              </div>
+                                              {canEditEmployee ? (
+                                                  <textarea 
+                                                    className="w-full h-40 p-4 bg-green-50/30 border border-green-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 text-sm resize-none"
+                                                    placeholder="Waar ben je trots op?"
+                                                    value={evaluation.employeeWins || ''}
+                                                    onChange={(e) => handleTextChange('employeeWins', e.target.value)}
+                                                  />
+                                              ) : (
+                                                  <div className="p-4 bg-green-50/30 border border-green-100 rounded-xl text-sm text-slate-700 min-h-[160px]">
+                                                      {evaluation.employeeWins || 'Geen input.'}
+                                                  </div>
+                                              )}
+                                          </div>
+
+                                          <div className="bg-white p-6 rounded-2xl border border-amber-100 shadow-sm">
+                                              <div className="flex items-center gap-2 mb-4 text-amber-700">
+                                                  <TrendingDown size={20}/>
+                                                  <h4 className="font-bold">Uitdagingen</h4>
+                                              </div>
+                                              {canEditEmployee ? (
+                                                  <textarea 
+                                                    className="w-full h-40 p-4 bg-amber-50/30 border border-amber-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-sm resize-none"
+                                                    placeholder="Wat kon er beter?"
+                                                    value={evaluation.employeeStruggles || ''}
+                                                    onChange={(e) => handleTextChange('employeeStruggles', e.target.value)}
+                                                  />
+                                              ) : (
+                                                  <div className="p-4 bg-amber-50/30 border border-amber-100 rounded-xl text-sm text-slate-700 min-h-[160px]">
+                                                      {evaluation.employeeStruggles || 'Geen input.'}
+                                                  </div>
+                                              )}
+                                          </div>
+                                      </div>
+
+                                      {(canEditManager || evaluation.managerGeneralFeedback) && (
+                                          <div className="bg-white p-6 rounded-2xl border border-purple-100 shadow-sm">
+                                              <h4 className="font-bold text-purple-900 mb-4">Samenvatting & Conclusie Manager</h4>
+                                              {canEditManager ? (
+                                                  <textarea 
+                                                    className="w-full h-32 p-4 bg-purple-50/30 border border-purple-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 text-sm resize-none"
+                                                    placeholder="Eindconclusie en afspraken..."
+                                                    value={evaluation.managerGeneralFeedback || ''}
+                                                    onChange={(e) => handleTextChange('managerGeneralFeedback', e.target.value)}
+                                                  />
+                                              ) : (
+                                                  <div className={`p-4 bg-purple-50/30 border border-purple-100 rounded-xl text-sm text-slate-700 min-h-[128px] ${evaluation.status === 'EmployeeInput' ? 'blur-sm' : ''}`}>
+                                                      {evaluation.managerGeneralFeedback || 'Nog geen conclusie.'}
+                                                  </div>
+                                              )}
+                                          </div>
+                                      )}
+                                  </div>
+                              )}
+                          </div>
+                      )}
                   </div>
-              </div>
-
-              {/* Form Content */}
-              <div className="flex-1 overflow-y-auto p-8 bg-slate-50/50">
-                  {evaluation.status === 'Planned' ? (
-                      <div className="flex flex-col items-center justify-center h-full text-center max-w-md mx-auto">
-                          <div className="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center mb-6 text-slate-300">
-                              <Lock size={40} />
-                          </div>
-                          <h3 className="text-xl font-bold text-slate-900">Nog even geduld</h3>
-                          <p className="text-slate-500 mt-2 mb-6">
-                              Deze evaluatie staat gepland voor <strong>{evaluation.plannedDate}</strong>. 
-                              Het formulier wordt 2 weken van tevoren automatisch vrijgegeven.
-                          </p>
-                      </div>
-                  ) : (
-                      <div className="max-w-4xl mx-auto space-y-8">
-                          
-                          {/* Competencies Grid */}
-                          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                              <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
-                                  <h4 className="font-bold text-slate-900">Competenties & Scores</h4>
-                                  <div className="flex gap-8 text-xs font-bold text-slate-500 uppercase tracking-wider mr-4">
-                                      <span className="w-24 text-center">Medewerker</span>
-                                      <span className="w-24 text-center">Manager</span>
-                                  </div>
-                              </div>
-                              <div className="divide-y divide-slate-100">
-                                  {evaluation.scores.map((score, idx) => (
-                                      <div key={idx} className="p-6 hover:bg-slate-50 transition-colors">
-                                          <div className="flex justify-between items-start mb-4">
-                                              <div className="flex-1 pr-8">
-                                                  <div className="text-xs font-bold text-slate-400 uppercase mb-1">{score.category}</div>
-                                                  <div className="font-bold text-slate-900">{score.topic}</div>
-                                              </div>
-                                              <div className="flex gap-8">
-                                                  {/* Employee Input */}
-                                                  <div className="w-24 flex justify-center">
-                                                      {canEditEmployee ? (
-                                                          <select 
-                                                            value={score.employeeScore}
-                                                            onChange={(e) => handleScoreChange(idx, 'employeeScore', parseInt(e.target.value))}
-                                                            className="bg-slate-100 border-transparent rounded-lg font-bold text-slate-900 focus:ring-blue-500"
-                                                          >
-                                                              <option value="0">-</option>
-                                                              {[1,2,3,4,5].map(v => <option key={v} value={v}>{v}</option>)}
-                                                          </select>
-                                                      ) : (
-                                                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold ${score.employeeScore > 0 ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-400'}`}>
-                                                              {score.employeeScore || '-'}
-                                                          </div>
-                                                      )}
-                                                  </div>
-                                                  {/* Manager Input */}
-                                                  <div className="w-24 flex justify-center">
-                                                      {canEditManager ? (
-                                                          <select 
-                                                            value={score.managerScore}
-                                                            onChange={(e) => handleScoreChange(idx, 'managerScore', parseInt(e.target.value))}
-                                                            className="bg-slate-100 border-transparent rounded-lg font-bold text-slate-900 focus:ring-purple-500"
-                                                          >
-                                                              <option value="0">-</option>
-                                                              {[1,2,3,4,5].map(v => <option key={v} value={v}>{v}</option>)}
-                                                          </select>
-                                                      ) : (
-                                                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold ${
-                                                              evaluation.status === 'EmployeeInput' ? 'bg-slate-50 text-slate-200' :
-                                                              score.managerScore > 0 ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-400'
-                                                          }`}>
-                                                              {evaluation.status === 'EmployeeInput' ? '?' : score.managerScore || '-'}
-                                                          </div>
-                                                      )}
-                                                  </div>
-                                              </div>
-                                          </div>
-                                          
-                                          {/* Comments */}
-                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                              {/* Emp Comment */}
-                                              {(canEditEmployee || score.employeeComment) && (
-                                                  <div className="relative">
-                                                      {canEditEmployee ? (
-                                                          <textarea 
-                                                            placeholder="Licht je score toe..."
-                                                            className="w-full bg-blue-50/50 border border-blue-100 rounded-xl p-3 text-sm focus:outline-none focus:border-blue-300 resize-none"
-                                                            rows={2}
-                                                            value={score.employeeComment || ''}
-                                                            onChange={(e) => handleScoreChange(idx, 'employeeComment', e.target.value)}
-                                                          />
-                                                      ) : (
-                                                          <div className="bg-blue-50/30 border border-blue-100 p-3 rounded-xl text-sm text-slate-600 italic">
-                                                              "{score.employeeComment}"
-                                                          </div>
-                                                      )}
-                                                  </div>
-                                              )}
-                                              {/* Mgr Comment - Hidden during employee input */}
-                                              {(canEditManager || (score.managerComment && evaluation.status !== 'EmployeeInput')) && (
-                                                  <div className="relative">
-                                                      {canEditManager ? (
-                                                          <textarea 
-                                                            placeholder="Feedback manager..."
-                                                            className="w-full bg-purple-50/50 border border-purple-100 rounded-xl p-3 text-sm focus:outline-none focus:border-purple-300 resize-none"
-                                                            rows={2}
-                                                            value={score.managerComment || ''}
-                                                            onChange={(e) => handleScoreChange(idx, 'managerComment', e.target.value)}
-                                                          />
-                                                      ) : (
-                                                          <div className={`bg-purple-50/30 border border-purple-100 p-3 rounded-xl text-sm text-slate-600 italic ${evaluation.status === 'EmployeeInput' ? 'opacity-50 blur-sm' : ''}`}>
-                                                              {evaluation.status === 'EmployeeInput' ? "Feedback verborgen" : `"${score.managerComment}"`}
-                                                          </div>
-                                                      )}
-                                                  </div>
-                                              )}
-                                          </div>
-                                      </div>
-                                  ))}
-                              </div>
-                          </div>
-
-                          {/* Open Questions */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                              <div className="bg-white p-6 rounded-2xl border border-green-100 shadow-sm">
-                                  <div className="flex items-center gap-2 mb-4 text-green-700">
-                                      <TrendingUp size={20}/>
-                                      <h4 className="font-bold">Successen & Wins</h4>
-                                  </div>
-                                  {canEditEmployee ? (
-                                      <textarea 
-                                        className="w-full h-40 p-4 bg-green-50/30 border border-green-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 text-sm resize-none"
-                                        placeholder="Waar ben je trots op?"
-                                        value={evaluation.employeeWins || ''}
-                                        onChange={(e) => handleTextChange('employeeWins', e.target.value)}
-                                      />
-                                  ) : (
-                                      <div className="p-4 bg-green-50/30 border border-green-100 rounded-xl text-sm text-slate-700 min-h-[160px]">
-                                          {evaluation.employeeWins || 'Geen input.'}
-                                      </div>
-                                  )}
-                              </div>
-
-                              <div className="bg-white p-6 rounded-2xl border border-amber-100 shadow-sm">
-                                  <div className="flex items-center gap-2 mb-4 text-amber-700">
-                                      <TrendingDown size={20}/>
-                                      <h4 className="font-bold">Uitdagingen</h4>
-                                  </div>
-                                  {canEditEmployee ? (
-                                      <textarea 
-                                        className="w-full h-40 p-4 bg-amber-50/30 border border-amber-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-sm resize-none"
-                                        placeholder="Wat kon er beter?"
-                                        value={evaluation.employeeStruggles || ''}
-                                        onChange={(e) => handleTextChange('employeeStruggles', e.target.value)}
-                                      />
-                                  ) : (
-                                      <div className="p-4 bg-amber-50/30 border border-amber-100 rounded-xl text-sm text-slate-700 min-h-[160px]">
-                                          {evaluation.employeeStruggles || 'Geen input.'}
-                                      </div>
-                                  )}
-                              </div>
-                          </div>
-
-                          {(canEditManager || evaluation.managerGeneralFeedback) && (
-                              <div className="bg-white p-6 rounded-2xl border border-purple-100 shadow-sm">
-                                  <h4 className="font-bold text-purple-900 mb-4">Samenvatting & Conclusie Manager</h4>
-                                  {canEditManager ? (
-                                      <textarea 
-                                        className="w-full h-32 p-4 bg-purple-50/30 border border-purple-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 text-sm resize-none"
-                                        placeholder="Eindconclusie en afspraken..."
-                                        value={evaluation.managerGeneralFeedback || ''}
-                                        onChange={(e) => handleTextChange('managerGeneralFeedback', e.target.value)}
-                                      />
-                                  ) : (
-                                      <div className={`p-4 bg-purple-50/30 border border-purple-100 rounded-xl text-sm text-slate-700 min-h-[128px] ${evaluation.status === 'EmployeeInput' ? 'blur-sm' : ''}`}>
-                                          {evaluation.managerGeneralFeedback || 'Nog geen conclusie.'}
-                                      </div>
-                                  )}
-                              </div>
-                          )}
-
-                      </div>
-                  )}
               </div>
           </div>
       );
   };
 
   return (
-    <div className="flex h-[calc(100vh-64px)] overflow-hidden bg-slate-50">
+    <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 min-h-[calc(100vh-80px)]">
         
-        {/* SIDEBAR NAVIGATION */}
-        <div className="w-80 bg-white border-r border-slate-200 flex flex-col flex-shrink-0">
-            <div className="p-4 border-b border-slate-100 space-y-4">
-                <div className="flex items-center justify-between">
-                    <h2 className="font-bold text-lg text-slate-800">Evaluaties</h2>
-                    {isManager && (
-                        <span className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-500 font-bold">{filteredList.length}</span>
-                    )}
-                </div>
-                
-                {/* Tabs */}
-                <div className="flex flex-wrap gap-1 bg-slate-100 p-1 rounded-xl">
-                    <button 
-                        onClick={() => setActiveTab('active')}
-                        className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'active' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
-                    >
-                        Actief
-                    </button>
-                    {isManager && (
-                        <>
-                            <button 
-                                onClick={() => setActiveTab('planning')}
-                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'planning' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
-                            >
-                                Planning
-                            </button>
-                            <button 
-                                onClick={() => setActiveTab('templates')}
-                                className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'templates' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
-                            >
-                                Templates
-                            </button>
-                        </>
-                    )}
-                    <button 
-                        onClick={() => setActiveTab('archive')}
-                        className={`flex-1 py-1.5 text-xs font-bold rounded-lg transition-all ${activeTab === 'archive' ? 'bg-white shadow text-slate-900' : 'text-slate-500'}`}
-                    >
-                        Archief
-                    </button>
+        {/* HEADER */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6">
+            <div>
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
+                    <ClipboardCheck className="text-teal-600" size={32} />
+                    Performance & Evaluaties
+                </h1>
+                <p className="text-slate-500 mt-1">Beheer functioneringsgesprekken en groei.</p>
+            </div>
+
+            <div className="flex items-center gap-3">
+                {isManager && (
+                    <>
+                        <button 
+                            onClick={() => setIsAssignModalOpen(true)}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-sm shadow-md transition-all"
+                        >
+                            <Calendar size={16}/> Inplannen
+                        </button>
+                        <button 
+                            onClick={handleCreateTemplate}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-sm shadow-sm transition-all"
+                        >
+                            <Plus size={16}/> Nieuw Template
+                        </button>
+                    </>
+                )}
+            </div>
+        </div>
+
+        {/* TABS & FILTERS */}
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[700px]">
+            <div className="border-b border-slate-200 px-6 py-4 flex flex-col md:flex-row gap-4 justify-between items-center">
+                <div className="flex gap-2">
+                    {[
+                        { id: 'active', label: 'Actief & Lopende' },
+                        ...(isManager ? [{ id: 'planning', label: 'Planning' }, { id: 'templates', label: 'Templates' }] : []),
+                        { id: 'archive', label: 'Archief' }
+                    ].map(tab => (
+                        <button 
+                            key={tab.id}
+                            onClick={() => setActiveTab(tab.id as any)}
+                            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                        >
+                            {tab.label}
+                        </button>
+                    ))}
                 </div>
 
                 {activeTab !== 'templates' && (
-                    <div className="relative">
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <div className="relative w-full md:w-auto">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         <input 
                             type="text" 
-                            placeholder="Zoek medewerker..." 
+                            placeholder="Zoek evaluatie..." 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-teal-500"
                         />
                     </div>
                 )}
             </div>
 
-            <div className="flex-1 overflow-y-auto">
-                {activeTab === 'templates' ? (
-                    <div className="p-4 space-y-2">
-                        <button 
-                            onClick={handleCreateTemplate}
-                            className="w-full py-2 bg-slate-900 text-white rounded-lg text-xs font-bold shadow-sm mb-4"
-                        >
-                            + Nieuw Template
-                        </button>
-                        {templates.map(tpl => (
-                            <div key={tpl.id} className="p-3 border rounded-lg hover:bg-slate-50 cursor-pointer text-sm" onClick={() => { setEditingTemplate(tpl); setIsTemplateModalOpen(true); }}>
-                                <div className="font-bold text-slate-900">{tpl.title}</div>
-                                <div className="text-xs text-slate-500">{tpl.sections.length} secties</div>
-                            </div>
-                        ))}
-                    </div>
-                ) : activeTab === 'planning' ? (
-                    <div className="p-4 space-y-2">
-                        <button 
-                            onClick={() => setIsAssignModalOpen(true)}
-                            className="w-full py-2 bg-teal-600 text-white rounded-lg text-xs font-bold shadow-sm mb-4"
-                        >
-                            + Evaluatie Inplannen
-                        </button>
-                        {filteredList.map(item => (
-                            <div 
-                                key={item.evaluation.id}
-                                onClick={() => setSelectedEvaluationId(item.evaluation.id)}
-                                className={`p-3 border-l-4 rounded cursor-pointer ${selectedEvaluationId === item.evaluation.id ? 'bg-blue-50 border-blue-500' : 'bg-white border-transparent hover:bg-slate-50'}`}
-                            >
-                                <div className="font-bold text-sm">{item.employee.name}</div>
-                                <div className="text-xs text-slate-500">{item.evaluation.type}</div>
-                                <div className="text-xs text-slate-400 mt-1">{item.evaluation.plannedDate}</div>
-                            </div>
-                        ))}
-                    </div>
-                ) : (
-                    filteredList.map(item => (
+            {/* CONTENT AREA */}
+            <div className="flex-1 bg-slate-50/50 p-6 md:p-8 overflow-y-auto">
+                
+                {/* TEMPLATES VIEW */}
+                {activeTab === 'templates' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         <div 
-                            key={item.evaluation.id}
-                            onClick={() => setSelectedEvaluationId(item.evaluation.id)}
-                            className={`p-4 border-b border-slate-100 cursor-pointer transition-colors hover:bg-slate-50 ${selectedEvaluationId === item.evaluation.id ? 'bg-blue-50/50 border-l-4 border-l-blue-500' : 'border-l-4 border-l-transparent'}`}
+                            onClick={handleCreateTemplate}
+                            className="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-8 flex flex-col items-center justify-center cursor-pointer hover:border-teal-500 hover:bg-teal-50/20 transition-all min-h-[250px] group"
                         >
-                            <div className="flex justify-between items-start mb-1">
-                                <span className="font-bold text-slate-900 text-sm">{item.employee.name}</span>
+                            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 mb-4 group-hover:scale-110 transition-transform">
+                                <Plus size={32} />
                             </div>
-                            <div className="flex justify-between items-center text-xs">
-                                <span className="text-slate-500">{item.evaluation.type}</span>
-                                <span className={`px-2 py-0.5 rounded-md font-bold uppercase tracking-wider text-[10px] ${
-                                    item.evaluation.status === 'EmployeeInput' ? 'bg-amber-100 text-amber-700' :
-                                    item.evaluation.status === 'ManagerInput' ? 'bg-purple-100 text-purple-700' :
-                                    item.evaluation.status === 'Review' ? 'bg-blue-100 text-blue-700' :
-                                    'bg-green-100 text-green-700'
-                                }`}>
-                                    {getStatusLabel(item.evaluation.status)}
-                                </span>
-                            </div>
+                            <h3 className="font-bold text-slate-600 group-hover:text-teal-600">Nieuw Template</h3>
                         </div>
-                    ))
+                        {templates.map(tpl => (
+                            <div key={tpl.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col hover:shadow-md transition-shadow">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="p-2 bg-teal-50 text-teal-600 rounded-lg">
+                                        <ClipboardCheck size={24} />
+                                    </div>
+                                    <button onClick={() => handleDeleteTemplate(tpl.id)} className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                                </div>
+                                <h3 className="font-bold text-slate-900 text-lg mb-2">{tpl.title}</h3>
+                                <p className="text-sm text-slate-500 mb-6 line-clamp-2 min-h-[2.5rem]">{tpl.description || 'Geen beschrijving'}</p>
+                                <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center">
+                                    <span className="text-xs font-bold text-slate-400 uppercase">{tpl.sections.length} Secties</span>
+                                    <button 
+                                        onClick={() => { setEditingTemplate(tpl); setIsTemplateModalOpen(true); }}
+                                        className="text-sm font-bold text-teal-600 hover:underline flex items-center gap-1"
+                                    >
+                                        <Edit2 size={14}/> Bewerken
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* LIST VIEWS (Active, Planning, Archive) */}
+                {activeTab !== 'templates' && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {filteredList.map(({ evaluation, employee }) => {
+                            const isPlanned = evaluation.status === 'Planned';
+                            const isSigned = evaluation.status === 'Signed' || evaluation.status === 'Archived';
+                            const statusColor = isPlanned ? 'bg-amber-100 text-amber-800' :
+                                              isSigned ? 'bg-green-100 text-green-800' :
+                                              evaluation.status === 'Review' ? 'bg-purple-100 text-purple-800' :
+                                              'bg-blue-100 text-blue-800';
+
+                            return (
+                                <div 
+                                    key={evaluation.id}
+                                    onClick={() => setSelectedEvaluationId(evaluation.id)}
+                                    className="group bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:border-teal-400 transition-all cursor-pointer relative overflow-hidden"
+                                >
+                                    {isManager && (
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); handleDeleteEvaluation(evaluation.id, employee.id); }}
+                                            className="absolute top-4 right-4 p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all z-10"
+                                        >
+                                            <Trash2 size={16}/>
+                                        </button>
+                                    )}
+
+                                    <div className="flex items-center gap-4 mb-4">
+                                        <img src={employee.avatar} className="w-12 h-12 rounded-full object-cover border border-slate-100" alt="Avatar"/>
+                                        <div>
+                                            <h4 className="font-bold text-slate-900 text-sm leading-tight">{employee.name}</h4>
+                                            <p className="text-xs text-slate-500">{evaluation.type}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex justify-between items-center border-t border-slate-50 pt-4 mt-2">
+                                        <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide ${statusColor}`}>
+                                            {getStatusLabel(evaluation.status)}
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
+                                            <Calendar size={12}/> {evaluation.plannedDate || evaluation.createdAt}
+                                        </span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        {filteredList.length === 0 && (
+                            <div className="col-span-full py-20 text-center text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200">
+                                <LayoutDashboard size={48} className="mx-auto mb-4 opacity-20" />
+                                <p>Geen evaluaties gevonden.</p>
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
         </div>
 
-        {/* MAIN CONTENT AREA */}
-        <div className="flex-1 overflow-hidden relative">
-            {activeTab === 'templates' ? (
-                renderTemplates()
-            ) : selectedData ? (
-                renderDetailView()
-            ) : (
-                <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                    <LayoutDashboard size={48} className="mb-4 opacity-20"/>
-                    <p>Selecteer een item uit de lijst.</p>
-                </div>
-            )}
-        </div>
+        {/* DETAIL OVERLAY */}
+        {renderDetailOverlay()}
 
-        {/* --- MODALS --- */}
-
+        {/* MODALS */}
         {/* TEMPLATE EDITOR */}
         <Modal 
             isOpen={isTemplateModalOpen} 
