@@ -4,7 +4,7 @@ import {
     ClipboardCheck, Calendar as CalendarIcon, User, ArrowRight, CheckCircle2, 
     MessageSquare, Star, Lock, Unlock, TrendingUp, TrendingDown, 
     MoreVertical, Clock, Check, AlertCircle, Search, PenTool,
-    ChevronRight, LayoutDashboard, History, Plus, Trash2, Edit2, Settings, AlertTriangle, FileText, Printer, Save, Copy, X, BarChart3, ChevronDown, ChevronLeft
+    ChevronRight, LayoutDashboard, History, Plus, Trash2, Edit2, Settings, AlertTriangle, FileText, Printer, Save, Copy, X, BarChart3, ChevronDown, ChevronLeft, Bell
 } from 'lucide-react';
 import { Employee, EvaluationCycle, Notification, ViewState, EvaluationStatus, EvaluationTemplate } from '../types';
 import { hasPermission } from '../utils/permissions';
@@ -165,17 +165,25 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
       // Notification
       onShowToast(`Evaluatie verplaatst naar ${newDateStr}`);
-      onAddNotification({
+      
+      const notification: Notification = {
           id: crypto.randomUUID(),
-          recipientId: employee.id,
+          recipientId: employee.id, // Explicit recipient
           senderName: currentUser.name,
           type: 'Evaluation',
-          title: 'Evaluatie Verplaatst',
+          title: '📅 Evaluatie Verplaatst',
           message: `Je geplande evaluatie is verplaatst naar ${newDateStr}.`,
           date: 'Zojuist',
           read: false,
-          targetView: ViewState.EVALUATIONS
-      });
+          targetView: ViewState.EVALUATIONS,
+          targetEmployeeId: employee.id,
+          isPinned: true
+      };
+      
+      // Send notification via API
+      await api.saveNotification(notification);
+      // Update local state if needed via callback
+      onAddNotification(notification);
   };
 
   // --- TEMPLATE MANAGEMENT ---
@@ -263,6 +271,8 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           });
       });
 
+      const formattedDate = new Date(assignForm.date).toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
       const newEvaluation: EvaluationCycle = {
           id: crypto.randomUUID(),
           employeeId: employee.id,
@@ -271,7 +281,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           templateId: template.id,
           status: 'Planned',
           createdAt: new Date().toLocaleDateString('nl-NL'),
-          plannedDate: new Date(assignForm.date).toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+          plannedDate: formattedDate,
           scores: scores,
           goals: [],
           signatures: [],
@@ -281,6 +291,22 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       await api.saveEvaluation(newEvaluation);
       const updatedEvals = [...(employee.evaluations || []), newEvaluation];
       onUpdateEmployee({ ...employee, evaluations: updatedEvals });
+
+      // Notify Employee
+      const notification: Notification = {
+          id: crypto.randomUUID(),
+          recipientId: employee.id,
+          senderName: currentUser.name,
+          type: 'Evaluation',
+          title: 'Nieuwe Evaluatie Gepland',
+          message: `Er is een evaluatie (${template.title}) ingepland voor ${formattedDate}.`,
+          date: 'Zojuist',
+          read: false,
+          targetView: ViewState.EVALUATIONS,
+          targetEmployeeId: employee.id
+      };
+      await api.saveNotification(notification);
+      onAddNotification(notification);
 
       setIsAssignModalOpen(false);
       onShowToast("Evaluatie ingepland!");
@@ -301,24 +327,30 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   const handleStartEarly = (data: { evaluation: EvaluationCycle, employee: Employee }) => {
       updateEvaluation(data.employee, data.evaluation.id, { status: 'EmployeeInput' });
       onShowToast("Evaluatie geopend. Medewerker heeft bericht ontvangen.");
-      onAddNotification({
+      
+      const notification: Notification = {
           id: crypto.randomUUID(),
           recipientId: data.employee.id,
           senderName: currentUser.name,
           type: 'Evaluation',
-          title: 'Evaluatie Gestart',
+          title: '🚀 Evaluatie Gestart',
           message: 'Je evaluatie is vrijgegeven. Je kunt nu starten met je zelfreflectie.',
           date: 'Zojuist',
           read: false,
-          targetView: ViewState.EVALUATIONS
-      });
+          targetView: ViewState.EVALUATIONS,
+          targetEmployeeId: data.employee.id,
+          isPinned: true
+      };
+      api.saveNotification(notification);
+      onAddNotification(notification);
   };
 
   const handleSubmitEmployee = () => {
       if (!selectedData) return;
       updateEvaluation(selectedData.employee, selectedData.evaluation.id, { status: 'ManagerInput' });
       onShowToast("Zelfreflectie ingediend.");
-      onAddNotification({
+      
+      const notification: Notification = {
           id: crypto.randomUUID(),
           recipientId: selectedData.evaluation.managerId,
           senderName: selectedData.employee.name,
@@ -328,14 +360,17 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           date: 'Zojuist',
           read: false,
           targetView: ViewState.EVALUATIONS
-      });
+      };
+      api.saveNotification(notification);
+      onAddNotification(notification);
   };
 
   const handleSubmitManager = () => {
       if (!selectedData) return;
       updateEvaluation(selectedData.employee, selectedData.evaluation.id, { status: 'Review' });
       onShowToast("Beoordeling opgeslagen. Klaar voor bespreking.");
-      onAddNotification({
+      
+      const notification: Notification = {
           id: crypto.randomUUID(),
           recipientId: selectedData.employee.id,
           senderName: currentUser.name,
@@ -345,7 +380,9 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           date: 'Zojuist',
           read: false,
           targetView: ViewState.EVALUATIONS
-      });
+      };
+      api.saveNotification(notification);
+      onAddNotification(notification);
   };
 
   const handleSignOff = () => {
@@ -395,65 +432,145 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   const renderCalendar = () => {
       const days = getDaysInMonth(currentMonth);
       const monthName = currentMonth.toLocaleString('nl-NL', { month: 'long', year: 'numeric' });
+      
+      // Get all upcoming planned items globally
+      const allPlannedUpcoming = allEvaluations
+        .filter(item => item.evaluation.status === 'Planned' && item.evaluation.plannedDate)
+        .sort((a,b) => {
+            // Helper to parse DD-MM-YYYY
+            const parse = (d: string) => {
+                const parts = d.split('-');
+                return new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0])).getTime();
+            };
+            return parse(a.evaluation.plannedDate!) - parse(b.evaluation.plannedDate!);
+        })
+        .filter(item => {
+             // Only show future or today
+             const parts = item.evaluation.plannedDate!.split('-');
+             const d = new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0]));
+             const today = new Date();
+             today.setHours(0,0,0,0);
+             return d >= today;
+        });
 
       return (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden h-full flex flex-col">
-              <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
-                  <div className="flex items-center gap-4">
-                      <h3 className="text-xl font-bold text-slate-900 capitalize">{monthName}</h3>
-                      <div className="flex gap-1">
-                          <button onClick={() => changeMonth(-1)} className="p-1.5 hover:bg-white rounded-lg border border-transparent hover:border-slate-200 transition-all text-slate-500 hover:text-slate-800"><ChevronLeft size={20}/></button>
-                          <button onClick={() => changeMonth(1)} className="p-1.5 hover:bg-white rounded-lg border border-transparent hover:border-slate-200 transition-all text-slate-500 hover:text-slate-800"><ChevronRight size={20}/></button>
+          <div className="flex flex-col lg:flex-row h-full gap-6">
+              
+              {/* MAIN CALENDAR */}
+              <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
+                  <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
+                      <div className="flex items-center gap-4">
+                          <h3 className="text-xl font-bold text-slate-900 capitalize flex items-center gap-2">
+                              <CalendarIcon size={20} className="text-slate-400"/>
+                              {monthName}
+                          </h3>
+                          <div className="flex gap-1 bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm">
+                              <button onClick={() => changeMonth(-1)} className="p-1.5 hover:bg-slate-50 rounded-md text-slate-500 hover:text-slate-800"><ChevronLeft size={18}/></button>
+                              <div className="w-px bg-slate-200 my-1"></div>
+                              <button onClick={() => changeMonth(1)} className="p-1.5 hover:bg-slate-50 rounded-md text-slate-500 hover:text-slate-800"><ChevronRight size={18}/></button>
+                          </div>
+                      </div>
+                      <div className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-3">
+                          <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 bg-amber-400 rounded-sm"></div> Gepland</span>
+                          <span className="flex items-center gap-1.5"><div className="w-2.5 h-2.5 bg-blue-500 rounded-sm"></div> Actief</span>
                       </div>
                   </div>
-                  <div className="text-sm text-slate-500 flex items-center gap-2">
-                      <div className="w-3 h-3 bg-amber-100 border border-amber-300 rounded"></div> Gepland
-                      <div className="w-3 h-3 bg-teal-100 border border-teal-300 rounded ml-2"></div> Afgerond
+
+                  <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50/80">
+                      {['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'].map(d => (
+                          <div key={d} className="py-3 text-center text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">{d}</div>
+                      ))}
+                  </div>
+
+                  <div className="grid grid-cols-7 flex-1 auto-rows-fr bg-slate-100 gap-px border-b border-slate-200">
+                      {days.map((date, idx) => {
+                          if (!date) return <div key={idx} className="bg-slate-50/30 min-h-[120px]"></div>;
+                          
+                          const dateStr = date.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                          const dayEvals = filteredList.filter(item => item.evaluation.plannedDate === dateStr);
+                          const isToday = new Date().toDateString() === date.toDateString();
+
+                          return (
+                              <div 
+                                key={idx} 
+                                className={`bg-white p-2 min-h-[120px] relative transition-colors group flex flex-col
+                                    ${isToday ? 'bg-blue-50/20' : 'hover:bg-slate-50'}
+                                `}
+                                onDragOver={handleDragOver}
+                                onDrop={(e) => handleDrop(e, date)}
+                              >
+                                  <div className="flex justify-between items-start mb-2">
+                                      <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400'}`}>
+                                          {date.getDate()}
+                                      </span>
+                                      {dayEvals.length > 0 && <span className="text-[9px] font-bold text-slate-300">{dayEvals.length} items</span>}
+                                  </div>
+                                  
+                                  <div className="space-y-1.5 flex-1">
+                                      {dayEvals.map(({ evaluation, employee }) => {
+                                          const isActive = ['EmployeeInput', 'ManagerInput'].includes(evaluation.status);
+                                          return (
+                                              <div 
+                                                key={evaluation.id}
+                                                draggable
+                                                onDragStart={(e) => handleDragStart(e, evaluation.id)}
+                                                onClick={() => setSelectedEvaluationId(evaluation.id)}
+                                                className={`
+                                                    p-2 rounded-md border-l-4 text-xs shadow-sm cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md
+                                                    bg-white border border-slate-100
+                                                    ${isActive ? 'border-l-blue-500' : 'border-l-amber-400'}
+                                                `}
+                                              >
+                                                  <div className="font-bold text-slate-800 truncate leading-tight">{employee.name}</div>
+                                                  <div className="text-[9px] text-slate-400 truncate">{evaluation.type}</div>
+                                              </div>
+                                          );
+                                      })}
+                                  </div>
+                              </div>
+                          );
+                      })}
                   </div>
               </div>
 
-              <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
-                  {['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'].map(d => (
-                      <div key={d} className="py-3 text-center text-xs font-bold text-slate-400 uppercase">{d}</div>
-                  ))}
-              </div>
-
-              <div className="grid grid-cols-7 flex-1 auto-rows-fr bg-slate-100 gap-px border-b border-slate-200">
-                  {days.map((date, idx) => {
-                      if (!date) return <div key={idx} className="bg-white min-h-[100px]"></div>;
-                      
-                      const dateStr = date.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                      const dayEvals = filteredList.filter(item => item.evaluation.plannedDate === dateStr);
-                      const isToday = new Date().toDateString() === date.toDateString();
-
-                      return (
-                          <div 
-                            key={idx} 
-                            className={`bg-white p-2 min-h-[100px] relative hover:bg-slate-50 transition-colors ${isToday ? 'bg-blue-50/30' : ''}`}
-                            onDragOver={handleDragOver}
-                            onDrop={(e) => handleDrop(e, date)}
-                          >
-                              <span className={`text-xs font-bold block mb-2 ${isToday ? 'text-blue-600' : 'text-slate-400'}`}>
-                                  {date.getDate()}
-                              </span>
-                              <div className="space-y-1">
-                                  {dayEvals.map(({ evaluation, employee }) => (
-                                      <div 
-                                        key={evaluation.id}
-                                        draggable
-                                        onDragStart={(e) => handleDragStart(e, evaluation.id)}
-                                        onClick={() => setSelectedEvaluationId(evaluation.id)}
-                                        className={`p-1.5 rounded-lg border text-xs font-bold cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-all truncate
-                                            ${evaluation.status === 'Planned' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-teal-50 border-teal-200 text-teal-800'}
-                                        `}
-                                      >
-                                          {employee.name}
+              {/* UPCOMING SIDEBAR */}
+              <div className="w-full lg:w-80 flex flex-col gap-6">
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full max-h-[750px]">
+                      <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                          <h3 className="font-bold text-slate-900 text-sm uppercase tracking-wider flex items-center gap-2">
+                              <Clock size={16} className="text-slate-400"/> Aankomend
+                          </h3>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+                          {allPlannedUpcoming.length > 0 ? (
+                              allPlannedUpcoming.map(({evaluation, employee}) => (
+                                  <div 
+                                    key={evaluation.id}
+                                    onClick={() => setSelectedEvaluationId(evaluation.id)}
+                                    className="p-3 bg-white border border-slate-100 rounded-xl shadow-sm hover:border-teal-300 hover:shadow-md transition-all cursor-pointer group"
+                                  >
+                                      <div className="flex items-center gap-3 mb-2">
+                                          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-xs text-slate-500 border border-slate-200">
+                                              {employee.name.charAt(0)}
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                              <div className="font-bold text-slate-900 text-sm truncate">{employee.name}</div>
+                                              <div className="text-xs text-slate-500 truncate">{employee.role}</div>
+                                          </div>
                                       </div>
-                                  ))}
+                                      <div className="flex justify-between items-center text-xs bg-slate-50 p-2 rounded-lg group-hover:bg-teal-50 transition-colors">
+                                          <span className="font-medium text-slate-600">{evaluation.plannedDate}</span>
+                                          <span className="text-slate-400 truncate max-w-[80px]">{evaluation.type}</span>
+                                      </div>
+                                  </div>
+                              ))
+                          ) : (
+                              <div className="text-center py-10 px-4 text-slate-400 text-sm italic">
+                                  Geen evaluaties gepland in de nabije toekomst.
                               </div>
-                          </div>
-                      );
-                  })}
+                          )}
+                      </div>
+                  </div>
               </div>
           </div>
       );
