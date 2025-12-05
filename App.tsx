@@ -178,21 +178,22 @@ function App() {
 
   if (currentUser?.accountStatus === 'Pending') {
       return <WelcomeFlow employee={currentUser} onComplete={async (updated) => {
-          // 1. Explicitly set state immediately to break the Pending loop
+          // 1. SAVE TO DATABASE FIRST
+          // If this fails, we throw, and the UI remains on the Welcome Screen (showing error)
+          const success = await api.saveEmployee(updated, false);
+          
+          if (!success) {
+              throw new Error("Het opslaan in de database is mislukt. Probeer het opnieuw of neem contact op met de beheerder.");
+          }
+
+          // 2. Only if DB success, update local state
           setCurrentUser(updated);
           localStorage.setItem('hrms_current_user', JSON.stringify(updated));
-          
-          // 2. Update the list state optimistically
           setEmployees(prev => prev.map(e => e.id === updated.id ? updated : e));
-
-          // 3. Persist to API
-          await api.saveEmployee(updated, false);
           
-          // 4. Force a fresh fetch after a short delay to ensure DB consistency without UI flicker
-          setTimeout(async () => {
-              const freshData = await api.getEmployees();
-              setEmployees(freshData);
-          }, 1000);
+          // 3. Force refresh to ensure everything is synced
+          const freshData = await api.getEmployees();
+          setEmployees(freshData);
       }} />;
   }
 

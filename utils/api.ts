@@ -141,13 +141,27 @@ export const api = {
                   }
               }
 
-              const { error } = await supabase.from('employees').upsert({ id: employee.id, data: employee }).select().single(); 
+              let error;
+              // Use UPDATE for existing users to respect 'Emp update own' RLS policies correctly
+              // Use UPSERT only for new users or admin overrides
+              if (!isNewUser) {
+                  const result = await supabase.from('employees').update({ data: employee }).eq('id', employee.id);
+                  error = result.error;
+              } else {
+                  const result = await supabase.from('employees').upsert({ id: employee.id, data: employee });
+                  error = result.error;
+              }
+
+              if (error) {
+                  console.error("Supabase Save Error:", error);
+                  return false;
+              }
               
-              // Add a small delay to ensure propagation
-              await new Promise(r => setTimeout(r, 100));
-              
-              return !error; 
-          } catch (e) { return false; } 
+              return true; 
+          } catch (e) { 
+              console.error("API Error:", e);
+              return false; 
+          } 
       } else { 
           const current = storage.getEmployees(); 
           const index = current.findIndex(e => e.id === employee.id); 
