@@ -1,12 +1,12 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
-    ClipboardCheck, Calendar, User, ArrowRight, CheckCircle2, 
+    ClipboardCheck, Calendar as CalendarIcon, User, ArrowRight, CheckCircle2, 
     MessageSquare, Star, Lock, Unlock, TrendingUp, TrendingDown, 
-    MoreVertical, Clock, Check, AlertCircle, Search, Filter, PenTool,
-    ChevronRight, LayoutDashboard, History, Plus, Trash2, Edit2, Settings, AlertTriangle, FileText, Printer, Save, Copy, X, BarChart3, ChevronDown
+    MoreVertical, Clock, Check, AlertCircle, Search, PenTool,
+    ChevronRight, LayoutDashboard, History, Plus, Trash2, Edit2, Settings, AlertTriangle, FileText, Printer, Save, Copy, X, BarChart3, ChevronDown, ChevronLeft
 } from 'lucide-react';
-import { Employee, EvaluationCycle, Notification, ViewState, EvaluationStatus, EvaluationTemplate, EvaluationTemplateSection } from '../types';
+import { Employee, EvaluationCycle, Notification, ViewState, EvaluationStatus, EvaluationTemplate } from '../types';
 import { hasPermission } from '../utils/permissions';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
@@ -54,6 +54,9 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   const [selectedEvaluationId, setSelectedEvaluationId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
+  // Calendar State
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+
   // Template State
   const [templates, setTemplates] = useState<EvaluationTemplate[]>([]);
   const [editingTemplate, setEditingTemplate] = useState<EvaluationTemplate | null>(null);
@@ -106,6 +109,74 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       if (!selectedEvaluationId) return null;
       return allEvaluations.find(i => i.evaluation.id === selectedEvaluationId);
   }, [selectedEvaluationId, allEvaluations]);
+
+  // --- CALENDAR LOGIC ---
+
+  const getDaysInMonth = (date: Date) => {
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      const days = new Date(year, month + 1, 0).getDate();
+      const firstDay = new Date(year, month, 1).getDay(); // 0 = Sun
+      
+      const res = [];
+      // Add empty slots for days before start of month (Monday start)
+      const emptySlots = firstDay === 0 ? 6 : firstDay - 1;
+      for (let i = 0; i < emptySlots; i++) res.push(null);
+      for (let i = 1; i <= days; i++) res.push(new Date(year, month, i));
+      return res;
+  };
+
+  const changeMonth = (delta: number) => {
+      setCurrentMonth(prev => new Date(prev.getFullYear(), prev.getMonth() + delta, 1));
+  };
+
+  // --- DRAG AND DROP LOGIC ---
+
+  const handleDragStart = (e: React.DragEvent, evalId: string) => {
+      e.dataTransfer.setData("text/plain", evalId);
+      e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = "move";
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetDate: Date) => {
+      e.preventDefault();
+      const evalId = e.dataTransfer.getData("text/plain");
+      
+      const targetItem = allEvaluations.find(item => item.evaluation.id === evalId);
+      if (!targetItem) return;
+
+      const { evaluation, employee } = targetItem;
+      const newDateStr = targetDate.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+      if (evaluation.plannedDate === newDateStr) return; // No change
+
+      // Update Evaluation
+      const updatedEval = { ...evaluation, plannedDate: newDateStr };
+      const updatedEmployeeEvals = (employee.evaluations || []).map(ev => ev.id === evalId ? updatedEval : ev);
+      const updatedEmployee = { ...employee, evaluations: updatedEmployeeEvals };
+
+      // Optimistic Update
+      onUpdateEmployee(updatedEmployee);
+      await api.saveEvaluation(updatedEval);
+
+      // Notification
+      onShowToast(`Evaluatie verplaatst naar ${newDateStr}`);
+      onAddNotification({
+          id: crypto.randomUUID(),
+          recipientId: employee.id,
+          senderName: currentUser.name,
+          type: 'Evaluation',
+          title: 'Evaluatie Verplaatst',
+          message: `Je geplande evaluatie is verplaatst naar ${newDateStr}.`,
+          date: 'Zojuist',
+          read: false,
+          targetView: ViewState.EVALUATIONS
+      });
+  };
 
   // --- TEMPLATE MANAGEMENT ---
 
@@ -321,6 +392,73 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
   // --- RENDER HELPERS ---
 
+  const renderCalendar = () => {
+      const days = getDaysInMonth(currentMonth);
+      const monthName = currentMonth.toLocaleString('nl-NL', { month: 'long', year: 'numeric' });
+
+      return (
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden h-full flex flex-col">
+              <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
+                  <div className="flex items-center gap-4">
+                      <h3 className="text-xl font-bold text-slate-900 capitalize">{monthName}</h3>
+                      <div className="flex gap-1">
+                          <button onClick={() => changeMonth(-1)} className="p-1.5 hover:bg-white rounded-lg border border-transparent hover:border-slate-200 transition-all text-slate-500 hover:text-slate-800"><ChevronLeft size={20}/></button>
+                          <button onClick={() => changeMonth(1)} className="p-1.5 hover:bg-white rounded-lg border border-transparent hover:border-slate-200 transition-all text-slate-500 hover:text-slate-800"><ChevronRight size={20}/></button>
+                      </div>
+                  </div>
+                  <div className="text-sm text-slate-500 flex items-center gap-2">
+                      <div className="w-3 h-3 bg-amber-100 border border-amber-300 rounded"></div> Gepland
+                      <div className="w-3 h-3 bg-teal-100 border border-teal-300 rounded ml-2"></div> Afgerond
+                  </div>
+              </div>
+
+              <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50">
+                  {['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'].map(d => (
+                      <div key={d} className="py-3 text-center text-xs font-bold text-slate-400 uppercase">{d}</div>
+                  ))}
+              </div>
+
+              <div className="grid grid-cols-7 flex-1 auto-rows-fr bg-slate-100 gap-px border-b border-slate-200">
+                  {days.map((date, idx) => {
+                      if (!date) return <div key={idx} className="bg-white min-h-[100px]"></div>;
+                      
+                      const dateStr = date.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                      const dayEvals = filteredList.filter(item => item.evaluation.plannedDate === dateStr);
+                      const isToday = new Date().toDateString() === date.toDateString();
+
+                      return (
+                          <div 
+                            key={idx} 
+                            className={`bg-white p-2 min-h-[100px] relative hover:bg-slate-50 transition-colors ${isToday ? 'bg-blue-50/30' : ''}`}
+                            onDragOver={handleDragOver}
+                            onDrop={(e) => handleDrop(e, date)}
+                          >
+                              <span className={`text-xs font-bold block mb-2 ${isToday ? 'text-blue-600' : 'text-slate-400'}`}>
+                                  {date.getDate()}
+                              </span>
+                              <div className="space-y-1">
+                                  {dayEvals.map(({ evaluation, employee }) => (
+                                      <div 
+                                        key={evaluation.id}
+                                        draggable
+                                        onDragStart={(e) => handleDragStart(e, evaluation.id)}
+                                        onClick={() => setSelectedEvaluationId(evaluation.id)}
+                                        className={`p-1.5 rounded-lg border text-xs font-bold cursor-grab active:cursor-grabbing shadow-sm hover:shadow-md transition-all truncate
+                                            ${evaluation.status === 'Planned' ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-teal-50 border-teal-200 text-teal-800'}
+                                        `}
+                                      >
+                                          {employee.name}
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                      );
+                  })}
+              </div>
+          </div>
+      );
+  };
+
   const renderReportView = (data: { evaluation: EvaluationCycle, employee: Employee }) => {
       const { evaluation, employee } = data;
       
@@ -469,7 +607,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                               <div className="flex items-center gap-2 text-slate-500 text-sm mt-1">
                                   <User size={14}/> {employee.name}
                                   <span className="text-slate-300">•</span>
-                                  <Calendar size={14}/> {evaluation.plannedDate || evaluation.createdAt}
+                                  <CalendarIcon size={14}/> {evaluation.plannedDate || evaluation.createdAt}
                               </div>
                           </div>
                       </div>
@@ -728,7 +866,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                             onClick={() => setIsAssignModalOpen(true)}
                             className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-sm shadow-md transition-all"
                         >
-                            <Calendar size={16}/> Inplannen
+                            <CalendarIcon size={16}/> Inplannen
                         </button>
                         <button 
                             onClick={handleCreateTemplate}
@@ -747,7 +885,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                 <div className="flex gap-2">
                     {[
                         { id: 'active', label: 'Actief & Lopende' },
-                        ...(isManager ? [{ id: 'planning', label: 'Planning' }, { id: 'templates', label: 'Templates' }] : []),
+                        ...(isManager ? [{ id: 'planning', label: 'Planning & Kalender' }, { id: 'templates', label: 'Templates' }] : []),
                         { id: 'archive', label: 'Archief' }
                     ].map(tab => (
                         <button 
@@ -760,7 +898,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                     ))}
                 </div>
 
-                {activeTab !== 'templates' && (
+                {activeTab !== 'templates' && activeTab !== 'planning' && (
                     <div className="relative w-full md:w-auto">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                         <input 
@@ -777,6 +915,11 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
             {/* CONTENT AREA */}
             <div className="flex-1 bg-slate-50/50 p-6 md:p-8 overflow-y-auto">
                 
+                {/* PLANNING CALENDAR */}
+                {activeTab === 'planning' && (
+                    renderCalendar()
+                )}
+
                 {/* TEMPLATES VIEW */}
                 {activeTab === 'templates' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
@@ -813,8 +956,8 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                     </div>
                 )}
 
-                {/* LIST VIEWS (Active, Planning, Archive) */}
-                {activeTab !== 'templates' && (
+                {/* LIST VIEWS (Active, Archive) */}
+                {activeTab !== 'templates' && activeTab !== 'planning' && (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         {filteredList.map(({ evaluation, employee }) => {
                             const isPlanned = evaluation.status === 'Planned';
@@ -852,7 +995,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                             {getStatusLabel(evaluation.status)}
                                         </span>
                                         <span className="text-[10px] text-slate-400 font-medium flex items-center gap-1">
-                                            <Calendar size={12}/> {evaluation.plannedDate || evaluation.createdAt}
+                                            <CalendarIcon size={12}/> {evaluation.plannedDate || evaluation.createdAt}
                                         </span>
                                     </div>
                                 </div>
