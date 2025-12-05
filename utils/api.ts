@@ -1,8 +1,3 @@
-
-
-
-
-
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
 import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, BadgeDefinition, KnowledgeArticle, Applicant, Ticket } from '../types';
@@ -135,6 +130,24 @@ export const api = {
   deleteDebtor: async (id: string) => { if (isLive && supabase) { const { error } = await supabase.from('debtors').delete().eq('id', id); if (error) return false; } const local = localStorage.getItem('hrms_debtors'); if (local) { const parsed = JSON.parse(local); const filtered = parsed.filter((d: Debtor) => d.id !== id); localStorage.setItem('hrms_debtors', JSON.stringify(filtered)); } return true; },
   deleteDebtors: async (ids: string[]) => { if (isLive && supabase) { const { error } = await supabase.from('debtors').delete().in('id', ids); if (error) return false; } const local = localStorage.getItem('hrms_debtors'); if (local) { const parsed = JSON.parse(local) as Debtor[]; const filtered = parsed.filter(d => !ids.includes(d.id)); localStorage.setItem('hrms_debtors', JSON.stringify(filtered)); } return true; },
   subscribeToDebtors: (onUpdate: (debtors: Debtor[]) => void) => { if (isLive && supabase) { const channel = supabase.channel('debtors_realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'debtors' }, async () => { const { data } = await supabase.from('debtors').select('data'); if (data) onUpdate(data.map((r: any) => r.data)); }).subscribe(); return () => { supabase.removeChannel(channel); }; } return () => {}; },
+  
+  getLatestCommitSha: async (): Promise<string | null> => {
+      if (GITHUB_CONFIG.ENABLE) {
+          try {
+              const response = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/commits?per_page=1`);
+              if (response.ok) {
+                  const commits = await response.json();
+                  if (commits && commits.length > 0) {
+                      return commits[0].sha;
+                  }
+              }
+          } catch (e) {
+              console.warn("Failed to check for updates");
+          }
+      }
+      return null;
+  },
+
   getSystemLogs: async () => { if (GITHUB_CONFIG.ENABLE) { try { const response = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/commits?per_page=15`); if (response.ok) { const commits = await response.json(); return commits.map((c: any) => { const msg = c.commit.message || ''; const title = msg.split('\n')[0]; let type = 'Maintenance'; if (title.toLowerCase().includes('feat')) type = 'Feature'; else if (title.toLowerCase().includes('fix')) type = 'Bugfix'; return { id: c.sha, version: c.sha.substring(0, 7), date: new Date(c.commit.author.date).toLocaleDateString('nl-NL'), timestamp: new Date(c.commit.author.date).toLocaleTimeString('nl-NL'), author: c.commit.author.name, type, impact: 'Low', affectedArea: 'System', description: title, status: 'Success' }; }); } } catch (e) {} } if (isLive && supabase) { try { const { data } = await supabase.from('system_updates').select('data'); if (data && data.length > 0) return data.map((row: any) => row.data); } catch (e) {} } return MOCK_SYSTEM_LOGS; },
   saveSystemLog: async (log: SystemUpdateLog) => { if (isLive && supabase) { await supabase.from('system_updates').insert({ id: log.id, data: log }); } },
   seedDatabase: async () => { if (!isLive || !supabase) return; const { data } = await supabase.from('employees').select('id'); if (!data || data.length === 0) { const all = [...MOCK_EMPLOYEES]; for (const emp of all) { await api.saveEmployee(emp); } } },

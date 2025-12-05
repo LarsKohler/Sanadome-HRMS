@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect } from 'react';
 import { Employee, ViewState, Notification, NewsPost, Survey } from './types';
 import Sidebar from './components/Sidebar';
@@ -24,6 +21,7 @@ import LinenAuditPage from './components/LinenAuditPage';
 import KnowledgeBasePage from './components/KnowledgeBasePage';
 import EvaluationsPage from './components/EvaluationsPage';
 import RecruitmentPage from './components/RecruitmentPage';
+import UpdateNotifier from './components/UpdateNotifier';
 import { api, isLive } from './utils/api';
 
 function App() {
@@ -320,6 +318,8 @@ function App() {
             isVisible={showToast}
             onClose={() => setShowToast(false)}
         />
+
+        <UpdateNotifier />
 
         {activeSurvey && (
             <SurveyTakingFlow 
