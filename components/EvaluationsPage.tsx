@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { 
     ClipboardCheck, Calendar, User, ArrowRight, CheckCircle2, 
@@ -9,6 +8,7 @@ import {
 import { Employee, EvaluationCycle, Notification, ViewState, EvaluationStatus } from '../types';
 import { EVALUATION_TEMPLATES } from '../utils/mockData';
 import { hasPermission } from '../utils/permissions';
+import { api } from '../utils/api';
 
 interface EvaluationsPageProps {
   currentUser: Employee;
@@ -108,7 +108,16 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       const updatedEvaluations = (employee.evaluations || []).map(ev => 
           ev.id === evaluationId ? { ...ev, ...updates } : ev
       );
+      
+      const targetEval = updatedEvaluations.find(ev => ev.id === evaluationId);
+      
+      // Update locally for smooth UI
       onUpdateEmployee({ ...employee, evaluations: updatedEvaluations });
+      
+      // Persist directly to DB table
+      if (targetEval) {
+          api.saveEvaluation(targetEval);
+      }
   };
 
   const handleStartEarly = (data: { evaluation: EvaluationCycle, employee: Employee }) => {
@@ -169,17 +178,21 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       
       // 1. Mark current as Signed
       const completedDate = new Date();
-      updateEvaluation(selectedData.employee, selectedData.evaluation.id, { 
-          status: 'Signed',
+      
+      // Create new updated object
+      const completedEval = { 
+          ...selectedData.evaluation,
+          status: 'Signed' as const,
           completedAt: completedDate.toLocaleDateString('nl-NL')
-      });
+      };
 
       // 2. Schedule NEXT cycle (+3 months)
+      let nextEvaluation: EvaluationCycle | null = null;
       if (selectedData.evaluation.type === 'Quarterly' || selectedData.evaluation.type === 'Month 3') {
           const nextDate = new Date();
           nextDate.setMonth(nextDate.getMonth() + 3);
           
-          const nextEvaluation: EvaluationCycle = {
+          nextEvaluation = {
               id: crypto.randomUUID(),
               employeeId: selectedData.employee.id,
               managerId: currentUser.id,
@@ -192,14 +205,26 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
               signatures: [],
               developmentPlan: []
           };
+      }
 
-          const updatedEmployee = {
-              ...selectedData.employee,
-              evaluations: [...(selectedData.employee.evaluations || []).map(ev => ev.id === selectedData.evaluation.id ? {...ev, status: 'Signed' as const, completedAt: completedDate.toLocaleDateString('nl-NL')} : ev), nextEvaluation]
-          };
-          
-          // We do a direct full update here to ensure both changes stick
-          onUpdateEmployee(updatedEmployee);
+      // Update Local State
+      const updatedEvals = (selectedData.employee.evaluations || []).map(ev => 
+          ev.id === selectedData.evaluation.id ? completedEval : ev
+      );
+      if (nextEvaluation) updatedEvals.push(nextEvaluation);
+
+      const updatedEmployee = {
+          ...selectedData.employee,
+          evaluations: updatedEvals
+      };
+      
+      onUpdateEmployee(updatedEmployee);
+      
+      // PERSIST DIRECTLY
+      api.saveEvaluation(completedEval);
+      if (nextEvaluation) api.saveEvaluation(nextEvaluation);
+
+      if (nextEvaluation) {
           onShowToast("Evaluatie afgerond. De volgende cyclus is automatisch gepland.");
       } else {
           onShowToast("Evaluatie afgerond.");

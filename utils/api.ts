@@ -1,6 +1,6 @@
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, BadgeDefinition, KnowledgeArticle, Applicant, Ticket } from '../types';
+import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, BadgeDefinition, KnowledgeArticle, Applicant, Ticket, EvaluationCycle } from '../types';
 import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_BADGES, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_TICKETS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
@@ -101,8 +101,72 @@ export const api = {
   },
   uploadFile: async (file: File, bucket: string = 'hrms-storage') => { if (isLive && supabase) { try { const fileExt = file.name.split('.').pop(); const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`; const filePath = `${fileName}`; const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, file); if (uploadError) return null; const { data } = supabase.storage.from(bucket).getPublicUrl(filePath); return data.publicUrl; } catch (e) { return null; } } return URL.createObjectURL(file); },
   deleteFile: async (fullUrl: string, bucket: string = 'hrms-storage') => { if (isLive && supabase && fullUrl) { try { if (fullUrl.includes(bucket)) { const parts = fullUrl.split(`${bucket}/`); if (parts.length > 1) { const filePath = parts[1]; await supabase.storage.from(bucket).remove([filePath]); } } } catch (e) {} } },
-  getEmployees: async () => { if (isLive && supabase) { try { const { data, error } = await supabase.from('employees').select('data'); if (!error && data && data.length > 0) return data.map((row: any) => row.data); if (data?.length === 0) { await api.seedDatabase(); return MOCK_EMPLOYEES; } } catch (e) { return storage.getEmployees(); } } return storage.getEmployees(); },
-  saveEmployee: async (employee: Employee, isNewUser: boolean = false) => { if (isLive && supabase) { try { if (isNewUser && employee.password) { await supabase.rpc('admin_create_user', { new_email: employee.email, new_password: employee.password, new_id: employee.id }); } const { error } = await supabase.from('employees').upsert({ id: employee.id, data: employee }).select().single(); return !error; } catch (e) { return false; } } else { const current = storage.getEmployees(); const index = current.findIndex(e => e.id === employee.id); if (index >= 0) current[index] = employee; else current.push(employee); storage.saveEmployees(current); return true; } },
+  
+  getEmployees: async () => { 
+      if (isLive && supabase) { 
+          try { 
+              // Fetch base employee data
+              const { data: empData, error } = await supabase.from('employees').select('data'); 
+              
+              // Fetch evaluation data from separate table
+              const { data: evalData } = await supabase.from('evaluations').select('data');
+
+              if (!error && empData && empData.length > 0) {
+                  const employees = empData.map((row: any) => row.data);
+                  const evaluations = evalData ? evalData.map((row: any) => row.data) : [];
+
+                  // Merge evaluations into employees
+                  return employees.map((emp: Employee) => ({
+                      ...emp,
+                      evaluations: evaluations.filter((ev: EvaluationCycle) => ev.employeeId === emp.id)
+                  }));
+              }
+              
+              if (empData?.length === 0) { await api.seedDatabase(); return MOCK_EMPLOYEES; } 
+          } catch (e) { return storage.getEmployees(); } 
+      } 
+      return storage.getEmployees(); 
+  },
+
+  saveEmployee: async (employee: Employee, isNewUser: boolean = false) => { 
+      if (isLive && supabase) { 
+          try { 
+              if (isNewUser && employee.password) { await supabase.rpc('admin_create_user', { new_email: employee.email, new_password: employee.password, new_id: employee.id }); } 
+              
+              // Also save any evaluations present in the object to the separate table to keep them in sync immediately
+              if (employee.evaluations && employee.evaluations.length > 0) {
+                  for (const ev of employee.evaluations) {
+                      await api.saveEvaluation(ev);
+                  }
+              }
+
+              const { error } = await supabase.from('employees').upsert({ id: employee.id, data: employee }).select().single(); 
+              return !error; 
+          } catch (e) { return false; } 
+      } else { 
+          const current = storage.getEmployees(); 
+          const index = current.findIndex(e => e.id === employee.id); 
+          if (index >= 0) current[index] = employee; else current.push(employee); 
+          storage.saveEmployees(current); 
+          return true; 
+      } 
+  },
+
+  // NEW: Dedicated Evaluation Save
+  saveEvaluation: async (evaluation: EvaluationCycle) => {
+      if (isLive && supabase) {
+          try {
+              await supabase.from('evaluations').upsert({
+                  id: evaluation.id,
+                  employee_id: evaluation.employeeId,
+                  data: evaluation
+              });
+          } catch (e) {
+              console.error("Error saving evaluation:", e);
+          }
+      }
+  },
+
   deleteEmployee: async (id: string) => { if (isLive && supabase) { await supabase.rpc('admin_delete_user', { target_user_id: id }); } else { const current = storage.getEmployees(); const filtered = current.filter(e => e.id !== id); storage.saveEmployees(filtered); } },
   getBadges: async () => { const local = localStorage.getItem('hrms_badges'); return local ? JSON.parse(local) : MOCK_BADGES; },
   saveBadge: async (badge: BadgeDefinition) => { const current = await api.getBadges(); const index = current.findIndex(b => b.id === badge.id); if (index >= 0) current[index] = badge; else current.push(badge); localStorage.setItem('hrms_badges', JSON.stringify(current)); },
@@ -161,7 +225,16 @@ export const api = {
   ) => {
     if (isLive && supabase) {
       const channel = supabase.channel('main')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, async () => { const { data } = await supabase.from('employees').select('data'); if (data) onEmployees(data.map((r: any) => r.data)); })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, async () => { 
+            // Re-fetch all with merged evaluations
+            const all = await api.getEmployees();
+            onEmployees(all); 
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'evaluations' }, async () => { 
+            // Also re-fetch all when evaluations change
+            const all = await api.getEmployees();
+            onEmployees(all); 
+        })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, async () => { const { data } = await supabase.from('news').select('data'); if (data) onNews(data.map((r: any) => r.data)); })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, async () => { const { data } = await supabase.from('notifications').select('data'); if (data) onNotifications(data.map((r: any) => r.data)); })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'surveys' }, async () => { const { data } = await supabase.from('surveys').select('data'); if (data) onSurveys(data.map((r: any) => r.data)); })
