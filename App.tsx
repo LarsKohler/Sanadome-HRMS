@@ -121,7 +121,7 @@ function App() {
       localStorage.removeItem('hrms_current_user');
   };
 
-  const handleUpdateEmployee = (updatedEmployee: Employee) => {
+  const handleUpdateEmployee = async (updatedEmployee: Employee) => {
     // Optimistic Update: Update list AND current user immediately
     setEmployees(prev => prev.map(emp => emp.id === updatedEmployee.id ? updatedEmployee : emp));
     
@@ -131,7 +131,17 @@ function App() {
     }
     
     // Persist (Update existing, isNewUser = false)
-    api.saveEmployee(updatedEmployee, false);
+    try {
+        const success = await api.saveEmployee(updatedEmployee, false);
+        if (!success) {
+            console.error("Failed to save employee to database");
+            handleShowToast("Let op: Wijziging niet opgeslagen in database. Controleer rechten/verbinding.");
+            // Ideally we would revert the state here, but for now we warn the user.
+        }
+    } catch (e) {
+        console.error("Error saving employee", e);
+        handleShowToast("Fout bij opslaan.");
+    }
   };
 
   const handleAddEmployee = (newEmployee: Employee) => {
@@ -172,6 +182,12 @@ function App() {
           await handleUpdateEmployee(updated);
           // Set current user explicitly to ensure re-render gets 'Active' status
           setCurrentUser(updated);
+          
+          // Force a small delay and re-fetch to ensure everything is synced
+          setTimeout(async () => {
+              const freshData = await api.getEmployees();
+              setEmployees(freshData);
+          }, 500);
       }} />;
   }
 

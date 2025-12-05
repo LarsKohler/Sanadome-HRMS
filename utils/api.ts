@@ -142,6 +142,10 @@ export const api = {
               }
 
               const { error } = await supabase.from('employees').upsert({ id: employee.id, data: employee }).select().single(); 
+              
+              // Add a small delay to ensure propagation
+              await new Promise(r => setTimeout(r, 100));
+              
               return !error; 
           } catch (e) { return false; } 
       } else { 

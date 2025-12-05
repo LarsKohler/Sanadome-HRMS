@@ -57,7 +57,7 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
           };
           
           await onComplete(updated);
-          // Success is handled by parent (unmounting this component)
+          // Success is handled by parent (unmounting this component) or App state update
       } catch (e: any) {
           console.error("Error completing welcome flow", e);
           setError(e.message || 'Fout bij opslaan: Database update mislukt. Probeer het opnieuw.');
