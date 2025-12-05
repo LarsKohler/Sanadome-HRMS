@@ -178,16 +178,21 @@ function App() {
 
   if (currentUser?.accountStatus === 'Pending') {
       return <WelcomeFlow employee={currentUser} onComplete={async (updated) => {
-          // Explicitly update both list and user state to break the Pending loop
-          await handleUpdateEmployee(updated);
-          // Set current user explicitly to ensure re-render gets 'Active' status
+          // 1. Explicitly set state immediately to break the Pending loop
           setCurrentUser(updated);
+          localStorage.setItem('hrms_current_user', JSON.stringify(updated));
           
-          // Force a small delay and re-fetch to ensure everything is synced
+          // 2. Update the list state optimistically
+          setEmployees(prev => prev.map(e => e.id === updated.id ? updated : e));
+
+          // 3. Persist to API
+          await api.saveEmployee(updated, false);
+          
+          // 4. Force a fresh fetch after a short delay to ensure DB consistency without UI flicker
           setTimeout(async () => {
               const freshData = await api.getEmployees();
               setEmployees(freshData);
-          }, 500);
+          }, 1000);
       }} />;
   }
 

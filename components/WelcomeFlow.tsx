@@ -50,10 +50,10 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
       setError('');
       try {
           // FORCE accountStatus to 'Active' to ensure we exit the pending loop
-          const updated = { 
+          const updated: Employee = { 
               ...employee, 
               password: password || employee.password || 'sanadome123',
-              accountStatus: 'Active' as const 
+              accountStatus: 'Active'
           };
           
           await onComplete(updated);
