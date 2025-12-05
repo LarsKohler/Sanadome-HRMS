@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, MoreHorizontal, Mail, Phone, UserPlus, Pencil, Trash2, Lock, Copy, ExternalLink, Check, Clock, CheckCircle2, XCircle, Eye } from 'lucide-react';
 import { Employee } from '../types';
@@ -173,12 +175,6 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       accountStatus: 'Pending',
       onboardingStatus: 'Pending',
       password: formData.password || 'sanadome123', // Default or provided
-      leaveBalances: [
-        { type: 'Annual Leave', entitled: 25, taken: 0 },
-        { type: 'Sick Leave', entitled: 10, taken: 0 },
-        { type: 'Without Pay', entitled: 0, taken: 0 }
-      ],
-      leaveRequests: [],
       documents: [],
       notes: [],
       onboardingTasks: [] 
@@ -195,7 +191,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       const targetId = id || recentlyAddedEmployee?.id;
       if (!targetId) return;
 
-      const baseUrl = 'https://sanadome-hrms.vercel.app';
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://sanadome-hrms.vercel.app';
       const link = `${baseUrl}/welcome/${targetId.substring(0,8)}`;
       
       navigator.clipboard.writeText(link).catch(() => {});
@@ -210,7 +206,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
   };
 
   const getInviteLink = (id: string) => {
-      const baseUrl = 'https://sanadome-hrms.vercel.app';
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://sanadome-hrms.vercel.app';
       return `${baseUrl}/welcome/${id.substring(0,8)}`;
   };
 

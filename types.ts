@@ -14,12 +14,10 @@ export enum ViewState {
   SYSTEM_STATUS = 'SYSTEM_STATUS',
   SETTINGS = 'SETTINGS', // New View
   DEBT_CONTROL = 'DEBT_CONTROL', // New: Debiteuren Beheer
-  TICKETS = 'TICKETS', // New: Ticket System
   BADGES = 'BADGES', // New: Badge Management
   KNOWLEDGE_BASE = 'KNOWLEDGE_BASE', // New: Knowledge Base
   LINEN_AUDIT = 'LINEN_AUDIT', // New: Moderna Calculator
   RECRUITMENT = 'RECRUITMENT', // New: ATS System
-  ELEARNING = 'ELEARNING', // New: Sanadome Academy
 }
 
 // --- PERMISSIONS SYSTEM ---
@@ -40,11 +38,10 @@ export type Permission =
   | 'VIEW_CALENDAR' // Access Calendar
   | 'MANAGE_ATTENDANCE' // Access Attendance/Rooster
   | 'MANAGE_CASES' // Access Arbo/Verzuim cases
-  | 'MANAGE_TICKETS' // Access Ticket Dashboard
   | 'MANAGE_BADGES' // New: Manage and Award Badges
   | 'MANAGE_KNOWLEDGE' // New: Create/Edit Knowledge Articles
   | 'MANAGE_OPERATIONS' // New: Operations & Audit Tools
-  | 'MANAGE_TRAININGS'; // New: Create and assign e-learnings
+  | 'MANAGE_TICKETS'; // New: Access Ticket System
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_REPORTS': 'Rapportages Inzien',
@@ -62,58 +59,41 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_CALENDAR': 'Kalender Inzien',
   'MANAGE_ATTENDANCE': 'Aanwezigheid & Roosters',
   'MANAGE_CASES': 'Cases & Verzuim Dossiers',
-  'MANAGE_TICKETS': 'Ticket Systeem Beheer',
   'MANAGE_BADGES': 'Badges & Waardering Beheren',
   'MANAGE_KNOWLEDGE': 'Kennisbank Beheren',
   'MANAGE_OPERATIONS': 'Operationele Tools (Linnen)',
-  'MANAGE_TRAININGS': 'E-Learning & Trainingen Beheren'
+  'MANAGE_TICKETS': 'Tickets & Meldingen Beheren'
 };
 
-// --- E-LEARNING TYPES ---
+// --- TICKET SYSTEM TYPES ---
 
-export type TrainingStepType = 'Video' | 'Text' | 'Quiz' | 'PDF';
+export type TicketStatus = 'Open' | 'In Progress' | 'Resolved' | 'Closed';
+export type TicketPriority = 'Low' | 'Medium' | 'High';
+export type TicketType = 'Bug' | 'Idea' | 'Fix' | 'Other';
 
-export interface QuizQuestion {
-    id: string;
-    question: string;
-    options: string[];
-    correctOptionIndex: number;
+export interface TicketMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  timestamp: string;
+  type: 'public' | 'internal' | 'system';
+  avatar?: string;
 }
 
-export interface TrainingStep {
-    id: string;
-    title: string;
-    type: TrainingStepType;
-    content?: string; // Markdown text or Video URL
-    quizData?: QuizQuestion[];
-    pdfUrl?: string;
-    durationMinutes: number;
-}
-
-export interface TrainingModule {
-    id: string;
-    title: string;
-    description: string;
-    category: string; // e.g. 'Safety', 'Hospitality', 'Systems'
-    coverImage?: string;
-    steps: TrainingStep[];
-    recurrence: 'None' | 'Yearly' | 'Monthly' | 'Quarterly';
-    targetRoles: string[]; // ['All'] or specific roles
-    createdAt: string;
-    createdBy: string;
-}
-
-export interface AssignedTraining {
-    id: string;
-    trainingId: string;
-    employeeId: string;
-    status: 'Not Started' | 'In Progress' | 'Completed';
-    progress: number; // 0-100
-    currentStepIndex: number;
-    assignedDate: string;
-    dueDate?: string;
-    completedDate?: string;
-    score?: number; // For quizzes
+export interface Ticket {
+  id: string;
+  title: string;
+  description: string;
+  type: TicketType;
+  priority: TicketPriority;
+  page?: string;
+  status: TicketStatus;
+  submittedBy: string;
+  submittedById: string;
+  submittedAt: string;
+  resolvedAt?: string;
+  messages: TicketMessage[];
 }
 
 // --- RECRUITMENT TYPES ---
@@ -237,44 +217,6 @@ export interface AssignedBadge {
   assignedAt: string; // Date string
 }
 
-// --- TICKET SYSTEM TYPES ---
-
-export type TicketType = 'Bug' | 'Idea' | 'Fix' | 'Other';
-export type TicketPriority = 'Low' | 'Medium' | 'High';
-export type TicketStatus = 'Open' | 'In Progress' | 'Resolved' | 'Closed';
-
-export interface TicketMessage {
-  id: string;
-  senderId: string;
-  senderName: string;
-  content: string; // The actual message or system log
-  timestamp: string;
-  type: 'public' | 'internal' | 'system'; // 'internal' only visible to managers, 'system' for status changes
-  avatar?: string;
-}
-
-export interface Ticket {
-  id: string;
-  title: string;
-  description: string; // The initial description
-  page?: string; 
-  type: TicketType;
-  priority: TicketPriority;
-  status: TicketStatus;
-  
-  submittedBy: string; 
-  submittedById: string; 
-  submittedAt: string;
-  
-  resolvedAt?: string;
-  
-  // New Threaded Communication
-  messages: TicketMessage[];
-  
-  // Metadata
-  tags?: string[];
-}
-
 // --- DEBT CONTROL TYPES ---
 
 export type DebtorStatus = 'New' | '1st Reminder' | '2nd Reminder' | 'Final Notice' | 'Paid' | 'Blacklist';
@@ -299,7 +241,7 @@ export interface Notification {
   id: string;
   recipientId: string;
   senderName: string;
-  type: 'LeaveRequest' | 'Document' | 'Note' | 'System' | 'News' | 'Onboarding' | 'Survey' | 'Evaluation' | 'Evaluation' | 'Ticket' | 'Badge' | 'Knowledge' | 'Recruitment' | 'Training';
+  type: 'Document' | 'Note' | 'System' | 'News' | 'Onboarding' | 'Survey' | 'Evaluation' | 'Evaluation' | 'Badge' | 'Knowledge' | 'Recruitment';
   title: string;
   message: string;
   date: string;
@@ -308,21 +250,6 @@ export interface Notification {
   targetView: ViewState;
   targetEmployeeId?: string; // If navigating to a specific dossier
   metaId?: string; // Generic ID for linking to specific items (e.g., surveyId)
-}
-
-export interface LeaveRequest {
-  id: string;
-  type: 'Annual Leave' | 'Sick Leave' | 'Without Pay';
-  startDate: string;
-  endDate: string;
-  amount: number;
-  status: 'Approved' | 'Pending' | 'Rejected';
-}
-
-export interface LeaveBalance {
-  type: 'Annual Leave' | 'Sick Leave' | 'Without Pay';
-  entitled: number; // Total days allowed (e.g. 30)
-  taken: number;    // Days already used
 }
 
 export interface EmployeeDocument {
@@ -529,8 +456,6 @@ export interface Employee {
   onboardingHistory?: OnboardingHistoryEntry[]; // Archived trajectories
   activeTemplateId?: string; // To track which template is currently active
 
-  leaveBalances: LeaveBalance[];
-  leaveRequests: LeaveRequest[];
   documents: EmployeeDocument[];
   notes: EmployeeNote[];
   
@@ -539,9 +464,6 @@ export interface Employee {
   
   // New: Personal Growth Path
   growthGoals?: PersonalDevelopmentGoal[];
-  
-  // New: E-Learning
-  trainings?: AssignedTraining[];
 }
 
 export interface HeadcountData {

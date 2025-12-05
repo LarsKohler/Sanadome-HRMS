@@ -1,14 +1,12 @@
-
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Briefcase, MapPin, 
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Ticket, Circle, Newspaper, Medal, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy
+  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Medal, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy
 } from 'lucide-react';
-import { Employee, LeaveRequest, EmployeeNote, EmployeeDocument, Notification, ViewState, Ticket as TicketType, NewsPost, BadgeDefinition, PersonalDevelopmentGoal, InterimCheckIn } from '../types';
+import { Employee, EmployeeNote, EmployeeDocument, Notification, ViewState, NewsPost, BadgeDefinition, PersonalDevelopmentGoal, InterimCheckIn } from '../types';
 import { Modal } from './Modal';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { api } from '../utils/api';
@@ -77,9 +75,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   // Debt Control State (for Dashboard)
   const [urgentDebtCount, setUrgentDebtCount] = useState(0);
   
-  // Tickets State
-  const [myTickets, setMyTickets] = useState<TicketType[]>([]);
-
   // Badges Definitions State
   const [badgeDefinitions, setBadgeDefinitions] = useState<BadgeDefinition[]>([]);
 
@@ -125,20 +120,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                   setUrgentDebtCount(urgent.length);
               } catch (e) {
                   console.error("Failed to fetch dashboard debt stats", e);
-              }
-          }
-
-          // Tickets (Own only)
-          if (isOwnProfile) {
-              try {
-                  const allTickets = await api.getTickets();
-                  const mine = allTickets
-                      .filter(t => t.submittedById === employee.id && t.status !== 'Closed')
-                      .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
-                      .slice(0, 3);
-                  setMyTickets(mine);
-              } catch (e) {
-                  console.error("Failed to load tickets", e);
               }
           }
 
@@ -391,10 +372,10 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       // Actions (Only for owner/manager)
       const openOnboardingTasks = employee.onboardingTasks?.filter(t => t.score !== 100) || [];
       const pendingEvaluations = employee.evaluations?.filter(ev => ev.status === 'EmployeeInput' || ev.status === 'ManagerInput') || [];
-      const pendingTrainings = employee.trainings?.filter(t => t.status !== 'Completed') || [];
-      const totalActions = openOnboardingTasks.length + pendingEvaluations.length + pendingTrainings.length + urgentDebtCount;
+      const totalActions = openOnboardingTasks.length + pendingEvaluations.length + urgentDebtCount;
 
       // Active Growth Goal (The most recent in-progress one)
+      // Changed: Show all NON-completed goals (In Progress AND Not Started) to ensure consistency
       const activeGrowthGoal = (employee.growthGoals || [])
           .filter(g => g.status !== 'Completed')
           .sort((a,b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0];
@@ -404,7 +385,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
               
               {/* VITAL STATS ROW (Private/Manager only) */}
               {(isOwnProfile || isManager) && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       
                       <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
                           <div className={`p-3 rounded-lg ${totalActions > 0 ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-600'}`}>
@@ -413,30 +394,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                           <div>
                               <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Open Taken</div>
                               <div className="text-lg font-bold text-slate-900">{totalActions}</div>
-                          </div>
-                      </div>
-
-                      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-                          <div className="p-3 bg-purple-50 text-purple-600 rounded-lg">
-                              <Ticket size={22} />
-                          </div>
-                          <div>
-                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Mijn Tickets</div>
-                              <div className="text-lg font-bold text-slate-900">{isOwnProfile ? myTickets.length : '-'}</div>
-                          </div>
-                      </div>
-
-                      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4 cursor-pointer hover:border-teal-300 transition-colors" onClick={() => onShowToast('Verlof module binnenkort beschikbaar')}>
-                          <div className="relative w-12 h-12 flex-shrink-0">
-                               <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                                    <path className="text-slate-100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                                    <path className="text-teal-500" strokeDasharray={`${isOwnProfile ? 60 : 0}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
-                               </svg>
-                               <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-teal-700">{isOwnProfile ? 25 : '-'}d</div>
-                          </div>
-                          <div>
-                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Verlof Saldo</div>
-                              <div className="text-xs text-slate-500">Beschikbaar</div>
                           </div>
                       </div>
 
@@ -511,22 +468,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                               </div>
                               
                               <div className="divide-y divide-slate-50">
-                                  {/* PENDING TRAININGS */}
-                                  {pendingTrainings.slice(0,3).map(training => (
-                                      <div key={training.id} className="p-4 hover:bg-slate-50 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.ELEARNING)}>
-                                          <div className="p-2 bg-blue-100 text-blue-600 rounded-lg">
-                                              <GraduationCap size={18} />
-                                          </div>
-                                          <div className="flex-1">
-                                              <div className="text-sm font-bold text-slate-900">Training: {training.trainingId}</div>
-                                              <div className="text-xs text-slate-500">
-                                                  {training.dueDate ? `Deadline: ${training.dueDate}` : 'Geen deadline'} • {training.progress}% Voltooid
-                                              </div>
-                                          </div>
-                                          <ChevronRight size={16} className="text-slate-300 group-hover:text-blue-600" />
-                                      </div>
-                                  ))}
-
                                   {urgentDebtCount > 0 && (
                                       <div className="p-4 hover:bg-red-50/30 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.DEBT_CONTROL)}>
                                           <div className="p-2 bg-red-100 text-red-600 rounded-lg">

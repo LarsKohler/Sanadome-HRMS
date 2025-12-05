@@ -19,13 +19,11 @@ import SurveyTakingFlow from './components/SurveyTakingFlow';
 import SystemStatusPage from './components/SystemStatusPage';
 import SettingsPage from './components/SettingsPage';
 import DebtControlPage from './components/DebtControlPage';
-import TicketDashboard from './components/TicketDashboard';
 import BadgeManager from './components/BadgeManager';
 import LinenAuditPage from './components/LinenAuditPage';
 import KnowledgeBasePage from './components/KnowledgeBasePage';
 import EvaluationsPage from './components/EvaluationsPage';
 import RecruitmentPage from './components/RecruitmentPage';
-import ELearningPage from './components/ELearningPage';
 import { api, isLive } from './utils/api';
 
 function App() {
@@ -45,21 +43,6 @@ function App() {
   // Specific Feature States
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
   const [activeSurvey, setActiveSurvey] = useState<Survey | null>(null);
-
-  // Restore Session
-  useEffect(() => {
-      const savedUser = localStorage.getItem('hrms_session_user');
-      if (savedUser) {
-          try {
-              const parsedUser = JSON.parse(savedUser);
-              setCurrentUser(parsedUser);
-              setIsAuthenticated(true);
-          } catch (e) {
-              console.error("Failed to restore session", e);
-              localStorage.removeItem('hrms_session_user');
-          }
-      }
-  }, []);
 
   // Initialize Data
   useEffect(() => {
@@ -98,7 +81,6 @@ function App() {
       if (user) {
           setCurrentUser(user);
           setIsAuthenticated(true);
-          localStorage.setItem('hrms_session_user', JSON.stringify(user));
           return true;
       }
       return false;
@@ -108,18 +90,12 @@ function App() {
       setCurrentUser(null);
       setIsAuthenticated(false);
       setCurrentView(ViewState.HOME);
-      localStorage.removeItem('hrms_session_user');
   };
 
   const handleUpdateEmployee = (updatedEmployee: Employee) => {
     // Optimistic Update
     setEmployees(prev => prev.map(emp => emp.id === updatedEmployee.id ? updatedEmployee : emp));
-    
-    // Update current user session if it's the logged-in user
-    if (currentUser?.id === updatedEmployee.id) {
-        setCurrentUser(updatedEmployee);
-        localStorage.setItem('hrms_session_user', JSON.stringify(updatedEmployee));
-    }
+    if (currentUser?.id === updatedEmployee.id) setCurrentUser(updatedEmployee);
     
     // Persist (Update existing, isNewUser = false)
     api.saveEmployee(updatedEmployee, false);
@@ -153,7 +129,7 @@ function App() {
   if (currentUser?.accountStatus === 'Pending') {
       return <WelcomeFlow employee={currentUser} onComplete={async (updated) => {
           await handleUpdateEmployee(updated);
-          setCurrentUser(updated); // handleUpdateEmployee handles storage, but extra safety
+          setCurrentUser(updated);
       }} />;
   }
 
@@ -252,12 +228,6 @@ function App() {
               />;
           case ViewState.DEBT_CONTROL:
               return <DebtControlPage currentUser={currentUser!} onShowToast={handleShowToast} />;
-          case ViewState.TICKETS:
-              return <TicketDashboard 
-                  currentUser={currentUser!}
-                  onShowToast={handleShowToast}
-                  onOpenFeedbackModal={() => {}} 
-              />;
           case ViewState.BADGES:
               return <BadgeManager 
                   currentUser={currentUser!}
@@ -297,25 +267,15 @@ function App() {
                           employmentType: 'Full-Time',
                           accountStatus: 'Pending',
                           password: 'sanadome123', // Default
-                          leaveBalances: [],
-                          leaveRequests: [],
                           documents: [],
                           notes: [],
                           onboardingStatus: 'Pending',
                           onboardingTasks: []
                       };
                       await handleAddEmployee(newEmployee);
-                      // Do NOT redirect. Return ID so RecruitmentPage can show the invite link.
-                      return newId;
+                      // Navigate to directory to show success
+                      setCurrentView(ViewState.DIRECTORY);
                   }}
-              />;
-          case ViewState.ELEARNING:
-              return <ELearningPage 
-                  currentUser={currentUser!}
-                  employees={employees}
-                  onUpdateEmployee={handleUpdateEmployee}
-                  onShowToast={handleShowToast}
-                  onAddNotification={(n) => api.saveNotification(n)}
               />;
           default:
               return <div className="p-10">Pagina niet gevonden of in ontwikkeling.</div>;

@@ -1,10 +1,12 @@
 
 
 
+
+
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, Ticket, BadgeDefinition, KnowledgeArticle, Applicant, TrainingModule } from '../types';
-import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_TICKETS, MOCK_BADGES, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_TRAININGS } from './mockData';
+import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, BadgeDefinition, KnowledgeArticle, Applicant, Ticket } from '../types';
+import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_BADGES, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_TICKETS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
 export const isLive = !!supabase;
@@ -24,44 +26,34 @@ const generateDemoTasks = (): OnboardingTask[] => [
 ];
 
 export const api = {
-  // --- E-LEARNING (NEW) ---
-  getTrainings: async (): Promise<TrainingModule[]> => {
+  // --- TICKETS (NEW) ---
+  getTickets: async (): Promise<Ticket[]> => {
       if (isLive && supabase) {
           try {
-              const { data, error } = await supabase.from('trainings').select('data');
+              const { data, error } = await supabase.from('tickets').select('data');
               if (!error && data && data.length > 0) return data.map((row: any) => row.data);
-              return MOCK_TRAININGS;
+              return MOCK_TICKETS;
           } catch (e) {
-              return MOCK_TRAININGS;
+              return MOCK_TICKETS;
           }
       }
-      const local = localStorage.getItem('hrms_trainings');
-      return local ? JSON.parse(local) : MOCK_TRAININGS;
+      const local = localStorage.getItem('hrms_tickets');
+      return local ? JSON.parse(local) : MOCK_TICKETS;
   },
 
-  saveTraining: async (training: TrainingModule) => {
+  saveTicket: async (ticket: Ticket) => {
       if (isLive && supabase) {
-          await supabase.from('trainings').upsert({ id: training.id, data: training });
+          await supabase.from('tickets').upsert({ id: ticket.id, data: ticket });
       } else {
-          const current = await api.getTrainings();
-          const index = current.findIndex(t => t.id === training.id);
-          if (index >= 0) current[index] = training;
-          else current.unshift(training);
-          localStorage.setItem('hrms_trainings', JSON.stringify(current));
+          const current = await api.getTickets();
+          const index = current.findIndex(t => t.id === ticket.id);
+          if (index >= 0) current[index] = ticket;
+          else current.unshift(ticket);
+          localStorage.setItem('hrms_tickets', JSON.stringify(current));
       }
   },
 
-  deleteTraining: async (id: string) => {
-      if (isLive && supabase) {
-          await supabase.from('trainings').delete().eq('id', id);
-      } else {
-          const current = await api.getTrainings();
-          const filtered = current.filter(t => t.id !== id);
-          localStorage.setItem('hrms_trainings', JSON.stringify(filtered));
-      }
-  },
-
-  // --- RECRUITMENT ---
+  // --- RECRUITMENT (NEW) ---
   getApplicants: async (): Promise<Applicant[]> => {
       if (isLive && supabase) {
           try {
@@ -103,14 +95,14 @@ export const api = {
       if (isLive && supabase) {
           try { const { data, error } = await supabase.rpc('get_table_security_stats'); if (error) throw error; return data; } catch (e) { return []; }
       }
-      return [{ table_name: 'employees', rls_enabled: true }, { table_name: 'debtors', rls_enabled: true }, { table_name: 'tickets', rls_enabled: true }, { table_name: 'news', rls_enabled: true }];
+      return [{ table_name: 'employees', rls_enabled: true }, { table_name: 'debtors', rls_enabled: true }, { table_name: 'news', rls_enabled: true }];
   },
   loginUser: async (email: string, password: string): Promise<Employee | null> => {
       if (!isLive || !supabase) { const employees = storage.getEmployees(); return employees.find(e => e.email.toLowerCase() === email.toLowerCase() && (e.password === password || e.accountStatus === 'Pending')) || null; }
       try { const { data: authData } = await supabase.auth.signInWithPassword({ email, password }); if (authData.user) { const { data: profileData } = await supabase.from('employees').select('data').eq('id', authData.user.id).single(); if (profileData) return profileData.data as Employee; } const { data, error } = await supabase.from('employees').select('data').eq('data->>email', email).single(); if (error || !data) return null; const emp = data.data as Employee; if (emp.password === password) return emp; return null; } catch (e) { return null; }
   },
   createDemoUser: async (role: 'Manager' | 'Medewerker') => {
-      const rand = Math.floor(Math.random() * 10000); const email = role === 'Manager' ? `demo.manager.${rand}@sanadome.nl` : `demo.user.${rand}@sanadome.nl`; const password = 'demo'; const name = role === 'Manager' ? `Demo Manager ${rand}` : `Demo Medewerker ${rand}`; const newId = crypto.randomUUID(); const newEmployee: Employee = { id: newId, name: name, role: role, departments: role === 'Manager' ? ['Management', 'Front Office'] : ['Front Office'], avatar: `https://ui-avatars.com/api/?name=${name.replace(' ', '+')}&background=${role === 'Manager' ? '0d9488' : '2563eb'}&color=fff`, email: email, password: password, phone: '+31 6 1234 5678', linkedin: name, hiredOn: new Date().toLocaleDateString('nl-NL'), employmentType: 'Full-Time', accountStatus: 'Active', onboardingStatus: role === 'Manager' ? 'Completed' : 'Active', leaveBalances: [{ type: 'Annual Leave', entitled: 25, taken: 0 }, { type: 'Sick Leave', entitled: 10.0, taken: 0 }, { type: 'Without Pay', entitled: 0, taken: 0 }], leaveRequests: [], documents: [], notes: [], onboardingTasks: role === 'Manager' ? [] : generateDemoTasks(), evaluations: [], badges: [] }; await api.saveEmployee(newEmployee, true); return { email, password };
+      const rand = Math.floor(Math.random() * 10000); const email = role === 'Manager' ? `demo.manager.${rand}@sanadome.nl` : `demo.user.${rand}@sanadome.nl`; const password = 'demo'; const name = role === 'Manager' ? `Demo Manager ${rand}` : `Demo Medewerker ${rand}`; const newId = crypto.randomUUID(); const newEmployee: Employee = { id: newId, name: name, role: role, departments: role === 'Manager' ? ['Management', 'Front Office'] : ['Front Office'], avatar: `https://ui-avatars.com/api/?name=${name.replace(' ', '+')}&background=${role === 'Manager' ? '0d9488' : '2563eb'}&color=fff`, email: email, password: password, phone: '+31 6 1234 5678', linkedin: name, hiredOn: new Date().toLocaleDateString('nl-NL'), employmentType: 'Full-Time', accountStatus: 'Active', onboardingStatus: role === 'Manager' ? 'Completed' : 'Active', documents: [], notes: [], onboardingTasks: role === 'Manager' ? [] : generateDemoTasks(), evaluations: [], badges: [] }; await api.saveEmployee(newEmployee, true); return { email, password };
   },
   uploadFile: async (file: File, bucket: string = 'hrms-storage') => { if (isLive && supabase) { try { const fileExt = file.name.split('.').pop(); const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`; const filePath = `${fileName}`; const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, file); if (uploadError) return null; const { data } = supabase.storage.from(bucket).getPublicUrl(filePath); return data.publicUrl; } catch (e) { return null; } } return URL.createObjectURL(file); },
   deleteFile: async (fullUrl: string, bucket: string = 'hrms-storage') => { if (isLive && supabase && fullUrl) { try { if (fullUrl.includes(bucket)) { const parts = fullUrl.split(`${bucket}/`); if (parts.length > 1) { const filePath = parts[1]; await supabase.storage.from(bucket).remove([filePath]); } } } catch (e) {} } },
@@ -143,9 +135,6 @@ export const api = {
   deleteDebtor: async (id: string) => { if (isLive && supabase) { const { error } = await supabase.from('debtors').delete().eq('id', id); if (error) return false; } const local = localStorage.getItem('hrms_debtors'); if (local) { const parsed = JSON.parse(local); const filtered = parsed.filter((d: Debtor) => d.id !== id); localStorage.setItem('hrms_debtors', JSON.stringify(filtered)); } return true; },
   deleteDebtors: async (ids: string[]) => { if (isLive && supabase) { const { error } = await supabase.from('debtors').delete().in('id', ids); if (error) return false; } const local = localStorage.getItem('hrms_debtors'); if (local) { const parsed = JSON.parse(local) as Debtor[]; const filtered = parsed.filter(d => !ids.includes(d.id)); localStorage.setItem('hrms_debtors', JSON.stringify(filtered)); } return true; },
   subscribeToDebtors: (onUpdate: (debtors: Debtor[]) => void) => { if (isLive && supabase) { const channel = supabase.channel('debtors_realtime').on('postgres_changes', { event: '*', schema: 'public', table: 'debtors' }, async () => { const { data } = await supabase.from('debtors').select('data'); if (data) onUpdate(data.map((r: any) => r.data)); }).subscribe(); return () => { supabase.removeChannel(channel); }; } return () => {}; },
-  getTickets: async () => { if (isLive && supabase) { try { const { data, error } = await supabase.from('tickets').select('data'); if (!error && data && data.length > 0) return data.map((row: any) => row.data); return MOCK_TICKETS; } catch (e) { return MOCK_TICKETS; } } const local = localStorage.getItem('hrms_tickets'); return local ? JSON.parse(local) : MOCK_TICKETS; },
-  saveTicket: async (ticket: Ticket) => { if (isLive && supabase) { await supabase.from('tickets').upsert({ id: ticket.id, data: ticket }); } else { const current = localStorage.getItem('hrms_tickets'); const parsed = current ? JSON.parse(current) : MOCK_TICKETS; const index = parsed.findIndex((t: Ticket) => t.id === ticket.id); if (index >= 0) parsed[index] = ticket; else parsed.unshift(ticket); localStorage.setItem('hrms_tickets', JSON.stringify(parsed)); } },
-  deleteTicket: async (id: string) => { if (isLive && supabase) { await supabase.from('tickets').delete().eq('id', id); } else { const current = localStorage.getItem('hrms_tickets'); if (current) { const parsed = JSON.parse(current); const filtered = parsed.filter((t: Ticket) => t.id !== id); localStorage.setItem('hrms_tickets', JSON.stringify(filtered)); } } },
   getSystemLogs: async () => { if (GITHUB_CONFIG.ENABLE) { try { const response = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/commits?per_page=15`); if (response.ok) { const commits = await response.json(); return commits.map((c: any) => { const msg = c.commit.message || ''; const title = msg.split('\n')[0]; let type = 'Maintenance'; if (title.toLowerCase().includes('feat')) type = 'Feature'; else if (title.toLowerCase().includes('fix')) type = 'Bugfix'; return { id: c.sha, version: c.sha.substring(0, 7), date: new Date(c.commit.author.date).toLocaleDateString('nl-NL'), timestamp: new Date(c.commit.author.date).toLocaleTimeString('nl-NL'), author: c.commit.author.name, type, impact: 'Low', affectedArea: 'System', description: title, status: 'Success' }; }); } } catch (e) {} } if (isLive && supabase) { try { const { data } = await supabase.from('system_updates').select('data'); if (data && data.length > 0) return data.map((row: any) => row.data); } catch (e) {} } return MOCK_SYSTEM_LOGS; },
   saveSystemLog: async (log: SystemUpdateLog) => { if (isLive && supabase) { await supabase.from('system_updates').insert({ id: log.id, data: log }); } },
   seedDatabase: async () => { if (!isLive || !supabase) return; const { data } = await supabase.from('employees').select('id'); if (!data || data.length === 0) { const all = [...MOCK_EMPLOYEES]; for (const emp of all) { await api.saveEmployee(emp); } } },

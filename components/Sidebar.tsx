@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
   UserPlus, Trophy, FileText, PieChart, 
-  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Ticket, Medal, BookOpen, Truck, ChevronDown, ChevronRight, GraduationCap
+  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Medal, BookOpen, Truck, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { ViewState, Employee } from '../types';
 import { hasPermission } from '../utils/permissions';
@@ -37,7 +37,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
     {
       label: 'Algemeen',
       items: [
-        { icon: Ticket, label: 'Support & Tickets', id: ViewState.TICKETS, highlight: true },
         { icon: User, label: 'Mijn Profiel', id: ViewState.HOME },
         { icon: Newspaper, label: 'Nieuws', id: ViewState.NEWS },
         { icon: BookOpen, label: 'Kennisbank', id: ViewState.KNOWLEDGE_BASE },
@@ -49,7 +48,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
     {
       label: 'HR & Team',
       items: [
-        { icon: GraduationCap, label: 'Academy', id: ViewState.ELEARNING },
         { icon: UserCheck, label: 'Onboarding', id: ViewState.ONBOARDING },
         { icon: ClipboardList, label: 'Surveys', id: ViewState.SURVEYS },
         { icon: ClipboardCheck, label: 'Performance', id: ViewState.EVALUATIONS, permission: 'MANAGE_EVALUATIONS' },
@@ -151,7 +149,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
                         {visibleItems.map((item) => {
                         const isActive = currentView === item.id;
                         const isClickable = Object.values(ViewState).includes(item.id as ViewState);
-                        const isHighlight = item.highlight;
+                        // Removed highlight property handling as it was used for tickets
+                        const isHighlight = false;
 
                         return (
                             <li key={item.label}>
@@ -165,21 +164,18 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
                                 className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 group ${
                                 isActive
                                     ? 'text-teal-900 bg-teal-50 border border-teal-100 shadow-sm'
-                                    : isHighlight 
-                                        ? 'bg-purple-50/50 text-purple-900 border border-purple-100 hover:bg-purple-100'
-                                        : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
+                                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
                                 }`}
                             >
                                 <item.icon 
                                     size={18} 
                                     className={`mr-3 transition-colors ${
                                         isActive ? 'text-teal-600' : 
-                                        isHighlight ? 'text-purple-600' :
                                         'text-slate-400 group-hover:text-slate-600'
                                     }`} 
                                     strokeWidth={isActive ? 2.5 : 2} 
                                 />
-                                <span className={isActive || isHighlight ? 'font-bold' : ''}>{item.label}</span>
+                                <span className={isActive ? 'font-bold' : ''}>{item.label}</span>
                                 {item.badge && (
                                 <span className={`ml-auto py-0.5 px-2 rounded-md text-[10px] font-bold ${isActive ? 'bg-teal-200/50 text-teal-800' : 'bg-slate-100 text-slate-500'}`}>
                                     {item.badge}
