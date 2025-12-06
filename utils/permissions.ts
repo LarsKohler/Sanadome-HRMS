@@ -3,6 +3,8 @@
 
 
 
+
+
 import { Employee, Permission } from '../types';
 
 // Define default permissions per role
@@ -26,7 +28,8 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'MANAGE_BADGES',
     'MANAGE_KNOWLEDGE',
     'MANAGE_OPERATIONS',
-    'MANAGE_TICKETS'
+    'MANAGE_TICKETS',
+    'MANAGE_RENTALS'
   ],
   'Senior Medewerker': [
     'CREATE_NEWS',
@@ -39,10 +42,12 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'VIEW_CALENDAR',
     'MANAGE_ATTENDANCE', // Can help with roosters
     'MANAGE_BADGES', // Seniors can award badges
-    'MANAGE_OPERATIONS' // Seniors can do Linen Audit
+    'MANAGE_OPERATIONS', // Seniors can do Linen Audit
+    'MANAGE_RENTALS' // Reception tasks
   ],
   'Medewerker': [
-    'VIEW_CALENDAR' // Basic view access
+    'VIEW_CALENDAR', // Basic view access
+    'MANAGE_RENTALS' // Reception needs this
   ]
 };
 

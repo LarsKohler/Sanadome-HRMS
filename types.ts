@@ -15,7 +15,8 @@ export enum ViewState {
   LINEN_AUDIT = 'LINEN_AUDIT',
   KNOWLEDGE_BASE = 'KNOWLEDGE_BASE',
   EVALUATIONS = 'EVALUATIONS',
-  RECRUITMENT = 'RECRUITMENT'
+  RECRUITMENT = 'RECRUITMENT',
+  BIKE_RENTAL = 'BIKE_RENTAL'
 }
 
 export type Permission = 
@@ -37,7 +38,8 @@ export type Permission =
   | 'MANAGE_BADGES'
   | 'MANAGE_KNOWLEDGE'
   | 'MANAGE_OPERATIONS'
-  | 'MANAGE_TICKETS';
+  | 'MANAGE_TICKETS'
+  | 'MANAGE_RENTALS';
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_REPORTS': 'Rapportages Inzien',
@@ -58,8 +60,36 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'MANAGE_BADGES': 'Badges Beheren',
   'MANAGE_KNOWLEDGE': 'Kennisbank Beheren',
   'MANAGE_OPERATIONS': 'Operations Beheren',
-  'MANAGE_TICKETS': 'Tickets Beheren'
+  'MANAGE_TICKETS': 'Tickets Beheren',
+  'MANAGE_RENTALS': 'Fietsverhuur Beheren'
 };
+
+// ... existing types ...
+
+// --- BIKE RENTAL ---
+export type BikeType = 'City Bike Men' | 'City Bike Women' | 'E-Bike';
+
+export interface BikeReservation {
+    id: string;
+    guestName: string;
+    roomNumber: string;
+    bikeType: BikeType;
+    amount: number; // Number of bikes
+    startDate: string; // ISO Date YYYY-MM-DD
+    endDate: string; // ISO Date YYYY-MM-DD
+    status: 'Active' | 'Completed' | 'Cancelled';
+    signatureUrl?: string; // Data URL
+    termsAccepted: boolean;
+    createdAt: string;
+    createdBy: string;
+}
+
+export interface BikeSettings {
+    inventory: Record<BikeType, number>;
+    termsAndConditions: string;
+}
+
+// ... existing types ...
 
 export interface EmployeeNote {
   id: string;

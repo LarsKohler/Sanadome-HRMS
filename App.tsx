@@ -22,6 +22,8 @@ import LinenAuditPage from './components/LinenAuditPage';
 import KnowledgeBasePage from './components/KnowledgeBasePage';
 import EvaluationsPage from './components/EvaluationsPage';
 import RecruitmentPage from './components/RecruitmentPage';
+import TicketDashboard from './components/TicketDashboard';
+import BikeRentalPage from './components/BikeRentalPage'; // Import
 import UpdateNotifier from './components/UpdateNotifier';
 import { api, isLive } from './utils/api';
 
@@ -76,20 +78,15 @@ function App() {
   }, [isAuthenticated]);
 
   // SYNC CURRENT USER WITH EMPLOYEE DATA
-  // This ensures that if the current user object is updated in the database (e.g. evaluations added),
-  // the local currentUser state reflects those changes immediately.
   useEffect(() => {
       if (currentUser && employees.length > 0) {
           const freshUser = employees.find(e => e.id === currentUser.id);
           
           if (freshUser) {
-              // PREVENT PENDING LOOP: 
-              // If local is Active but fresh is Pending (due to stale API fetch), DO NOT revert.
               if (currentUser.accountStatus === 'Active' && freshUser.accountStatus === 'Pending') {
                   return;
               }
 
-              // Only update if data has actually changed to prevent loops
               if (JSON.stringify(freshUser) !== JSON.stringify(currentUser)) {
                   setCurrentUser(freshUser);
                   localStorage.setItem('hrms_current_user', JSON.stringify(freshUser));
@@ -122,7 +119,6 @@ function App() {
   };
 
   const handleUpdateEmployee = async (updatedEmployee: Employee) => {
-    // Optimistic Update: Update list AND current user immediately
     setEmployees(prev => prev.map(emp => emp.id === updatedEmployee.id ? updatedEmployee : emp));
     
     if (currentUser?.id === updatedEmployee.id) {
@@ -130,13 +126,11 @@ function App() {
         localStorage.setItem('hrms_current_user', JSON.stringify(updatedEmployee));
     }
     
-    // Persist (Update existing, isNewUser = false)
     try {
         const success = await api.saveEmployee(updatedEmployee, false);
         if (!success) {
             console.error("Failed to save employee to database");
-            handleShowToast("Let op: Wijziging niet opgeslagen in database. Controleer rechten/verbinding.");
-            // Ideally we would revert the state here, but for now we warn the user.
+            handleShowToast("Let op: Wijziging niet opgeslagen in database.");
         }
     } catch (e) {
         console.error("Error saving employee", e);
@@ -146,7 +140,6 @@ function App() {
 
   const handleAddEmployee = (newEmployee: Employee) => {
     setEmployees(prev => [...prev, newEmployee]);
-    // Persist (Create new, isNewUser = true -> Triggers RPC admin_create_user)
     api.saveEmployee(newEmployee, true);
   };
 
@@ -156,9 +149,7 @@ function App() {
   };
 
   const handleAddNotification = (notification: Notification) => {
-      // Optimistically update local state immediately
       setNotifications(prev => [notification, ...prev]);
-      // Persist to API
       api.saveNotification(notification);
   };
 
@@ -178,20 +169,13 @@ function App() {
 
   if (currentUser?.accountStatus === 'Pending') {
       return <WelcomeFlow employee={currentUser} onComplete={async (updated) => {
-          // 1. SAVE TO DATABASE FIRST
-          // If this fails, we throw, and the UI remains on the Welcome Screen (showing error)
           const success = await api.saveEmployee(updated, false);
-          
           if (!success) {
-              throw new Error("Het opslaan in de database is mislukt. Probeer het opnieuw of neem contact op met de beheerder.");
+              throw new Error("Het opslaan in de database is mislukt.");
           }
-
-          // 2. Only if DB success, update local state
           setCurrentUser(updated);
           localStorage.setItem('hrms_current_user', JSON.stringify(updated));
           setEmployees(prev => prev.map(e => e.id === updated.id ? updated : e));
-          
-          // 3. Force refresh to ensure everything is synced
           const freshData = await api.getEmployees();
           setEmployees(freshData);
       }} />;
@@ -321,8 +305,8 @@ function App() {
                       const newEmployee: Employee = {
                           id: newId,
                           name: `${applicant.firstName} ${applicant.lastName}`,
-                          role: 'Medewerker', // Default
-                          departments: ['Front Office'], // Needs specific logic or prompt
+                          role: 'Medewerker',
+                          departments: ['Front Office'],
                           email: applicant.email,
                           phone: applicant.phone,
                           avatar: applicant.avatar || `https://ui-avatars.com/api/?name=${applicant.firstName}+${applicant.lastName}&background=random`,
@@ -330,18 +314,23 @@ function App() {
                           hiredOn: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
                           employmentType: 'Full-Time',
                           accountStatus: 'Pending',
-                          password: 'sanadome123', // Default
+                          password: 'sanadome123',
                           documents: [],
                           notes: [],
                           onboardingStatus: 'Pending',
                           onboardingTasks: []
                       };
                       await handleAddEmployee(newEmployee);
-                      // Navigate to directory to show success
                       setCurrentView(ViewState.DIRECTORY);
                   }}
               />;
+          case ViewState.BIKE_RENTAL:
+              return <BikeRentalPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           default:
+              // Fallback for ID-based views (Tickets)
+              if (currentView === 'cases') {
+                  return <TicketDashboard onShowToast={handleShowToast} currentUser={currentUser!} onAddNotification={handleAddNotification} onOpenFeedbackModal={() => {}}/>;
+              }
               return <div className="p-10">Pagina niet gevonden of in ontwikkeling.</div>;
       }
   };
