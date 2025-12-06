@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
     Bike, Calendar, User, FileText, CheckCircle2, X, Plus, 
     Settings, AlertCircle, RefreshCw, PenTool, Check, ChevronLeft, 
-    ChevronRight, Save, History, LayoutDashboard, Zap, Clock, Wrench, AlertTriangle, ArrowRight
+    ChevronRight, Save, History, LayoutDashboard, Zap, Clock, Wrench, AlertTriangle, ArrowRight, Grid3X3
 } from 'lucide-react';
 import { Employee, BikeReservation, BikeSettings, BikeType } from '../types';
 import { api } from '../utils/api';
@@ -20,15 +20,39 @@ const BIKE_TYPES: { id: BikeType; label: string; icon: any; color: string }[] = 
     { id: 'E-Bike', label: 'E-Bike', icon: Zap, color: 'text-amber-600 bg-amber-100' }
 ];
 
+// HARDCODED ASSETS AS REQUESTED
+const BIKE_ASSETS = [
+    { id: 'H9', type: 'City Bike Men' },
+    { id: 'H10', type: 'City Bike Men' },
+    { id: 'H11', type: 'City Bike Men' },
+    { id: 'H12', type: 'City Bike Men' },
+    { id: 'D1', type: 'City Bike Women' },
+    { id: 'D2', type: 'City Bike Women' },
+    { id: 'D3', type: 'City Bike Women' },
+    { id: 'D4', type: 'City Bike Women' },
+    { id: 'D5', type: 'City Bike Women' },
+    { id: 'D6', type: 'City Bike Women' },
+    { id: 'E401', type: 'E-Bike' },
+    { id: 'E402', type: 'E-Bike' },
+    { id: 'E403', type: 'E-Bike' },
+    { id: 'E404', type: 'E-Bike' },
+    { id: 'E406', type: 'E-Bike' },
+    { id: 'E407', type: 'E-Bike' },
+    { id: 'E408', type: 'E-Bike' },
+];
+
 const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToast }) => {
     const [view, setView] = useState<'dashboard' | 'guest-flow' | 'settings' | 'archive'>('dashboard');
     const [settings, setSettings] = useState<BikeSettings>({ 
         inventory: { 'City Bike Men': 0, 'City Bike Women': 0, 'E-Bike': 0 }, 
-        inMaintenance: { 'City Bike Men': 0, 'City Bike Women': 0, 'E-Bike': 0 },
+        inMaintenance: [],
         termsAndConditions: '' 
     });
     const [reservations, setReservations] = useState<BikeReservation[]>([]);
     
+    // Detailed Status Modal
+    const [selectedCategoryForDetail, setSelectedCategoryForDetail] = useState<BikeType | null>(null);
+
     // Guest Flow State
     const [flowStep, setFlowStep] = useState(1);
     const [newReservation, setNewReservation] = useState<Partial<BikeReservation>>({
@@ -49,6 +73,9 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
 
     useEffect(() => {
         loadData();
+        // Subscribe for realtime updates
+        const interval = setInterval(loadData, 5000); // Polling fallback if realtime not active
+        return () => clearInterval(interval);
     }, []);
 
     const loadData = async () => {
@@ -56,7 +83,7 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
         const res = await api.getBikeReservations();
         setSettings({
             ...sets,
-            inMaintenance: sets.inMaintenance || { 'City Bike Men': 0, 'City Bike Women': 0, 'E-Bike': 0 }
+            inMaintenance: Array.isArray(sets.inMaintenance) ? sets.inMaintenance : []
         });
         setReservations(res);
     };
@@ -75,18 +102,29 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
         }
     };
 
-    // --- LOGIC ---
-    
-    // Calculate availability: Total - Maintenance - Active Rentals
-    const getAvailability = (type: BikeType) => {
-        const total = settings.inventory[type] || 0;
-        const maintenance = settings.inMaintenance[type] || 0;
+    // --- ASSET LOGIC ---
+    const getBikeStatus = (bikeId: string) => {
+        if (settings.inMaintenance.includes(bikeId)) return 'Maintenance';
         
-        const active = reservations.filter(r => 
-            r.status === 'Active' && r.bikeType === type
-        ).reduce((acc, r) => acc + r.amount, 0);
+        const activeRes = reservations.find(r => r.status === 'Active' && r.bikeId === bikeId);
+        if (activeRes) return 'Rented';
+        
+        return 'Available';
+    };
 
-        return Math.max(0, total - maintenance - active);
+    const getActiveReservationForBike = (bikeId: string) => {
+        return reservations.find(r => r.status === 'Active' && r.bikeId === bikeId);
+    };
+
+    // Calculate numeric stats based on specific assets
+    const getStats = (type: BikeType) => {
+        const assets = BIKE_ASSETS.filter(b => b.type === type);
+        const total = assets.length;
+        const maintenance = assets.filter(a => settings.inMaintenance.includes(a.id)).length;
+        const rented = assets.filter(a => reservations.some(r => r.status === 'Active' && r.bikeId === a.id)).length;
+        const available = total - maintenance - rented;
+        
+        return { total, maintenance, rented, available };
     };
 
     const getElapsedTime = (startDate: string) => {
@@ -98,6 +136,20 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
         
         if (hours > 24) return `${Math.floor(hours/24)} dagen`;
         return `${hours}u ${minutes}m`;
+    };
+
+    const toggleMaintenance = async (bikeId: string) => {
+        let newMaintenanceList = [...settings.inMaintenance];
+        if (newMaintenanceList.includes(bikeId)) {
+            newMaintenanceList = newMaintenanceList.filter(id => id !== bikeId);
+        } else {
+            newMaintenanceList.push(bikeId);
+        }
+        
+        const updatedSettings = { ...settings, inMaintenance: newMaintenanceList };
+        setSettings(updatedSettings);
+        await api.saveBikeSettings(updatedSettings);
+        onShowToast(`Status van fiets ${bikeId} bijgewerkt.`);
     };
 
     // --- GUEST FLOW HANDLERS ---
@@ -196,16 +248,15 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
         }
     };
 
-    // Init canvas when step 3 becomes active
+    // Init canvas when step 4 becomes active (signature)
     useEffect(() => {
-        if (view === 'guest-flow' && flowStep === 3) {
-            // Small timeout to allow render
+        if (view === 'guest-flow' && flowStep === 4) {
             setTimeout(initCanvas, 100);
         }
     }, [view, flowStep]);
 
     const handleConfirmBooking = async () => {
-        if (!newReservation.guestName || !newReservation.roomNumber || !isSigned) return;
+        if (!newReservation.guestName || !newReservation.roomNumber || !isSigned || !newReservation.bikeId) return;
 
         const canvas = canvasRef.current;
         const signatureUrl = canvas?.toDataURL();
@@ -215,7 +266,8 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
             guestName: newReservation.guestName,
             roomNumber: newReservation.roomNumber,
             bikeType: newReservation.bikeType as BikeType,
-            amount: newReservation.amount || 1,
+            bikeId: newReservation.bikeId,
+            amount: 1, // Specific bike rental means 1
             startDate: newReservation.startDate!,
             endDate: newReservation.endDate!,
             startTime: new Date().toLocaleTimeString('nl-NL', {hour: '2-digit', minute:'2-digit'}),
@@ -228,7 +280,7 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
 
         await api.saveBikeReservation(reservation);
         setReservations([reservation, ...reservations]);
-        setFlowStep(4); // Success screen
+        setFlowStep(5); // Success screen
         
         // Auto return after 5 sec
         setTimeout(() => {
@@ -255,19 +307,15 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
             damageReport: isDamageReported ? damageNotes : undefined
         };
 
-        // If damage reported, increase maintenance count automatically
-        if (isDamageReported) {
-            const currentMaintenance = settings.inMaintenance[updatedRes.bikeType] || 0;
+        // If damage reported, add specific bike ID to maintenance list
+        if (isDamageReported && updatedRes.bikeId) {
             const updatedSettings = {
                 ...settings,
-                inMaintenance: {
-                    ...settings.inMaintenance,
-                    [updatedRes.bikeType]: currentMaintenance + updatedRes.amount // Assume all damaged for safety, or prompt for amount
-                }
+                inMaintenance: [...settings.inMaintenance, updatedRes.bikeId]
             };
             setSettings(updatedSettings);
             await api.saveBikeSettings(updatedSettings);
-            onShowToast(`Fiets gemarkeerd als defect. Voorraad bijgewerkt.`);
+            onShowToast(`Fiets ${updatedRes.bikeId} in onderhoud gezet.`);
         }
 
         await api.saveBikeReservation(updatedRes);
@@ -281,7 +329,7 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
     // --- SETTINGS HANDLERS ---
     const handleSaveSettings = async () => {
         await api.saveBikeSettings(settings);
-        onShowToast("Instellingen en voorraad opgeslagen");
+        onShowToast("Instellingen opgeslagen");
         setView('dashboard');
     };
 
@@ -292,19 +340,21 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
             {/* Inventory Status Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {BIKE_TYPES.map(type => {
-                    const available = getAvailability(type.id);
-                    const total = settings.inventory[type.id];
-                    const maintenance = settings.inMaintenance[type.id] || 0;
-                    const percentage = total > 0 ? (available / total) * 100 : 0;
+                    const stats = getStats(type.id);
+                    const percentage = stats.total > 0 ? (stats.available / stats.total) * 100 : 0;
 
                     return (
-                        <div key={type.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+                        <div 
+                            key={type.id} 
+                            onClick={() => setSelectedCategoryForDetail(type.id)}
+                            className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-lg transition-all cursor-pointer"
+                        >
                             <div className="flex justify-between items-start mb-4">
                                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${type.color}`}>
                                     <type.icon size={24} />
                                 </div>
                                 <div className="text-right">
-                                    <span className="text-3xl font-bold text-slate-900">{available}</span>
+                                    <span className="text-3xl font-bold text-slate-900">{stats.available}</span>
                                     <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider">Beschikbaar</span>
                                 </div>
                             </div>
@@ -320,8 +370,12 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                             </div>
 
                             <div className="flex justify-between text-xs text-slate-500 font-medium">
-                                <span>Totaal: {total}</span>
-                                {maintenance > 0 && <span className="text-amber-600 flex items-center gap-1"><Wrench size={10}/> {maintenance} in onderhoud</span>}
+                                <span>Totaal: {stats.total}</span>
+                                {stats.maintenance > 0 && <span className="text-amber-600 flex items-center gap-1"><Wrench size={10}/> {stats.maintenance} in onderhoud</span>}
+                            </div>
+                            
+                            <div className="absolute inset-0 bg-slate-900/5 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity backdrop-blur-[1px]">
+                                <span className="bg-white px-3 py-1 rounded-full text-xs font-bold shadow-sm">Bekijk Details</span>
                             </div>
                         </div>
                     );
@@ -342,12 +396,14 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                             <div key={res.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-teal-400 transition-all group relative">
                                 <div className="flex justify-between items-start mb-4">
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 border-white shadow-sm ${bikeConfig?.color}`}>
-                                            {bikeConfig && <bikeConfig.icon size={18}/>}
+                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center border-4 border-white shadow-sm font-bold text-sm ${bikeConfig?.color}`}>
+                                            {res.bikeId || '?'}
                                         </div>
                                         <div>
-                                            <h4 className="font-bold text-slate-900 text-sm">{res.bikeType}</h4>
-                                            <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{res.amount} stuks</span>
+                                            <h4 className="font-bold text-slate-900 text-sm">{bikeConfig?.label}</h4>
+                                            <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                                                {res.bikeId}
+                                            </span>
                                         </div>
                                     </div>
                                     <span className="text-xs font-mono font-bold text-slate-400">#{res.roomNumber}</span>
@@ -385,6 +441,69 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
         </div>
     );
 
+    const renderAssetStatusGrid = () => {
+        if (!selectedCategoryForDetail) return null;
+        const assets = BIKE_ASSETS.filter(b => b.type === selectedCategoryForDetail);
+        
+        return (
+            <div className="p-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {assets.map(asset => {
+                        const status = getBikeStatus(asset.id);
+                        const activeRes = getActiveReservationForBike(asset.id);
+                        
+                        let bgColor = 'bg-white';
+                        let borderColor = 'border-slate-200';
+                        let statusText = 'Beschikbaar';
+                        let statusColor = 'text-green-600';
+
+                        if (status === 'Rented') {
+                            bgColor = 'bg-red-50';
+                            borderColor = 'border-red-200';
+                            statusText = 'Verhuurd';
+                            statusColor = 'text-red-600';
+                        } else if (status === 'Maintenance') {
+                            bgColor = 'bg-amber-50';
+                            borderColor = 'border-amber-200';
+                            statusText = 'Onderhoud';
+                            statusColor = 'text-amber-600';
+                        }
+
+                        return (
+                            <div key={asset.id} className={`p-4 rounded-xl border-2 ${borderColor} ${bgColor} transition-all relative group`}>
+                                <div className="flex justify-between items-start mb-2">
+                                    <span className="text-lg font-bold text-slate-900">{asset.id}</span>
+                                    <div className={`w-3 h-3 rounded-full ${status === 'Available' ? 'bg-green-500' : status === 'Rented' ? 'bg-red-500' : 'bg-amber-500'}`}></div>
+                                </div>
+                                <div className={`text-xs font-bold ${statusColor} uppercase tracking-wider mb-2`}>{statusText}</div>
+                                
+                                {activeRes && (
+                                    <div className="text-xs text-slate-600 font-medium truncate">
+                                        {activeRes.guestName} <br/> #{activeRes.roomNumber}
+                                    </div>
+                                )}
+
+                                {/* Maintenance Toggle Overlay */}
+                                <div className="absolute inset-0 bg-white/90 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm rounded-xl">
+                                    {status !== 'Rented' ? (
+                                        <button 
+                                            onClick={() => toggleMaintenance(asset.id)}
+                                            className={`px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm border ${status === 'Maintenance' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}
+                                        >
+                                            {status === 'Maintenance' ? 'Vrijgeven' : 'In Onderhoud'}
+                                        </button>
+                                    ) : (
+                                        <span className="text-xs font-bold text-slate-400">Verhuurd</span>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        );
+    };
+
     const renderGuestFlow = () => (
         // z-[100] ensures it covers the sidebar (z-50) and topnav
         <div className="fixed inset-0 z-[100] bg-slate-50 flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 duration-500">
@@ -394,7 +513,7 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                     <X size={24} /> Annuleren
                 </button>
                 <div className="flex gap-2">
-                    {[1, 2, 3].map(s => (
+                    {[1, 2, 3, 4].map(s => (
                         <div key={s} className={`h-2 w-12 rounded-full transition-colors ${flowStep >= s ? 'bg-teal-600' : 'bg-slate-200'}`}></div>
                     ))}
                 </div>
@@ -403,23 +522,23 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
             <div className="flex-1 overflow-y-auto p-8 flex items-center justify-center">
                 <div className="max-w-4xl w-full">
                     
-                    {/* STEP 1: SELECTION */}
+                    {/* STEP 1: CATEGORY SELECTION */}
                     {flowStep === 1 && (
                         <div className="space-y-8 animate-in fade-in slide-in-from-right-8">
                             <h2 className="text-3xl font-bold text-slate-900 text-center mb-8">Wat wilt u huren?</h2>
                             
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 {BIKE_TYPES.map(type => {
-                                    const available = getAvailability(type.id);
+                                    const stats = getStats(type.id);
                                     const isSelected = newReservation.bikeType === type.id;
                                     
                                     return (
                                         <div 
                                             key={type.id}
-                                            onClick={() => available > 0 && setNewReservation({ ...newReservation, bikeType: type.id })}
+                                            onClick={() => stats.available > 0 && setNewReservation({ ...newReservation, bikeType: type.id })}
                                             className={`
                                                 relative p-8 rounded-3xl border-2 transition-all cursor-pointer flex flex-col items-center text-center
-                                                ${available === 0 ? 'opacity-50 grayscale cursor-not-allowed border-slate-200' : 
+                                                ${stats.available === 0 ? 'opacity-50 grayscale cursor-not-allowed border-slate-200' : 
                                                   isSelected ? 'border-teal-500 bg-teal-50 shadow-lg scale-105' : 'border-slate-200 bg-white hover:border-teal-300 hover:shadow-md'}
                                             `}
                                         >
@@ -427,28 +546,13 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                                                 <type.icon size={40} />
                                             </div>
                                             <h3 className="text-xl font-bold text-slate-900">{type.label}</h3>
-                                            <p className={`mt-2 font-bold ${available > 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                                {available > 0 ? `${available} Beschikbaar` : 'Niet Beschikbaar'}
+                                            <p className={`mt-2 font-bold ${stats.available > 0 ? 'text-green-600' : 'text-red-500'}`}>
+                                                {stats.available > 0 ? `${stats.available} Beschikbaar` : 'Niet Beschikbaar'}
                                             </p>
                                             {isSelected && <div className="absolute top-4 right-4 bg-teal-500 text-white p-1 rounded-full"><Check size={20}/></div>}
                                         </div>
                                     );
                                 })}
-                            </div>
-
-                            <div className="bg-white p-6 rounded-2xl border border-slate-200 max-w-lg mx-auto shadow-sm">
-                                <label className="block text-sm font-bold text-slate-500 uppercase mb-3 text-center">Aantal Fietsen</label>
-                                <div className="flex items-center justify-center gap-6">
-                                    <button 
-                                        onClick={() => setNewReservation(prev => ({...prev, amount: Math.max(1, (prev.amount || 1) - 1)}))}
-                                        className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-2xl hover:bg-slate-200"
-                                    >-</button>
-                                    <span className="text-3xl font-bold text-slate-900 w-12 text-center">{newReservation.amount}</span>
-                                    <button 
-                                        onClick={() => setNewReservation(prev => ({...prev, amount: Math.min(5, (prev.amount || 1) + 1)}))} // Cap at 5 for simplicity
-                                        className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-2xl hover:bg-slate-200"
-                                    >+</button>
-                                </div>
                             </div>
 
                             <div className="text-center pt-8">
@@ -463,10 +567,58 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                         </div>
                     )}
 
-                    {/* STEP 2: DETAILS */}
+                    {/* STEP 2: SPECIFIC BIKE SELECTION */}
                     {flowStep === 2 && (
+                        <div className="space-y-8 animate-in fade-in slide-in-from-right-8">
+                            <h2 className="text-3xl font-bold text-slate-900 text-center mb-8">Kies een fiets</h2>
+                            
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                {BIKE_ASSETS.filter(b => b.type === newReservation.bikeType).map(asset => {
+                                    const status = getBikeStatus(asset.id);
+                                    if (status !== 'Available') return null; // Only show available bikes
+
+                                    const isSelected = newReservation.bikeId === asset.id;
+
+                                    return (
+                                        <button 
+                                            key={asset.id}
+                                            onClick={() => setNewReservation(prev => ({ ...prev, bikeId: asset.id }))}
+                                            className={`
+                                                p-6 rounded-2xl border-2 font-bold text-xl transition-all shadow-sm
+                                                ${isSelected 
+                                                    ? 'bg-teal-600 text-white border-teal-600 scale-105 shadow-lg' 
+                                                    : 'bg-white text-slate-700 border-slate-200 hover:border-teal-300 hover:shadow-md'}
+                                            `}
+                                        >
+                                            {asset.id}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="flex gap-4 pt-8 max-w-lg mx-auto">
+                                <button 
+                                    onClick={() => setFlowStep(1)}
+                                    className="flex-1 py-5 rounded-2xl font-bold text-lg border-2 border-slate-200 text-slate-500 hover:bg-slate-50 transition-all"
+                                >
+                                    Terug
+                                </button>
+                                <button 
+                                    onClick={() => setFlowStep(3)}
+                                    disabled={!newReservation.bikeId}
+                                    className="flex-[2] bg-slate-900 text-white py-5 rounded-2xl font-bold text-lg shadow-xl hover:bg-slate-800 transition-all disabled:opacity-50"
+                                >
+                                    Bevestig Keuze
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* STEP 3: DETAILS */}
+                    {flowStep === 3 && (
                         <div className="space-y-8 animate-in fade-in slide-in-from-right-8 max-w-lg mx-auto">
-                            <h2 className="text-3xl font-bold text-slate-900 text-center mb-8">Uw Gegevens</h2>
+                            <h2 className="text-3xl font-bold text-slate-900 text-center mb-2">Uw Gegevens</h2>
+                            <p className="text-center text-slate-500 mb-6">Fiets: <strong>{newReservation.bikeId}</strong></p>
                             
                             <div className="space-y-6">
                                 <div>
@@ -493,13 +645,13 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
 
                             <div className="flex gap-4 pt-8">
                                 <button 
-                                    onClick={() => setFlowStep(1)}
+                                    onClick={() => setFlowStep(2)}
                                     className="flex-1 py-5 rounded-2xl font-bold text-lg border-2 border-slate-200 text-slate-500 hover:bg-slate-50 transition-all"
                                 >
                                     Terug
                                 </button>
                                 <button 
-                                    onClick={() => setFlowStep(3)}
+                                    onClick={() => setFlowStep(4)}
                                     disabled={!newReservation.guestName || !newReservation.roomNumber}
                                     className="flex-[2] bg-slate-900 text-white py-5 rounded-2xl font-bold text-lg shadow-xl hover:bg-slate-800 transition-all disabled:opacity-50"
                                 >
@@ -509,8 +661,8 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                         </div>
                     )}
 
-                    {/* STEP 3: SIGNATURE */}
-                    {flowStep === 3 && (
+                    {/* STEP 4: SIGNATURE */}
+                    {flowStep === 4 && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-right-8 h-full flex flex-col">
                             <h2 className="text-3xl font-bold text-slate-900 text-center">Akkoord & Tekenen</h2>
                             
@@ -554,7 +706,7 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
 
                             <div className="flex gap-4 pt-4 max-w-4xl mx-auto w-full">
                                 <button 
-                                    onClick={() => setFlowStep(2)}
+                                    onClick={() => setFlowStep(3)}
                                     className="px-8 py-5 rounded-2xl font-bold text-lg border-2 border-slate-200 text-slate-500 hover:bg-slate-50 transition-all"
                                 >
                                     Terug
@@ -570,14 +722,14 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                         </div>
                     )}
 
-                    {/* STEP 4: SUCCESS */}
-                    {flowStep === 4 && (
+                    {/* STEP 5: SUCCESS */}
+                    {flowStep === 5 && (
                         <div className="flex flex-col items-center justify-center text-center animate-in zoom-in duration-500 h-full">
                             <div className="w-32 h-32 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-8 shadow-lg">
                                 <Check size={64} strokeWidth={4}/>
                             </div>
                             <h2 className="text-4xl font-bold text-slate-900 mb-4">Veel Plezier!</h2>
-                            <p className="text-xl text-slate-500">De fiets is gereserveerd voor {newReservation.guestName}.</p>
+                            <p className="text-xl text-slate-500">De fiets <strong>{newReservation.bikeId}</strong> is gereserveerd voor {newReservation.guestName}.</p>
                             <p className="text-slate-400 mt-2 text-sm">Het scherm keert automatisch terug...</p>
                         </div>
                     )}
@@ -589,46 +741,41 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
 
     const renderSettings = () => (
         <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in">
-            {/* Inventory Management */}
             <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
-                <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2"><LayoutDashboard className="text-teal-600"/> Voorraad Beheer</h3>
+                <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2"><LayoutDashboard className="text-teal-600"/> Voorraad Status</h3>
+                <p className="text-sm text-slate-500 mb-6">Het aantal fietsen wordt bepaald door de hardcoded asset lijst. Hieronder zie je de status per type.</p>
                 <div className="grid grid-cols-1 gap-6">
-                    {BIKE_TYPES.map(type => (
-                        <div key={type.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-white rounded-lg shadow-sm"><type.icon size={20}/></div>
-                                <span className="font-bold text-slate-700">{type.label}</span>
-                            </div>
-                            
-                            <div className="flex gap-8">
-                                {/* Total Stock */}
-                                <div className="text-center">
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase">Totaal Bezit</span>
-                                    <div className="flex items-center gap-3 mt-1">
-                                        <button onClick={() => setSettings(s => ({ ...s, inventory: { ...s.inventory, [type.id]: Math.max(0, s.inventory[type.id] - 1) } }))} className="w-8 h-8 rounded-lg bg-white border flex items-center justify-center font-bold">-</button>
-                                        <span className="text-lg font-bold text-slate-900 w-8">{settings.inventory[type.id]}</span>
-                                        <button onClick={() => setSettings(s => ({ ...s, inventory: { ...s.inventory, [type.id]: s.inventory[type.id] + 1 } }))} className="w-8 h-8 rounded-lg bg-white border flex items-center justify-center font-bold">+</button>
-                                    </div>
+                    {BIKE_TYPES.map(type => {
+                        const stats = getStats(type.id);
+                        return (
+                            <div key={type.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 bg-white rounded-lg shadow-sm"><type.icon size={20}/></div>
+                                    <span className="font-bold text-slate-700">{type.label}</span>
                                 </div>
-
-                                {/* In Maintenance */}
-                                <div className="text-center">
-                                    <span className="text-[10px] font-bold text-amber-500 uppercase flex items-center gap-1 justify-center"><Wrench size={10}/> In Reparatie</span>
-                                    <div className="flex items-center gap-3 mt-1">
-                                        <button onClick={() => setSettings(s => ({ ...s, inMaintenance: { ...s.inMaintenance, [type.id]: Math.max(0, (s.inMaintenance[type.id] || 0) - 1) } }))} className="w-8 h-8 rounded-lg bg-white border flex items-center justify-center font-bold text-slate-500">-</button>
-                                        <span className="text-lg font-bold text-amber-600 w-8">{settings.inMaintenance[type.id] || 0}</span>
-                                        <button onClick={() => setSettings(s => ({ ...s, inMaintenance: { ...s.inMaintenance, [type.id]: (s.inMaintenance[type.id] || 0) + 1 } }))} className="w-8 h-8 rounded-lg bg-white border flex items-center justify-center font-bold text-slate-500">+</button>
+                                
+                                <div className="flex gap-8 text-sm font-medium">
+                                    <div className="text-center">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase">Totaal</span>
+                                        <div className="text-lg font-bold text-slate-900">{stats.total}</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <span className="text-[10px] font-bold text-amber-500 uppercase">Onderhoud</span>
+                                        <div className="text-lg font-bold text-amber-600">{stats.maintenance}</div>
+                                    </div>
+                                    <div className="text-center">
+                                        <span className="text-[10px] font-bold text-blue-500 uppercase">Verhuurd</span>
+                                        <div className="text-lg font-bold text-blue-600">{stats.rented}</div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
 
             <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
                 <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2"><FileText className="text-teal-600"/> Algemene Voorwaarden</h3>
-                <p className="text-sm text-slate-500 mb-4">Deze tekst wordt getoond aan de gast op de tablet om te ondertekenen.</p>
                 <textarea 
                     className="w-full h-64 p-4 border border-slate-200 rounded-xl text-sm font-medium text-slate-700 focus:ring-2 focus:ring-teal-500 focus:outline-none resize-none leading-relaxed"
                     placeholder="Voer hier de algemene voorwaarden in..."
@@ -667,7 +814,10 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                             <td className="px-6 py-4 text-slate-500">{res.startDate}</td>
                             <td className="px-6 py-4 font-bold text-slate-900">{res.guestName}</td>
                             <td className="px-6 py-4 font-mono">{res.roomNumber}</td>
-                            <td className="px-6 py-4 text-slate-600">{res.amount}x {BIKE_TYPES.find(t => t.id === res.bikeType)?.label}</td>
+                            <td className="px-6 py-4 text-slate-600">
+                                <span className="font-bold bg-slate-100 px-2 py-0.5 rounded text-xs mr-2">{res.bikeId}</span>
+                                {BIKE_TYPES.find(t => t.id === res.bikeType)?.label}
+                            </td>
                             <td className="px-6 py-4">
                                 <span className={`px-2 py-1 rounded text-xs font-bold flex w-fit items-center gap-1 ${res.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
                                     {res.damageReport && <AlertCircle size={10} />}
@@ -749,6 +899,17 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
             {view === 'settings' && renderSettings()}
             {view === 'archive' && renderArchive()}
 
+            {/* DETAIL MODAL (ASSET GRID) */}
+            <Modal
+                isOpen={!!selectedCategoryForDetail}
+                onClose={() => setSelectedCategoryForDetail(null)}
+                title={`Status: ${BIKE_TYPES.find(t => t.id === selectedCategoryForDetail)?.label || 'Fietsen'}`}
+            >
+                <div className="max-h-[70vh] overflow-y-auto">
+                    {renderAssetStatusGrid()}
+                </div>
+            </Modal>
+
             {/* RETURN MODAL */}
             <Modal
                 isOpen={isReturnModalOpen}
@@ -758,7 +919,9 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                 <div className="space-y-6">
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                         <h4 className="font-bold text-slate-900">{selectedReservation?.guestName}</h4>
-                        <div className="text-sm text-slate-500 mt-1">Kamer {selectedReservation?.roomNumber} • {selectedReservation?.bikeType}</div>
+                        <div className="text-sm text-slate-500 mt-1">
+                            Kamer {selectedReservation?.roomNumber} • <span className="font-bold text-slate-700">{selectedReservation?.bikeId}</span>
+                        </div>
                     </div>
 
                     <div>

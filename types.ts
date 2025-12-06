@@ -74,7 +74,8 @@ export interface BikeReservation {
     guestName: string;
     roomNumber: string;
     bikeType: BikeType;
-    amount: number; // Number of bikes
+    bikeId?: string; // Specific Asset ID (e.g., H10, E401)
+    amount: number; // Usually 1 now in asset mode
     startDate: string; // ISO Date YYYY-MM-DD
     endDate: string; // ISO Date YYYY-MM-DD
     startTime?: string; // Time of rental start
@@ -88,8 +89,8 @@ export interface BikeReservation {
 }
 
 export interface BikeSettings {
-    inventory: Record<BikeType, number>; // Total owned
-    inMaintenance: Record<BikeType, number>; // Currently broken/service
+    inventory: Record<BikeType, number>; // Total owned count (legacy/fallback)
+    inMaintenance: string[]; // List of specific Bike IDs currently broken
     termsAndConditions: string;
 }
 

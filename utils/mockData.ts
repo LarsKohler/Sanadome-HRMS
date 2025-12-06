@@ -224,15 +224,11 @@ export const EVALUATION_TEMPLATES = {
 // --- BIKE RENTAL MOCKS ---
 export const MOCK_BIKE_SETTINGS: BikeSettings = {
     inventory: {
-        'City Bike Men': 10,
-        'City Bike Women': 15,
-        'E-Bike': 8
+        'City Bike Men': 4, // Matches H9-H12
+        'City Bike Women': 6, // Matches D1-D6
+        'E-Bike': 7 // Matches E401-E408 (skipping one maybe in list?)
     },
-    inMaintenance: {
-        'City Bike Men': 0,
-        'City Bike Women': 0,
-        'E-Bike': 0
-    },
+    inMaintenance: [],
     termsAndConditions: "1. De huurder is aansprakelijk voor schade aan de fiets.\n2. De fiets dient voor 22:00 uur ingeleverd te worden.\n3. Bij diefstal dient de huurder direct aangifte te doen en de sleutel te overhandigen.\n4. Het gebruik van de fiets is op eigen risico."
 };
 
@@ -242,7 +238,8 @@ export const MOCK_BIKE_RESERVATIONS: BikeReservation[] = [
         guestName: 'Dhr. Jansen',
         roomNumber: '102',
         bikeType: 'City Bike Men',
-        amount: 2,
+        bikeId: 'H9',
+        amount: 1,
         startDate: new Date().toISOString().split('T')[0],
         endDate: new Date().toISOString().split('T')[0],
         status: 'Active',
@@ -255,6 +252,7 @@ export const MOCK_BIKE_RESERVATIONS: BikeReservation[] = [
         guestName: 'Mw. de Vries',
         roomNumber: '205',
         bikeType: 'E-Bike',
+        bikeId: 'E401',
         amount: 1,
         startDate: new Date().toISOString().split('T')[0],
         endDate: new Date().toISOString().split('T')[0],
