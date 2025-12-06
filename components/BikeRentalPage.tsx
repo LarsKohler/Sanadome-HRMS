@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
     Bike, Calendar, User, FileText, CheckCircle2, X, Plus, Minus,
     Settings, AlertCircle, RefreshCw, PenTool, Check, ChevronLeft, 
-    ChevronRight, Save, History, LayoutDashboard, Zap, Clock, Wrench, AlertTriangle, ArrowRight, Grid3X3, Key, Filter
+    ChevronRight, Save, History, LayoutDashboard, Zap, Clock, Wrench, AlertTriangle, ArrowRight, Grid3X3, Key, Filter, Tag, Euro
 } from 'lucide-react';
 import { Employee, BikeReservation, BikeSettings, BikeType } from '../types';
 import { api } from '../utils/api';
@@ -14,6 +14,12 @@ interface BikeRentalPageProps {
     currentUser: Employee;
     onShowToast: (message: string) => void;
 }
+
+const PRICES = {
+    'City Bike Men': 12.50,
+    'City Bike Women': 12.50,
+    'E-Bike': 25.00
+};
 
 const BIKE_TYPES: { id: BikeType; label: string; icon: any; color: string }[] = [
     { id: 'City Bike Men', label: 'Herenfiets', icon: Bike, color: 'text-blue-600 bg-blue-100' },
@@ -62,6 +68,15 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
     // --- MAINTENANCE MODAL ---
     const [maintenanceTargetId, setMaintenanceTargetId] = useState<string | null>(null);
     const [maintenanceReason, setMaintenanceReason] = useState('');
+
+    // --- MANUAL BOOKING MODAL (STAFF) ---
+    const [isManualBookingOpen, setIsManualBookingOpen] = useState(false);
+    const [manualForm, setManualForm] = useState({
+        guestName: '',
+        roomNumber: '',
+        type: 'City Bike Men' as BikeType,
+        count: 1
+    });
 
     // --- GUEST FLOW STATE ---
     const [flowStep, setFlowStep] = useState(1);
@@ -143,6 +158,39 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
         onShowToast(`Status van fiets ${bikeId} bijgewerkt.`);
         setMaintenanceTargetId(null);
         setMaintenanceReason('');
+    };
+
+    // --- MANUAL BOOKING ---
+    const handleManualBooking = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const groupId = Math.random().toString(36).substr(2, 9);
+        const newReservations: BikeReservation[] = [];
+
+        for(let i=0; i < manualForm.count; i++) {
+            newReservations.push({
+                id: Math.random().toString(36).substr(2, 9),
+                groupId,
+                guestName: manualForm.guestName,
+                roomNumber: manualForm.roomNumber,
+                bikeType: manualForm.type,
+                amount: 1,
+                startDate: new Date().toISOString().split('T')[0],
+                endDate: new Date().toISOString().split('T')[0],
+                status: 'Pending',
+                termsAccepted: true, // Assumed signed on paper or phone
+                createdAt: new Date().toISOString(),
+                createdBy: currentUser.name
+            });
+        }
+
+        for (const res of newReservations) {
+            await api.saveBikeReservation(res);
+        }
+        
+        setReservations([...newReservations, ...reservations]);
+        setIsManualBookingOpen(false);
+        setManualForm({ guestName: '', roomNumber: '', type: 'City Bike Men', count: 1 });
+        onShowToast("Boeking toegevoegd. Wijs nu de fietsen toe.");
     };
 
     // --- GUEST FLOW ---
@@ -304,7 +352,7 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
             </div>
 
             <div className="flex-1 overflow-y-auto p-8 flex items-center justify-center">
-                <div className="max-w-4xl w-full">
+                <div className="max-w-5xl w-full">
                     
                     {flowStep === 1 && (
                         <div className="space-y-8 animate-in fade-in slide-in-from-right-8">
@@ -313,8 +361,12 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                                 {BIKE_TYPES.map(type => {
                                     const stats = getStats(type.id);
                                     const count = cart[type.id];
+                                    const price = PRICES[type.id];
                                     return (
-                                        <div key={type.id} className={`bg-white p-8 rounded-3xl border-2 transition-all flex flex-col items-center shadow-sm ${count > 0 ? 'border-teal-500 ring-4 ring-teal-50' : 'border-slate-200'}`}>
+                                        <div key={type.id} className={`bg-white p-8 rounded-3xl border-2 transition-all flex flex-col items-center shadow-sm relative overflow-hidden ${count > 0 ? 'border-teal-500 ring-4 ring-teal-50' : 'border-slate-200'}`}>
+                                            <div className="absolute top-0 right-0 bg-slate-100 px-4 py-2 rounded-bl-2xl font-bold text-slate-700">
+                                                €{price.toFixed(2)}
+                                            </div>
                                             <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-6 ${type.color}`}>
                                                 <type.icon size={48} />
                                             </div>
@@ -364,7 +416,10 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                                 {Object.entries(cart).map(([type, count]) => (count as number) > 0 && (
                                     <div key={type} className="flex justify-between items-center mb-2 last:mb-0 font-bold text-slate-700">
                                         <span>{BIKE_TYPES.find(t=>t.id===type)?.label}</span>
-                                        <span className="bg-slate-100 px-2 py-1 rounded text-sm">x{count as number}</span>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-xs text-slate-400">€ {PRICES[type as BikeType]} p/st</span>
+                                            <span className="bg-slate-100 px-2 py-1 rounded text-sm">x{count as number}</span>
+                                        </div>
                                     </div>
                                 ))}
                             </div>
@@ -406,27 +461,52 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                     {flowStep === 3 && (
                         <div className="space-y-6 animate-in fade-in slide-in-from-right-8 h-full flex flex-col">
                             <h2 className="text-3xl font-bold text-slate-900 text-center">Akkoord & Tekenen</h2>
-                            <div className="flex-1 bg-white rounded-3xl border border-slate-200 shadow-lg overflow-hidden flex flex-col md:flex-row">
-                                <div className="md:w-1/2 p-8 border-b md:border-b-0 md:border-r border-slate-200 bg-slate-50 flex flex-col">
-                                    <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2"><FileText size={20}/> Voorwaarden</h3>
-                                    <div className="flex-1 overflow-y-auto bg-white p-4 rounded-xl border border-slate-200 text-sm text-slate-600 leading-relaxed whitespace-pre-wrap shadow-inner h-64 md:h-auto">
+                            
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 h-full">
+                                {/* Contract Preview */}
+                                <div className="bg-white rounded-3xl border border-slate-200 shadow-sm flex flex-col overflow-hidden h-[600px]">
+                                    <div className="bg-slate-50 p-6 border-b border-slate-100">
+                                        <h3 className="font-bold text-slate-900 flex items-center gap-2"><FileText size={20}/> Huurovereenkomst</h3>
+                                        <p className="text-xs text-slate-500 mt-1">Lees de voorwaarden zorgvuldig door.</p>
+                                    </div>
+                                    <div className="flex-1 overflow-y-auto p-8 text-sm text-slate-600 leading-relaxed whitespace-pre-wrap font-medium">
+                                        <h4 className="font-bold text-slate-900 mb-2">Algemene Voorwaarden Fietsverhuur Sanadome</h4>
                                         {settings.termsAndConditions || "Geen voorwaarden ingesteld."}
                                     </div>
                                 </div>
-                                <div className="md:w-1/2 p-8 flex flex-col">
-                                    <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2"><PenTool size={20}/> Handtekening</h3>
-                                    <div className="flex-1 bg-slate-50 border-2 border-dashed border-slate-300 rounded-2xl relative touch-none">
-                                        <canvas ref={canvasRef} className="w-full h-full cursor-crosshair rounded-2xl"/>
-                                        {!isSigned && <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20"><span className="text-2xl font-bold text-slate-400">Teken hier</span></div>}
-                                        <button onClick={() => { const ctx = canvasRef.current?.getContext('2d'); ctx?.clearRect(0,0,1000,1000); setIsSigned(false); }} className="absolute top-4 right-4 p-2 bg-white shadow-sm rounded-lg text-slate-400"><RefreshCw size={16}/></button>
+
+                                {/* Signature Pad */}
+                                <div className="flex flex-col h-[600px]">
+                                    <div className="bg-white rounded-3xl border-2 border-slate-200 shadow-sm flex-1 flex flex-col overflow-hidden relative">
+                                        <div className="bg-white p-6 border-b border-slate-100 flex justify-between items-center">
+                                            <h3 className="font-bold text-slate-900 flex items-center gap-2"><PenTool size={20}/> Handtekening</h3>
+                                            <button 
+                                                onClick={() => { const ctx = canvasRef.current?.getContext('2d'); ctx?.clearRect(0,0,1000,1000); setIsSigned(false); }} 
+                                                className="text-xs font-bold text-slate-400 hover:text-red-500 flex items-center gap-1"
+                                            >
+                                                <RefreshCw size={12}/> Wissen
+                                            </button>
+                                        </div>
+                                        <div className="flex-1 bg-slate-50 relative touch-none cursor-crosshair">
+                                            <canvas ref={canvasRef} className="w-full h-full"/>
+                                            {!isSigned && <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20"><span className="text-3xl font-bold text-slate-400">Teken hier</span></div>}
+                                        </div>
+                                        <div className="p-4 bg-white border-t border-slate-100 text-xs text-slate-400 text-center">
+                                            Door te ondertekenen gaat u akkoord met de algemene voorwaarden.
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-4 pt-6">
+                                        <button onClick={() => setFlowStep(2)} className="px-8 py-4 rounded-2xl font-bold text-lg border-2 border-slate-200 text-slate-500 hover:bg-slate-50">Terug</button>
+                                        <button 
+                                            onClick={handleConfirmBooking} 
+                                            disabled={!isSigned} 
+                                            className="flex-1 bg-slate-900 text-white py-4 rounded-2xl font-bold text-xl shadow-xl hover:bg-slate-800 disabled:opacity-50 flex items-center justify-center gap-3 transition-all"
+                                        >
+                                            Bevestigen <CheckCircle2 size={24}/>
+                                        </button>
                                     </div>
                                 </div>
-                            </div>
-                            <div className="flex gap-4 pt-4 max-w-4xl mx-auto w-full">
-                                <button onClick={() => setFlowStep(2)} className="px-8 py-5 rounded-2xl font-bold text-lg border-2 border-slate-200 text-slate-500 hover:bg-slate-50">Terug</button>
-                                <button onClick={handleConfirmBooking} disabled={!isSigned} className="flex-1 bg-green-600 text-white py-5 rounded-2xl font-bold text-xl shadow-xl hover:bg-green-700 disabled:opacity-50 flex items-center justify-center gap-3">
-                                    Bevestigen & Afronden <CheckCircle2 size={24}/>
-                                </button>
                             </div>
                         </div>
                     )}
@@ -434,8 +514,11 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                     {flowStep === 4 && (
                         <div className="flex flex-col items-center justify-center text-center animate-in zoom-in duration-500 h-full">
                             <div className="w-32 h-32 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-8 shadow-lg"><Check size={64} strokeWidth={4}/></div>
-                            <h2 className="text-4xl font-bold text-slate-900 mb-4">Veel Plezier!</h2>
-                            <p className="text-xl text-slate-500">De fietsen zijn gereserveerd. Meld u bij de balie voor de sleutels.</p>
+                            <h2 className="text-4xl font-bold text-slate-900 mb-4">Bedankt!</h2>
+                            <p className="text-xl text-slate-500 max-w-md mx-auto">
+                                Uw reservering is succesvol verwerkt. <br/>
+                                <span className="font-bold text-slate-800">Een medewerker overhandigt u direct de sleutels.</span>
+                            </p>
                         </div>
                     )}
                 </div>
@@ -499,23 +582,45 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                 <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2"><Clock className="text-teal-600"/> Nu Verhuurd</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                     {reservations.filter(r => r.status === 'Active').map(res => (
-                        <div key={res.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-teal-400 transition-all">
-                            <div className="flex justify-between items-start mb-4">
+                        <div key={res.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col">
+                            {/* Ticket Top */}
+                            <div className="bg-slate-900 text-white p-4 flex justify-between items-center relative">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center font-bold text-sm border-2 border-white shadow-sm">{res.bikeId}</div>
+                                    <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center font-bold text-sm backdrop-blur-sm border border-white/20">
+                                        {res.bikeId}
+                                    </div>
                                     <div>
-                                        <h4 className="font-bold text-slate-900 text-sm">{BIKE_TYPES.find(t=>t.id===res.bikeType)?.label}</h4>
-                                        <span className="text-xs text-slate-500">{res.startTime}</span>
+                                        <div className="font-bold text-sm">{BIKE_TYPES.find(t=>t.id===res.bikeType)?.label}</div>
+                                        <div className="text-[10px] text-slate-400 uppercase tracking-wide">Kamer {res.roomNumber}</div>
                                     </div>
                                 </div>
-                                <span className="text-xs font-mono font-bold text-slate-400">#{res.roomNumber}</span>
+                                <div className="text-right">
+                                    <div className="text-xs text-slate-400 uppercase">Gestart</div>
+                                    <div className="font-mono font-bold">{res.startTime}</div>
+                                </div>
+                                {/* Perforation effect */}
+                                <div className="absolute -bottom-2 left-0 w-full h-2 bg-white" style={{maskImage: 'radial-gradient(circle at 10px 0, transparent 0, transparent 5px, black 6px)', maskSize: '20px 10px', maskRepeat: 'repeat-x'}}></div>
                             </div>
-                            <div className="mb-6">
-                                <div className="text-lg font-bold text-slate-800">{res.guestName}</div>
+                            
+                            {/* Ticket Body */}
+                            <div className="p-6 flex-1 flex flex-col">
+                                <div className="mb-4">
+                                    <div className="text-xs text-slate-400 uppercase font-bold mb-1">Gast</div>
+                                    <div className="text-lg font-bold text-slate-900 truncate">{res.guestName}</div>
+                                </div>
+                                
+                                <div className="mt-auto flex items-center justify-between pt-4 border-t border-slate-100">
+                                    <div className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                                        € {PRICES[res.bikeType].toFixed(2)}
+                                    </div>
+                                    <button 
+                                        onClick={() => { setSelectedReturnRes(res); setIsReturnModalOpen(true); }} 
+                                        className="text-teal-600 hover:text-teal-700 text-xs font-bold uppercase tracking-wide flex items-center gap-1 hover:underline"
+                                    >
+                                        <CheckCircle2 size={14}/> Retourneren
+                                    </button>
+                                </div>
                             </div>
-                            <button onClick={() => { setSelectedReturnRes(res); setIsReturnModalOpen(true); }} className="w-full py-3 bg-slate-50 hover:bg-teal-50 text-slate-600 hover:text-teal-700 font-bold text-sm rounded-xl transition-colors border border-slate-200 hover:border-teal-200 flex items-center justify-center gap-2">
-                                <CheckCircle2 size={16}/> Retour Melden
-                            </button>
                         </div>
                     ))}
                 </div>
@@ -595,9 +700,14 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                     <p className="text-slate-500 mt-2 text-lg">Beheer verhuur, voorraad en contracten.</p>
                 </div>
                 {view === 'dashboard' && (
-                    <button onClick={handleStartFlow} className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-3 hover:-translate-y-0.5 transition-all">
-                        <Plus size={20}/> Start Nieuwe Verhuur
-                    </button>
+                    <div className="flex gap-3">
+                        <button onClick={() => setIsManualBookingOpen(true)} className="bg-white border border-slate-200 text-slate-600 hover:text-slate-900 px-6 py-3 rounded-xl font-bold shadow-sm flex items-center gap-3 hover:-translate-y-0.5 transition-all">
+                            <PenTool size={20}/> Handmatige Boeking
+                        </button>
+                        <button onClick={handleStartFlow} className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-3 hover:-translate-y-0.5 transition-all">
+                            <Plus size={20}/> Start Nieuwe Verhuur
+                        </button>
+                    </div>
                 )}
             </div>
 
@@ -620,6 +730,38 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                     <div className="flex justify-end"><button onClick={async () => { await api.saveBikeSettings(settings); onShowToast("Opgeslagen"); setView('dashboard'); }} className="bg-slate-900 text-white px-8 py-4 rounded-xl font-bold shadow-lg hover:bg-slate-800 flex items-center gap-2"><Save size={20}/> Opslaan</button></div>
                 </div>
             )}
+
+            {/* MANUAL BOOKING MODAL */}
+            <Modal isOpen={isManualBookingOpen} onClose={() => setIsManualBookingOpen(false)} title="Handmatige Boeking">
+                <form onSubmit={handleManualBooking} className="space-y-6">
+                    <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-sm text-blue-800">
+                        Deze optie blokkeert de fietsen voor vandaag. Gebruik dit voor telefonische reserveringen of boekingen via de mail.
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Gast Naam</label>
+                            <input type="text" required className="w-full p-3 border rounded-xl" value={manualForm.guestName} onChange={e => setManualForm({...manualForm, guestName: e.target.value})} placeholder="Naam gast..." />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Kamer</label>
+                            <input type="text" required className="w-full p-3 border rounded-xl" value={manualForm.roomNumber} onChange={e => setManualForm({...manualForm, roomNumber: e.target.value})} placeholder="Kamernummer..." />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Type</label>
+                            <select className="w-full p-3 border rounded-xl bg-white" value={manualForm.type} onChange={e => setManualForm({...manualForm, type: e.target.value as BikeType})}>
+                                {BIKE_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Aantal</label>
+                            <input type="number" min="1" max="10" className="w-full p-3 border rounded-xl" value={manualForm.count} onChange={e => setManualForm({...manualForm, count: parseInt(e.target.value)})} />
+                        </div>
+                    </div>
+                    <button type="submit" className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold shadow-md hover:bg-slate-800">Boeking Toevoegen</button>
+                </form>
+            </Modal>
 
             {/* ASSIGNMENT MODAL */}
             <Modal isOpen={!!assignmentTarget} onClose={() => setAssignmentTarget(null)} title="Fiets Toewijzen">
