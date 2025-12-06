@@ -1,10 +1,4 @@
 
-
-
-
-
-
-
 import { Employee, Permission } from '../types';
 
 // Define default permissions per role
