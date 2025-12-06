@@ -61,6 +61,20 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
         setReservations(res);
     };
 
+    // --- FULLSCREEN LOGIC ---
+    const enterFullscreen = () => {
+        const elem = document.documentElement;
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen().catch((err) => console.log(err));
+        }
+    };
+
+    const exitFullscreen = () => {
+        if (document.fullscreenElement && document.exitFullscreen) {
+            document.exitFullscreen().catch((err) => console.log(err));
+        }
+    };
+
     // --- LOGIC ---
     
     // Calculate availability: Total - Maintenance - Active Rentals
@@ -96,7 +110,13 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
         });
         setFlowStep(1);
         setIsSigned(false);
+        enterFullscreen(); // Trigger Fullscreen
         setView('guest-flow');
+    };
+
+    const handleExitFlow = () => {
+        exitFullscreen(); // Exit Fullscreen
+        setView('dashboard');
     };
 
     const handleSignatureClear = () => {
@@ -212,7 +232,7 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
         
         // Auto return after 5 sec
         setTimeout(() => {
-            setView('dashboard');
+            handleExitFlow();
         }, 5000);
     };
 
@@ -366,10 +386,11 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
     );
 
     const renderGuestFlow = () => (
-        <div className="fixed inset-0 z-50 bg-slate-50 flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 duration-500">
+        // z-[100] ensures it covers the sidebar (z-50) and topnav
+        <div className="fixed inset-0 z-[100] bg-slate-50 flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 duration-500">
             {/* Kiosk Header */}
             <div className="h-20 bg-white border-b border-slate-200 flex items-center justify-between px-8 flex-shrink-0">
-                <button onClick={() => setView('dashboard')} className="flex items-center gap-2 text-slate-400 hover:text-slate-600 font-bold">
+                <button onClick={handleExitFlow} className="flex items-center gap-2 text-slate-400 hover:text-slate-600 font-bold">
                     <X size={24} /> Annuleren
                 </button>
                 <div className="flex gap-2">

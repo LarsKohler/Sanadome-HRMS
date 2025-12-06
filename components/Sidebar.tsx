@@ -46,6 +46,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
       ]
     },
     {
+      label: 'Receptie Tools',
+      items: [
+        { icon: Bike, label: 'Fietsverhuur', id: ViewState.BIKE_RENTAL, permission: 'MANAGE_RENTALS' },
+      ]
+    },
+    {
       label: 'HR & Team',
       items: [
         { icon: UserCheck, label: 'Onboarding', id: ViewState.ONBOARDING },
@@ -60,7 +66,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
     {
       label: 'Management Tools',
       items: [
-        { icon: Bike, label: 'Fietsverhuur', id: ViewState.BIKE_RENTAL, permission: 'MANAGE_RENTALS' },
         { icon: Euro, label: 'Debiteuren', id: ViewState.DEBT_CONTROL, permission: 'MANAGE_DEBTORS' },
         { icon: Truck, label: 'Linnen Audit', id: ViewState.LINEN_AUDIT, permission: 'MANAGE_OPERATIONS' },
         { icon: FileBarChart, label: 'Cases', id: 'cases', permission: 'MANAGE_CASES' },
@@ -79,8 +84,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
   // Initialize expanded sections: Open by default to ensure visibility
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
       'Algemeen': true,
+      'Receptie Tools': true,
       'HR & Team': true,
-      'Management Tools': true, // Explicitly open
+      'Management Tools': true, 
       'Systeem': false
   });
 
@@ -149,61 +155,67 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
 
           {/* Navigation Items */}
           <nav className="space-y-6">
-            {sections.map((section) => (
-              <div key={section.label}>
-                <button 
-                  onClick={() => toggleSection(section.label)}
-                  className="flex items-center justify-between w-full text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-2 hover:text-slate-600 transition-colors"
-                >
-                  {section.label}
-                  {expandedSections[section.label] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                </button>
-                
-                {expandedSections[section.label] && (
-                  <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
-                    {section.items.map((item) => {
-                      // Permission Check
-                      if (item.permission && !hasPermission(user, item.permission)) {
-                          return null;
-                      }
+            {sections.map((section) => {
+              // Check if section has any visible items based on permissions
+              const hasVisibleItems = section.items.some(item => !item.permission || hasPermission(user, item.permission));
+              
+              if (!hasVisibleItems) return null;
 
-                      const isActive = currentView === item.id;
-                      return (
-                        <button
-                          key={item.id}
-                          onClick={() => {
-                              if (typeof item.id === 'string' && !Object.values(ViewState).includes(item.id as any)) {
-                                  // Handle custom ids or future features
-                                  onChangeView(item.id as any); // fallback
-                              } else {
-                                  onChangeView(item.id as ViewState);
+              return (
+                <div key={section.label}>
+                  <button 
+                    onClick={() => toggleSection(section.label)}
+                    className="flex items-center justify-between w-full text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-2 hover:text-slate-600 transition-colors"
+                  >
+                    {section.label}
+                    {expandedSections[section.label] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  </button>
+                  
+                  {expandedSections[section.label] && (
+                    <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
+                      {section.items.map((item) => {
+                        // Permission Check
+                        if (item.permission && !hasPermission(user, item.permission)) {
+                            return null;
+                        }
+
+                        const isActive = currentView === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={() => {
+                                if (typeof item.id === 'string' && !Object.values(ViewState).includes(item.id as any)) {
+                                    onChangeView(item.id as any); // fallback
+                                } else {
+                                    onChangeView(item.id as ViewState);
+                                }
+                                if (window.innerWidth < 1024) onClose();
+                            }}
+                            className={`
+                              w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group
+                              ${isActive 
+                                ? 'bg-slate-900 text-white shadow-md' 
+                                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
                               }
-                              if (window.innerWidth < 1024) onClose();
-                          }}
-                          className={`
-                            w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group
-                            ${isActive 
-                              ? 'bg-slate-900 text-white shadow-md' 
-                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
-                            }
-                          `}
-                        >
-                          <div className="flex items-center gap-3">
-                            <item.icon size={20} className={isActive ? 'text-teal-400' : 'text-slate-400 group-hover:text-slate-600'} />
-                            <span className="font-bold text-sm">{item.label}</span>
-                          </div>
-                          {item.badge && (
-                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
-                              {item.badge}
-                            </span>
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ))}
+                            `}
+                          >
+                            <div className="flex items-center gap-3">
+                              <item.icon size={20} className={isActive ? 'text-teal-400' : 'text-slate-400 group-hover:text-slate-600'} />
+                              <span className="font-bold text-sm">{item.label}</span>
+                            </div>
+                            {item.badge && (
+                              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                                {item.badge}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </nav>
         </div>
 
