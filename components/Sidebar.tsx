@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
   UserPlus, Trophy, FileText, PieChart, 
@@ -11,7 +11,7 @@ import { hasPermission } from '../utils/permissions';
 interface SidebarProps {
   currentView: ViewState;
   onChangeView: (view: ViewState) => void;
-  user?: Employee; // Changed from userRole to user object for permission check
+  user?: Employee; 
   isOpen: boolean;
   onClose: () => void;
   systemVersion?: string;
@@ -32,16 +32,7 @@ interface SidebarSection {
 
 const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOpen, onClose, systemVersion = 'v1.0' }) => {
   
-  // State to track expanded sections. Default is empty (all collapsed).
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
-
-  const toggleSection = (label: string) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [label]: !prev[label]
-    }));
-  };
-
+  // Sections configuration
   const sections: SidebarSection[] = [
     {
       label: 'Algemeen',
@@ -69,9 +60,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
     {
       label: 'Management Tools',
       items: [
+        { icon: Bike, label: 'Fietsverhuur', id: ViewState.BIKE_RENTAL, permission: 'MANAGE_RENTALS' },
         { icon: Euro, label: 'Debiteuren', id: ViewState.DEBT_CONTROL, permission: 'MANAGE_DEBTORS' },
         { icon: Truck, label: 'Linnen Audit', id: ViewState.LINEN_AUDIT, permission: 'MANAGE_OPERATIONS' },
-        { icon: Bike, label: 'Fietsverhuur', id: ViewState.BIKE_RENTAL, permission: 'MANAGE_RENTALS' },
         { icon: FileBarChart, label: 'Cases', id: 'cases', permission: 'MANAGE_CASES' },
         { icon: PieChart, label: 'Rapportages', id: ViewState.REPORTS, permission: 'VIEW_REPORTS' },
       ]
@@ -84,6 +75,34 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
       ]
     }
   ];
+
+  // Initialize expanded sections: Open by default to ensure visibility
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
+      'Algemeen': true,
+      'HR & Team': true,
+      'Management Tools': true, // Explicitly open
+      'Systeem': false
+  });
+
+  // Auto-expand the section containing the current view
+  useEffect(() => {
+      for (const section of sections) {
+          if (section.items.some(item => item.id === currentView)) {
+              setExpandedSections(prev => ({
+                  ...prev,
+                  [section.label]: true
+              }));
+              break;
+          }
+      }
+  }, [currentView]);
+
+  const toggleSection = (label: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [label]: !prev[label]
+    }));
+  };
 
   return (
     <>
@@ -117,111 +136,83 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
           <div className="flex items-center gap-2 px-2 mb-8">
               <div className="text-teal-600">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
-                      <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
                   </svg>
               </div>
-              <div className="flex flex-col justify-center">
-                  <span className="text-xl font-bold tracking-tight text-slate-900 leading-none">Mijn<span className="text-teal-600">Sanadome</span></span>
+              <div>
+                  <h1 className="text-xl font-bold tracking-tight text-slate-900 leading-none">
+                    Mijn<span className="text-teal-600">Sanadome</span>
+                  </h1>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Medewerkers</p>
               </div>
           </div>
 
-          <div className="space-y-6">
-            {sections.map((section, sectionIdx) => {
-              // Filter items based on permissions
-              const visibleItems = section.items.filter(item => {
-                if (item.permission) {
-                    return hasPermission(user || null, item.permission);
-                }
-                return true;
-              });
+          {/* Navigation Items */}
+          <nav className="space-y-6">
+            {sections.map((section) => (
+              <div key={section.label}>
+                <button 
+                  onClick={() => toggleSection(section.label)}
+                  className="flex items-center justify-between w-full text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-2 hover:text-slate-600 transition-colors"
+                >
+                  {section.label}
+                  {expandedSections[section.label] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </button>
+                
+                {expandedSections[section.label] && (
+                  <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
+                    {section.items.map((item) => {
+                      // Permission Check
+                      if (item.permission && !hasPermission(user, item.permission)) {
+                          return null;
+                      }
 
-              if (visibleItems.length === 0) return null;
-
-              // Check if expanded. Default (undefined) means false (collapsed) for collapsible sections.
-              const isExpanded = expandedSections[section.label];
-
-              return (
-                <div key={section.label}>
-                  {sectionIdx > 0 && (
-                    <button 
-                      onClick={() => toggleSection(section.label)}
-                      className="w-full flex items-center justify-between px-4 py-2 text-xs font-bold text-slate-400 uppercase tracking-wider hover:text-slate-600 transition-colors group mb-1"
-                    >
-                      {section.label}
-                      <span className="text-slate-300 group-hover:text-slate-500">
-                        {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                      </span>
-                    </button>
-                  )}
-                  
-                  <div className={`transition-all duration-300 overflow-hidden ${sectionIdx > 0 && !isExpanded ? 'max-h-0 opacity-0' : 'max-h-[500px] opacity-100'}`}>
-                    <ul className="space-y-1.5">
-                        {visibleItems.map((item) => {
-                        const isActive = currentView === item.id;
-                        const isClickable = Object.values(ViewState).includes(item.id as ViewState);
-                        // Removed highlight property handling as it was used for tickets
-                        const isHighlight = false;
-
-                        return (
-                            <li key={item.label}>
-                            <button
-                                onClick={() => {
-                                if (isClickable) {
-                                    onChangeView(item.id as ViewState);
-                                    onClose();
-                                }
-                                }}
-                                className={`w-full flex items-center px-4 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 group ${
-                                isActive
-                                    ? 'text-teal-900 bg-teal-50 border border-teal-100 shadow-sm'
-                                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900 border border-transparent'
-                                }`}
-                            >
-                                <item.icon 
-                                    size={18} 
-                                    className={`mr-3 transition-colors ${
-                                        isActive ? 'text-teal-600' : 
-                                        'text-slate-400 group-hover:text-slate-600'
-                                    }`} 
-                                    strokeWidth={isActive ? 2.5 : 2} 
-                                />
-                                <span className={isActive ? 'font-bold' : ''}>{item.label}</span>
-                                {item.badge && (
-                                <span className={`ml-auto py-0.5 px-2 rounded-md text-[10px] font-bold ${isActive ? 'bg-teal-200/50 text-teal-800' : 'bg-slate-100 text-slate-500'}`}>
-                                    {item.badge}
-                                </span>
-                                )}
-                            </button>
-                            </li>
-                        );
-                        })}
-                    </ul>
+                      const isActive = currentView === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => {
+                              if (typeof item.id === 'string' && !Object.values(ViewState).includes(item.id as any)) {
+                                  // Handle custom ids or future features
+                                  onChangeView(item.id as any); // fallback
+                              } else {
+                                  onChangeView(item.id as ViewState);
+                              }
+                              if (window.innerWidth < 1024) onClose();
+                          }}
+                          className={`
+                            w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group
+                            ${isActive 
+                              ? 'bg-slate-900 text-white shadow-md' 
+                              : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                            }
+                          `}
+                        >
+                          <div className="flex items-center gap-3">
+                            <item.icon size={20} className={isActive ? 'text-teal-400' : 'text-slate-400 group-hover:text-slate-600'} />
+                            <span className="font-bold text-sm">{item.label}</span>
+                          </div>
+                          {item.badge && (
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                              {item.badge}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
-                </div>
-              );
-            })}
-          </div>
-          
-          <div className="mt-8 pt-6 border-t border-slate-100 px-2 space-y-1">
-             <button className="w-full flex items-center px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors">
-               <Settings size={20} className="mr-3 text-slate-400" />
-               Voorkeuren
-             </button>
-             <button className="w-full flex items-center px-4 py-3 text-sm font-medium text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-xl transition-colors">
-               <ChevronLeft size={20} className="mr-3 text-slate-400" />
-               Inklappen
-             </button>
-          </div>
+                )}
+              </div>
+            ))}
+          </nav>
         </div>
 
-        {/* Footer */}
-        <div className="p-4 border-t border-slate-100 text-center bg-slate-50/30">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                &copy; {new Date().getFullYear()} MijnSanadome
-            </p>
-            <p className="text-[10px] font-mono text-slate-300 mt-1">
-                {systemVersion}
-            </p>
+        {/* Footer / Version */}
+        <div className="p-4 border-t border-slate-200 bg-slate-50/50">
+            <div className="flex items-center justify-between px-2 text-xs font-bold text-slate-400">
+                <span>Versie {systemVersion}</span>
+                <span>© {new Date().getFullYear()}</span>
+            </div>
         </div>
       </aside>
     </>

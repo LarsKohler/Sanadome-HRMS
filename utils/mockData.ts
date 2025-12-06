@@ -228,6 +228,11 @@ export const MOCK_BIKE_SETTINGS: BikeSettings = {
         'City Bike Women': 15,
         'E-Bike': 8
     },
+    inMaintenance: {
+        'City Bike Men': 0,
+        'City Bike Women': 0,
+        'E-Bike': 0
+    },
     termsAndConditions: "1. De huurder is aansprakelijk voor schade aan de fiets.\n2. De fiets dient voor 22:00 uur ingeleverd te worden.\n3. Bij diefstal dient de huurder direct aangifte te doen en de sleutel te overhandigen.\n4. Het gebruik van de fiets is op eigen risico."
 };
 

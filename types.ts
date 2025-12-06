@@ -77,15 +77,19 @@ export interface BikeReservation {
     amount: number; // Number of bikes
     startDate: string; // ISO Date YYYY-MM-DD
     endDate: string; // ISO Date YYYY-MM-DD
+    startTime?: string; // Time of rental start
+    endTime?: string; // Time of return
     status: 'Active' | 'Completed' | 'Cancelled';
     signatureUrl?: string; // Data URL
     termsAccepted: boolean;
     createdAt: string;
     createdBy: string;
+    damageReport?: string; // If returned with damage
 }
 
 export interface BikeSettings {
-    inventory: Record<BikeType, number>;
+    inventory: Record<BikeType, number>; // Total owned
+    inMaintenance: Record<BikeType, number>; // Currently broken/service
     termsAndConditions: string;
 }
 

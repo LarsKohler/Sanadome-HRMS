@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
     Bike, Calendar, User, FileText, CheckCircle2, X, Plus, 
     Settings, AlertCircle, RefreshCw, PenTool, Check, ChevronLeft, 
-    ChevronRight, Save, History, LayoutDashboard, Battery, Zap
+    ChevronRight, Save, History, LayoutDashboard, Zap, Clock, Wrench, AlertTriangle, ArrowRight
 } from 'lucide-react';
 import { Employee, BikeReservation, BikeSettings, BikeType } from '../types';
 import { api } from '../utils/api';
@@ -14,15 +14,19 @@ interface BikeRentalPageProps {
     onShowToast: (message: string) => void;
 }
 
-const BIKE_TYPES: { id: BikeType; label: string; icon: any }[] = [
-    { id: 'City Bike Men', label: 'Herenfiets', icon: Bike },
-    { id: 'City Bike Women', label: 'Damesfiets', icon: Bike },
-    { id: 'E-Bike', label: 'E-Bike', icon: Zap }
+const BIKE_TYPES: { id: BikeType; label: string; icon: any; color: string }[] = [
+    { id: 'City Bike Men', label: 'Herenfiets', icon: Bike, color: 'text-blue-600 bg-blue-100' },
+    { id: 'City Bike Women', label: 'Damesfiets', icon: Bike, color: 'text-pink-600 bg-pink-100' },
+    { id: 'E-Bike', label: 'E-Bike', icon: Zap, color: 'text-amber-600 bg-amber-100' }
 ];
 
 const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToast }) => {
     const [view, setView] = useState<'dashboard' | 'guest-flow' | 'settings' | 'archive'>('dashboard');
-    const [settings, setSettings] = useState<BikeSettings>({ inventory: { 'City Bike Men': 0, 'City Bike Women': 0, 'E-Bike': 0 }, termsAndConditions: '' });
+    const [settings, setSettings] = useState<BikeSettings>({ 
+        inventory: { 'City Bike Men': 0, 'City Bike Women': 0, 'E-Bike': 0 }, 
+        inMaintenance: { 'City Bike Men': 0, 'City Bike Women': 0, 'E-Bike': 0 },
+        termsAndConditions: '' 
+    });
     const [reservations, setReservations] = useState<BikeReservation[]>([]);
     
     // Guest Flow State
@@ -33,6 +37,12 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
         endDate: new Date().toISOString().split('T')[0]
     });
     
+    // Return & Damage State
+    const [isReturnModalOpen, setIsReturnModalOpen] = useState(false);
+    const [selectedReservation, setSelectedReservation] = useState<BikeReservation | null>(null);
+    const [isDamageReported, setIsDamageReported] = useState(false);
+    const [damageNotes, setDamageNotes] = useState('');
+
     // Signature State
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [isSigned, setIsSigned] = useState(false);
@@ -44,37 +54,44 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
     const loadData = async () => {
         const sets = await api.getBikeSettings();
         const res = await api.getBikeReservations();
-        setSettings(sets);
+        setSettings({
+            ...sets,
+            inMaintenance: sets.inMaintenance || { 'City Bike Men': 0, 'City Bike Women': 0, 'E-Bike': 0 }
+        });
         setReservations(res);
     };
 
-    // --- DASHBOARD HELPERS ---
-    const getAvailability = (date: string) => {
-        const booked = reservations.filter(r => 
-            r.status === 'Active' && 
-            r.startDate <= date && 
-            r.endDate >= date
-        );
+    // --- LOGIC ---
+    
+    // Calculate availability: Total - Maintenance - Active Rentals
+    const getAvailability = (type: BikeType) => {
+        const total = settings.inventory[type] || 0;
+        const maintenance = settings.inMaintenance[type] || 0;
         
-        const counts = { ...settings.inventory };
-        booked.forEach(r => {
-            counts[r.bikeType] -= r.amount;
-        });
-        
-        return counts;
+        const active = reservations.filter(r => 
+            r.status === 'Active' && r.bikeType === type
+        ).reduce((acc, r) => acc + r.amount, 0);
+
+        return Math.max(0, total - maintenance - active);
     };
 
-    const today = new Date().toISOString().split('T')[0];
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-    const availabilityToday = useMemo(() => getAvailability(today), [reservations, settings, today]);
-    const availabilityTomorrow = useMemo(() => getAvailability(tomorrow), [reservations, settings, tomorrow]);
+    const getElapsedTime = (startDate: string) => {
+        const start = new Date(startDate);
+        const now = new Date();
+        const diffMs = now.getTime() - start.getTime();
+        const hours = Math.floor(diffMs / (1000 * 60 * 60));
+        const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+        
+        if (hours > 24) return `${Math.floor(hours/24)} dagen`;
+        return `${hours}u ${minutes}m`;
+    };
 
     // --- GUEST FLOW HANDLERS ---
     const handleStartFlow = () => {
         setNewReservation({
             amount: 1,
-            startDate: today,
-            endDate: today,
+            startDate: new Date().toISOString().split('T')[0],
+            endDate: new Date().toISOString().split('T')[0],
             termsAccepted: false
         });
         setFlowStep(1);
@@ -181,6 +198,7 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
             amount: newReservation.amount || 1,
             startDate: newReservation.startDate!,
             endDate: newReservation.endDate!,
+            startTime: new Date().toLocaleTimeString('nl-NL', {hour: '2-digit', minute:'2-digit'}),
             status: 'Active',
             termsAccepted: true,
             signatureUrl,
@@ -198,105 +216,151 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
         }, 5000);
     };
 
+    // --- RETURN & DAMAGE HANDLERS ---
+    
+    const handleOpenReturnModal = (reservation: BikeReservation) => {
+        setSelectedReservation(reservation);
+        setIsDamageReported(false);
+        setDamageNotes('');
+        setIsReturnModalOpen(true);
+    };
+
+    const handleConfirmReturn = async () => {
+        if (!selectedReservation) return;
+
+        const updatedRes: BikeReservation = {
+            ...selectedReservation,
+            status: 'Completed',
+            endTime: new Date().toLocaleTimeString('nl-NL', {hour: '2-digit', minute:'2-digit'}),
+            damageReport: isDamageReported ? damageNotes : undefined
+        };
+
+        // If damage reported, increase maintenance count automatically
+        if (isDamageReported) {
+            const currentMaintenance = settings.inMaintenance[updatedRes.bikeType] || 0;
+            const updatedSettings = {
+                ...settings,
+                inMaintenance: {
+                    ...settings.inMaintenance,
+                    [updatedRes.bikeType]: currentMaintenance + updatedRes.amount // Assume all damaged for safety, or prompt for amount
+                }
+            };
+            setSettings(updatedSettings);
+            await api.saveBikeSettings(updatedSettings);
+            onShowToast(`Fiets gemarkeerd als defect. Voorraad bijgewerkt.`);
+        }
+
+        await api.saveBikeReservation(updatedRes);
+        setReservations(prev => prev.map(r => r.id === updatedRes.id ? updatedRes : r));
+        
+        setIsReturnModalOpen(false);
+        setSelectedReservation(null);
+        onShowToast("Fiets succesvol retour gemeld.");
+    };
+
     // --- SETTINGS HANDLERS ---
     const handleSaveSettings = async () => {
         await api.saveBikeSettings(settings);
-        onShowToast("Instellingen opgeslagen");
+        onShowToast("Instellingen en voorraad opgeslagen");
         setView('dashboard');
     };
 
     // --- VIEWS ---
 
     const renderDashboard = () => (
-        <div className="space-y-8 animate-in fade-in">
-            {/* Quick Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div 
-                    onClick={handleStartFlow}
-                    className="bg-slate-900 text-white p-8 rounded-3xl shadow-xl flex flex-col items-center justify-center cursor-pointer hover:bg-slate-800 transition-transform hover:scale-[1.02] group"
-                >
-                    <div className="w-20 h-20 bg-white/10 rounded-full flex items-center justify-center mb-6 group-hover:bg-white/20 transition-colors">
-                        <Plus size={40} />
-                    </div>
-                    <h2 className="text-2xl font-bold">Nieuwe Verhuur Starten</h2>
-                    <p className="text-slate-400 mt-2">Tablet Modus voor Gasten</p>
-                </div>
+        <div className="space-y-10 animate-in fade-in">
+            {/* Inventory Status Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {BIKE_TYPES.map(type => {
+                    const available = getAvailability(type.id);
+                    const total = settings.inventory[type.id];
+                    const maintenance = settings.inMaintenance[type.id] || 0;
+                    const percentage = total > 0 ? (available / total) * 100 : 0;
 
-                <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-                    <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
-                        <Calendar className="text-teal-600"/> Beschikbaarheid Vandaag
-                    </h3>
-                    <div className="space-y-4">
-                        {BIKE_TYPES.map(type => (
-                            <div key={type.id} className="flex justify-between items-center p-4 bg-slate-50 rounded-xl">
-                                <div className="flex items-center gap-3">
-                                    <type.icon size={20} className="text-slate-500"/>
-                                    <span className="font-bold text-slate-700">{type.label}</span>
+                    return (
+                        <div key={type.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-md transition-all">
+                            <div className="flex justify-between items-start mb-4">
+                                <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${type.color}`}>
+                                    <type.icon size={24} />
                                 </div>
-                                <div className="flex gap-2">
-                                    <span className={`font-bold px-3 py-1 rounded-lg ${availabilityToday[type.id] > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                                        {availabilityToday[type.id]}
-                                    </span>
-                                    <span className="text-slate-400 text-sm py-1">/ {settings.inventory[type.id]}</span>
+                                <div className="text-right">
+                                    <span className="text-3xl font-bold text-slate-900">{available}</span>
+                                    <span className="text-xs text-slate-400 font-bold block uppercase tracking-wider">Beschikbaar</span>
                                 </div>
                             </div>
-                        ))}
-                    </div>
-                </div>
+                            
+                            <h3 className="font-bold text-slate-900 text-lg mb-2">{type.label}</h3>
+                            
+                            {/* Progress Bar */}
+                            <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden mb-3">
+                                <div 
+                                    className={`h-full rounded-full transition-all duration-500 ${percentage > 50 ? 'bg-green-500' : percentage > 20 ? 'bg-amber-500' : 'bg-red-500'}`}
+                                    style={{ width: `${percentage}%` }}
+                                ></div>
+                            </div>
+
+                            <div className="flex justify-between text-xs text-slate-500 font-medium">
+                                <span>Totaal: {total}</span>
+                                {maintenance > 0 && <span className="text-amber-600 flex items-center gap-1"><Wrench size={10}/> {maintenance} in onderhoud</span>}
+                            </div>
+                        </div>
+                    );
+                })}
             </div>
 
-            {/* Active Rentals List */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                    <h3 className="font-bold text-slate-900">Actieve Verhuur</h3>
-                    <button onClick={loadData} className="p-2 hover:bg-slate-100 rounded-full text-slate-400"><RefreshCw size={18}/></button>
+            {/* Active Rentals Grid */}
+            <div>
+                <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                    <Clock className="text-teal-600"/> Nu Verhuurd
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {reservations.filter(r => r.status === 'Active').map(res => {
+                        const bikeConfig = BIKE_TYPES.find(t => t.id === res.bikeType);
+                        
+                        return (
+                            <div key={res.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:border-teal-400 transition-all group relative">
+                                <div className="flex justify-between items-start mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center border-2 border-white shadow-sm ${bikeConfig?.color}`}>
+                                            {bikeConfig && <bikeConfig.icon size={18}/>}
+                                        </div>
+                                        <div>
+                                            <h4 className="font-bold text-slate-900 text-sm">{res.bikeType}</h4>
+                                            <span className="text-xs font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{res.amount} stuks</span>
+                                        </div>
+                                    </div>
+                                    <span className="text-xs font-mono font-bold text-slate-400">#{res.roomNumber}</span>
+                                </div>
+
+                                <div className="mb-6">
+                                    <div className="text-lg font-bold text-slate-800 mb-1">{res.guestName}</div>
+                                    <div className="text-xs text-slate-500 flex items-center gap-1">
+                                        <Clock size={12}/> Weg sinds: {res.startTime || '00:00'} ({getElapsedTime(res.createdAt)})
+                                    </div>
+                                </div>
+
+                                <button 
+                                    onClick={() => handleOpenReturnModal(res)}
+                                    className="w-full py-3 bg-slate-50 hover:bg-teal-50 text-slate-600 hover:text-teal-700 font-bold text-sm rounded-xl transition-colors border border-slate-200 hover:border-teal-200 flex items-center justify-center gap-2"
+                                >
+                                    <CheckCircle2 size={16}/> Retour Melden
+                                </button>
+                            </div>
+                        );
+                    })}
+                    
+                    {/* Empty State */}
+                    {reservations.filter(r => r.status === 'Active').length === 0 && (
+                        <div className="col-span-full py-16 bg-white rounded-2xl border border-dashed border-slate-200 text-center">
+                            <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-300">
+                                <Bike size={32}/>
+                            </div>
+                            <h3 className="font-bold text-slate-900">Alle fietsen zijn binnen</h3>
+                            <p className="text-slate-500 text-sm mt-1">Er zijn momenteel geen actieve verhuringen.</p>
+                        </div>
+                    )}
                 </div>
-                <table className="w-full text-left">
-                    <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
-                        <tr>
-                            <th className="px-6 py-4">Gast</th>
-                            <th className="px-6 py-4">Kamer</th>
-                            <th className="px-6 py-4">Fiets</th>
-                            <th className="px-6 py-4">Periode</th>
-                            <th className="px-6 py-4 text-right">Actie</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-sm">
-                        {reservations.filter(r => r.status === 'Active').map(res => (
-                            <tr key={res.id} className="hover:bg-slate-50">
-                                <td className="px-6 py-4 font-bold text-slate-900">{res.guestName}</td>
-                                <td className="px-6 py-4 font-mono text-slate-600">{res.roomNumber}</td>
-                                <td className="px-6 py-4">
-                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-bold border border-slate-200">
-                                        {res.bikeType === 'E-Bike' && <Zap size={10} className="text-yellow-500 fill-yellow-500"/>}
-                                        {res.amount}x {BIKE_TYPES.find(t => t.id === res.bikeType)?.label}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 text-slate-500">
-                                    {res.startDate === res.endDate ? res.startDate : `${res.startDate} t/m ${res.endDate}`}
-                                </td>
-                                <td className="px-6 py-4 text-right">
-                                    <button 
-                                        onClick={async () => {
-                                            const updated = { ...res, status: 'Completed' as const };
-                                            await api.saveBikeReservation(updated);
-                                            loadData();
-                                            onShowToast("Fiets retour gemeld");
-                                        }}
-                                        className="text-teal-600 font-bold hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-colors border border-transparent hover:border-teal-100"
-                                    >
-                                        Retour Melden
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
-                        {reservations.filter(r => r.status === 'Active').length === 0 && (
-                            <tr>
-                                <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Geen actieve verhuringen.</td>
-                            </tr>
-                        )}
-                    </tbody>
-                </table>
             </div>
         </div>
     );
@@ -325,7 +389,7 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                             
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 {BIKE_TYPES.map(type => {
-                                    const available = availabilityToday[type.id];
+                                    const available = getAvailability(type.id);
                                     const isSelected = newReservation.bikeType === type.id;
                                     
                                     return (
@@ -351,15 +415,19 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                                 })}
                             </div>
 
-                            <div className="bg-white p-6 rounded-2xl border border-slate-200 max-w-lg mx-auto">
-                                <label className="block text-sm font-bold text-slate-500 uppercase mb-3 text-center">Datum</label>
-                                <input 
-                                    type="date" 
-                                    className="w-full text-center text-2xl font-bold bg-slate-50 border-none rounded-xl py-4 focus:ring-2 focus:ring-teal-500"
-                                    value={newReservation.startDate}
-                                    min={today}
-                                    onChange={(e) => setNewReservation({ ...newReservation, startDate: e.target.value, endDate: e.target.value })}
-                                />
+                            <div className="bg-white p-6 rounded-2xl border border-slate-200 max-w-lg mx-auto shadow-sm">
+                                <label className="block text-sm font-bold text-slate-500 uppercase mb-3 text-center">Aantal Fietsen</label>
+                                <div className="flex items-center justify-center gap-6">
+                                    <button 
+                                        onClick={() => setNewReservation(prev => ({...prev, amount: Math.max(1, (prev.amount || 1) - 1)}))}
+                                        className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-2xl hover:bg-slate-200"
+                                    >-</button>
+                                    <span className="text-3xl font-bold text-slate-900 w-12 text-center">{newReservation.amount}</span>
+                                    <button 
+                                        onClick={() => setNewReservation(prev => ({...prev, amount: Math.min(5, (prev.amount || 1) + 1)}))} // Cap at 5 for simplicity
+                                        className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-600 font-bold text-2xl hover:bg-slate-200"
+                                    >+</button>
+                                </div>
                             </div>
 
                             <div className="text-center pt-8">
@@ -500,25 +568,37 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
 
     const renderSettings = () => (
         <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in">
+            {/* Inventory Management */}
             <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
                 <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2"><LayoutDashboard className="text-teal-600"/> Voorraad Beheer</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 gap-6">
                     {BIKE_TYPES.map(type => (
-                        <div key={type.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200">
-                            <div className="flex items-center gap-3 mb-4">
+                        <div key={type.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center">
+                            <div className="flex items-center gap-3">
                                 <div className="p-2 bg-white rounded-lg shadow-sm"><type.icon size={20}/></div>
                                 <span className="font-bold text-slate-700">{type.label}</span>
                             </div>
-                            <div className="flex items-center gap-3">
-                                <button 
-                                    onClick={() => setSettings(s => ({ ...s, inventory: { ...s.inventory, [type.id]: Math.max(0, s.inventory[type.id] - 1) } }))}
-                                    className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-red-50 hover:text-red-600 font-bold text-lg"
-                                >-</button>
-                                <span className="text-2xl font-bold text-slate-900 w-12 text-center">{settings.inventory[type.id]}</span>
-                                <button 
-                                    onClick={() => setSettings(s => ({ ...s, inventory: { ...s.inventory, [type.id]: s.inventory[type.id] + 1 } }))}
-                                    className="w-10 h-10 rounded-lg bg-white border border-slate-200 flex items-center justify-center hover:bg-green-50 hover:text-green-600 font-bold text-lg"
-                                >+</button>
+                            
+                            <div className="flex gap-8">
+                                {/* Total Stock */}
+                                <div className="text-center">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase">Totaal Bezit</span>
+                                    <div className="flex items-center gap-3 mt-1">
+                                        <button onClick={() => setSettings(s => ({ ...s, inventory: { ...s.inventory, [type.id]: Math.max(0, s.inventory[type.id] - 1) } }))} className="w-8 h-8 rounded-lg bg-white border flex items-center justify-center font-bold">-</button>
+                                        <span className="text-lg font-bold text-slate-900 w-8">{settings.inventory[type.id]}</span>
+                                        <button onClick={() => setSettings(s => ({ ...s, inventory: { ...s.inventory, [type.id]: s.inventory[type.id] + 1 } }))} className="w-8 h-8 rounded-lg bg-white border flex items-center justify-center font-bold">+</button>
+                                    </div>
+                                </div>
+
+                                {/* In Maintenance */}
+                                <div className="text-center">
+                                    <span className="text-[10px] font-bold text-amber-500 uppercase flex items-center gap-1 justify-center"><Wrench size={10}/> In Reparatie</span>
+                                    <div className="flex items-center gap-3 mt-1">
+                                        <button onClick={() => setSettings(s => ({ ...s, inMaintenance: { ...s.inMaintenance, [type.id]: Math.max(0, (s.inMaintenance[type.id] || 0) - 1) } }))} className="w-8 h-8 rounded-lg bg-white border flex items-center justify-center font-bold text-slate-500">-</button>
+                                        <span className="text-lg font-bold text-amber-600 w-8">{settings.inMaintenance[type.id] || 0}</span>
+                                        <button onClick={() => setSettings(s => ({ ...s, inMaintenance: { ...s.inMaintenance, [type.id]: (s.inMaintenance[type.id] || 0) + 1 } }))} className="w-8 h-8 rounded-lg bg-white border flex items-center justify-center font-bold text-slate-500">+</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     ))}
@@ -557,7 +637,7 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                         <th className="px-6 py-4">Kamer</th>
                         <th className="px-6 py-4">Fiets</th>
                         <th className="px-6 py-4">Status</th>
-                        <th className="px-6 py-4 text-right">Handtekening</th>
+                        <th className="px-6 py-4 text-right">Details</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-sm">
@@ -568,7 +648,8 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                             <td className="px-6 py-4 font-mono">{res.roomNumber}</td>
                             <td className="px-6 py-4 text-slate-600">{res.amount}x {BIKE_TYPES.find(t => t.id === res.bikeType)?.label}</td>
                             <td className="px-6 py-4">
-                                <span className={`px-2 py-1 rounded text-xs font-bold ${res.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                <span className={`px-2 py-1 rounded text-xs font-bold flex w-fit items-center gap-1 ${res.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                    {res.damageReport && <AlertCircle size={10} />}
                                     {res.status === 'Completed' ? 'Afgerond' : 'Geannuleerd'}
                                 </span>
                             </td>
@@ -578,7 +659,8 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                                         className="text-teal-600 text-xs font-bold hover:underline"
                                         onClick={() => {
                                             const win = window.open();
-                                            win?.document.write(`<img src="${res.signatureUrl}" />`);
+                                            win?.document.write(`<h3>Handtekening ${res.guestName}</h3><img src="${res.signatureUrl}" />`);
+                                            if(res.damageReport) win?.document.write(`<p style="color:red; font-weight:bold;">SCHADE RAPPORT: ${res.damageReport}</p>`);
                                         }}
                                     >
                                         Bekijk
@@ -608,6 +690,16 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                     </h1>
                     <p className="text-slate-500 mt-2 text-lg">Beheer verhuur, voorraad en contracten.</p>
                 </div>
+                
+                {/* Primary Action Button */}
+                {view === 'dashboard' && (
+                    <button 
+                        onClick={handleStartFlow}
+                        className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-3 hover:-translate-y-0.5 transition-all"
+                    >
+                        <Plus size={20}/> Start Nieuwe Verhuur
+                    </button>
+                )}
             </div>
 
             {/* Tabs */}
@@ -622,7 +714,7 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                     onClick={() => setView('settings')}
                     className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${view === 'settings' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
                 >
-                    <Settings size={18}/> Beheer & Instellingen
+                    <Settings size={18}/> Beheer & Voorraad
                 </button>
                 <button 
                     onClick={() => setView('archive')}
@@ -635,6 +727,59 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
             {view === 'dashboard' && renderDashboard()}
             {view === 'settings' && renderSettings()}
             {view === 'archive' && renderArchive()}
+
+            {/* RETURN MODAL */}
+            <Modal
+                isOpen={isReturnModalOpen}
+                onClose={() => setIsReturnModalOpen(false)}
+                title="Fiets Retour Melden"
+            >
+                <div className="space-y-6">
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <h4 className="font-bold text-slate-900">{selectedReservation?.guestName}</h4>
+                        <div className="text-sm text-slate-500 mt-1">Kamer {selectedReservation?.roomNumber} • {selectedReservation?.bikeType}</div>
+                    </div>
+
+                    <div>
+                        <h3 className="font-bold text-slate-900 mb-3">Controleer op schade</h3>
+                        <div className="flex gap-4">
+                            <button 
+                                onClick={() => setIsDamageReported(false)}
+                                className={`flex-1 py-4 rounded-xl border-2 font-bold flex flex-col items-center gap-2 ${!isDamageReported ? 'border-green-500 bg-green-50 text-green-700' : 'border-slate-200 bg-white text-slate-500'}`}
+                            >
+                                <CheckCircle2 size={24}/> Geen Schade
+                            </button>
+                            <button 
+                                onClick={() => setIsDamageReported(true)}
+                                className={`flex-1 py-4 rounded-xl border-2 font-bold flex flex-col items-center gap-2 ${isDamageReported ? 'border-red-500 bg-red-50 text-red-700' : 'border-slate-200 bg-white text-slate-500'}`}
+                            >
+                                <AlertTriangle size={24}/> Schade / Defect
+                            </button>
+                        </div>
+                    </div>
+
+                    {isDamageReported && (
+                        <div className="animate-in fade-in slide-in-from-top-2">
+                            <label className="block text-sm font-bold text-slate-700 mb-2">Omschrijving Schade</label>
+                            <textarea 
+                                className="w-full p-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-red-500 focus:outline-none"
+                                placeholder="Wat is er kapot? (bv. lekke band, ketting eraf)"
+                                value={damageNotes}
+                                onChange={(e) => setDamageNotes(e.target.value)}
+                                autoFocus
+                            />
+                            <p className="text-xs text-red-500 mt-2 flex items-center gap-1">
+                                <Wrench size={12}/> Deze fiets wordt direct op 'In Reparatie' gezet.
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="pt-4 flex justify-end gap-3">
+                        <button onClick={() => setIsReturnModalOpen(false)} className="px-4 py-2 text-slate-500 font-bold hover:bg-slate-50 rounded-lg">Annuleren</button>
+                        <button onClick={handleConfirmReturn} className="px-6 py-2 bg-slate-900 text-white font-bold rounded-lg hover:bg-slate-800 shadow-lg">Bevestigen & Sluiten</button>
+                    </div>
+                </div>
+            </Modal>
 
         </div>
     );
