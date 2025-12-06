@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import { 
   Activity, Database, Server, Clock, Users, FileText, 
@@ -23,7 +21,6 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
     employees: 0,
     news: 0,
     notifications: 0,
-    surveys: 0,
     dbLatency: 0,
     lastChecked: new Date().toLocaleTimeString(),
     status: 'Operational'
@@ -62,19 +59,17 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
     
     try {
       // Parallel fetching for speed
-      let empCount = 0, newsCount = 0, notifCount = 0, survCount = 0;
+      let empCount = 0, newsCount = 0, notifCount = 0;
 
       if (isLive && supabase) {
-          const [emp, news, notif, surv] = await Promise.all([
+          const [emp, news, notif] = await Promise.all([
             supabase.from('employees').select('*', { count: 'exact', head: true }),
             supabase.from('news').select('*', { count: 'exact', head: true }),
             supabase.from('notifications').select('*', { count: 'exact', head: true }),
-            supabase.from('surveys').select('*', { count: 'exact', head: true }),
           ]);
           empCount = emp.count || 0;
           newsCount = news.count || 0;
           notifCount = notif.count || 0;
-          survCount = surv.count || 0;
       } else {
           // Mock latency if offline
           await new Promise(resolve => setTimeout(resolve, 100)); 
@@ -91,7 +86,6 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
         employees: empCount,
         news: newsCount,
         notifications: notifCount,
-        surveys: survCount,
         dbLatency: latency,
         lastChecked: new Date().toLocaleTimeString(),
         status: latency > 500 ? 'Slow' : 'Operational'
@@ -326,7 +320,7 @@ const SystemStatusPage: React.FC<SystemStatusPageProps> = ({ currentUser }) => {
                    <div className="p-2 bg-teal-50 text-teal-600 rounded-lg"><Users size={20}/></div>
                    <h3 className="font-bold text-slate-500 text-xs uppercase tracking-wider">Totaal Records</h3>
                </div>
-               <div className="text-3xl font-bold text-slate-900">{stats.employees + stats.news + stats.notifications + stats.surveys}</div>
+               <div className="text-3xl font-bold text-slate-900">{stats.employees + stats.news + stats.notifications}</div>
           </div>
 
           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden group">

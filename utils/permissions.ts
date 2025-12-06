@@ -10,16 +10,13 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'VIEW_ALL_DOCUMENTS',
     'CREATE_NEWS',
     'MANAGE_ONBOARDING',
-    'MANAGE_SURVEYS',
     'VIEW_SYSTEM_STATUS',
     'MANAGE_SETTINGS',
     'MANAGE_EVALUATIONS',
     'MANAGE_DEBTORS',
     'MANAGE_RECRUITMENT',
     'VIEW_CALENDAR',
-    'MANAGE_ATTENDANCE',
     'MANAGE_CASES',
-    'MANAGE_BADGES',
     'MANAGE_KNOWLEDGE',
     'MANAGE_OPERATIONS',
     'MANAGE_TICKETS',
@@ -28,14 +25,11 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
   'Senior Medewerker': [
     'CREATE_NEWS',
     'MANAGE_ONBOARDING',
-    'MANAGE_SURVEYS',
     'MANAGE_EVALUATIONS', 
     'VIEW_REPORTS', 
     'MANAGE_DEBTORS',
     'MANAGE_RECRUITMENT', // Seniors assist in hiring
     'VIEW_CALENDAR',
-    'MANAGE_ATTENDANCE', // Can help with roosters
-    'MANAGE_BADGES', // Seniors can award badges
     'MANAGE_OPERATIONS', // Seniors can do Linen Audit
     'MANAGE_RENTALS' // Reception tasks
   ],

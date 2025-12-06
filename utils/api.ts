@@ -1,8 +1,8 @@
 
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, Survey, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, BadgeDefinition, KnowledgeArticle, Applicant, Ticket, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation } from '../types';
-import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_BADGES, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_TICKETS, MOCK_EVALUATION_TEMPLATES, MOCK_BIKE_SETTINGS, MOCK_BIKE_RESERVATIONS } from './mockData';
+import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, Ticket, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition } from '../types';
+import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_TICKETS, MOCK_EVALUATION_TEMPLATES, MOCK_BIKE_SETTINGS, MOCK_BIKE_RESERVATIONS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
 export const isLive = !!supabase;
@@ -22,6 +22,43 @@ const generateDemoTasks = (): OnboardingTask[] => [
 ];
 
 export const api = {
+  // --- BADGES (NEW) ---
+  getBadges: async (): Promise<BadgeDefinition[]> => {
+      if (isLive && supabase) {
+          try {
+              const { data, error } = await supabase.from('badges').select('data');
+              if (!error && data) return data.map((row: any) => row.data);
+              return [];
+          } catch (e) {
+              return [];
+          }
+      }
+      const local = localStorage.getItem('hrms_badges');
+      return local ? JSON.parse(local) : [];
+  },
+
+  saveBadge: async (badge: BadgeDefinition) => {
+      if (isLive && supabase) {
+          await supabase.from('badges').upsert({ id: badge.id, data: badge });
+      } else {
+          const current = await api.getBadges();
+          const index = current.findIndex(b => b.id === badge.id);
+          if (index >= 0) current[index] = badge;
+          else current.push(badge);
+          localStorage.setItem('hrms_badges', JSON.stringify(current));
+      }
+  },
+
+  deleteBadge: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('badges').delete().eq('id', id);
+      } else {
+          const current = await api.getBadges();
+          const filtered = current.filter(b => b.id !== id);
+          localStorage.setItem('hrms_badges', JSON.stringify(filtered));
+      }
+  },
+
   // --- BIKE RENTAL (NEW) ---
   getBikeSettings: async (): Promise<BikeSettings> => {
       if (isLive && supabase) {
@@ -147,7 +184,7 @@ export const api = {
       try { const { data: authData } = await supabase.auth.signInWithPassword({ email, password }); if (authData.user) { const { data: profileData } = await supabase.from('employees').select('data').eq('id', authData.user.id).single(); if (profileData) return profileData.data as Employee; } const { data, error } = await supabase.from('employees').select('data').eq('data->>email', email).single(); if (error || !data) return null; const emp = data.data as Employee; if (emp.password === password) return emp; return null; } catch (e) { return null; }
   },
   createDemoUser: async (role: 'Manager' | 'Medewerker') => {
-      const rand = Math.floor(Math.random() * 10000); const email = role === 'Manager' ? `demo.manager.${rand}@sanadome.nl` : `demo.user.${rand}@sanadome.nl`; const password = 'demo'; const name = role === 'Manager' ? `Demo Manager ${rand}` : `Demo Medewerker ${rand}`; const newId = crypto.randomUUID(); const newEmployee: Employee = { id: newId, name: name, role: role, departments: role === 'Manager' ? ['Management', 'Front Office'] : ['Front Office'], avatar: `https://ui-avatars.com/api/?name=${name.replace(' ', '+')}&background=${role === 'Manager' ? '0d9488' : '2563eb'}&color=fff`, email: email, password: password, phone: '+31 6 1234 5678', linkedin: name, hiredOn: new Date().toLocaleDateString('nl-NL'), employmentType: 'Full-Time', accountStatus: 'Active', onboardingStatus: role === 'Manager' ? 'Completed' : 'Active', documents: [], notes: [], onboardingTasks: role === 'Manager' ? [] : generateDemoTasks(), evaluations: [], badges: [] }; await api.saveEmployee(newEmployee, true); return { email, password };
+      const rand = Math.floor(Math.random() * 10000); const email = role === 'Manager' ? `demo.manager.${rand}@sanadome.nl` : `demo.user.${rand}@sanadome.nl`; const password = 'demo'; const name = role === 'Manager' ? `Demo Manager ${rand}` : `Demo Medewerker ${rand}`; const newId = crypto.randomUUID(); const newEmployee: Employee = { id: newId, name: name, role: role, departments: role === 'Manager' ? ['Management', 'Front Office'] : ['Front Office'], avatar: `https://ui-avatars.com/api/?name=${name.replace(' ', '+')}&background=${role === 'Manager' ? '0d9488' : '2563eb'}&color=fff`, email: email, password: password, phone: '+31 6 1234 5678', linkedin: name, hiredOn: new Date().toLocaleDateString('nl-NL'), employmentType: 'Full-Time', accountStatus: 'Active', onboardingStatus: role === 'Manager' ? 'Completed' : 'Active', documents: [], notes: [], onboardingTasks: role === 'Manager' ? [] : generateDemoTasks(), evaluations: [] }; await api.saveEmployee(newEmployee, true); return { email, password };
   },
   uploadFile: async (file: File, bucket: string = 'hrms-storage') => { if (isLive && supabase) { try { const fileExt = file.name.split('.').pop(); const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`; const filePath = `${fileName}`; const { error: uploadError } = await supabase.storage.from(bucket).upload(filePath, file); if (uploadError) return null; const { data } = supabase.storage.from(bucket).getPublicUrl(filePath); return data.publicUrl; } catch (e) { return null; } } return URL.createObjectURL(file); },
   deleteFile: async (fullUrl: string, bucket: string = 'hrms-storage') => { if (isLive && supabase && fullUrl) { try { if (fullUrl.includes(bucket)) { const parts = fullUrl.split(`${bucket}/`); if (parts.length > 1) { const filePath = parts[1]; await supabase.storage.from(bucket).remove([filePath]); } } } catch (e) {} } },
@@ -286,9 +323,7 @@ export const api = {
   },
 
   deleteEmployee: async (id: string) => { if (isLive && supabase) { await supabase.rpc('admin_delete_user', { target_user_id: id }); } else { const current = storage.getEmployees(); const filtered = current.filter(e => e.id !== id); storage.saveEmployees(filtered); } },
-  getBadges: async () => { const local = localStorage.getItem('hrms_badges'); return local ? JSON.parse(local) : MOCK_BADGES; },
-  saveBadge: async (badge: BadgeDefinition) => { const current = await api.getBadges(); const index = current.findIndex(b => b.id === badge.id); if (index >= 0) current[index] = badge; else current.push(badge); localStorage.setItem('hrms_badges', JSON.stringify(current)); },
-  deleteBadge: async (id: string) => { const current = await api.getBadges(); const filtered = current.filter(b => b.id !== id); localStorage.setItem('hrms_badges', JSON.stringify(filtered)); },
+  
   getKnowledgeArticles: async () => { if (isLive && supabase) { try { const { data, error } = await supabase.from('knowledge_base').select('data'); if (!error && data && data.length > 0) return data.map((row: any) => row.data); return MOCK_KNOWLEDGE_BASE; } catch (e) { return MOCK_KNOWLEDGE_BASE; } } const local = localStorage.getItem('hrms_kb'); return local ? JSON.parse(local) : MOCK_KNOWLEDGE_BASE; },
   saveKnowledgeArticle: async (article: KnowledgeArticle) => { if (isLive && supabase) { await supabase.from('knowledge_base').upsert({ id: article.id, data: article }); } else { const current = await api.getKnowledgeArticles(); const index = current.findIndex(a => a.id === article.id); if (index >= 0) current[index] = article; else current.unshift(article); localStorage.setItem('hrms_kb', JSON.stringify(current)); } },
   deleteKnowledgeArticle: async (id: string) => { if (isLive && supabase) { await supabase.from('knowledge_base').delete().eq('id', id); } else { const current = await api.getKnowledgeArticles(); const filtered = current.filter(a => a.id !== id); localStorage.setItem('hrms_kb', JSON.stringify(filtered)); } },
@@ -301,9 +336,7 @@ export const api = {
   deleteNotification: async (id: string) => { if (isLive && supabase) { await supabase.from('notifications').delete().eq('id', id); } else { const current = storage.getNotifications(); const filtered = current.filter(n => n.id !== id); storage.saveNotifications(filtered); } },
   markNotificationRead: async (id: string, allNotifications: Notification[]) => { const notif = allNotifications.find(n => n.id === id); if (notif) { const updated = { ...notif, read: true }; if (isLive && supabase) { await supabase.from('notifications').update({ data: updated }).eq('id', id); } else { const current = storage.getNotifications(); const newStore = current.map(n => n.id === id ? updated : n); storage.saveNotifications(newStore); } } },
   markAllNotificationsRead: async (userId: string, allNotifications: Notification[]) => { const userNotifs = allNotifications.filter(n => n.recipientId === userId && !n.read); if (isLive && supabase) { for (const n of userNotifs) { await supabase.from('notifications').update({ data: { ...n, read: true } }).eq('id', n.id); } } else { const current = storage.getNotifications(); const updated = current.map(n => n.recipientId === userId ? { ...n, read: true } : n); storage.saveNotifications(updated); } },
-  getSurveys: async () => { if (isLive && supabase) { try { const { data, error } = await supabase.from('surveys').select('data'); if (!error && data && data.length > 0) return data.map((row: any) => row.data); return storage.getSurveys(); } catch (e) { return storage.getSurveys(); } } return storage.getSurveys(); },
-  saveSurvey: async (survey: Survey) => { if (isLive && supabase) { await supabase.from('surveys').upsert({ id: survey.id, data: survey }); } else { const current = storage.getSurveys(); const index = current.findIndex(s => s.id === survey.id); if (index >= 0) current[index] = survey; else current.push(survey); storage.saveSurveys(current); } },
-  deleteSurvey: async (id: string) => { if (isLive && supabase) { await supabase.from('surveys').delete().eq('id', id); } else { const current = storage.getSurveys(); storage.saveSurveys(current.filter(s => s.id !== id)); } },
+  
   getTemplates: async () => { if (isLive && supabase) { try { const { data, error } = await supabase.from('onboarding_templates').select('data'); if (!error && data && data.length > 0) return data.map((row: any) => row.data); return storage.getTemplates(); } catch (e) { return storage.getTemplates(); } } return storage.getTemplates(); },
   saveTemplate: async (template: OnboardingTemplate) => { if (isLive && supabase) { await supabase.from('onboarding_templates').upsert({ id: template.id, data: template }); } else { const current = storage.getTemplates(); const index = current.findIndex(t => t.id === template.id); if (index >= 0) current[index] = template; else current.push(template); storage.saveTemplates(current); } },
   deleteTemplate: async (id: string) => { if (isLive && supabase) { await supabase.from('onboarding_templates').delete().eq('id', id); } else { const current = storage.getTemplates(); storage.saveTemplates(current.filter(t => t.id !== id)); } },
@@ -338,7 +371,6 @@ export const api = {
     onEmployees: (data: Employee[]) => void,
     onNews: (data: NewsPost[]) => void,
     onNotifications: (data: Notification[]) => void,
-    onSurveys: (data: Survey[]) => void,
     onTemplates?: (data: OnboardingTemplate[]) => void
   ) => {
     if (isLive && supabase) {
@@ -355,12 +387,11 @@ export const api = {
         })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, async () => { const { data } = await supabase.from('news').select('data'); if (data) onNews(data.map((r: any) => r.data)); })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, async () => { const { data } = await supabase.from('notifications').select('data'); if (data) onNotifications(data.map((r: any) => r.data)); })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'surveys' }, async () => { const { data } = await supabase.from('surveys').select('data'); if (data) onSurveys(data.map((r: any) => r.data)); })
         .on('postgres_changes', { event: '*', schema: 'public', table: 'onboarding_templates' }, async () => { if (onTemplates) { const { data } = await supabase.from('onboarding_templates').select('data'); if (data) onTemplates(data.map((r: any) => r.data)); } })
         .subscribe();
       return () => { supabase.removeChannel(channel); };
     } else {
-      return storage.subscribe(onEmployees, onNews, onNotifications, onSurveys, onTemplates);
+      return storage.subscribe(onEmployees, onNews, onNotifications, onTemplates);
     }
   }
 };

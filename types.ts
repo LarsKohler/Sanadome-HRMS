@@ -7,11 +7,9 @@ export enum ViewState {
   NEWS = 'NEWS',
   ONBOARDING = 'ONBOARDING',
   REPORTS = 'REPORTS',
-  SURVEYS = 'SURVEYS',
   SYSTEM_STATUS = 'SYSTEM_STATUS',
   SETTINGS = 'SETTINGS',
   DEBT_CONTROL = 'DEBT_CONTROL',
-  BADGES = 'BADGES',
   LINEN_AUDIT = 'LINEN_AUDIT',
   KNOWLEDGE_BASE = 'KNOWLEDGE_BASE',
   EVALUATIONS = 'EVALUATIONS',
@@ -26,16 +24,13 @@ export type Permission =
   | 'VIEW_ALL_DOCUMENTS'
   | 'CREATE_NEWS'
   | 'MANAGE_ONBOARDING'
-  | 'MANAGE_SURVEYS'
   | 'VIEW_SYSTEM_STATUS'
   | 'MANAGE_SETTINGS'
   | 'MANAGE_EVALUATIONS'
   | 'MANAGE_DEBTORS'
   | 'MANAGE_RECRUITMENT'
   | 'VIEW_CALENDAR'
-  | 'MANAGE_ATTENDANCE'
   | 'MANAGE_CASES'
-  | 'MANAGE_BADGES'
   | 'MANAGE_KNOWLEDGE'
   | 'MANAGE_OPERATIONS'
   | 'MANAGE_TICKETS'
@@ -48,23 +43,18 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_ALL_DOCUMENTS': 'Alle Documenten Inzien',
   'CREATE_NEWS': 'Nieuws Plaatsen',
   'MANAGE_ONBOARDING': 'Onboarding Beheren',
-  'MANAGE_SURVEYS': 'Surveys Beheren',
   'VIEW_SYSTEM_STATUS': 'Systeemstatus Inzien',
   'MANAGE_SETTINGS': 'Instellingen Beheren',
   'MANAGE_EVALUATIONS': 'Evaluaties Beheren',
   'MANAGE_DEBTORS': 'Debiteuren Beheren',
   'MANAGE_RECRUITMENT': 'Recruitment Beheren',
   'VIEW_CALENDAR': 'Kalender Inzien',
-  'MANAGE_ATTENDANCE': 'Aanwezigheid Beheren',
   'MANAGE_CASES': 'Cases Beheren',
-  'MANAGE_BADGES': 'Badges Beheren',
   'MANAGE_KNOWLEDGE': 'Kennisbank Beheren',
   'MANAGE_OPERATIONS': 'Operations Beheren',
   'MANAGE_TICKETS': 'Tickets Beheren',
   'MANAGE_RENTALS': 'Fietsverhuur Beheren'
 };
-
-// ... existing types ...
 
 // --- BIKE RENTAL ---
 export type BikeType = 'City Bike Men' | 'City Bike Women' | 'E-Bike';
@@ -96,7 +86,60 @@ export interface BikeSettings {
     maintenanceReasons?: Record<string, string>; // Map bikeID to reason
 }
 
-// ... existing types ...
+// --- SURVEYS ---
+export type SurveyTarget = 'All' | 'Managers' | 'Seniors';
+export type SurveyQuestionType = 'Rating' | 'Scale10' | 'YesNo' | 'Text' | 'Choice';
+
+export interface SurveyQuestion {
+    id: string;
+    text: string;
+    type: SurveyQuestionType;
+    options?: string[];
+    image?: string;
+}
+
+export interface Survey {
+    id: string;
+    title: string;
+    description: string;
+    targetAudience: SurveyTarget;
+    coverImage?: string;
+    questions: SurveyQuestion[];
+    createdBy: string;
+    createdAt: string;
+    status: 'Active' | 'Closed' | 'Draft';
+    responseCount: number;
+    completedBy: string[]; // List of employee IDs
+}
+
+export interface SurveyResponse {
+    id: string;
+    surveyId: string;
+    employeeId: string;
+    answers: Record<string, string | number>;
+    completedAt: string;
+}
+
+// --- BADGES ---
+export type BadgeIconKey = 'Trophy' | 'Star' | 'Medal' | 'Heart' | 'Zap' | 'Shield' | 'Rocket' | 'Crown' | 'ThumbsUp' | 'Lightbulb' | 'Flame' | 'Target' | 'Users' | 'Eye';
+export type BadgeColor = 'yellow' | 'blue' | 'purple' | 'red' | 'green' | 'pink' | 'orange' | 'slate';
+
+export interface BadgeDefinition {
+    id: string;
+    name: string;
+    description: string;
+    icon: BadgeIconKey;
+    color: BadgeColor;
+    createdAt: string;
+}
+
+export interface AssignedBadge {
+    id: string;
+    badgeId: string;
+    assignedBy: string;
+    assignedById: string;
+    assignedAt: string;
+}
 
 export interface EmployeeNote {
   id: string;
@@ -149,14 +192,6 @@ export interface OnboardingHistoryEntry {
     tasks: OnboardingTask[];
     weeks: OnboardingWeekData[];
     finalScore: number;
-}
-
-export interface AssignedBadge {
-    id: string;
-    badgeId: string;
-    assignedBy: string;
-    assignedById: string;
-    assignedAt: string;
 }
 
 export interface Employee {
@@ -222,40 +257,6 @@ export interface NewsPost {
   image?: string;
   likes: number;
   likedBy: string[];
-}
-
-// --- SURVEYS ---
-export type SurveyTarget = 'All' | 'Managers' | 'Seniors';
-export type SurveyQuestionType = 'Rating' | 'Scale10' | 'YesNo' | 'Text' | 'Choice';
-
-export interface SurveyQuestion {
-    id: string;
-    text: string;
-    type: SurveyQuestionType;
-    options?: string[];
-    image?: string;
-}
-
-export interface Survey {
-    id: string;
-    title: string;
-    description: string;
-    targetAudience: SurveyTarget;
-    coverImage?: string;
-    questions: SurveyQuestion[];
-    createdBy: string;
-    createdAt: string;
-    status: 'Active' | 'Closed';
-    responseCount: number;
-    completedBy: string[];
-}
-
-export interface SurveyResponse {
-    id: string;
-    surveyId: string;
-    employeeId: string;
-    answers: Record<string, string | number>;
-    completedAt: string;
 }
 
 // --- ONBOARDING TEMPLATES ---
@@ -417,19 +418,6 @@ export interface Debtor {
     lastUpdated: string; // ISO String
     importedAt: string;
     isEnriched?: boolean;
-}
-
-// --- BADGES ---
-export type BadgeIconKey = 'Trophy' | 'Star' | 'Medal' | 'Heart' | 'Zap' | 'Shield' | 'Rocket' | 'Crown' | 'ThumbsUp' | 'Lightbulb' | 'Flame' | 'Target' | 'Users' | 'Eye';
-export type BadgeColor = 'yellow' | 'blue' | 'purple' | 'red' | 'green' | 'pink' | 'orange' | 'slate';
-
-export interface BadgeDefinition {
-    id: string;
-    name: string;
-    description: string;
-    icon: BadgeIconKey;
-    color: BadgeColor;
-    createdAt: string;
 }
 
 // --- KNOWLEDGE BASE ---

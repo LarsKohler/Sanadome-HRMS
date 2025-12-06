@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
     Bike, Calendar, User, FileText, CheckCircle2, X, Plus, Minus,
     Settings, AlertCircle, RefreshCw, PenTool, Check, ChevronLeft, 
-    ChevronRight, Save, History, LayoutDashboard, Zap, Clock, Wrench, AlertTriangle, ArrowRight, Grid3X3, Key, Filter, Tag, Euro, Trash2
+    ChevronRight, Save, History, LayoutDashboard, Zap, Clock, Wrench, AlertTriangle, ArrowRight, Grid3X3, Key, Filter, Tag, Euro, Trash2, PenLine
 } from 'lucide-react';
 import { Employee, BikeReservation, BikeSettings, BikeType } from '../types';
 import { api } from '../utils/api';
@@ -58,6 +58,9 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
     });
     const [reservations, setReservations] = useState<BikeReservation[]>([]);
     
+    // --- DASHBOARD DATE STATE ---
+    const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
+
     // --- STATUS MODALS ---
     const [selectedCategoryForDetail, setSelectedCategoryForDetail] = useState<BikeType | null>(null);
     const [selectedReservationForDetail, setSelectedReservationForDetail] = useState<BikeReservation | null>(null);
@@ -74,12 +77,20 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
     const [manualForm, setManualForm] = useState<{
         guestName: string;
         roomNumber: string;
+        startDate: string;
+        endDate: string;
         rows: { type: BikeType, assetId: string }[];
     }>({
         guestName: '',
         roomNumber: '',
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date().toISOString().split('T')[0],
         rows: [{ type: 'City Bike Men', assetId: '' }]
     });
+
+    // --- SIGNATURE ONLY MODAL ---
+    const [isSignatureModalOpen, setIsSignatureModalOpen] = useState(false);
+    const [signatureTarget, setSignatureTarget] = useState<BikeReservation | null>(null);
 
     // --- GUEST FLOW STATE ---
     const [flowStep, setFlowStep] = useState(1);
@@ -120,23 +131,57 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
         setReservations(res.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
     };
 
+    // --- DATE LOGIC ---
+    const handleDateChange = (delta: number) => {
+        const d = new Date(selectedDate);
+        d.setDate(d.getDate() + delta);
+        setSelectedDate(d.toISOString().split('T')[0]);
+    };
+
+    const isDateOverlapping = (targetDate: string, start: string, end: string) => {
+        return targetDate >= start && targetDate <= end;
+    };
+
     // --- LOGIC HELPERS ---
-    const getBikeStatus = (bikeId: string) => {
+    const getBikeStatus = (bikeId: string, date: string) => {
         if (settings.inMaintenance.includes(bikeId)) return 'Maintenance';
-        const activeRes = reservations.find(r => r.status === 'Active' && r.bikeId === bikeId);
+        
+        // Check if rented on the specific date
+        const activeRes = reservations.find(r => 
+            r.status !== 'Cancelled' && 
+            r.status !== 'Completed' && 
+            r.bikeId === bikeId &&
+            isDateOverlapping(date, r.startDate, r.endDate)
+        );
+        
         if (activeRes) return 'Rented';
         return 'Available';
     };
 
-    const getActiveReservationForBike = (bikeId: string) => {
-        return reservations.find(r => r.status === 'Active' && r.bikeId === bikeId);
+    const getActiveReservationForBike = (bikeId: string, date: string) => {
+        return reservations.find(r => 
+            r.status !== 'Cancelled' && 
+            r.status !== 'Completed' && 
+            r.bikeId === bikeId &&
+            isDateOverlapping(date, r.startDate, r.endDate)
+        );
     };
 
-    const getStats = (type: BikeType) => {
+    const getStats = (type: BikeType, date: string) => {
         const assets = BIKE_ASSETS.filter(b => b.type === type);
         const total = assets.length;
         const maintenance = assets.filter(a => settings.inMaintenance.includes(a.id)).length;
-        const rented = assets.filter(a => reservations.some(r => r.status === 'Active' && r.bikeId === a.id)).length;
+        
+        // Count rented specifically for the selected date
+        const rented = assets.filter(a => 
+            reservations.some(r => 
+                r.status !== 'Cancelled' && 
+                r.status !== 'Completed' && 
+                r.bikeId === a.id && 
+                isDateOverlapping(date, r.startDate, r.endDate)
+            )
+        ).length;
+        
         const available = total - maintenance - rented;
         return { total, maintenance, rented, available };
     };
@@ -181,7 +226,6 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
     const handleManualRowChange = (index: number, field: 'type' | 'assetId', value: string) => {
         setManualForm(prev => {
             const newRows = [...prev.rows];
-            // If type changes, clear assetId
             if (field === 'type') {
                 newRows[index] = { type: value as BikeType, assetId: '' };
             } else {
@@ -206,11 +250,12 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                 bikeType: row.type,
                 bikeId: isAssigned ? row.assetId : undefined,
                 amount: 1,
-                startDate: new Date().toISOString().split('T')[0],
-                endDate: new Date().toISOString().split('T')[0],
+                startDate: manualForm.startDate,
+                endDate: manualForm.endDate,
                 startTime: isAssigned ? new Date().toLocaleTimeString('nl-NL', {hour: '2-digit', minute:'2-digit'}) : undefined,
-                status: isAssigned ? 'Active' : 'Pending', // Direct assignment if ID chosen
+                status: isAssigned ? 'Active' : 'Pending',
                 termsAccepted: true, 
+                signatureUrl: undefined, // Explicitly undefined to trigger sign-later flow
                 createdAt: new Date().toISOString(),
                 createdBy: currentUser.name
             });
@@ -222,39 +267,17 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
         
         setReservations([...newReservations, ...reservations]);
         setIsManualBookingOpen(false);
-        setManualForm({ guestName: '', roomNumber: '', rows: [{ type: 'City Bike Men', assetId: '' }] });
-        onShowToast("Boeking succesvol toegevoegd.");
-    };
-
-    // --- GUEST FLOW ---
-    const handleStartFlow = () => {
-        setCart({ 'City Bike Men': 0, 'City Bike Women': 0, 'E-Bike': 0 });
-        setGuestDetails({
-            name: '',
-            room: '',
-            start: new Date().toISOString().split('T')[0],
-            end: new Date().toISOString().split('T')[0]
+        setManualForm({ 
+            guestName: '', 
+            roomNumber: '', 
+            startDate: selectedDate, // Reset to current dashboard date
+            endDate: selectedDate,
+            rows: [{ type: 'City Bike Men', assetId: '' }] 
         });
-        setFlowStep(1);
-        setIsSigned(false);
-        const elem = document.documentElement;
-        if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
-        setView('guest-flow');
+        onShowToast("Boeking toegevoegd. Vergeet niet te laten ondertekenen!");
     };
 
-    const handleExitFlow = () => {
-        if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
-        setView('dashboard');
-    };
-
-    const updateCart = (type: BikeType, delta: number) => {
-        const current = cart[type] || 0;
-        const newVal = Math.max(0, current + delta);
-        setCart({ ...cart, [type]: newVal });
-    };
-
-    const cartTotal = (Object.values(cart) as number[]).reduce((a, b) => a + b, 0);
-
+    // --- SIGNATURE LOGIC ---
     const initCanvas = () => {
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -292,9 +315,74 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
         canvas.addEventListener('touchend', end);
     };
 
+    // For Main Flow
     useEffect(() => {
         if (view === 'guest-flow' && flowStep === 3) setTimeout(initCanvas, 100);
     }, [view, flowStep]);
+
+    // For Standalone Signature Modal
+    useEffect(() => {
+        if (isSignatureModalOpen) setTimeout(initCanvas, 100);
+    }, [isSignatureModalOpen]);
+
+    const handleSaveStandaloneSignature = async () => {
+        if (!signatureTarget) return;
+        const canvas = canvasRef.current;
+        const signatureUrl = canvas?.toDataURL();
+        
+        // Update all reservations in the same group if applicable, or just this one
+        const relatedIds = reservations.filter(r => r.groupId === signatureTarget.groupId).map(r => r.id);
+        const uniqueIds = new Set([signatureTarget.id, ...relatedIds]); // Ensure current is included
+
+        const updatedReservations = reservations.map(r => {
+            if (uniqueIds.has(r.id)) {
+                return { ...r, signatureUrl };
+            }
+            return r;
+        });
+
+        // Save to DB
+        const promises = Array.from(uniqueIds).map(id => {
+            const res = updatedReservations.find(r => r.id === id);
+            return res ? api.saveBikeReservation(res) : Promise.resolve();
+        });
+        
+        await Promise.all(promises);
+        setReservations(updatedReservations);
+        
+        setIsSignatureModalOpen(false);
+        setSignatureTarget(null);
+        onShowToast("Handtekening opgeslagen.");
+    };
+
+    // --- GUEST FLOW ---
+    const handleStartFlow = () => {
+        setCart({ 'City Bike Men': 0, 'City Bike Women': 0, 'E-Bike': 0 });
+        setGuestDetails({
+            name: '',
+            room: '',
+            start: new Date().toISOString().split('T')[0],
+            end: new Date().toISOString().split('T')[0]
+        });
+        setFlowStep(1);
+        setIsSigned(false);
+        const elem = document.documentElement;
+        if (elem.requestFullscreen) elem.requestFullscreen().catch(() => {});
+        setView('guest-flow');
+    };
+
+    const handleExitFlow = () => {
+        if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {});
+        setView('dashboard');
+    };
+
+    const updateCart = (type: BikeType, delta: number) => {
+        const current = cart[type] || 0;
+        const newVal = Math.max(0, current + delta);
+        setCart({ ...cart, [type]: newVal });
+    };
+
+    const cartTotal = (Object.values(cart) as number[]).reduce((a, b) => a + b, 0);
 
     const handleConfirmBooking = async () => {
         const canvas = canvasRef.current;
@@ -392,7 +480,9 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                             <h2 className="text-4xl font-bold text-slate-900 text-center mb-8">Wat wilt u huren?</h2>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 {BIKE_TYPES.map(type => {
-                                    const stats = getStats(type.id);
+                                    // Guest flow always assumes "Today" for availability check
+                                    const today = new Date().toISOString().split('T')[0];
+                                    const stats = getStats(type.id, today);
                                     const count = cart[type.id];
                                     const price = PRICES[type.id];
                                     return (
@@ -561,10 +651,30 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
 
     const renderDashboard = () => (
         <div className="space-y-10 animate-in fade-in pb-20">
+            {/* Date Navigation */}
+            <div className="flex justify-center items-center gap-6 mb-6">
+                <button onClick={() => handleDateChange(-1)} className="p-2 bg-white rounded-full border border-slate-200 shadow-sm hover:bg-slate-50 text-slate-600">
+                    <ChevronLeft size={24} />
+                </button>
+                <div className="flex items-center gap-3 text-xl font-bold text-slate-900 bg-white px-6 py-3 rounded-2xl border border-slate-200 shadow-sm">
+                    <Calendar size={20} className="text-teal-600" />
+                    {new Date(selectedDate).toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long' })}
+                </div>
+                <button onClick={() => handleDateChange(1)} className="p-2 bg-white rounded-full border border-slate-200 shadow-sm hover:bg-slate-50 text-slate-600">
+                    <ChevronRight size={24} />
+                </button>
+                <input 
+                    type="date" 
+                    value={selectedDate} 
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="w-10 h-10 p-2 rounded-xl border border-slate-200 bg-white cursor-pointer"
+                />
+            </div>
+
             {/* Inventory Status */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {BIKE_TYPES.map(type => {
-                    const stats = getStats(type.id);
+                    const stats = getStats(type.id, selectedDate);
                     const percentage = stats.total > 0 ? (stats.available / stats.total) * 100 : 0;
                     return (
                         <div key={type.id} onClick={() => setSelectedCategoryForDetail(type.id)} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden group hover:shadow-lg transition-all cursor-pointer">
@@ -598,7 +708,8 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                                 <span className="bg-amber-100 text-amber-800 text-xs font-bold px-2 py-1 rounded">{BIKE_TYPES.find(t=>t.id===res.bikeType)?.label}</span>
                                 <span className="text-xs font-mono text-slate-400">#{res.roomNumber}</span>
                             </div>
-                            <div className="font-bold text-slate-900 mb-4">{res.guestName}</div>
+                            <div className="font-bold text-slate-900 mb-1">{res.guestName}</div>
+                            <div className="text-xs text-slate-500 mb-4">{res.startDate} - {res.endDate}</div>
                             <button onClick={() => setAssignmentTarget(res)} className="mt-auto w-full py-2 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-800">
                                 Toewijzen & Uitgeven
                             </button>
@@ -612,50 +723,74 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
 
             {/* ACTIVE */}
             <div>
-                <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2"><Clock className="text-teal-600"/> Nu Verhuurd</h3>
+                <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2"><Clock className="text-teal-600"/> Nu Verhuurd (Op geselecteerde datum)</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                    {reservations.filter(r => r.status === 'Active').map(res => (
-                        <div key={res.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col">
-                            {/* Ticket Top */}
-                            <div className="bg-slate-900 text-white p-4 flex justify-between items-center relative">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center font-bold text-sm backdrop-blur-sm border border-white/20">
-                                        {res.bikeId}
+                    {reservations.filter(r => 
+                        r.status === 'Active' && 
+                        isDateOverlapping(selectedDate, r.startDate, r.endDate)
+                    ).map(res => {
+                        const needsSignature = !res.signatureUrl && res.termsAccepted;
+                        return (
+                            <div key={res.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-all overflow-hidden flex flex-col">
+                                {/* Ticket Top */}
+                                <div className="bg-slate-900 text-white p-4 flex justify-between items-center relative">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center font-bold text-sm backdrop-blur-sm border border-white/20">
+                                            {res.bikeId}
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-sm">{BIKE_TYPES.find(t=>t.id===res.bikeType)?.label}</div>
+                                            <div className="text-[10px] text-slate-400 uppercase tracking-wide">Kamer {res.roomNumber}</div>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <div className="font-bold text-sm">{BIKE_TYPES.find(t=>t.id===res.bikeType)?.label}</div>
-                                        <div className="text-[10px] text-slate-400 uppercase tracking-wide">Kamer {res.roomNumber}</div>
+                                    <div className="text-right">
+                                        <div className="text-xs text-slate-400 uppercase">Gestart</div>
+                                        <div className="font-mono font-bold">{res.startTime || '-'}</div>
                                     </div>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-xs text-slate-400 uppercase">Gestart</div>
-                                    <div className="font-mono font-bold">{res.startTime}</div>
-                                </div>
-                                {/* Perforation effect */}
-                                <div className="absolute -bottom-2 left-0 w-full h-2 bg-white" style={{maskImage: 'radial-gradient(circle at 10px 0, transparent 0, transparent 5px, black 6px)', maskSize: '20px 10px', maskRepeat: 'repeat-x'}}></div>
-                            </div>
-                            
-                            {/* Ticket Body */}
-                            <div className="p-6 flex-1 flex flex-col">
-                                <div className="mb-4">
-                                    <div className="text-xs text-slate-400 uppercase font-bold mb-1">Gast</div>
-                                    <div className="text-lg font-bold text-slate-900 truncate">{res.guestName}</div>
+                                    {/* Perforation effect */}
+                                    <div className="absolute -bottom-2 left-0 w-full h-2 bg-white" style={{maskImage: 'radial-gradient(circle at 10px 0, transparent 0, transparent 5px, black 6px)', maskSize: '20px 10px', maskRepeat: 'repeat-x'}}></div>
                                 </div>
                                 
-                                <div className="mt-auto flex items-center justify-between pt-4 border-t border-slate-100">
-                                    <div className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
-                                        € {PRICES[res.bikeType].toFixed(2)}
+                                {/* Ticket Body */}
+                                <div className="p-6 flex-1 flex flex-col">
+                                    <div className="mb-4">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <div className="text-xs text-slate-400 uppercase font-bold mb-1">Gast</div>
+                                                <div className="text-lg font-bold text-slate-900 truncate">{res.guestName}</div>
+                                            </div>
+                                            {needsSignature && (
+                                                <span className="bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-1 rounded flex items-center gap-1">
+                                                    <PenTool size={10}/> Handtekening Vereist
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
-                                    <button 
-                                        onClick={() => { setSelectedReturnRes(res); setIsReturnModalOpen(true); }} 
-                                        className="text-teal-600 hover:text-teal-700 text-xs font-bold uppercase tracking-wide flex items-center gap-1 hover:underline"
-                                    >
-                                        <CheckCircle2 size={14}/> Retourneren
-                                    </button>
+                                    
+                                    <div className="mt-auto flex items-center justify-between pt-4 border-t border-slate-100 gap-2">
+                                        {needsSignature ? (
+                                            <button
+                                                onClick={() => { setSignatureTarget(res); setIsSignatureModalOpen(true); }}
+                                                className="flex-1 bg-orange-50 text-orange-700 hover:bg-orange-100 py-2 rounded-lg text-xs font-bold uppercase tracking-wide transition-colors"
+                                            >
+                                                Laat Tekenen
+                                            </button>
+                                        ) : (
+                                            <div className="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded">
+                                                € {PRICES[res.bikeType].toFixed(2)}
+                                            </div>
+                                        )}
+                                        <button 
+                                            onClick={() => { setSelectedReturnRes(res); setIsReturnModalOpen(true); }} 
+                                            className="text-teal-600 hover:text-teal-700 text-xs font-bold uppercase tracking-wide flex items-center gap-1 hover:underline"
+                                        >
+                                            <CheckCircle2 size={14}/> Retourneren
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         </div>
@@ -734,7 +869,16 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                 </div>
                 {view === 'dashboard' && (
                     <div className="flex gap-3">
-                        <button onClick={() => setIsManualBookingOpen(true)} className="bg-white border border-slate-200 text-slate-600 hover:text-slate-900 px-6 py-3 rounded-xl font-bold shadow-sm flex items-center gap-3 hover:-translate-y-0.5 transition-all">
+                        <button onClick={() => { 
+                            setManualForm({ 
+                                guestName: '', 
+                                roomNumber: '', 
+                                startDate: selectedDate, // Init with dashboard date
+                                endDate: selectedDate,
+                                rows: [{ type: 'City Bike Men', assetId: '' }] 
+                            }); 
+                            setIsManualBookingOpen(true); 
+                        }} className="bg-white border border-slate-200 text-slate-600 hover:text-slate-900 px-6 py-3 rounded-xl font-bold shadow-sm flex items-center gap-3 hover:-translate-y-0.5 transition-all">
                             <PenTool size={20}/> Handmatige Boeking
                         </button>
                         <button onClick={handleStartFlow} className="bg-slate-900 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-bold shadow-lg flex items-center gap-3 hover:-translate-y-0.5 transition-all">
@@ -765,10 +909,10 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
             )}
 
             {/* MANUAL BOOKING MODAL */}
-            <Modal isOpen={isManualBookingOpen} onClose={() => { setIsManualBookingOpen(false); setManualForm({ guestName: '', roomNumber: '', rows: [{ type: 'City Bike Men', assetId: '' }] }); }} title="Handmatige Boeking">
+            <Modal isOpen={isManualBookingOpen} onClose={() => { setIsManualBookingOpen(false); }} title="Handmatige Boeking">
                 <form onSubmit={handleManualBooking} className="space-y-6">
                     <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-sm text-blue-800">
-                        Deze optie blokkeert de fietsen voor vandaag. Gebruik dit voor telefonische reserveringen of boekingen via de mail.
+                        Deze optie blokkeert de fietsen. Gebruik dit voor telefonische reserveringen of boekingen via de mail.
                     </div>
                     
                     <div className="grid grid-cols-2 gap-4">
@@ -782,13 +926,25 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                         </div>
                     </div>
 
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Startdatum</label>
+                            <input type="date" required className="w-full p-3 border rounded-xl" value={manualForm.startDate} onChange={e => setManualForm({...manualForm, startDate: e.target.value})} />
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Einddatum</label>
+                            <input type="date" required className="w-full p-3 border rounded-xl" value={manualForm.endDate} onChange={e => setManualForm({...manualForm, endDate: e.target.value})} />
+                        </div>
+                    </div>
+
                     <div className="space-y-4">
                         <label className="block text-xs font-bold text-slate-500 uppercase">Fietsen Selecteren</label>
                         {manualForm.rows.map((row, index) => {
                             // Filter assets based on type AND availability (not rented or in maintenance)
                             const availableAssets = BIKE_ASSETS.filter(a => {
                                 if (a.type !== row.type) return false;
-                                const status = getBikeStatus(a.id);
+                                // Need to check availability against the SELECTED dates in the form, not just dashboard date
+                                const status = getBikeStatus(a.id, manualForm.startDate);
                                 return status === 'Available';
                             });
 
@@ -847,7 +1003,8 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                     <p className="mb-4 text-sm text-slate-500">Beschikbare fietsen voor <strong>{assignmentTarget?.bikeType}</strong>:</p>
                     <div className="grid grid-cols-4 gap-3 max-h-60 overflow-y-auto">
                         {BIKE_ASSETS.filter(b => b.type === assignmentTarget?.bikeType).map(asset => {
-                            const status = getBikeStatus(asset.id);
+                            // Check against the reservation's specific date
+                            const status = getBikeStatus(asset.id, assignmentTarget?.startDate || selectedDate);
                             if (status !== 'Available') return null;
                             return (
                                 <button key={asset.id} onClick={() => assignmentTarget && handleAssignAsset(assignmentTarget, asset.id)} className="p-3 bg-green-50 border border-green-200 text-green-700 font-bold rounded-xl hover:bg-green-100 transition-colors">
@@ -859,13 +1016,47 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                 </div>
             </Modal>
 
+            {/* SIGNATURE MODAL (STANDALONE) */}
+            <Modal 
+                isOpen={isSignatureModalOpen} 
+                onClose={() => { setIsSignatureModalOpen(false); setSignatureTarget(null); setIsSigned(false); }} 
+                title="Handtekening Vereist"
+            >
+                <div className="h-[400px] flex flex-col">
+                    <div className="mb-4 bg-orange-50 border border-orange-100 p-4 rounded-xl text-sm text-orange-800">
+                        Deze reservering heeft nog geen handtekening. Laat de gast hieronder tekenen voor akkoord met de voorwaarden.
+                    </div>
+                    
+                    <div className="flex-1 bg-slate-50 border border-slate-200 rounded-xl relative touch-none cursor-crosshair overflow-hidden mb-4">
+                        <canvas ref={canvasRef} className="w-full h-full"/>
+                        {!isSigned && <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20"><span className="text-3xl font-bold text-slate-400">Teken hier</span></div>}
+                    </div>
+                    
+                    <div className="flex gap-4">
+                        <button 
+                            onClick={() => { const ctx = canvasRef.current?.getContext('2d'); ctx?.clearRect(0,0,1000,1000); setIsSigned(false); }}
+                            className="px-4 py-3 border border-slate-200 text-slate-500 font-bold rounded-xl hover:bg-slate-50"
+                        >
+                            Wissen
+                        </button>
+                        <button 
+                            onClick={handleSaveStandaloneSignature}
+                            disabled={!isSigned}
+                            className="flex-1 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 disabled:opacity-50 transition-colors shadow-lg"
+                        >
+                            Opslaan
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
             {/* DETAIL / ASSET STATUS MODAL */}
             <Modal isOpen={!!selectedCategoryForDetail} onClose={() => setSelectedCategoryForDetail(null)} title="Status Overzicht">
                 <div className="max-h-[60vh] overflow-y-auto p-1">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {BIKE_ASSETS.filter(b => b.type === selectedCategoryForDetail).map(asset => {
-                            const status = getBikeStatus(asset.id);
-                            const res = getActiveReservationForBike(asset.id);
+                            const status = getBikeStatus(asset.id, selectedDate);
+                            const res = getActiveReservationForBike(asset.id, selectedDate);
                             return (
                                 <div key={asset.id} className={`p-4 rounded-xl border-2 flex flex-col justify-between h-32 relative group ${status === 'Rented' ? 'border-red-200 bg-red-50' : status === 'Maintenance' ? 'border-amber-200 bg-amber-50' : 'border-green-200 bg-green-50'}`}>
                                     <div className="flex justify-between items-start">

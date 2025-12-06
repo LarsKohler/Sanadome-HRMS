@@ -1,5 +1,5 @@
 
-import { Employee, NewsPost, Survey, OnboardingTemplate, SystemUpdateLog, BadgeDefinition, KnowledgeArticle, Applicant, Ticket, Vacancy, EvaluationTemplate, BikeSettings, BikeReservation } from '../types';
+import { Employee, NewsPost, OnboardingTemplate, SystemUpdateLog, KnowledgeArticle, Applicant, Ticket, Vacancy, EvaluationTemplate, BikeSettings, BikeReservation } from '../types';
 
 export const MOCK_EMPLOYEES: Employee[] = [
   {
@@ -15,7 +15,6 @@ export const MOCK_EMPLOYEES: Employee[] = [
     accountStatus: 'Active',
     documents: [],
     notes: [],
-    badges: [],
     onboardingStatus: 'Completed',
     customPermissions: [],
     evaluations: []
@@ -33,7 +32,6 @@ export const MOCK_EMPLOYEES: Employee[] = [
     accountStatus: 'Active',
     documents: [],
     notes: [],
-    badges: [],
     onboardingStatus: 'Completed',
     evaluations: []
   }
@@ -84,11 +82,6 @@ export const MOCK_SYSTEM_LOGS: SystemUpdateLog[] = [
     description: 'Nieuwe recruitment module toegevoegd.',
     status: 'Success'
   }
-];
-
-export const MOCK_BADGES: BadgeDefinition[] = [
-  { id: 'b1', name: 'Klantheld', description: 'Voor uitmuntende gastvrijheid.', icon: 'Star', color: 'yellow', createdAt: '01-01-2023' },
-  { id: 'b2', name: 'Probleemoplosser', description: 'Voor het creatief oplossen van problemen.', icon: 'Lightbulb', color: 'blue', createdAt: '01-01-2023' }
 ];
 
 export const MOCK_KNOWLEDGE_BASE: KnowledgeArticle[] = [

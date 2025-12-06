@@ -5,9 +5,9 @@ import {
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Medal, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy, Lock, Pencil
+  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy, Lock, Pencil
 } from 'lucide-react';
-import { Employee, EmployeeNote, EmployeeDocument, Notification, ViewState, NewsPost, BadgeDefinition, PersonalDevelopmentGoal, InterimCheckIn, EvaluationCycle } from '../types';
+import { Employee, EmployeeNote, EmployeeDocument, Notification, ViewState, NewsPost, PersonalDevelopmentGoal, InterimCheckIn, EvaluationCycle } from '../types';
 import { Modal } from './Modal';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { api } from '../utils/api';
@@ -90,9 +90,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   // Debt Control State (for Dashboard)
   const [urgentDebtCount, setUrgentDebtCount] = useState(0);
   
-  // Badges Definitions State
-  const [badgeDefinitions, setBadgeDefinitions] = useState<BadgeDefinition[]>([]);
-
   // Load Template Name
   useEffect(() => {
       const fetchTemplateName = async () => {
@@ -117,7 +114,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       }
   }, [employee.activeTemplateId, employee.onboardingStatus, employee.onboardingTasks, isOwnProfile, isManager]);
 
-  // Fetch Data for Dashboard and Badges
+  // Fetch Data for Dashboard
   useEffect(() => {
       const loadDashboardData = async () => {
           // Only load sensitive data if own profile or manager
@@ -136,14 +133,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
               } catch (e) {
                   console.error("Failed to fetch dashboard debt stats", e);
               }
-          }
-
-          // Badges (Always load, public info)
-          try {
-              const defs = await api.getBadges();
-              setBadgeDefinitions(defs);
-          } catch (e) {
-              console.error("Failed to load badges", e);
           }
       };
       loadDashboardData();
@@ -299,82 +288,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       onShowToast("Reflectie toegevoegd!");
   };
 
-  // Helper for Badge Icons
-  const getBadgeIcon = (iconName: string) => {
-      const size = 20;
-      switch (iconName) {
-          case 'Trophy': return <Trophy size={size} />;
-          case 'Star': return <Star size={size} />;
-          case 'Medal': return <Medal size={size} />;
-          case 'Heart': return <Heart size={size} />;
-          case 'Zap': return <Zap size={size} />;
-          case 'Shield': return <Shield size={size} />;
-          case 'Rocket': return <Rocket size={size} />;
-          case 'Crown': return <Crown size={size} />;
-          case 'ThumbsUp': return <ThumbsUp size={size} />;
-          case 'Lightbulb': return <Lightbulb size={size} />;
-          case 'Flame': return <Flame size={size} />;
-          case 'Target': return <Target size={size} />;
-          case 'Users': return <Users size={size} />;
-          case 'Eye': return <Eye size={size} />;
-          default: return <Award size={size} />;
-      }
-  };
-
-  const getBadgeColorClasses = (color: string) => {
-      switch (color) {
-          case 'yellow': return 'bg-yellow-100 text-yellow-600 border-yellow-200';
-          case 'blue': return 'bg-blue-100 text-blue-600 border-blue-200';
-          case 'purple': return 'bg-purple-100 text-purple-600 border-purple-200';
-          case 'red': return 'bg-red-100 text-red-600 border-red-200';
-          case 'green': return 'bg-green-100 text-green-600 border-green-200';
-          case 'pink': return 'bg-pink-100 text-pink-600 border-pink-200';
-          case 'orange': return 'bg-orange-100 text-orange-600 border-orange-200';
-          default: return 'bg-slate-100 text-slate-600 border-slate-200';
-      }
-  };
-
   // --- RENDER SECTIONS ---
-
-  const renderBadges = () => {
-      if (!employee.badges || employee.badges.length === 0) {
-          if (!isOwnProfile) return <div className="text-sm text-slate-400 italic p-4">Nog geen badges behaald.</div>;
-          return null;
-      }
-
-      return (
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-              <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider flex items-center gap-2">
-                  <Medal size={16} className="text-teal-600" /> Verzameling & Waardering
-              </h3>
-              <div className="grid grid-cols-4 gap-3">
-                  {employee.badges.map((assigned) => {
-                      const def = badgeDefinitions.find(b => b.id === assigned.badgeId);
-                      if (!def) return null;
-                      
-                      return (
-                          <div key={assigned.id} className="group relative flex justify-center">
-                              <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-sm border-2 transition-transform hover:scale-110 cursor-help ${getBadgeColorClasses(def.color)}`}>
-                                  {getBadgeIcon(def.icon)}
-                              </div>
-                              
-                              {/* Tooltip */}
-                              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-800 text-white text-xs rounded-xl p-3 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-20 shadow-xl">
-                                  <div className="font-bold text-sm mb-1">{def.name}</div>
-                                  <div className="opacity-90 mb-2 leading-tight">{def.description}</div>
-                                  <div className="border-t border-slate-600 pt-2 text-[10px] text-slate-400">
-                                      Uitgereikt door {assigned.assignedBy}<br/>
-                                      {assigned.assignedAt}
-                                  </div>
-                                  <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-800"></div>
-                              </div>
-                          </div>
-                      );
-                  })}
-              </div>
-          </div>
-      );
-  };
 
   const renderDashboardOverview = () => {
       // Calculate Tenure
@@ -626,9 +540,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                   {/* SIDEBAR COLUMN */}
                   <div className="space-y-6">
                       
-                      {/* BADGES SECTION - Visible to Everyone */}
-                      {renderBadges()}
-
                       {/* Latest News Widget (Own Profile Only) */}
                       {isOwnProfile && latestNews && (
                           <div className="bg-white rounded-2xl border border-slate-200 border-t-4 border-t-teal-500 shadow-sm group cursor-pointer overflow-hidden hover:shadow-md transition-shadow" onClick={() => onChangeView(ViewState.NEWS)}>
