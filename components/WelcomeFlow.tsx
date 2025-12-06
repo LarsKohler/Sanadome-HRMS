@@ -1,6 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { ChevronRight, Check, ArrowRight, ShieldCheck, Sparkles, Lock, Calendar, FileText, Users, Trophy, LayoutDashboard, BookOpen, Loader2, AlertCircle } from 'lucide-react';
+import { 
+  ChevronRight, Check, ArrowRight, ShieldCheck, Sparkles, Lock, 
+  LayoutDashboard, Loader2, AlertCircle, 
+  BookOpen, Trophy, Users, Ticket, FileText, 
+  GraduationCap, MessageSquare
+} from 'lucide-react';
 import { Employee } from '../types';
 
 interface WelcomeFlowProps {
@@ -31,7 +36,8 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
   }, []);
 
   const handleNext = () => {
-    if (step === 2) {
+    // Validation for Password Step (Step 3)
+    if (step === 3) {
        if (password.length < 4) {
            setError('Wachtwoord moet minimaal 4 tekens zijn.');
            return;
@@ -49,7 +55,6 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
       setIsProcessing(true);
       setError('');
       try {
-          // FORCE accountStatus to 'Active' to ensure we exit the pending loop
           const updated: Employee = { 
               ...employee, 
               password: password || employee.password || 'sanadome123',
@@ -57,10 +62,9 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
           };
           
           await onComplete(updated);
-          // Success is handled by parent (unmounting this component) or App state update
       } catch (e: any) {
           console.error("Error completing welcome flow", e);
-          setError(e.message || 'Fout bij opslaan: Database update mislukt. Probeer het opnieuw.');
+          setError(e.message || 'Fout bij opslaan: Database update mislukt.');
           setIsProcessing(false);
       }
   };
@@ -102,7 +106,7 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
                     Welkom bij de familie,<br/>{employee.name.split(' ')[0]}.
                 </h2>
                 <p className="text-white/80 text-lg font-light max-w-md">
-                    Je reis bij Sanadome begint hier. We hebben alles klaargezet voor een vliegende start.
+                    Je reis bij Sanadome begint hier. We hebben een compleet platform ingericht voor jouw groei en succes.
                 </p>
             </div>
         </div>
@@ -112,50 +116,31 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
             
             {/* Stepper */}
             <div className="absolute top-10 right-10 flex gap-2">
-                {[1, 2, 3].map(i => (
+                {[1, 2, 3, 4].map(i => (
                     <div key={i} className={`h-1.5 rounded-full transition-all duration-500 ${step >= i ? 'w-8 bg-teal-600' : 'w-2 bg-slate-200'}`}></div>
                 ))}
             </div>
 
-            <div className="w-full max-w-md">
+            <div className="w-full max-w-lg">
                 
-                {/* STEP 1: INTRO & FEATURES */}
+                {/* STEP 1: INTRO */}
                 {step === 1 && (
-                    <div className="space-y-8 animate-in slide-in-from-bottom-8 fade-in duration-700">
+                    <div className="space-y-8 animate-in slide-in-from-bottom-8 fade-in duration-700 text-center lg:text-left">
                         <div>
-                            <h1 className="text-3xl font-bold text-slate-900 mb-2">Jouw digitale werkplek</h1>
-                            <p className="text-slate-500">Dit is jouw persoonlijke portaal. Hier regel je alles rondom je werk, groei en team.</p>
+                            <span className="text-teal-600 font-bold text-sm uppercase tracking-wider mb-2 block">Mijn Sanadome HRMS</span>
+                            <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">Jouw digitale thuisbasis</h1>
+                            <p className="text-slate-500 text-lg leading-relaxed">
+                                Dit portaal is meer dan alleen administratie. Het is de plek waar je werkt aan je ontwikkeling, in contact blijft met je team en toegang hebt tot alle kennis van onze organisatie.
+                            </p>
                         </div>
 
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100 hover:border-teal-100 transition-colors">
-                                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-teal-600 shadow-sm border border-slate-100">
-                                    <LayoutDashboard size={22} />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-slate-900 text-sm">Alles in één overzicht</h3>
-                                    <p className="text-xs text-slate-500">Verlof aanvragen, loonstroken bekijken en je rooster checken.</p>
-                                </div>
+                        <div className="bg-slate-50 p-6 rounded-2xl border border-slate-100 flex items-start gap-4">
+                            <div className="p-3 bg-white rounded-xl shadow-sm text-teal-600">
+                                <LayoutDashboard size={24} />
                             </div>
-                            
-                            <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100 hover:border-purple-100 transition-colors">
-                                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-purple-600 shadow-sm border border-slate-100">
-                                    <Trophy size={22} />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-slate-900 text-sm">Onboarding & Groei</h3>
-                                    <p className="text-xs text-slate-500">Volg je inwerktraject, bekijk evaluaties en stel doelen.</p>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100 hover:border-blue-100 transition-colors">
-                                <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-blue-600 shadow-sm border border-slate-100">
-                                    <Users size={22} />
-                                </div>
-                                <div>
-                                    <h3 className="font-bold text-slate-900 text-sm">Team & Nieuws</h3>
-                                    <p className="text-xs text-slate-500">Blijf op de hoogte van evenementen en updates.</p>
-                                </div>
+                            <div>
+                                <h4 className="font-bold text-slate-900 mb-1">Alles op één plek</h4>
+                                <p className="text-sm text-slate-500">Van je rooster en verlof tot je persoonlijke groeipad en bedrijfsnieuws.</p>
                             </div>
                         </div>
 
@@ -163,20 +148,83 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
                             onClick={handleNext}
                             className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2 group"
                         >
-                            Aan de slag <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform"/>
+                            Ontdek de mogelijkheden <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform"/>
                         </button>
                     </div>
                 )}
 
-                {/* STEP 2: SECURITY */}
+                {/* STEP 2: FEATURE SHOWCASE (NEW) */}
                 {step === 2 && (
+                    <div className="space-y-8 animate-in slide-in-from-right-8 fade-in duration-500">
+                        <div className="text-center lg:text-left">
+                            <h2 className="text-2xl font-bold text-slate-900 mb-2">Wat kun je verwachten?</h2>
+                            <p className="text-slate-500">Een overzicht van de modules waar jij toegang tot krijgt.</p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Card 1: Growth */}
+                            <div className="p-5 rounded-2xl border border-slate-100 bg-gradient-to-br from-purple-50/50 to-transparent hover:border-purple-200 transition-all group">
+                                <div className="w-10 h-10 bg-white rounded-xl shadow-sm text-purple-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <Trophy size={20} />
+                                </div>
+                                <h3 className="font-bold text-slate-900 mb-1">Groei & Performance</h3>
+                                <p className="text-xs text-slate-500 leading-relaxed">
+                                    Houd je voortgang bij via <span className="font-semibold text-purple-700">Evaluaties</span>, verdien <span className="font-semibold text-purple-700">Badges</span> voor goed werk en volg je <span className="font-semibold text-purple-700">Onboarding</span>.
+                                </p>
+                            </div>
+
+                            {/* Card 2: Team */}
+                            <div className="p-5 rounded-2xl border border-slate-100 bg-gradient-to-br from-blue-50/50 to-transparent hover:border-blue-200 transition-all group">
+                                <div className="w-10 h-10 bg-white rounded-xl shadow-sm text-blue-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <Users size={20} />
+                                </div>
+                                <h3 className="font-bold text-slate-900 mb-1">Team & Cultuur</h3>
+                                <p className="text-xs text-slate-500 leading-relaxed">
+                                    Lees het laatste <span className="font-semibold text-blue-700">Nieuws</span>, geef je mening in <span className="font-semibold text-blue-700">Surveys</span> en vind je collega's in het smoelenboek.
+                                </p>
+                            </div>
+
+                            {/* Card 3: Support */}
+                            <div className="p-5 rounded-2xl border border-slate-100 bg-gradient-to-br from-amber-50/50 to-transparent hover:border-amber-200 transition-all group">
+                                <div className="w-10 h-10 bg-white rounded-xl shadow-sm text-amber-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <BookOpen size={20} />
+                                </div>
+                                <h3 className="font-bold text-slate-900 mb-1">Kennis & Support</h3>
+                                <p className="text-xs text-slate-500 leading-relaxed">
+                                    Raadpleeg de <span className="font-semibold text-amber-700">Kennisbank</span> voor protocollen of meld technische problemen via het <span className="font-semibold text-amber-700">Ticket Systeem</span>.
+                                </p>
+                            </div>
+
+                            {/* Card 4: Admin */}
+                            <div className="p-5 rounded-2xl border border-slate-100 bg-gradient-to-br from-teal-50/50 to-transparent hover:border-teal-200 transition-all group">
+                                <div className="w-10 h-10 bg-white rounded-xl shadow-sm text-teal-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                                    <FileText size={20} />
+                                </div>
+                                <h3 className="font-bold text-slate-900 mb-1">Administratie</h3>
+                                <p className="text-xs text-slate-500 leading-relaxed">
+                                    Beheer je <span className="font-semibold text-teal-700">Documenten</span>, bekijk je contract en houd je persoonsgegevens up-to-date.
+                                </p>
+                            </div>
+                        </div>
+
+                        <button 
+                            onClick={handleNext}
+                            className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
+                        >
+                            Account Activeren <ArrowRight size={18}/>
+                        </button>
+                    </div>
+                )}
+
+                {/* STEP 3: SECURITY */}
+                {step === 3 && (
                     <div className="space-y-8 animate-in slide-in-from-right-8 fade-in duration-500">
                         <div className="text-center">
                             <div className="w-16 h-16 bg-teal-50 text-teal-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-sm">
                                 <ShieldCheck size={32} />
                             </div>
-                            <h2 className="text-2xl font-bold text-slate-900">Account beveiligen</h2>
-                            <p className="text-slate-500 text-sm mt-2">Kies een veilig wachtwoord voor je persoonlijke toegang.</p>
+                            <h2 className="text-2xl font-bold text-slate-900">Kies je wachtwoord</h2>
+                            <p className="text-slate-500 text-sm mt-2">Om je toegang te beveiligen, vragen we je een persoonlijk wachtwoord in te stellen.</p>
                         </div>
 
                         <div className="space-y-5">
@@ -190,6 +238,7 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
                                         onChange={(e) => setPassword(e.target.value)}
                                         className="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 pl-12 pr-4 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-colors font-medium"
                                         placeholder="••••••••"
+                                        autoFocus
                                     />
                                 </div>
                             </div>
@@ -224,20 +273,20 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
                     </div>
                 )}
 
-                {/* STEP 3: READY */}
-                {step === 3 && (
+                {/* STEP 4: READY */}
+                {step === 4 && (
                     <div className="text-center space-y-8 animate-in zoom-in duration-500">
                          <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner ring-8 ring-green-50">
                             <Check size={48} strokeWidth={3} />
                         </div>
                         <div>
-                            <h2 className="text-3xl font-bold text-slate-900">Alles is gereed!</h2>
-                            <p className="text-slate-500 mt-2">
-                                Je account is succesvol geactiveerd. <br/>Welkom bij het team.
+                            <h2 className="text-3xl font-bold text-slate-900">Je bent er helemaal klaar voor!</h2>
+                            <p className="text-slate-500 mt-2 text-lg">
+                                Bedankt voor het instellen van je account. <br/>We wensen je heel veel succes en plezier bij Sanadome.
                             </p>
                         </div>
                         
-                        <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 text-left shadow-sm">
+                        <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 text-left shadow-sm max-w-sm mx-auto">
                             <div className="flex items-center gap-4 mb-4 pb-4 border-b border-slate-200">
                                 <img src={employee.avatar} className="w-12 h-12 rounded-full shadow-sm object-cover" alt="Avatar"/>
                                 <div>
@@ -248,15 +297,15 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
                             <div className="space-y-3">
                                 <div className="flex items-center gap-3 text-sm text-slate-700">
                                     <div className="w-5 h-5 rounded-full bg-teal-100 flex items-center justify-center text-teal-600"><Check size={12} strokeWidth={3}/></div>
-                                    Profiel aangemaakt
+                                    Profiel geactiveerd
                                 </div>
                                 <div className="flex items-center gap-3 text-sm text-slate-700">
                                     <div className="w-5 h-5 rounded-full bg-teal-100 flex items-center justify-center text-teal-600"><Check size={12} strokeWidth={3}/></div>
-                                    Wachtwoord ingesteld
+                                    Wachtwoord beveiligd
                                 </div>
                                 <div className="flex items-center gap-3 text-sm text-slate-700">
                                     <div className="w-5 h-5 rounded-full bg-teal-100 flex items-center justify-center text-teal-600"><Check size={12} strokeWidth={3}/></div>
-                                    Toegang tot portaal
+                                    Toegang tot dashboard
                                 </div>
                             </div>
                         </div>
