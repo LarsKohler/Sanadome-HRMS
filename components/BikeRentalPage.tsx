@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
     Bike, Calendar, User, FileText, CheckCircle2, X, Plus, Minus,
     Settings, AlertCircle, RefreshCw, PenTool, Check, ChevronLeft, 
-    ChevronRight, Save, History, LayoutDashboard, Zap, Clock, Wrench, AlertTriangle, ArrowRight, Grid3X3, Key, Filter, Tag, Euro
+    ChevronRight, Save, History, LayoutDashboard, Zap, Clock, Wrench, AlertTriangle, ArrowRight, Grid3X3, Key, Filter, Tag, Euro, Trash2
 } from 'lucide-react';
 import { Employee, BikeReservation, BikeSettings, BikeType } from '../types';
 import { api } from '../utils/api';
@@ -71,11 +71,14 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
 
     // --- MANUAL BOOKING MODAL (STAFF) ---
     const [isManualBookingOpen, setIsManualBookingOpen] = useState(false);
-    const [manualForm, setManualForm] = useState({
+    const [manualForm, setManualForm] = useState<{
+        guestName: string;
+        roomNumber: string;
+        rows: { type: BikeType, assetId: string }[];
+    }>({
         guestName: '',
         roomNumber: '',
-        type: 'City Bike Men' as BikeType,
-        count: 1
+        rows: [{ type: 'City Bike Men', assetId: '' }]
     });
 
     // --- GUEST FLOW STATE ---
@@ -161,23 +164,53 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
     };
 
     // --- MANUAL BOOKING ---
+    const handleAddManualRow = () => {
+        setManualForm(prev => ({
+            ...prev,
+            rows: [...prev.rows, { type: 'City Bike Men', assetId: '' }]
+        }));
+    };
+
+    const handleRemoveManualRow = (index: number) => {
+        setManualForm(prev => ({
+            ...prev,
+            rows: prev.rows.filter((_, i) => i !== index)
+        }));
+    };
+
+    const handleManualRowChange = (index: number, field: 'type' | 'assetId', value: string) => {
+        setManualForm(prev => {
+            const newRows = [...prev.rows];
+            // If type changes, clear assetId
+            if (field === 'type') {
+                newRows[index] = { type: value as BikeType, assetId: '' };
+            } else {
+                newRows[index] = { ...newRows[index], [field]: value };
+            }
+            return { ...prev, rows: newRows };
+        });
+    };
+
     const handleManualBooking = async (e: React.FormEvent) => {
         e.preventDefault();
         const groupId = Math.random().toString(36).substr(2, 9);
         const newReservations: BikeReservation[] = [];
 
-        for(let i=0; i < manualForm.count; i++) {
+        for (const row of manualForm.rows) {
+            const isAssigned = !!row.assetId;
             newReservations.push({
                 id: Math.random().toString(36).substr(2, 9),
                 groupId,
                 guestName: manualForm.guestName,
                 roomNumber: manualForm.roomNumber,
-                bikeType: manualForm.type,
+                bikeType: row.type,
+                bikeId: isAssigned ? row.assetId : undefined,
                 amount: 1,
                 startDate: new Date().toISOString().split('T')[0],
                 endDate: new Date().toISOString().split('T')[0],
-                status: 'Pending',
-                termsAccepted: true, // Assumed signed on paper or phone
+                startTime: isAssigned ? new Date().toLocaleTimeString('nl-NL', {hour: '2-digit', minute:'2-digit'}) : undefined,
+                status: isAssigned ? 'Active' : 'Pending', // Direct assignment if ID chosen
+                termsAccepted: true, 
                 createdAt: new Date().toISOString(),
                 createdBy: currentUser.name
             });
@@ -189,8 +222,8 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
         
         setReservations([...newReservations, ...reservations]);
         setIsManualBookingOpen(false);
-        setManualForm({ guestName: '', roomNumber: '', type: 'City Bike Men', count: 1 });
-        onShowToast("Boeking toegevoegd. Wijs nu de fietsen toe.");
+        setManualForm({ guestName: '', roomNumber: '', rows: [{ type: 'City Bike Men', assetId: '' }] });
+        onShowToast("Boeking succesvol toegevoegd.");
     };
 
     // --- GUEST FLOW ---
@@ -732,11 +765,12 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
             )}
 
             {/* MANUAL BOOKING MODAL */}
-            <Modal isOpen={isManualBookingOpen} onClose={() => setIsManualBookingOpen(false)} title="Handmatige Boeking">
+            <Modal isOpen={isManualBookingOpen} onClose={() => { setIsManualBookingOpen(false); setManualForm({ guestName: '', roomNumber: '', rows: [{ type: 'City Bike Men', assetId: '' }] }); }} title="Handmatige Boeking">
                 <form onSubmit={handleManualBooking} className="space-y-6">
                     <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-sm text-blue-800">
                         Deze optie blokkeert de fietsen voor vandaag. Gebruik dit voor telefonische reserveringen of boekingen via de mail.
                     </div>
+                    
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Gast Naam</label>
@@ -747,19 +781,63 @@ const BikeRentalPage: React.FC<BikeRentalPageProps> = ({ currentUser, onShowToas
                             <input type="text" required className="w-full p-3 border rounded-xl" value={manualForm.roomNumber} onChange={e => setManualForm({...manualForm, roomNumber: e.target.value})} placeholder="Kamernummer..." />
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Type</label>
-                            <select className="w-full p-3 border rounded-xl bg-white" value={manualForm.type} onChange={e => setManualForm({...manualForm, type: e.target.value as BikeType})}>
-                                {BIKE_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Aantal</label>
-                            <input type="number" min="1" max="10" className="w-full p-3 border rounded-xl" value={manualForm.count} onChange={e => setManualForm({...manualForm, count: parseInt(e.target.value)})} />
-                        </div>
+
+                    <div className="space-y-4">
+                        <label className="block text-xs font-bold text-slate-500 uppercase">Fietsen Selecteren</label>
+                        {manualForm.rows.map((row, index) => {
+                            // Filter assets based on type AND availability (not rented or in maintenance)
+                            const availableAssets = BIKE_ASSETS.filter(a => {
+                                if (a.type !== row.type) return false;
+                                const status = getBikeStatus(a.id);
+                                return status === 'Available';
+                            });
+
+                            return (
+                                <div key={index} className="flex gap-4 items-center bg-slate-50 p-3 rounded-xl border border-slate-200">
+                                    <div className="flex-1">
+                                        <select 
+                                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm font-medium"
+                                            value={row.type}
+                                            onChange={(e) => handleManualRowChange(index, 'type', e.target.value)}
+                                        >
+                                            {BIKE_TYPES.map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="flex-1">
+                                        <select 
+                                            className="w-full p-2 bg-white border border-slate-200 rounded-lg text-sm font-medium"
+                                            value={row.assetId}
+                                            onChange={(e) => handleManualRowChange(index, 'assetId', e.target.value)}
+                                        >
+                                            <option value="">Wijs later toe (Pending)</option>
+                                            {availableAssets.map(a => <option key={a.id} value={a.id}>{a.id} (Beschikbaar)</option>)}
+                                        </select>
+                                    </div>
+                                    {manualForm.rows.length > 1 && (
+                                        <button 
+                                            type="button" 
+                                            onClick={() => handleRemoveManualRow(index)}
+                                            className="text-slate-400 hover:text-red-500 p-2"
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
+                                    )}
+                                </div>
+                            );
+                        })}
+                        
+                        <button 
+                            type="button" 
+                            onClick={handleAddManualRow}
+                            className="text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1"
+                        >
+                            <Plus size={14} /> Nog een fiets toevoegen
+                        </button>
                     </div>
-                    <button type="submit" className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold shadow-md hover:bg-slate-800">Boeking Toevoegen</button>
+
+                    <button type="submit" className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold shadow-md hover:bg-slate-800">
+                        Boeking Toevoegen
+                    </button>
                 </form>
             </Modal>
 

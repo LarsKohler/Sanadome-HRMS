@@ -81,26 +81,23 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
     }
   ];
 
-  // Initialize expanded sections: Open by default to ensure visibility
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({
-      'Algemeen': true,
-      'Receptie Tools': true,
-      'HR & Team': true,
-      'Management Tools': true, 
-      'Systeem': false
-  });
+  // State for expanded sections
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
-  // Auto-expand the section containing the current view
+  // Effect to automatically expand the section containing the current view
   useEffect(() => {
-      for (const section of sections) {
-          if (section.items.some(item => item.id === currentView)) {
-              setExpandedSections(prev => ({
-                  ...prev,
-                  [section.label]: true
-              }));
-              break;
+      const newExpanded: Record<string, boolean> = {};
+      
+      sections.forEach(section => {
+          const containsActive = section.items.some(item => item.id === currentView);
+          if (containsActive) {
+              newExpanded[section.label] = true;
           }
-      }
+      });
+
+      // Merge with existing state so we don't collapse others if user opened them manually (optional preference)
+      // For strictly auto-collapse behavior, just setExpandedSections(newExpanded);
+      setExpandedSections(prev => ({ ...prev, ...newExpanded }));
   }, [currentView]);
 
   const toggleSection = (label: string) => {
@@ -125,7 +122,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
           h-full lg:h-screen w-72 
           bg-white border-r border-slate-200 
           transform transition-transform duration-300 ease-in-out
-          flex flex-col print:hidden
+          flex flex-col print:hidden shadow-xl lg:shadow-none
           ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}
       >
@@ -139,7 +136,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
           </div>
 
           {/* Logo in Sidebar */}
-          <div className="flex items-center gap-2 px-2 mb-8">
+          <div className="flex items-center gap-2 px-2 mb-10">
               <div className="text-teal-600">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
                     <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
@@ -154,25 +151,26 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
           </div>
 
           {/* Navigation Items */}
-          <nav className="space-y-6">
+          <nav className="space-y-4">
             {sections.map((section) => {
               // Check if section has any visible items based on permissions
               const hasVisibleItems = section.items.some(item => !item.permission || hasPermission(user, item.permission));
               
               if (!hasVisibleItems) return null;
 
+              const isExpanded = expandedSections[section.label];
+
               return (
-                <div key={section.label}>
+                <div key={section.label} className="select-none">
                   <button 
                     onClick={() => toggleSection(section.label)}
-                    className="flex items-center justify-between w-full text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 px-2 hover:text-slate-600 transition-colors"
+                    className={`flex items-center justify-between w-full text-xs font-bold uppercase tracking-wider mb-2 px-3 py-2 rounded-lg transition-colors ${isExpanded ? 'text-slate-800 bg-slate-50' : 'text-slate-400 hover:text-slate-600 hover:bg-slate-50'}`}
                   >
                     {section.label}
-                    {expandedSections[section.label] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    <ChevronRight size={14} className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`} />
                   </button>
                   
-                  {expandedSections[section.label] && (
-                    <div className="space-y-1 animate-in slide-in-from-top-2 duration-200">
+                  <div className={`space-y-1 overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
                       {section.items.map((item) => {
                         // Permission Check
                         if (item.permission && !hasPermission(user, item.permission)) {
@@ -192,15 +190,15 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
                                 if (window.innerWidth < 1024) onClose();
                             }}
                             className={`
-                              w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group
+                              w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group ml-1
                               ${isActive 
                                 ? 'bg-slate-900 text-white shadow-md' 
-                                : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'
+                                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-900'
                               }
                             `}
                           >
                             <div className="flex items-center gap-3">
-                              <item.icon size={20} className={isActive ? 'text-teal-400' : 'text-slate-400 group-hover:text-slate-600'} />
+                              <item.icon size={18} className={isActive ? 'text-teal-400' : 'text-slate-400 group-hover:text-slate-600'} />
                               <span className="font-bold text-sm">{item.label}</span>
                             </div>
                             {item.badge && (
@@ -211,8 +209,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
                           </button>
                         );
                       })}
-                    </div>
-                  )}
+                  </div>
                 </div>
               );
             })}
