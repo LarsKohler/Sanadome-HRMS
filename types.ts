@@ -14,7 +14,8 @@ export enum ViewState {
   KNOWLEDGE_BASE = 'KNOWLEDGE_BASE',
   EVALUATIONS = 'EVALUATIONS',
   RECRUITMENT = 'RECRUITMENT',
-  BIKE_RENTAL = 'BIKE_RENTAL'
+  BIKE_RENTAL = 'BIKE_RENTAL',
+  ACADEMY = 'ACADEMY'
 }
 
 export type Permission = 
@@ -34,7 +35,8 @@ export type Permission =
   | 'MANAGE_KNOWLEDGE'
   | 'MANAGE_OPERATIONS'
   | 'MANAGE_TICKETS'
-  | 'MANAGE_RENTALS';
+  | 'MANAGE_RENTALS'
+  | 'MANAGE_ACADEMY';
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_REPORTS': 'Rapportages Inzien',
@@ -53,8 +55,65 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'MANAGE_KNOWLEDGE': 'Kennisbank Beheren',
   'MANAGE_OPERATIONS': 'Operations Beheren',
   'MANAGE_TICKETS': 'Tickets Beheren',
-  'MANAGE_RENTALS': 'Fietsverhuur Beheren'
+  'MANAGE_RENTALS': 'Fietsverhuur Beheren',
+  'MANAGE_ACADEMY': 'Academy Beheren'
 };
+
+// --- ACADEMY / LMS ---
+
+export type LessonType = 'Video' | 'Text' | 'Quiz';
+
+export interface QuizQuestion {
+    id: string;
+    question: string;
+    options: string[];
+    correctOptionIndex: number;
+}
+
+export interface AcademyLesson {
+    id: string;
+    title: string;
+    type: LessonType;
+    content: string; // Markdown text or Video URL
+    durationMinutes: number;
+    quizQuestions?: QuizQuestion[]; // Only if type is Quiz
+    passingScore?: number; // % needed to pass
+}
+
+export interface AcademyModule {
+    id: string;
+    title: string;
+    lessons: AcademyLesson[];
+}
+
+export interface AcademyCourse {
+    id: string;
+    title: string;
+    description: string;
+    category: string;
+    coverImage?: string;
+    level: 'Beginner' | 'Intermediate' | 'Advanced';
+    prerequisiteCourseIds?: string[]; // IDs of courses that must be completed first
+    modules: AcademyModule[];
+    targetRoles: string[]; // ['All'] or specific roles
+    createdAt: string;
+    author: string;
+    isPublished: boolean;
+}
+
+export interface AcademyProgress {
+    id: string; // unique ID
+    employeeId: string;
+    courseId: string;
+    status: 'Not Started' | 'In Progress' | 'Completed';
+    progressPercentage: number;
+    completedLessonIds: string[];
+    quizScores: Record<string, number>; // lessonId -> score
+    startDate?: string;
+    completedDate?: string;
+}
+
+// ... existing types ...
 
 // --- BIKE RENTAL ---
 export type BikeType = 'City Bike Men' | 'City Bike Women' | 'E-Bike';

@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
   UserPlus, FileText, PieChart, 
-  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Medal, BookOpen, Truck, ChevronDown, ChevronRight, Bike
+  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Medal, BookOpen, Truck, ChevronDown, ChevronRight, Bike, GraduationCap
 } from 'lucide-react';
 import { ViewState, Employee, Permission } from '../types';
 import { hasPermission } from '../utils/permissions';
@@ -39,6 +39,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
       items: [
         { icon: User, label: 'Mijn Profiel', id: ViewState.HOME },
         { icon: Newspaper, label: 'Nieuws', id: ViewState.NEWS },
+        { icon: GraduationCap, label: 'Academy', id: ViewState.ACADEMY },
         { icon: BookOpen, label: 'Kennisbank', id: ViewState.KNOWLEDGE_BASE },
         { icon: CheckSquare, label: 'Taken', id: 'tasks', badge: 2 },
         { icon: Users, label: 'Collega\'s', id: ViewState.DIRECTORY },

@@ -23,6 +23,10 @@ import { createClient } from '@supabase/supabase-js';
   -- NIEUW: Recruitment Tabel
   CREATE TABLE IF NOT EXISTS applicants ( id text PRIMARY KEY, data jsonb );
 
+  -- NIEUW: Academy Tabellen
+  CREATE TABLE IF NOT EXISTS academy_courses ( id text PRIMARY KEY, data jsonb );
+  CREATE TABLE IF NOT EXISTS academy_progress ( id text PRIMARY KEY, employee_id text, course_id text, data jsonb );
+
   -- 2. RLS Aanzetten
   ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
   ALTER TABLE news ENABLE ROW LEVEL SECURITY;
@@ -34,6 +38,8 @@ import { createClient } from '@supabase/supabase-js';
   ALTER TABLE knowledge_base ENABLE ROW LEVEL SECURITY;
   ALTER TABLE system_updates ENABLE ROW LEVEL SECURITY;
   ALTER TABLE applicants ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE academy_courses ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE academy_progress ENABLE ROW LEVEL SECURITY;
 
   -- 3. Manager Check Functie
   CREATE OR REPLACE FUNCTION is_manager() RETURNS boolean AS $$
@@ -67,6 +73,14 @@ import { createClient } from '@supabase/supabase-js';
   
   -- Recruitment Policies
   CREATE POLICY "Applicants manage" ON applicants FOR ALL USING ( is_manager() );
+
+  -- Academy Policies
+  CREATE POLICY "Academy courses read" ON academy_courses FOR SELECT USING ( true );
+  CREATE POLICY "Academy courses manage" ON academy_courses FOR ALL USING ( is_manager() );
+  
+  CREATE POLICY "Academy progress read self" ON academy_progress FOR SELECT USING ( employee_id = auth.uid()::text );
+  CREATE POLICY "Academy progress manage self" ON academy_progress FOR ALL USING ( employee_id = auth.uid()::text );
+  CREATE POLICY "Academy progress view manager" ON academy_progress FOR SELECT USING ( is_manager() );
 */
 
 // Veilig ophalen van env vars, met fallback naar de door jou opgegeven keys

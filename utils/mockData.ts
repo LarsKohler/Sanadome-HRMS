@@ -1,5 +1,5 @@
 
-import { Employee, NewsPost, OnboardingTemplate, SystemUpdateLog, KnowledgeArticle, Applicant, Ticket, Vacancy, EvaluationTemplate, BikeSettings, BikeReservation } from '../types';
+import { Employee, NewsPost, OnboardingTemplate, SystemUpdateLog, KnowledgeArticle, Applicant, Ticket, Vacancy, EvaluationTemplate, BikeSettings, BikeReservation, AcademyCourse, AcademyProgress } from '../types';
 
 export const MOCK_EMPLOYEES: Employee[] = [
   {
@@ -253,5 +253,105 @@ export const MOCK_BIKE_RESERVATIONS: BikeReservation[] = [
         termsAccepted: true,
         createdAt: new Date(Date.now() - 86400000).toISOString(),
         createdBy: 'Janique Vink'
+    }
+];
+
+// --- ACADEMY MOCKS ---
+export const MOCK_ACADEMY_COURSES: AcademyCourse[] = [
+    {
+        id: 'c1',
+        title: 'Gastvrijheid Basis',
+        description: 'De fundamentele principes van gastvrijheid bij Sanadome. Leer hoe je gasten begroet, helpt en een onvergetelijke ervaring biedt.',
+        category: 'Gastvrijheid',
+        level: 'Beginner',
+        targetRoles: ['All'],
+        createdAt: '01-01-2023',
+        author: 'Lars Kohler',
+        isPublished: true,
+        modules: [
+            {
+                id: 'm1',
+                title: 'Welkom & Houding',
+                lessons: [
+                    {
+                        id: 'l1',
+                        title: 'De Eerste Indruk',
+                        type: 'Text',
+                        content: '# De kracht van een glimlach\n\nEen eerste indruk maak je maar één keer. Zorg altijd voor:\n\n*   Oogcontact\n*   Een oprechte glimlach\n*   Een open houding\n\nBij Sanadome groeten we elke gast die we tegenkomen, ook in de gang.',
+                        durationMinutes: 5
+                    },
+                    {
+                        id: 'l2',
+                        title: 'Kledij & Uiterlijk',
+                        type: 'Video',
+                        content: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // Placeholder
+                        durationMinutes: 3
+                    }
+                ]
+            },
+            {
+                id: 'm2',
+                title: 'Toetsing',
+                lessons: [
+                    {
+                        id: 'q1',
+                        title: 'Eindtoets Module 1',
+                        type: 'Quiz',
+                        content: 'Test je kennis over de basisprincipes.',
+                        durationMinutes: 10,
+                        passingScore: 75,
+                        quizQuestions: [
+                            {
+                                id: 'qq1',
+                                question: 'Wat doe je als je een gast tegenkomt in de gang?',
+                                options: ['Je kijkt naar de grond', 'Je groet de gast vriendelijk', 'Je pakt je telefoon'],
+                                correctOptionIndex: 1
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    {
+        id: 'c2',
+        title: 'Veiligheid & Calamiteiten',
+        description: 'Essentiële veiligheidsprocedures en wat te doen bij brand of ongevallen.',
+        category: 'Veiligheid',
+        level: 'Intermediate',
+        prerequisiteCourseIds: ['c1'], // Must finish Basics first
+        targetRoles: ['All'],
+        createdAt: '01-02-2023',
+        author: 'Security Team',
+        isPublished: true,
+        modules: [
+            {
+                id: 'm1',
+                title: 'Brandveiligheid',
+                lessons: [
+                    {
+                        id: 'l1',
+                        title: 'Brandmelding',
+                        type: 'Text',
+                        content: 'Bel direct intern nummer **333** bij brand.',
+                        durationMinutes: 5
+                    }
+                ]
+            }
+        ]
+    }
+];
+
+export const MOCK_ACADEMY_PROGRESS: AcademyProgress[] = [
+    {
+        id: 'p1',
+        employeeId: '2', // Janique
+        courseId: 'c1',
+        status: 'Completed',
+        progressPercentage: 100,
+        completedLessonIds: ['l1', 'l2', 'q1'],
+        quizScores: { 'q1': 100 },
+        startDate: '01-02-2023',
+        completedDate: '02-02-2023'
     }
 ];

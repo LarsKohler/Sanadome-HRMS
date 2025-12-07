@@ -20,7 +20,9 @@ import KnowledgeBasePage from './components/KnowledgeBasePage';
 import EvaluationsPage from './components/EvaluationsPage';
 import RecruitmentPage from './components/RecruitmentPage';
 import TicketDashboard from './components/TicketDashboard';
-import BikeRentalPage from './components/BikeRentalPage'; // Import
+import BikeRentalPage from './components/BikeRentalPage'; 
+import BadgeManager from './components/BadgeManager';
+import AcademyPage from './components/AcademyPage'; // Import Academy
 import UpdateNotifier from './components/UpdateNotifier';
 import { api, isLive } from './utils/api';
 
@@ -299,6 +301,12 @@ function App() {
               />;
           case ViewState.BIKE_RENTAL:
               return <BikeRentalPage currentUser={currentUser!} onShowToast={handleShowToast} />;
+          case ViewState.ACADEMY:
+              return <AcademyPage 
+                  currentUser={currentUser!} 
+                  onShowToast={handleShowToast} 
+                  onChangeView={setCurrentView}
+              />;
           default:
               // Fallback for ID-based views (Tickets)
               if (currentView === 'cases') {

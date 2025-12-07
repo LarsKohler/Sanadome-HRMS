@@ -1,8 +1,8 @@
 
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, Ticket, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition } from '../types';
-import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_TICKETS, MOCK_EVALUATION_TEMPLATES, MOCK_BIKE_SETTINGS, MOCK_BIKE_RESERVATIONS } from './mockData';
+import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, Ticket, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress } from '../types';
+import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_TICKETS, MOCK_EVALUATION_TEMPLATES, MOCK_BIKE_SETTINGS, MOCK_BIKE_RESERVATIONS, MOCK_ACADEMY_COURSES, MOCK_ACADEMY_PROGRESS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
 export const isLive = !!supabase;
@@ -22,6 +22,74 @@ const generateDemoTasks = (): OnboardingTask[] => [
 ];
 
 export const api = {
+  // --- ACADEMY (NEW) ---
+  getAcademyCourses: async (): Promise<AcademyCourse[]> => {
+      if (isLive && supabase) {
+          try {
+              const { data, error } = await supabase.from('academy_courses').select('data');
+              if (!error && data) return data.map((row: any) => row.data);
+              return MOCK_ACADEMY_COURSES;
+          } catch (e) {
+              return MOCK_ACADEMY_COURSES;
+          }
+      }
+      const local = localStorage.getItem('hrms_academy_courses');
+      return local ? JSON.parse(local) : MOCK_ACADEMY_COURSES;
+  },
+
+  saveAcademyCourse: async (course: AcademyCourse) => {
+      if (isLive && supabase) {
+          await supabase.from('academy_courses').upsert({ id: course.id, data: course });
+      } else {
+          const current = await api.getAcademyCourses();
+          const index = current.findIndex(c => c.id === course.id);
+          if (index >= 0) current[index] = course;
+          else current.push(course);
+          localStorage.setItem('hrms_academy_courses', JSON.stringify(current));
+      }
+  },
+
+  deleteAcademyCourse: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('academy_courses').delete().eq('id', id);
+      } else {
+          const current = await api.getAcademyCourses();
+          const filtered = current.filter(c => c.id !== id);
+          localStorage.setItem('hrms_academy_courses', JSON.stringify(filtered));
+      }
+  },
+
+  getAcademyProgress: async (): Promise<AcademyProgress[]> => {
+      if (isLive && supabase) {
+          try {
+              const { data, error } = await supabase.from('academy_progress').select('data');
+              if (!error && data) return data.map((row: any) => row.data);
+              return MOCK_ACADEMY_PROGRESS;
+          } catch (e) {
+              return MOCK_ACADEMY_PROGRESS;
+          }
+      }
+      const local = localStorage.getItem('hrms_academy_progress');
+      return local ? JSON.parse(local) : MOCK_ACADEMY_PROGRESS;
+  },
+
+  saveAcademyProgress: async (progress: AcademyProgress) => {
+      if (isLive && supabase) {
+          await supabase.from('academy_progress').upsert({ 
+              id: progress.id, 
+              employee_id: progress.employeeId,
+              course_id: progress.courseId,
+              data: progress 
+          });
+      } else {
+          const current = await api.getAcademyProgress();
+          const index = current.findIndex(p => p.id === progress.id);
+          if (index >= 0) current[index] = progress;
+          else current.push(progress);
+          localStorage.setItem('hrms_academy_progress', JSON.stringify(current));
+      }
+  },
+
   // --- BADGES (NEW) ---
   getBadges: async (): Promise<BadgeDefinition[]> => {
       if (isLive && supabase) {
