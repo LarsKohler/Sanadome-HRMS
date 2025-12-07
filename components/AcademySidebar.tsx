@@ -2,7 +2,8 @@
 import React from 'react';
 import { 
     LayoutDashboard, BookOpen, Trophy, PenTool, 
-    LogOut, ChevronRight, GraduationCap, Users, BarChart3, Settings
+    LogOut, ChevronRight, GraduationCap, Users, BarChart3, Settings,
+    User, Shield
 } from 'lucide-react';
 import { Employee } from '../types';
 import { hasPermission } from '../utils/permissions';
@@ -15,6 +16,7 @@ interface AcademySidebarProps {
 }
 
 const AcademySidebar: React.FC<AcademySidebarProps> = ({ activeView, onChangeView, onExit, currentUser }) => {
+    // Check permissions
     const isManager = hasPermission(currentUser, 'MANAGE_ACADEMY') || currentUser.role === 'Manager' || currentUser.role === 'Senior Medewerker';
 
     const learnerItems = [
@@ -30,10 +32,10 @@ const AcademySidebar: React.FC<AcademySidebarProps> = ({ activeView, onChangeVie
     ];
 
     return (
-        <aside className="w-72 bg-white border-r border-slate-200 flex flex-col h-full flex-shrink-0 transition-all duration-300 shadow-sm z-20">
+        <aside className="w-72 bg-white border-r border-slate-200 flex flex-col h-full flex-shrink-0 transition-all duration-300 shadow-sm z-20 font-sans">
             {/* BRANDING */}
             <div className="h-20 flex items-center px-6 border-b border-slate-100">
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 cursor-pointer" onClick={() => onChangeView('dashboard')}>
                     <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center shadow-sm border border-indigo-100">
                         <GraduationCap size={24} />
                     </div>
@@ -102,19 +104,22 @@ const AcademySidebar: React.FC<AcademySidebarProps> = ({ activeView, onChangeVie
 
             {/* USER PROFILE & EXIT */}
             <div className="p-4 border-t border-slate-100 bg-slate-50/50">
-                <div className="flex items-center gap-3 mb-4 p-2 bg-white rounded-xl border border-slate-100 shadow-sm">
-                    <img src={currentUser.avatar} className="w-9 h-9 rounded-full object-cover border border-slate-200" alt="User" />
+                <div className="flex items-center gap-3 mb-4 p-3 bg-white rounded-xl border border-slate-100 shadow-sm">
+                    <img src={currentUser.avatar} className="w-10 h-10 rounded-full object-cover border border-slate-200" alt="User" />
                     <div className="flex-1 min-w-0">
                         <div className="text-sm font-bold text-slate-900 truncate">{currentUser.name}</div>
-                        <div className="text-xs text-slate-500 truncate">{currentUser.role}</div>
+                        <div className="text-xs text-slate-500 truncate flex items-center gap-1">
+                            {isManager ? <Shield size={10} className="text-indigo-500"/> : <User size={10}/>}
+                            {currentUser.role}
+                        </div>
                     </div>
                 </div>
 
                 <button 
                     onClick={onExit}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-600 rounded-xl transition-colors text-sm font-bold shadow-sm"
+                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 text-slate-600 rounded-xl transition-colors text-xs font-bold shadow-sm uppercase tracking-wide"
                 >
-                    <LogOut size={16} />
+                    <LogOut size={14} />
                     <span>Terug naar Sanadome</span>
                 </button>
             </div>
