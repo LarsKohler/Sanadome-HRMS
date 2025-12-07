@@ -61,7 +61,28 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
 
 // --- ACADEMY / LMS ---
 
-export type LessonType = 'Video' | 'Text' | 'Quiz';
+export type LessonType = 
+  // Standard
+  | 'Text' 
+  | 'Video' 
+  | 'Quiz'
+  // Visual Interactive
+  | 'Hotspot'
+  | 'Accordion'
+  | 'FlipCard'
+  | 'Process'
+  | 'BeforeAfter'
+  // Scenarios
+  | 'Branching'
+  | 'SoftwareSim'
+  // Active Practice
+  | 'DragSort'
+  | 'DragMatch'
+  | 'FillBlanks'
+  // Social/Reflection
+  | 'Reflection'
+  | 'Poll'
+  | 'FileUpload';
 
 export interface QuizQuestion {
     id: string;
@@ -70,14 +91,57 @@ export interface QuizQuestion {
     correctOptionIndex: number;
 }
 
+// Interfaces for complex content types
+export interface HotspotItem {
+    id: string;
+    x: number; // Percentage
+    y: number; // Percentage
+    title: string;
+    content: string;
+}
+
+export interface FlipCardItem {
+    id: string;
+    front: string; // Text or Image URL
+    back: string;
+}
+
+export interface ProcessStep {
+    id: string;
+    title: string;
+    description: string;
+}
+
+export interface BranchingNode {
+    id: string;
+    text: string; // The situation description
+    options: {
+        text: string;
+        nextNodeId: string; // ID of the next node, or 'END_SUCCESS' / 'END_FAIL'
+        feedback?: string; // Immediate feedback shown after clicking
+    }[];
+}
+
+export interface MatchPair {
+    id: string;
+    left: string;
+    right: string;
+}
+
 export interface AcademyLesson {
     id: string;
     title: string;
     type: LessonType;
-    content: string; // Markdown text or Video URL
+    content: string; // JSON string for complex types, or plain text for 'Text'
     durationMinutes: number;
-    quizQuestions?: QuizQuestion[]; // Only if type is Quiz
-    passingScore?: number; // % needed to pass
+    
+    // Legacy/Simple fields
+    quizQuestions?: QuizQuestion[];
+    passingScore?: number;
+
+    // Complex Data Fields (Optional, usually stored in content JSON but typed here for clarity if needed)
+    mediaUrl?: string; // For Video, Audio, Before/After images
+    mediaUrl2?: string; // For Before/After comparison
 }
 
 export interface AcademyModule {
