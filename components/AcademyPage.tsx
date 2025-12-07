@@ -2,9 +2,10 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
     GraduationCap, ArrowLeft, Search, BookOpen, PlayCircle, CheckCircle2, 
-    Lock, Clock, Trophy, ArrowRight, Plus, Edit2, X, Video, FileText, HelpCircle, AlertCircle, Award, Check, MoreHorizontal, Users, BarChart3, Filter, PenTool, Settings, Save, Trash2, Layout, Image as ImageIcon, ChevronDown, ChevronUp, ChevronRight
+    Lock, Clock, Trophy, ArrowRight, Plus, Edit2, X, Video, FileText, HelpCircle, AlertCircle, Award, Check, MoreHorizontal, Users, BarChart3, Filter, PenTool, Settings, Save, Trash2, Layout, Image as ImageIcon, ChevronDown, ChevronUp, ChevronRight,
+    Bold, Italic, List, Link, Type, Eye, GripVertical
 } from 'lucide-react';
-import { Employee, AcademyCourse, AcademyProgress, AcademyLesson, AcademyModule } from '../types';
+import { Employee, AcademyCourse, AcademyProgress, AcademyLesson, AcademyModule, QuizQuestion } from '../types';
 import { api } from '../utils/api';
 import { hasPermission } from '../utils/permissions';
 import AcademySidebar from './AcademySidebar';
@@ -68,6 +69,23 @@ const AcademyIntro = ({ visible }: { visible: boolean }) => {
             </div>
         </div>
     );
+};
+
+// --- HELPER: MARKDOWN RENDERER ---
+const renderMarkdownPreview = (text: string) => {
+    if (!text) return <p className="text-slate-400 italic">Begin met typen om een voorbeeld te zien...</p>;
+    
+    // Simple parser for preview
+    let html = text
+        .replace(/^### (.*$)/gm, '<h3 class="text-lg font-bold text-slate-800 mt-4 mb-2">$1</h3>')
+        .replace(/^## (.*$)/gm, '<h2 class="text-xl font-bold text-slate-900 mt-6 mb-3 border-b pb-1">$1</h2>')
+        .replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold text-slate-900 mt-6 mb-4">$1</h1>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.*?)\*/g, '<em>$1</em>')
+        .replace(/^- (.*$)/gm, '<li class="ml-4 list-disc text-slate-600">$1</li>')
+        .replace(/\n/g, '<br />');
+
+    return <div dangerouslySetInnerHTML={{ __html: html }} className="prose prose-slate max-w-none" />;
 };
 
 // --- SUB-COMPONENT: ACADEMY PLAYER ---
@@ -160,9 +178,7 @@ const AcademyPlayer: React.FC<AcademyPlayerProps> = ({
                         </div>
 
                         <div className="prose prose-lg prose-slate max-w-none text-slate-600 leading-relaxed font-sans">
-                            {activeItem.lesson.type === 'Text' && (
-                                <div className="whitespace-pre-wrap">{activeItem.lesson.content}</div>
-                            )}
+                            {activeItem.lesson.type === 'Text' && renderMarkdownPreview(activeItem.lesson.content)}
 
                             {activeItem.lesson.type === 'Video' && (
                                 <div className="aspect-video bg-black rounded-2xl shadow-xl flex items-center justify-center text-white overflow-hidden relative group">
@@ -340,6 +356,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     // Builder State
     const [builderCourse, setBuilderCourse] = useState<AcademyCourse | null>(null);
     const [selectedLessonForEdit, setSelectedLessonForEdit] = useState<AcademyLesson | null>(null);
+    const textareaRef = useRef<HTMLTextAreaElement>(null);
 
     // Permissions
     const isManager = hasPermission(currentUser, 'MANAGE_ACADEMY') || currentUser.role === 'Manager' || currentUser.role === 'Senior Medewerker';
@@ -468,6 +485,12 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     const handleEditCourse = (course: AcademyCourse) => {
         setBuilderCourse(course);
         setViewMode('builder');
+        // Default select first lesson if available
+        if (course.modules[0]?.lessons[0]) {
+            setSelectedLessonForEdit(course.modules[0].lessons[0]);
+        } else {
+            setSelectedLessonForEdit(null);
+        }
     };
 
     const handleDeleteCourse = async (id: string) => {
@@ -535,6 +558,46 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                 m.id === moduleId ? { ...m, title } : m
             );
             setBuilderCourse({ ...builderCourse, modules: updatedModules });
+        };
+
+        // Text Editor Helpers
+        const insertText = (prefix: string, suffix: string = '') => {
+            if (!textareaRef.current || !selectedLessonForEdit) return;
+            const start = textareaRef.current.selectionStart;
+            const end = textareaRef.current.selectionEnd;
+            const text = selectedLessonForEdit.content || '';
+            const newText = text.substring(0, start) + prefix + text.substring(start, end) + suffix + text.substring(end);
+            updateLesson(selectedLessonForEdit.id, { content: newText });
+            setTimeout(() => {
+                textareaRef.current?.focus();
+                textareaRef.current?.setSelectionRange(start + prefix.length, end + prefix.length);
+            }, 0);
+        };
+
+        // Quiz Builder Helpers
+        const addQuizQuestion = () => {
+            if (!selectedLessonForEdit) return;
+            const newQ: QuizQuestion = {
+                id: Math.random().toString(36).substr(2, 9),
+                question: 'Nieuwe Vraag',
+                options: ['Optie A', 'Optie B'],
+                correctOptionIndex: 0
+            };
+            const currentQuestions = selectedLessonForEdit.quizQuestions || [];
+            updateLesson(selectedLessonForEdit.id, { quizQuestions: [...currentQuestions, newQ] });
+        };
+
+        const updateQuizQuestion = (qIndex: number, updates: Partial<QuizQuestion>) => {
+            if (!selectedLessonForEdit || !selectedLessonForEdit.quizQuestions) return;
+            const updatedQuestions = [...selectedLessonForEdit.quizQuestions];
+            updatedQuestions[qIndex] = { ...updatedQuestions[qIndex], ...updates };
+            updateLesson(selectedLessonForEdit.id, { quizQuestions: updatedQuestions });
+        };
+
+        const deleteQuizQuestion = (qIndex: number) => {
+            if (!selectedLessonForEdit || !selectedLessonForEdit.quizQuestions) return;
+            const updatedQuestions = selectedLessonForEdit.quizQuestions.filter((_, idx) => idx !== qIndex);
+            updateLesson(selectedLessonForEdit.id, { quizQuestions: updatedQuestions });
         };
 
         return (
@@ -619,82 +682,208 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                         </div>
                     </div>
 
-                    {/* Editor Area */}
-                    <div className="flex-1 bg-slate-50 p-8 overflow-y-auto">
+                    {/* Visual Editor Area */}
+                    <div className="flex-1 bg-slate-50 p-4 md:p-8 overflow-y-auto">
                         {selectedLessonForEdit ? (
-                            <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-                                <div className="mb-6">
-                                    <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Les Titel</label>
-                                    <input 
-                                        className="w-full text-2xl font-bold text-slate-900 border-b-2 border-slate-100 pb-2 focus:border-indigo-500 focus:outline-none"
-                                        value={selectedLessonForEdit.title}
-                                        onChange={e => updateLesson(selectedLessonForEdit.id, {title: e.target.value})}
-                                    />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4 mb-6">
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Type</label>
-                                        <select 
-                                            className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50"
-                                            value={selectedLessonForEdit.type}
-                                            onChange={e => updateLesson(selectedLessonForEdit.id, {type: e.target.value as any})}
-                                        >
-                                            <option value="Text">Tekst / Artikel</option>
-                                            <option value="Video">Video</option>
-                                            <option value="Quiz">Toets</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Duur (min)</label>
-                                        <input 
-                                            type="number"
-                                            className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50"
-                                            value={selectedLessonForEdit.durationMinutes}
-                                            onChange={e => updateLesson(selectedLessonForEdit.id, {durationMinutes: parseInt(e.target.value)})}
-                                        />
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Inhoud</label>
-                                    {selectedLessonForEdit.type === 'Text' && (
-                                        <textarea 
-                                            className="w-full h-64 p-4 border border-slate-200 rounded-xl bg-slate-50 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none"
-                                            value={selectedLessonForEdit.content}
-                                            onChange={e => updateLesson(selectedLessonForEdit.id, {content: e.target.value})}
-                                            placeholder="Schrijf hier de lesinhoud (Markdown ondersteund)..."
-                                        />
-                                    )}
-                                    {selectedLessonForEdit.type === 'Video' && (
-                                        <input 
-                                            className="w-full p-3 border border-slate-200 rounded-xl bg-slate-50 text-sm"
-                                            value={selectedLessonForEdit.content}
-                                            onChange={e => updateLesson(selectedLessonForEdit.id, {content: e.target.value})}
-                                            placeholder="Video URL (Youtube/Vimeo embed link)..."
-                                        />
-                                    )}
-                                    {selectedLessonForEdit.type === 'Quiz' && (
-                                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center text-slate-500">
-                                            <p>Quiz editor functionaliteit. Voeg vragen toe via JSON in content veld voor nu.</p>
-                                            <textarea 
-                                                className="w-full h-32 mt-2 p-2 border border-slate-300 rounded text-xs"
-                                                placeholder="JSON structuur..."
-                                                value={JSON.stringify(selectedLessonForEdit.quizQuestions || [])}
-                                                onChange={e => {
-                                                    try {
-                                                        const qs = JSON.parse(e.target.value);
-                                                        updateLesson(selectedLessonForEdit.id, {quizQuestions: qs});
-                                                    } catch {}
-                                                }}
+                            <div className="max-w-5xl mx-auto h-full flex flex-col">
+                                
+                                {/* Lesson Metadata Card */}
+                                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        <div className="md:col-span-2">
+                                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Les Titel</label>
+                                            <input 
+                                                className="w-full text-2xl font-bold text-slate-900 border-b-2 border-slate-100 pb-2 focus:border-indigo-500 focus:outline-none"
+                                                value={selectedLessonForEdit.title}
+                                                onChange={e => updateLesson(selectedLessonForEdit.id, {title: e.target.value})}
                                             />
+                                        </div>
+                                        <div>
+                                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Instellingen</label>
+                                            <div className="flex gap-2">
+                                                <select 
+                                                    className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-slate-50"
+                                                    value={selectedLessonForEdit.type}
+                                                    onChange={e => updateLesson(selectedLessonForEdit.id, {type: e.target.value as any})}
+                                                >
+                                                    <option value="Text">Artikel / Tekst</option>
+                                                    <option value="Video">Video Les</option>
+                                                    <option value="Quiz">Toets</option>
+                                                </select>
+                                                <input 
+                                                    type="number"
+                                                    className="w-20 p-2 border border-slate-200 rounded-lg text-sm bg-slate-50 text-center"
+                                                    value={selectedLessonForEdit.durationMinutes}
+                                                    onChange={e => updateLesson(selectedLessonForEdit.id, {durationMinutes: parseInt(e.target.value)})}
+                                                    placeholder="min"
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Dynamic Content Editor */}
+                                <div className="flex-1 flex flex-col">
+                                    
+                                    {/* TEXT EDITOR WITH PREVIEW */}
+                                    {selectedLessonForEdit.type === 'Text' && (
+                                        <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
+                                            {/* Toolbar */}
+                                            <div className="p-2 border-b border-slate-100 bg-slate-50 flex gap-1">
+                                                <button onClick={() => insertText('**', '**')} className="p-2 hover:bg-white rounded text-slate-600 hover:text-indigo-600" title="Bold"><Bold size={16}/></button>
+                                                <button onClick={() => insertText('*', '*')} className="p-2 hover:bg-white rounded text-slate-600 hover:text-indigo-600" title="Italic"><Italic size={16}/></button>
+                                                <div className="w-px h-6 bg-slate-200 mx-1 self-center"></div>
+                                                <button onClick={() => insertText('### ')} className="p-2 hover:bg-white rounded text-slate-600 hover:text-indigo-600" title="Heading"><Type size={16}/></button>
+                                                <button onClick={() => insertText('- ')} className="p-2 hover:bg-white rounded text-slate-600 hover:text-indigo-600" title="List"><List size={16}/></button>
+                                                <div className="w-px h-6 bg-slate-200 mx-1 self-center"></div>
+                                                <span className="ml-auto text-xs font-bold text-slate-400 self-center px-2">Markdown Editor</span>
+                                            </div>
+                                            
+                                            <div className="flex-1 flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-slate-100">
+                                                {/* Input */}
+                                                <textarea 
+                                                    ref={textareaRef}
+                                                    className="flex-1 p-6 resize-none focus:outline-none font-mono text-sm leading-relaxed text-slate-700 bg-slate-50/30"
+                                                    value={selectedLessonForEdit.content}
+                                                    onChange={e => updateLesson(selectedLessonForEdit.id, {content: e.target.value})}
+                                                    placeholder="# Schrijf hier je lesmateriaal..."
+                                                />
+                                                {/* Live Preview */}
+                                                <div className="flex-1 p-6 bg-white overflow-y-auto">
+                                                    <div className="mb-4 text-xs font-bold text-slate-300 uppercase tracking-widest">Live Preview</div>
+                                                    {renderMarkdownPreview(selectedLessonForEdit.content)}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* VIDEO EDITOR */}
+                                    {selectedLessonForEdit.type === 'Video' && (
+                                        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 flex flex-col items-center">
+                                            <div className="w-full max-w-2xl">
+                                                <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Video URL (YouTube/Vimeo Embed)</label>
+                                                <div className="flex gap-2 mb-6">
+                                                    <input 
+                                                        className="flex-1 p-3 border border-slate-200 rounded-xl bg-slate-50 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                                        value={selectedLessonForEdit.content}
+                                                        onChange={e => updateLesson(selectedLessonForEdit.id, {content: e.target.value})}
+                                                        placeholder="https://www.youtube.com/embed/..."
+                                                    />
+                                                </div>
+                                                
+                                                {/* Video Preview */}
+                                                <div className="aspect-video bg-slate-900 rounded-xl overflow-hidden shadow-lg relative flex items-center justify-center">
+                                                    {selectedLessonForEdit.content ? (
+                                                        <iframe 
+                                                            src={selectedLessonForEdit.content} 
+                                                            className="w-full h-full"
+                                                            title="Preview"
+                                                            frameBorder="0"
+                                                            allowFullScreen
+                                                        ></iframe>
+                                                    ) : (
+                                                        <div className="text-slate-500 flex flex-col items-center">
+                                                            <Video size={48} className="mb-2 opacity-50"/>
+                                                            <span className="text-sm font-bold">Video Preview</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* VISUAL QUIZ BUILDER */}
+                                    {selectedLessonForEdit.type === 'Quiz' && (
+                                        <div className="flex-1 flex flex-col">
+                                            <div className="flex justify-between items-center mb-4">
+                                                <h3 className="font-bold text-slate-700">Toets Vragen</h3>
+                                                <div className="flex gap-2 items-center">
+                                                    <span className="text-xs text-slate-500 font-bold">Geslaagd bij:</span>
+                                                    <input 
+                                                        type="number" 
+                                                        className="w-16 p-1 text-center border rounded text-sm font-bold"
+                                                        value={selectedLessonForEdit.passingScore || 70}
+                                                        onChange={(e) => updateLesson(selectedLessonForEdit.id, {passingScore: parseInt(e.target.value)})}
+                                                    />
+                                                    <span className="text-xs text-slate-500 font-bold">%</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                {(selectedLessonForEdit.quizQuestions || []).map((q, qIdx) => (
+                                                    <div key={q.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 relative group">
+                                                        <button 
+                                                            onClick={() => deleteQuizQuestion(qIdx)}
+                                                            className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors"
+                                                        >
+                                                            <Trash2 size={16}/>
+                                                        </button>
+                                                        
+                                                        <div className="mb-4 pr-8">
+                                                            <label className="block text-xs font-bold text-slate-400 uppercase mb-1">Vraag {qIdx + 1}</label>
+                                                            <input 
+                                                                className="w-full font-bold text-lg border-b border-slate-100 pb-1 focus:border-indigo-500 focus:outline-none"
+                                                                value={q.question}
+                                                                onChange={(e) => updateQuizQuestion(qIdx, {question: e.target.value})}
+                                                                placeholder="Typ hier de vraag..."
+                                                            />
+                                                        </div>
+
+                                                        <div className="space-y-2">
+                                                            {q.options.map((opt, oIdx) => (
+                                                                <div key={oIdx} className="flex items-center gap-3">
+                                                                    <button 
+                                                                        onClick={() => updateQuizQuestion(qIdx, {correctOptionIndex: oIdx})}
+                                                                        className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors ${q.correctOptionIndex === oIdx ? 'border-green-500 bg-green-50 text-green-600' : 'border-slate-200 text-transparent hover:border-slate-300'}`}
+                                                                        title="Markeer als goed antwoord"
+                                                                    >
+                                                                        <Check size={14} strokeWidth={3}/>
+                                                                    </button>
+                                                                    <input 
+                                                                        className={`flex-1 p-2 rounded-lg text-sm border ${q.correctOptionIndex === oIdx ? 'bg-green-50/30 border-green-200 font-bold text-green-900' : 'bg-white border-slate-200'}`}
+                                                                        value={opt}
+                                                                        onChange={(e) => {
+                                                                            const newOpts = [...q.options];
+                                                                            newOpts[oIdx] = e.target.value;
+                                                                            updateQuizQuestion(qIdx, {options: newOpts});
+                                                                        }}
+                                                                    />
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            const newOpts = q.options.filter((_, i) => i !== oIdx);
+                                                                            updateQuizQuestion(qIdx, {options: newOpts, correctOptionIndex: 0});
+                                                                        }}
+                                                                        className="text-slate-300 hover:text-red-400"
+                                                                    >
+                                                                        <X size={14}/>
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                            <button 
+                                                                onClick={() => updateQuizQuestion(qIdx, {options: [...q.options, 'Nieuwe optie']})}
+                                                                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 mt-2 pl-9"
+                                                            >
+                                                                <Plus size={12}/> Optie toevoegen
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+
+                                                <button 
+                                                    onClick={addQuizQuestion}
+                                                    className="w-full py-4 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex items-center justify-center gap-2"
+                                                >
+                                                    <Plus size={20}/> Nieuwe Vraag Toevoegen
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>
                             </div>
                         ) : (
-                            <div className="h-full flex items-center justify-center text-slate-400">
-                                Selecteer een les om te bewerken
+                            <div className="h-full flex flex-col items-center justify-center text-slate-400">
+                                <Layout size={48} className="mb-4 opacity-20"/>
+                                <p className="font-medium">Selecteer een les uit de zijbalk om te bewerken.</p>
                             </div>
                         )}
                     </div>
