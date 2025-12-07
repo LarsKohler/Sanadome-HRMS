@@ -1,13 +1,14 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
     GraduationCap, ArrowLeft, Search, BookOpen, PlayCircle, CheckCircle2, 
-    Lock, Clock, Trophy, ArrowRight, Plus, Edit2, X, Video, FileText, HelpCircle, AlertCircle, Award, Check
+    Lock, Clock, Trophy, ArrowRight, Plus, Edit2, X, Video, FileText, HelpCircle, AlertCircle, Award, Check, MoreHorizontal, Users, BarChart3, Filter, PenTool
 } from 'lucide-react';
 import { Employee, AcademyCourse, AcademyProgress, AcademyLesson } from '../types';
 import { api } from '../utils/api';
 import { hasPermission } from '../utils/permissions';
 import AcademySidebar from './AcademySidebar';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 
 interface AcademyPageProps {
     currentUser: Employee;
@@ -16,9 +17,12 @@ interface AcademyPageProps {
 }
 
 const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onExit }) => {
-    const [viewMode, setViewMode] = useState<'dashboard' | 'catalog' | 'certificates' | 'player' | 'builder'>('dashboard');
+    // viewMode expanded to include management views
+    const [viewMode, setViewMode] = useState<'dashboard' | 'catalog' | 'certificates' | 'player' | 'manage-courses' | 'manage-students' | 'manage-analytics' | 'builder'>('dashboard');
+    
     const [courses, setCourses] = useState<AcademyCourse[]>([]);
-    const [userProgress, setUserProgress] = useState<AcademyProgress[]>([]);
+    const [allProgress, setAllProgress] = useState<AcademyProgress[]>([]);
+    const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
     
     // Player State
     const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
@@ -31,18 +35,24 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     }, []);
 
     const loadData = async () => {
-        const [c, p] = await Promise.all([
+        const [c, p, e] = await Promise.all([
             api.getAcademyCourses(),
-            api.getAcademyProgress()
+            api.getAcademyProgress(),
+            api.getEmployees()
         ]);
         setCourses(c);
-        setUserProgress(p.filter(prog => prog.employeeId === currentUser.id));
+        setAllProgress(p);
+        setAllEmployees(e);
     };
+
+    const myProgress = useMemo(() => {
+        return allProgress.filter(p => p.employeeId === currentUser.id);
+    }, [allProgress, currentUser.id]);
 
     // --- LOGIC ---
 
     const getCourseProgress = (courseId: string) => {
-        return userProgress.find(p => p.courseId === courseId);
+        return myProgress.find(p => p.courseId === courseId);
     };
 
     const isCourseUnlocked = (course: AcademyCourse) => {
@@ -74,7 +84,8 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                 quizScores: {},
                 startDate: new Date().toLocaleDateString('nl-NL')
             };
-            setUserProgress([...userProgress, progress]);
+            // Optimistic update
+            setAllProgress([...allProgress, progress]); 
             api.saveAcademyProgress(progress);
         }
 
@@ -112,8 +123,8 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                 completedDate: isFinished ? new Date().toLocaleDateString('nl-NL') : undefined
             };
 
-            const newProgList = userProgress.map(p => p.id === updatedProgress.id ? updatedProgress : p);
-            setUserProgress(newProgList);
+            const newProgList = allProgress.map(p => p.id === updatedProgress.id ? updatedProgress : p);
+            setAllProgress(newProgList);
             await api.saveAcademyProgress(updatedProgress);
 
             if (isFinished) {
@@ -125,27 +136,32 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     // --- VIEWS ---
 
     const renderDashboard = () => {
-        const activeCourses = userProgress.filter(p => p.status === 'In Progress');
+        const activeCourses = myProgress.filter(p => p.status === 'In Progress');
         
         return (
             <div className="space-y-10 animate-in fade-in max-w-7xl mx-auto">
                 {/* Hero Section */}
-                <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl p-10 md:p-14 text-white relative overflow-hidden shadow-xl shadow-indigo-200">
-                    <div className="absolute top-0 right-0 p-10 opacity-10 transform translate-x-10 -translate-y-10">
-                        <GraduationCap size={300} />
+                <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-3xl p-10 md:p-14 border border-indigo-100 relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-10 opacity-5 transform translate-x-10 -translate-y-10">
+                        <GraduationCap size={300} className="text-indigo-600"/>
                     </div>
                     <div className="relative z-10 max-w-3xl">
-                        <span className="inline-block px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-bold uppercase tracking-wider mb-4 border border-white/30">
-                            Welkom terug, {currentUser.name.split(' ')[0]}
-                        </span>
-                        <h2 className="text-4xl md:text-5xl font-bold mb-6 font-serif leading-tight">Ontwikkel je talenten bij <br/>SanaLearn.</h2>
-                        <p className="text-indigo-100 text-lg mb-8 max-w-xl leading-relaxed">
-                            Toegang tot exclusieve trainingen en kennis. Investeer in je toekomst en groei mee met de organisatie.
+                        <div className="flex items-center gap-3 mb-4">
+                            <span className="px-3 py-1 bg-white rounded-full text-xs font-bold uppercase tracking-wider border border-indigo-100 text-indigo-600 shadow-sm">
+                                SanaLearn
+                            </span>
+                            <span className="text-slate-400 font-medium text-sm">Jouw persoonlijke leeromgeving</span>
+                        </div>
+                        <h2 className="text-4xl md:text-5xl font-bold mb-6 font-serif leading-tight text-slate-900">
+                            Blijf groeien, <br/> <span className="text-indigo-600">{currentUser.name.split(' ')[0]}</span>.
+                        </h2>
+                        <p className="text-slate-600 text-lg mb-8 max-w-xl leading-relaxed">
+                            Ontwikkel nieuwe vaardigheden en blijf op de hoogte van de laatste standaarden binnen Sanadome.
                         </p>
                         <div className="flex gap-4">
                             <button 
                                 onClick={() => setViewMode('catalog')}
-                                className="bg-white text-indigo-900 px-8 py-4 rounded-xl font-bold shadow-lg hover:bg-indigo-50 transition-all transform hover:-translate-y-1 flex items-center gap-2"
+                                className="bg-indigo-600 text-white px-8 py-4 rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-all transform hover:-translate-y-1 flex items-center gap-2"
                             >
                                 <BookOpen size={20}/> Bekijk Catalogus
                             </button>
@@ -198,8 +214,172 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         );
     };
 
+    const renderManageCourses = () => (
+        <div className="max-w-7xl mx-auto animate-in fade-in space-y-8">
+            <div className="flex justify-between items-center">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-900">Cursus Beheer</h2>
+                    <p className="text-slate-500 text-sm mt-1">Maak en beheer trainingen voor het personeel.</p>
+                </div>
+                <button 
+                    onClick={() => setViewMode('builder')}
+                    className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-md hover:bg-indigo-700 transition-all flex items-center gap-2"
+                >
+                    <Plus size={18}/> Nieuwe Cursus
+                </button>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <table className="w-full text-left">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Cursus Naam</th>
+                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Categorie</th>
+                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Modules</th>
+                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Status</th>
+                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Deelnemers</th>
+                            <th className="px-6 py-4 text-right"></th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {courses.map(course => {
+                            const enrolled = allProgress.filter(p => p.courseId === course.id).length;
+                            return (
+                                <tr key={course.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="px-6 py-4 font-bold text-slate-900">{course.title}</td>
+                                    <td className="px-6 py-4 text-sm text-slate-600">
+                                        <span className="bg-slate-100 px-2 py-1 rounded border border-slate-200">{course.category}</span>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-slate-600">{course.modules.length} modules</td>
+                                    <td className="px-6 py-4">
+                                        <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${course.isPublished ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                                            {course.isPublished ? 'Gepubliceerd' : 'Concept'}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm font-bold text-indigo-600">{enrolled}</td>
+                                    <td className="px-6 py-4 text-right">
+                                        <button className="text-slate-400 hover:text-indigo-600 p-2 hover:bg-indigo-50 rounded-lg transition-colors">
+                                            <Edit2 size={16}/>
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+
+    const renderManageStudents = () => (
+        <div className="max-w-7xl mx-auto animate-in fade-in space-y-8">
+            <div>
+                <h2 className="text-2xl font-bold text-slate-900">Studenten Voortgang</h2>
+                <p className="text-slate-500 text-sm mt-1">Bekijk hoe medewerkers presteren in de academy.</p>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="p-4 border-b border-slate-200 flex gap-4 bg-slate-50/50">
+                    <div className="relative flex-1 max-w-sm">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
+                        <input type="text" placeholder="Zoek medewerker..." className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"/>
+                    </div>
+                    <button className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-600 hover:bg-slate-50 flex items-center gap-2">
+                        <Filter size={16}/> Filter
+                    </button>
+                </div>
+                <table className="w-full text-left">
+                    <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Medewerker</th>
+                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Afdeling</th>
+                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Actieve Cursussen</th>
+                            <th className="px-6 py-4 text-xs font-bold text-slate-500 uppercase">Voltooid</th>
+                            <th className="px-6 py-4 text-right"></th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {allEmployees.map(emp => {
+                            const empProgress = allProgress.filter(p => p.employeeId === emp.id);
+                            const active = empProgress.filter(p => p.status === 'In Progress').length;
+                            const completed = empProgress.filter(p => p.status === 'Completed').length;
+                            
+                            return (
+                                <tr key={emp.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-3">
+                                            <img src={emp.avatar} className="w-8 h-8 rounded-full object-cover border border-slate-200" alt="Av"/>
+                                            <span className="font-bold text-slate-900 text-sm">{emp.name}</span>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-slate-600">{emp.departments?.[0] || '-'}</td>
+                                    <td className="px-6 py-4 text-sm font-bold text-indigo-600">{active}</td>
+                                    <td className="px-6 py-4 text-sm font-bold text-green-600">{completed}</td>
+                                    <td className="px-6 py-4 text-right">
+                                        <button className="text-slate-400 hover:text-indigo-600 text-xs font-bold">Details</button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    );
+
+    const renderManageAnalytics = () => {
+        const totalCompletions = allProgress.filter(p => p.status === 'Completed').length;
+        const totalInProgress = allProgress.filter(p => p.status === 'In Progress').length;
+        const popularCourses = courses.map(c => ({
+            name: c.title,
+            students: allProgress.filter(p => p.courseId === c.id).length
+        })).sort((a,b) => b.students - a.students).slice(0,5);
+
+        return (
+            <div className="max-w-7xl mx-auto animate-in fade-in space-y-8">
+                <div>
+                    <h2 className="text-2xl font-bold text-slate-900">Academy Analytics</h2>
+                    <p className="text-slate-500 text-sm mt-1">Inzichten in het leergedrag van de organisatie.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Totaal Voltooid</p>
+                        <div className="text-4xl font-bold text-green-600">{totalCompletions}</div>
+                        <p className="text-xs text-slate-400 mt-1">Cursussen afgerond</p>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Nu Bezig</p>
+                        <div className="text-4xl font-bold text-indigo-600">{totalInProgress}</div>
+                        <p className="text-xs text-slate-400 mt-1">Actieve trajecten</p>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Beschikbaar</p>
+                        <div className="text-4xl font-bold text-slate-900">{courses.length}</div>
+                        <p className="text-xs text-slate-400 mt-1">Cursussen in catalogus</p>
+                    </div>
+                </div>
+
+                <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm">
+                    <h3 className="font-bold text-slate-900 mb-6">Populairste Cursussen</h3>
+                    <div className="h-80">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={popularCourses} layout="vertical">
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9"/>
+                                <XAxis type="number" hide/>
+                                <YAxis dataKey="name" type="category" width={200} tick={{fontSize: 12, fill: '#64748b'}} interval={0}/>
+                                <Tooltip contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'}}/>
+                                <Bar dataKey="students" fill="#4f46e5" radius={[0, 4, 4, 0]} barSize={24} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     const renderCertificates = () => {
-        const completedCourses = userProgress.filter(p => p.status === 'Completed');
+        const completedCourses = myProgress.filter(p => p.status === 'Completed');
         
         return (
             <div className="max-w-7xl mx-auto animate-in fade-in">
@@ -215,9 +395,9 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                         {completedCourses.map(prog => {
                             const course = courses.find(c => c.id === prog.courseId);
                             return (
-                                <div key={prog.id} className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm text-center relative overflow-hidden group">
+                                <div key={prog.id} className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm text-center relative overflow-hidden group hover:shadow-lg transition-all">
                                     <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-yellow-400 to-orange-500"></div>
-                                    <div className="w-20 h-20 bg-yellow-50 rounded-full flex items-center justify-center text-yellow-500 mx-auto mb-6 group-hover:scale-110 transition-transform shadow-inner">
+                                    <div className="w-20 h-20 bg-yellow-50 rounded-full flex items-center justify-center text-yellow-500 mx-auto mb-6 group-hover:scale-110 transition-transform shadow-inner border border-yellow-100">
                                         <Award size={40}/>
                                     </div>
                                     <h3 className="font-serif font-bold text-xl text-slate-900 mb-2">{course?.title}</h3>
@@ -377,17 +557,17 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         return (
             <div className="fixed inset-0 z-50 bg-white flex flex-col animate-in fade-in duration-300">
                 {/* Player Header */}
-                <div className="h-16 bg-slate-900 text-white flex items-center justify-between px-6 shadow-md z-10">
+                <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10">
                     <div className="flex items-center gap-4">
-                        <button onClick={() => setViewMode('dashboard')} className="p-2 hover:bg-white/10 rounded-full transition-colors text-slate-300 hover:text-white">
+                        <button onClick={() => setViewMode('dashboard')} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500 hover:text-slate-900">
                             <X size={24}/>
                         </button>
-                        <div className="h-6 w-px bg-slate-700"></div>
-                        <h2 className="font-bold text-lg truncate max-w-md">{course.title}</h2>
+                        <div className="h-6 w-px bg-slate-200"></div>
+                        <h2 className="font-bold text-lg text-slate-900 truncate max-w-md">{course.title}</h2>
                     </div>
                     <div className="flex items-center gap-4">
                         <div className="text-xs font-bold text-slate-400 uppercase tracking-wider hidden md:block">Voortgang</div>
-                        <div className="w-32 h-2 bg-slate-700 rounded-full overflow-hidden">
+                        <div className="w-32 h-2 bg-slate-100 rounded-full overflow-hidden">
                             <div className="h-full bg-green-500 transition-all duration-500" style={{width: `${Math.round(((activeLessonIndex) / allLessons.length) * 100)}%`}}></div>
                         </div>
                     </div>
@@ -563,8 +743,8 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
             </div>
             <h2 className="text-3xl font-bold text-slate-900 mb-3">Cursus Builder</h2>
             <p className="text-slate-500 mb-8 max-w-md mx-auto text-lg">Bouw krachtige leermodules met video's, quizzen en artikelen. Deze module wordt momenteel geoptimaliseerd.</p>
-            <button onClick={() => setViewMode('dashboard')} className="px-8 py-3 rounded-xl border border-indigo-200 text-indigo-700 font-bold hover:bg-indigo-50 transition-colors">
-                Terug naar dashboard
+            <button onClick={() => setViewMode('manage-courses')} className="px-8 py-3 rounded-xl border border-indigo-200 text-indigo-700 font-bold hover:bg-indigo-50 transition-colors">
+                Terug naar beheer
             </button>
         </div>
     );
@@ -586,6 +766,11 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                 {viewMode === 'dashboard' && renderDashboard()}
                 {viewMode === 'catalog' && renderCatalog()}
                 {viewMode === 'certificates' && renderCertificates()}
+                
+                {/* ADMIN VIEWS */}
+                {viewMode === 'manage-courses' && renderManageCourses()}
+                {viewMode === 'manage-students' && renderManageStudents()}
+                {viewMode === 'manage-analytics' && renderManageAnalytics()}
                 {viewMode === 'builder' && renderBuilder()}
             </main>
         </div>
