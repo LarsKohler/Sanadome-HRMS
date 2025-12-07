@@ -2,13 +2,318 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     GraduationCap, ArrowLeft, Search, BookOpen, PlayCircle, CheckCircle2, 
-    Lock, Clock, Trophy, ArrowRight, Plus, Edit2, X, Video, FileText, HelpCircle, AlertCircle, Award, Check, MoreHorizontal, Users, BarChart3, Filter, PenTool
+    Lock, Clock, Trophy, ArrowRight, Plus, Edit2, X, Video, FileText, HelpCircle, AlertCircle, Award, Check, MoreHorizontal, Users, BarChart3, Filter, PenTool, Settings
 } from 'lucide-react';
 import { Employee, AcademyCourse, AcademyProgress, AcademyLesson } from '../types';
 import { api } from '../utils/api';
 import { hasPermission } from '../utils/permissions';
 import AcademySidebar from './AcademySidebar';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+
+// --- SUB-COMPONENT: ACADEMY INTRO ---
+const AcademyIntro = ({ visible }: { visible: boolean }) => {
+    return (
+        <div className={`fixed inset-0 z-[100] bg-white flex flex-col items-center justify-center transition-opacity duration-700 ${visible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+            <style>{`
+                @keyframes float {
+                    0%, 100% { transform: translateY(0px); }
+                    50% { transform: translateY(-10px); }
+                }
+                @keyframes pulse-ring {
+                    0% { transform: scale(0.8); opacity: 0.5; }
+                    100% { transform: scale(1.3); opacity: 0; }
+                }
+                @keyframes fill-bar {
+                    0% { width: 0%; }
+                    100% { width: 100%; }
+                }
+                .animate-float {
+                    animation: float 3s ease-in-out infinite;
+                }
+                .animate-pulse-ring {
+                    animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+                }
+                .animate-fill-bar {
+                    animation: fill-bar 2s ease-out forwards;
+                }
+            `}</style>
+
+            <div className="relative flex flex-col items-center">
+                {/* Logo Container */}
+                <div className="relative mb-8 animate-float">
+                    {/* Pulsing Ring Behind */}
+                    <div className="absolute inset-0 bg-indigo-100 rounded-3xl animate-pulse-ring -z-10"></div>
+                    
+                    {/* Main Icon Box */}
+                    <div className="w-32 h-32 bg-indigo-50 rounded-3xl flex items-center justify-center shadow-xl shadow-indigo-100 border border-indigo-100">
+                        <GraduationCap size={64} className="text-indigo-600 drop-shadow-sm" />
+                    </div>
+                </div>
+
+                {/* Text Logo */}
+                <h1 className="text-5xl font-serif font-bold text-slate-900 tracking-tight mb-2 animate-in slide-in-from-bottom-4 duration-700 delay-150 fill-mode-forwards">
+                    Sana<span className="text-indigo-600">Learn</span>
+                </h1>
+                
+                {/* Subtitle */}
+                <p className="text-slate-400 text-lg font-medium tracking-widest uppercase text-xs mb-12 animate-in slide-in-from-bottom-2 duration-700 delay-300 fill-mode-forwards">
+                    Sanadome Academy
+                </p>
+
+                {/* Loading Bar */}
+                <div className="w-48 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 animate-fill-bar rounded-full"></div>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- SUB-COMPONENT: ACADEMY PLAYER ---
+interface AcademyPlayerProps {
+    course: AcademyCourse;
+    activeLessonId: string | null;
+    setActiveLessonId: (id: string) => void;
+    onExit: () => void;
+    onCompleteLesson: (lessonId: string, score?: number) => void;
+    progress: AcademyProgress | undefined;
+    onShowToast: (msg: string) => void;
+}
+
+const AcademyPlayer: React.FC<AcademyPlayerProps> = ({ 
+    course, activeLessonId, setActiveLessonId, onExit, onCompleteLesson, progress, onShowToast 
+}) => {
+    const allLessons: { lesson: AcademyLesson, moduleTitle: string }[] = [];
+    course.modules.forEach(m => {
+        m.lessons.forEach(l => allLessons.push({ lesson: l, moduleTitle: m.title }));
+    });
+
+    const activeLessonIndex = allLessons.findIndex(x => x.lesson.id === activeLessonId);
+    const activeItem = allLessons[activeLessonIndex];
+
+    const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
+    const [quizSubmitted, setQuizSubmitted] = useState(false);
+    const [quizScore, setQuizScore] = useState(0);
+
+    // Reset quiz state when lesson changes
+    useEffect(() => {
+        setQuizAnswers({});
+        setQuizSubmitted(false);
+        setQuizScore(0);
+    }, [activeLessonId]);
+
+    const handleNext = () => {
+        if (activeLessonIndex < allLessons.length - 1) {
+            setActiveLessonId(allLessons[activeLessonIndex + 1].lesson.id);
+        } else {
+            onShowToast("Einde van de cursus!");
+            onExit();
+        }
+    };
+
+    const handlePrev = () => {
+        if (activeLessonIndex > 0) {
+            setActiveLessonId(allLessons[activeLessonIndex - 1].lesson.id);
+        }
+    };
+
+    const submitQuiz = () => {
+        if (activeItem.lesson.type !== 'Quiz' || !activeItem.lesson.quizQuestions) return;
+        let correct = 0;
+        activeItem.lesson.quizQuestions.forEach(q => {
+            if (quizAnswers[q.id] === q.correctOptionIndex) correct++;
+        });
+        const score = Math.round((correct / activeItem.lesson.quizQuestions.length) * 100);
+        setQuizScore(score);
+        setQuizSubmitted(true);
+        if (score >= (activeItem.lesson.passingScore || 70)) {
+            onCompleteLesson(activeItem.lesson.id, score);
+        }
+    };
+
+    if (!activeItem) return <div>Les niet gevonden</div>;
+
+    return (
+        <div className="fixed inset-0 z-50 bg-white flex flex-col animate-in fade-in duration-300 font-sans">
+            {/* Player Header */}
+            <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10">
+                <div className="flex items-center gap-4">
+                    <button onClick={onExit} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500 hover:text-slate-900">
+                        <X size={24}/>
+                    </button>
+                    <div className="h-6 w-px bg-slate-200"></div>
+                    <h2 className="font-bold text-lg text-slate-900 truncate max-w-md">{course.title}</h2>
+                </div>
+                <div className="flex items-center gap-4">
+                    <div className="text-xs font-bold text-slate-400 uppercase tracking-wider hidden md:block">Voortgang</div>
+                    <div className="w-32 h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-green-500 transition-all duration-500" style={{width: `${Math.round(((activeLessonIndex) / allLessons.length) * 100)}%`}}></div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="flex-1 flex overflow-hidden">
+                {/* Content Area */}
+                <div className="flex-1 overflow-y-auto p-8 md:p-12 lg:p-20 bg-slate-50">
+                    <div className="max-w-4xl mx-auto bg-white min-h-full rounded-2xl shadow-sm border border-slate-200 p-10 md:p-14">
+                        <div className="mb-8 pb-8 border-b border-slate-100">
+                            <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-3 block">{activeItem.moduleTitle}</span>
+                            <h1 className="text-3xl md:text-4xl font-bold text-slate-900">{activeItem.lesson.title}</h1>
+                        </div>
+
+                        <div className="prose prose-lg prose-slate max-w-none text-slate-600 leading-relaxed font-sans">
+                            {activeItem.lesson.type === 'Text' && (
+                                <div className="whitespace-pre-wrap">{activeItem.lesson.content}</div>
+                            )}
+
+                            {activeItem.lesson.type === 'Video' && (
+                                <div className="aspect-video bg-black rounded-2xl shadow-xl flex items-center justify-center text-white overflow-hidden relative group">
+                                    <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
+                                        <PlayCircle size={64} className="text-white/80 group-hover:scale-110 transition-transform"/>
+                                    </div>
+                                    <p className="relative z-10 text-sm opacity-50 font-mono">{activeItem.lesson.content}</p>
+                                </div>
+                            )}
+
+                            {activeItem.lesson.type === 'Quiz' && activeItem.lesson.quizQuestions && (
+                                <div className="space-y-10 not-prose">
+                                    {activeItem.lesson.quizQuestions.map((q, idx) => (
+                                        <div key={q.id} className="bg-slate-50 p-8 rounded-2xl border border-slate-200">
+                                            <h4 className="font-bold text-slate-900 mb-6 flex gap-4 text-lg">
+                                                <span className="bg-indigo-600 text-white rounded-lg text-sm w-8 h-8 flex items-center justify-center flex-shrink-0 font-bold">{idx + 1}</span> 
+                                                {q.question}
+                                            </h4>
+                                            <div className="space-y-3 pl-12">
+                                                {q.options.map((opt, optIdx) => (
+                                                    <label 
+                                                        key={optIdx} 
+                                                        className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
+                                                            quizSubmitted 
+                                                                ? (optIdx === q.correctOptionIndex ? 'bg-green-50 border-green-500 text-green-800' : (quizAnswers[q.id] === optIdx ? 'bg-red-50 border-red-200 text-red-800' : 'bg-white border-slate-200 opacity-50'))
+                                                                : (quizAnswers[q.id] === optIdx ? 'bg-indigo-50 border-indigo-600 ring-1 ring-indigo-600 text-indigo-900' : 'bg-white border-slate-200 hover:border-indigo-300')
+                                                        }`}
+                                                    >
+                                                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                                                            quizAnswers[q.id] === optIdx ? 'border-current' : 'border-slate-300'
+                                                        }`}>
+                                                            {quizAnswers[q.id] === optIdx && <div className="w-3 h-3 rounded-full bg-current"></div>}
+                                                        </div>
+                                                        <input 
+                                                            type="radio" 
+                                                            name={q.id} 
+                                                            checked={quizAnswers[q.id] === optIdx}
+                                                            onChange={() => !quizSubmitted && setQuizAnswers({...quizAnswers, [q.id]: optIdx})}
+                                                            className="hidden" 
+                                                        />
+                                                        <span className="font-bold">{opt}</span>
+                                                        {quizSubmitted && optIdx === q.correctOptionIndex && <CheckCircle2 className="ml-auto text-green-600" size={20}/>}
+                                                        {quizSubmitted && quizAnswers[q.id] === optIdx && optIdx !== q.correctOptionIndex && <AlertCircle className="ml-auto text-red-600" size={20}/>}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ))}
+                                    
+                                    {!quizSubmitted ? (
+                                        <button 
+                                            onClick={submitQuiz}
+                                            disabled={Object.keys(quizAnswers).length < activeItem.lesson.quizQuestions.length}
+                                            className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1"
+                                        >
+                                            Antwoorden Inleveren
+                                        </button>
+                                    ) : (
+                                        <div className={`p-6 rounded-xl text-center border-2 ${quizScore >= (activeItem.lesson.passingScore || 70) ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
+                                            <div className="text-3xl font-bold mb-2">{quizScore}%</div>
+                                            <div className="font-bold">{quizScore >= (activeItem.lesson.passingScore || 70) ? 'Geslaagd! Ga door naar de volgende les.' : 'Helaas, probeer het opnieuw.'}</div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-12 flex justify-between items-center pt-8 border-t border-slate-100">
+                            <button 
+                                onClick={handlePrev}
+                                disabled={activeLessonIndex === 0}
+                                className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 disabled:opacity-30 transition-colors flex items-center gap-2"
+                            >
+                                <ArrowLeft size={20}/> Vorige
+                            </button>
+                            {activeItem.lesson.type !== 'Quiz' ? (
+                                <button 
+                                    onClick={() => {
+                                        onCompleteLesson(activeItem.lesson.id);
+                                        handleNext();
+                                    }}
+                                    className="px-8 py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
+                                >
+                                    Afronden & Volgende <ArrowRight size={20}/>
+                                </button>
+                            ) : (
+                                <button 
+                                    onClick={handleNext}
+                                    disabled={!quizSubmitted || quizScore < (activeItem.lesson.passingScore || 70)}
+                                    className="px-8 py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl flex items-center gap-2 disabled:opacity-50 disabled:bg-slate-300 disabled:shadow-none"
+                                >
+                                    Volgende <ArrowRight size={20}/>
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Lesson Sidebar */}
+                <div className="w-80 bg-white border-l border-slate-200 overflow-y-auto hidden xl:block">
+                    <div className="p-6 border-b border-slate-100">
+                        <h3 className="font-bold text-slate-900">Inhoudsopgave</h3>
+                    </div>
+                    {course.modules.map((module, mIdx) => (
+                        <div key={module.id} className="border-b border-slate-50">
+                            <div className="px-6 py-4 bg-slate-50/50 flex items-center justify-between">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Module {mIdx + 1}</span>
+                            </div>
+                            <div>
+                                {module.lessons.map((lesson, lIdx) => {
+                                    const isActive = lesson.id === activeLessonId;
+                                    const isCompleted = progress?.completedLessonIds.includes(lesson.id);
+                                    
+                                    return (
+                                        <button 
+                                            key={lesson.id}
+                                            onClick={() => setActiveLessonId(lesson.id)}
+                                            className={`w-full text-left px-6 py-4 text-sm flex items-start gap-4 transition-all border-l-4 ${
+                                                isActive ? 'bg-indigo-50 text-indigo-900 border-indigo-600 font-bold' : 
+                                                'text-slate-600 hover:bg-slate-50 border-transparent'
+                                            }`}
+                                        >
+                                            <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 border ${
+                                                isCompleted ? 'bg-green-500 border-green-500 text-white' : 
+                                                isActive ? 'bg-indigo-600 border-indigo-600 text-white' : 
+                                                'bg-white border-slate-300 text-slate-300'
+                                            }`}>
+                                                {isCompleted ? <Check size={14} strokeWidth={3}/> : <span className="text-[10px]">{lIdx + 1}</span>}
+                                            </div>
+                                            <div className="flex-1">
+                                                <span className="block leading-snug">{lesson.title}</span>
+                                                <span className="text-[10px] text-slate-400 font-normal mt-1 flex items-center gap-1">
+                                                    {lesson.type === 'Video' ? <Video size={10}/> : lesson.type === 'Quiz' ? <HelpCircle size={10}/> : <FileText size={10}/>}
+                                                    {lesson.durationMinutes} min
+                                                </span>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+// --- MAIN PAGE COMPONENT ---
 
 interface AcademyPageProps {
     currentUser: Employee;
@@ -17,21 +322,29 @@ interface AcademyPageProps {
 }
 
 const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onExit }) => {
-    // viewMode expanded to include management views
     const [viewMode, setViewMode] = useState<'dashboard' | 'catalog' | 'certificates' | 'player' | 'manage-courses' | 'manage-students' | 'manage-analytics' | 'builder'>('dashboard');
-    
     const [courses, setCourses] = useState<AcademyCourse[]>([]);
     const [allProgress, setAllProgress] = useState<AcademyProgress[]>([]);
     const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
     
+    // Intro State
+    const [showIntro, setShowIntro] = useState(true);
+    const [removeIntro, setRemoveIntro] = useState(false);
+
     // Player State
     const [activeCourseId, setActiveCourseId] = useState<string | null>(null);
     const [activeLessonId, setActiveLessonId] = useState<string | null>(null);
 
-    const isManager = hasPermission(currentUser, 'MANAGE_ACADEMY');
+    // Robust Manager Check
+    const isManager = hasPermission(currentUser, 'MANAGE_ACADEMY') || currentUser.role === 'Manager' || currentUser.role === 'Senior Medewerker';
 
     useEffect(() => {
         loadData();
+        
+        // Handle Intro Animation Sequence
+        const timer1 = setTimeout(() => setShowIntro(false), 2200); // Start fading out after 2.2s
+        const timer2 = setTimeout(() => setRemoveIntro(true), 3000); // Completely remove from DOM after 3s
+        return () => { clearTimeout(timer1); clearTimeout(timer2); };
     }, []);
 
     const loadData = async () => {
@@ -152,7 +465,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                             </span>
                             <span className="text-slate-400 font-medium text-sm">Jouw persoonlijke leeromgeving</span>
                         </div>
-                        <h2 className="text-4xl md:text-5xl font-bold mb-6 font-serif leading-tight text-slate-900">
+                        <h2 className="text-4xl md:text-5xl font-bold mb-6 text-slate-900 leading-tight">
                             Blijf groeien, <br/> <span className="text-indigo-600">{currentUser.name.split(' ')[0]}</span>.
                         </h2>
                         <p className="text-slate-600 text-lg mb-8 max-w-xl leading-relaxed">
@@ -165,6 +478,14 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                             >
                                 <BookOpen size={20}/> Bekijk Catalogus
                             </button>
+                            {isManager && (
+                                <button 
+                                    onClick={() => setViewMode('manage-courses')}
+                                    className="bg-white text-indigo-600 border-2 border-indigo-50 px-8 py-4 rounded-xl font-bold shadow-sm hover:bg-indigo-50 transition-all transform hover:-translate-y-1 flex items-center gap-2"
+                                >
+                                    <Settings size={20}/> Beheer Academy
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -500,241 +821,6 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         );
     };
 
-    const renderPlayer = () => {
-        const course = courses.find(c => c.id === activeCourseId);
-        if (!course) return <div>Cursus niet gevonden</div>;
-
-        const allLessons: { lesson: AcademyLesson, moduleTitle: string }[] = [];
-        course.modules.forEach(m => {
-            m.lessons.forEach(l => allLessons.push({ lesson: l, moduleTitle: m.title }));
-        });
-
-        const activeLessonIndex = allLessons.findIndex(x => x.lesson.id === activeLessonId);
-        const activeItem = allLessons[activeLessonIndex];
-        const progress = getCourseProgress(course.id);
-
-        const handleNext = () => {
-            if (activeLessonIndex < allLessons.length - 1) {
-                setActiveLessonId(allLessons[activeLessonIndex + 1].lesson.id);
-            } else {
-                onShowToast("Einde van de cursus!");
-                setViewMode('dashboard');
-            }
-        };
-
-        const handlePrev = () => {
-            if (activeLessonIndex > 0) {
-                setActiveLessonId(allLessons[activeLessonIndex - 1].lesson.id);
-            }
-        };
-
-        const [quizAnswers, setQuizAnswers] = useState<Record<string, number>>({});
-        const [quizSubmitted, setQuizSubmitted] = useState(false);
-        const [quizScore, setQuizScore] = useState(0);
-
-        useEffect(() => {
-            setQuizAnswers({});
-            setQuizSubmitted(false);
-            setQuizScore(0);
-        }, [activeLessonId]);
-
-        const submitQuiz = () => {
-            if (activeItem.lesson.type !== 'Quiz' || !activeItem.lesson.quizQuestions) return;
-            let correct = 0;
-            activeItem.lesson.quizQuestions.forEach(q => {
-                if (quizAnswers[q.id] === q.correctOptionIndex) correct++;
-            });
-            const score = Math.round((correct / activeItem.lesson.quizQuestions.length) * 100);
-            setQuizScore(score);
-            setQuizSubmitted(true);
-            if (score >= (activeItem.lesson.passingScore || 70)) {
-                handleCompleteLesson(activeItem.lesson.id, score);
-            }
-        };
-
-        // --- PLAYER UI ---
-        // This takes over the full content area
-        return (
-            <div className="fixed inset-0 z-50 bg-white flex flex-col animate-in fade-in duration-300">
-                {/* Player Header */}
-                <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shadow-sm z-10">
-                    <div className="flex items-center gap-4">
-                        <button onClick={() => setViewMode('dashboard')} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500 hover:text-slate-900">
-                            <X size={24}/>
-                        </button>
-                        <div className="h-6 w-px bg-slate-200"></div>
-                        <h2 className="font-bold text-lg text-slate-900 truncate max-w-md">{course.title}</h2>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider hidden md:block">Voortgang</div>
-                        <div className="w-32 h-2 bg-slate-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-green-500 transition-all duration-500" style={{width: `${Math.round(((activeLessonIndex) / allLessons.length) * 100)}%`}}></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex-1 flex overflow-hidden">
-                    {/* Content Area */}
-                    <div className="flex-1 overflow-y-auto p-8 md:p-12 lg:p-20 bg-slate-50">
-                        <div className="max-w-4xl mx-auto bg-white min-h-full rounded-2xl shadow-sm border border-slate-200 p-10 md:p-14">
-                            <div className="mb-8 pb-8 border-b border-slate-100">
-                                <span className="text-xs font-bold text-indigo-600 uppercase tracking-widest mb-3 block">{activeItem.moduleTitle}</span>
-                                <h1 className="text-3xl md:text-4xl font-serif font-bold text-slate-900">{activeItem.lesson.title}</h1>
-                            </div>
-
-                            <div className="prose prose-lg prose-slate max-w-none text-slate-600 leading-relaxed">
-                                {activeItem.lesson.type === 'Text' && (
-                                    <div className="whitespace-pre-wrap">{activeItem.lesson.content}</div>
-                                )}
-
-                                {activeItem.lesson.type === 'Video' && (
-                                    <div className="aspect-video bg-black rounded-2xl shadow-xl flex items-center justify-center text-white overflow-hidden relative group">
-                                        {/* Placeholder for video */}
-                                        <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
-                                            <PlayCircle size={64} className="text-white/80 group-hover:scale-110 transition-transform"/>
-                                        </div>
-                                        <p className="relative z-10 text-sm opacity-50 font-mono">{activeItem.lesson.content}</p>
-                                    </div>
-                                )}
-
-                                {activeItem.lesson.type === 'Quiz' && activeItem.lesson.quizQuestions && (
-                                    <div className="space-y-10 not-prose">
-                                        {activeItem.lesson.quizQuestions.map((q, idx) => (
-                                            <div key={q.id} className="bg-slate-50 p-8 rounded-2xl border border-slate-200">
-                                                <h4 className="font-bold text-slate-900 mb-6 flex gap-4 text-lg">
-                                                    <span className="bg-indigo-600 text-white rounded-lg text-sm w-8 h-8 flex items-center justify-center flex-shrink-0 font-bold">{idx + 1}</span> 
-                                                    {q.question}
-                                                </h4>
-                                                <div className="space-y-3 pl-12">
-                                                    {q.options.map((opt, optIdx) => (
-                                                        <label 
-                                                            key={optIdx} 
-                                                            className={`flex items-center gap-4 p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                                                                quizSubmitted 
-                                                                    ? (optIdx === q.correctOptionIndex ? 'bg-green-50 border-green-500 text-green-800' : (quizAnswers[q.id] === optIdx ? 'bg-red-50 border-red-200 text-red-800' : 'bg-white border-slate-200 opacity-50'))
-                                                                    : (quizAnswers[q.id] === optIdx ? 'bg-indigo-50 border-indigo-600 ring-1 ring-indigo-600 text-indigo-900' : 'bg-white border-slate-200 hover:border-indigo-300')
-                                                            }`}
-                                                        >
-                                                            <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                                                                quizAnswers[q.id] === optIdx ? 'border-current' : 'border-slate-300'
-                                                            }`}>
-                                                                {quizAnswers[q.id] === optIdx && <div className="w-3 h-3 rounded-full bg-current"></div>}
-                                                            </div>
-                                                            <input 
-                                                                type="radio" 
-                                                                name={q.id} 
-                                                                checked={quizAnswers[q.id] === optIdx}
-                                                                onChange={() => !quizSubmitted && setQuizAnswers({...quizAnswers, [q.id]: optIdx})}
-                                                                className="hidden" 
-                                                            />
-                                                            <span className="font-bold">{opt}</span>
-                                                            {quizSubmitted && optIdx === q.correctOptionIndex && <CheckCircle2 className="ml-auto text-green-600" size={20}/>}
-                                                            {quizSubmitted && quizAnswers[q.id] === optIdx && optIdx !== q.correctOptionIndex && <AlertCircle className="ml-auto text-red-600" size={20}/>}
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ))}
-                                        
-                                        {!quizSubmitted ? (
-                                            <button 
-                                                onClick={submitQuiz}
-                                                disabled={Object.keys(quizAnswers).length < activeItem.lesson.quizQuestions.length}
-                                                className="w-full py-4 bg-indigo-600 text-white rounded-xl font-bold text-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1"
-                                            >
-                                                Antwoorden Inleveren
-                                            </button>
-                                        ) : (
-                                            <div className={`p-6 rounded-xl text-center border-2 ${quizScore >= (activeItem.lesson.passingScore || 70) ? 'bg-green-50 border-green-200 text-green-800' : 'bg-red-50 border-red-200 text-red-800'}`}>
-                                                <div className="text-3xl font-bold mb-2">{quizScore}%</div>
-                                                <div className="font-bold">{quizScore >= (activeItem.lesson.passingScore || 70) ? 'Geslaagd! Ga door naar de volgende les.' : 'Helaas, probeer het opnieuw.'}</div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-
-                            <div className="mt-12 flex justify-between items-center pt-8 border-t border-slate-100">
-                                <button 
-                                    onClick={handlePrev}
-                                    disabled={activeLessonIndex === 0}
-                                    className="px-6 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 disabled:opacity-30 transition-colors flex items-center gap-2"
-                                >
-                                    <ArrowLeft size={20}/> Vorige
-                                </button>
-                                {activeItem.lesson.type !== 'Quiz' ? (
-                                    <button 
-                                        onClick={() => {
-                                            handleCompleteLesson(activeItem.lesson.id);
-                                            handleNext();
-                                        }}
-                                        className="px-8 py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl flex items-center gap-2"
-                                    >
-                                        Afronden & Volgende <ArrowRight size={20}/>
-                                    </button>
-                                ) : (
-                                    <button 
-                                        onClick={handleNext}
-                                        disabled={!quizSubmitted || quizScore < (activeItem.lesson.passingScore || 70)}
-                                        className="px-8 py-4 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg hover:shadow-xl flex items-center gap-2 disabled:opacity-50 disabled:bg-slate-300 disabled:shadow-none"
-                                    >
-                                        Volgende <ArrowRight size={20}/>
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Lesson Sidebar */}
-                    <div className="w-80 bg-white border-l border-slate-200 overflow-y-auto hidden xl:block">
-                        <div className="p-6 border-b border-slate-100">
-                            <h3 className="font-bold text-slate-900">Inhoudsopgave</h3>
-                        </div>
-                        {course.modules.map((module, mIdx) => (
-                            <div key={module.id} className="border-b border-slate-50">
-                                <div className="px-6 py-4 bg-slate-50/50 flex items-center justify-between">
-                                    <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Module {mIdx + 1}</span>
-                                </div>
-                                <div>
-                                    {module.lessons.map((lesson, lIdx) => {
-                                        const isActive = lesson.id === activeLessonId;
-                                        const isCompleted = progress?.completedLessonIds.includes(lesson.id);
-                                        
-                                        return (
-                                            <button 
-                                                key={lesson.id}
-                                                onClick={() => setActiveLessonId(lesson.id)}
-                                                className={`w-full text-left px-6 py-4 text-sm flex items-start gap-4 transition-all border-l-4 ${
-                                                    isActive ? 'bg-indigo-50 text-indigo-900 border-indigo-600 font-bold' : 
-                                                    'text-slate-600 hover:bg-slate-50 border-transparent'
-                                                }`}
-                                            >
-                                                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 border ${
-                                                    isCompleted ? 'bg-green-500 border-green-500 text-white' : 
-                                                    isActive ? 'bg-indigo-600 border-indigo-600 text-white' : 
-                                                    'bg-white border-slate-300 text-slate-300'
-                                                }`}>
-                                                    {isCompleted ? <Check size={14} strokeWidth={3}/> : <span className="text-[10px]">{lIdx + 1}</span>}
-                                                </div>
-                                                <div className="flex-1">
-                                                    <span className="block leading-snug">{lesson.title}</span>
-                                                    <span className="text-[10px] text-slate-400 font-normal mt-1 flex items-center gap-1">
-                                                        {lesson.type === 'Video' ? <Video size={10}/> : lesson.type === 'Quiz' ? <HelpCircle size={10}/> : <FileText size={10}/>}
-                                                        {lesson.durationMinutes} min
-                                                    </span>
-                                                </div>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
-        );
-    };
-
     // Placeholder for Builder
     const renderBuilder = () => (
         <div className="p-8 bg-white rounded-3xl border border-slate-200 shadow-sm text-center py-32 animate-in fade-in">
@@ -751,29 +837,48 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
 
     // --- MAIN RENDER ---
 
-    if (viewMode === 'player') return renderPlayer();
+    if (viewMode === 'player') {
+        const course = courses.find(c => c.id === activeCourseId);
+        if (!course) return <div>Cursus niet gevonden</div>;
+        const progress = myProgress.find(p => p.courseId === course.id);
+
+        return (
+            <AcademyPlayer 
+                course={course}
+                activeLessonId={activeLessonId}
+                setActiveLessonId={setActiveLessonId}
+                onExit={() => setViewMode('dashboard')}
+                onCompleteLesson={handleCompleteLesson}
+                progress={progress}
+                onShowToast={onShowToast}
+            />
+        );
+    }
 
     return (
-        <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
-            <AcademySidebar 
-                activeView={viewMode} 
-                onChangeView={setViewMode} 
-                onExit={onExit}
-                currentUser={currentUser}
-            />
-            
-            <main className="flex-1 overflow-y-auto p-8 relative">
-                {viewMode === 'dashboard' && renderDashboard()}
-                {viewMode === 'catalog' && renderCatalog()}
-                {viewMode === 'certificates' && renderCertificates()}
+        <>
+            {!removeIntro && <AcademyIntro visible={showIntro} />}
+            <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
+                <AcademySidebar 
+                    activeView={viewMode} 
+                    onChangeView={setViewMode} 
+                    onExit={onExit}
+                    currentUser={currentUser}
+                />
                 
-                {/* ADMIN VIEWS */}
-                {viewMode === 'manage-courses' && renderManageCourses()}
-                {viewMode === 'manage-students' && renderManageStudents()}
-                {viewMode === 'manage-analytics' && renderManageAnalytics()}
-                {viewMode === 'builder' && renderBuilder()}
-            </main>
-        </div>
+                <main className="flex-1 overflow-y-auto p-8 relative">
+                    {viewMode === 'dashboard' && renderDashboard()}
+                    {viewMode === 'catalog' && renderCatalog()}
+                    {viewMode === 'certificates' && renderCertificates()}
+                    
+                    {/* ADMIN VIEWS */}
+                    {viewMode === 'manage-courses' && renderManageCourses()}
+                    {viewMode === 'manage-students' && renderManageStudents()}
+                    {viewMode === 'manage-analytics' && renderManageAnalytics()}
+                    {viewMode === 'builder' && renderBuilder()}
+                </main>
+            </div>
+        </>
     );
 };
 

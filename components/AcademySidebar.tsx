@@ -15,7 +15,7 @@ interface AcademySidebarProps {
 }
 
 const AcademySidebar: React.FC<AcademySidebarProps> = ({ activeView, onChangeView, onExit, currentUser }) => {
-    const isManager = hasPermission(currentUser, 'MANAGE_ACADEMY');
+    const isManager = hasPermission(currentUser, 'MANAGE_ACADEMY') || currentUser.role === 'Manager' || currentUser.role === 'Senior Medewerker';
 
     const learnerItems = [
         { id: 'dashboard', label: 'Mijn Dashboard', icon: LayoutDashboard },
