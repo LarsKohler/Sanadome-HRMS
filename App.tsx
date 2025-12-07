@@ -22,7 +22,7 @@ import RecruitmentPage from './components/RecruitmentPage';
 import TicketDashboard from './components/TicketDashboard';
 import BikeRentalPage from './components/BikeRentalPage'; 
 import BadgeManager from './components/BadgeManager';
-import AcademyPage from './components/AcademyPage'; // Import Academy
+import AcademyPage from './components/AcademyPage'; 
 import UpdateNotifier from './components/UpdateNotifier';
 import { api, isLive } from './utils/api';
 
@@ -175,6 +175,25 @@ function App() {
       }} />;
   }
 
+  // --- ACADEMY LAYOUT CHECK ---
+  if (currentView === ViewState.ACADEMY) {
+      return (
+          <>
+            <AcademyPage 
+                currentUser={currentUser!}
+                onShowToast={handleShowToast}
+                onExit={() => setCurrentView(ViewState.HOME)}
+            />
+            <Toast 
+                message={toastMessage}
+                isVisible={showToast}
+                onClose={() => setShowToast(false)}
+            />
+          </>
+      );
+  }
+
+  // --- STANDARD LAYOUT ---
   const renderView = () => {
       switch(currentView) {
           case ViewState.HOME:
@@ -301,12 +320,6 @@ function App() {
               />;
           case ViewState.BIKE_RENTAL:
               return <BikeRentalPage currentUser={currentUser!} onShowToast={handleShowToast} />;
-          case ViewState.ACADEMY:
-              return <AcademyPage 
-                  currentUser={currentUser!} 
-                  onShowToast={handleShowToast} 
-                  onChangeView={setCurrentView}
-              />;
           default:
               // Fallback for ID-based views (Tickets)
               if (currentView === 'cases') {
