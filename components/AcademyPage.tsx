@@ -5,11 +5,12 @@ import {
     BookOpen, GraduationCap, ChevronRight, ChevronDown, 
     Layout, Save, ArrowLeft, FileText, 
     Video, HelpCircle, Image as ImageIcon, MousePointer, 
-    Layers, List, Upload, Check, GripVertical, X, Star, Clock, ArrowRight, Settings, Music, Eye, Sparkles, Loader2, MonitorPlay
+    Layers, List, Upload, Check, GripVertical, X, Star, Clock, ArrowRight, Settings, Music, Eye, Sparkles, Loader2, MonitorPlay, MoreVertical, AlertTriangle
 } from 'lucide-react';
 import { Employee, AcademyCourse, AcademyProgress, AcademyModule, AcademyLesson, LearningBlock, BlockType } from '../types';
 import AcademySidebar from './AcademySidebar';
 import { api } from '../utils/api';
+import { Modal } from './Modal';
 
 interface AcademyPageProps {
     currentUser: Employee;
@@ -39,9 +40,11 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     const [isBlockPickerOpen, setIsBlockPickerOpen] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
     // Refs for uploads
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const coverInputRef = useRef<HTMLInputElement>(null);
     const activeUploadBlockId = useRef<string | null>(null);
     const activeUploadType = useRef<'video' | 'image' | null>(null);
 
@@ -73,7 +76,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         return { module, lesson };
     };
 
-    // --- BUILDER ACTIONS ---
+    // --- ACTIONS ---
 
     const handleOpenBuilder = (course?: AcademyCourse) => {
         if (course) {
@@ -99,6 +102,22 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         setSelectedBlockId(null);
         setView('builder');
     };
+
+    const handleDeleteCourse = async (id: string) => {
+        if (confirm("Weet je zeker dat je deze training wilt verwijderen? Dit kan niet ongedaan worden gemaakt.")) {
+            await api.deleteAcademyCourse(id);
+            setCourses(prev => prev.filter(c => c.id !== id));
+            onShowToast("Training verwijderd.");
+        }
+    };
+
+    const handleStartCourse = (course: AcademyCourse) => {
+        // Placeholder for Learner Player View
+        onShowToast(`Start training: ${course.title}`);
+        // In a real app, this would switch to a 'player' view.
+    };
+
+    // --- BUILDER LOGIC ---
 
     const addModule = () => {
         if (!activeCourse) return;
@@ -261,6 +280,26 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         activeUploadBlockId.current = blockId;
         activeUploadType.current = type;
         fileInputRef.current?.click();
+    };
+
+    const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file && activeCourse) {
+            setIsUploading(true);
+            try {
+                const url = await api.uploadFile(file);
+                if (url) {
+                    setActiveCourse({ ...activeCourse, coverImage: url });
+                    setHasUnsavedChanges(true);
+                    onShowToast("Omslagfoto bijgewerkt");
+                }
+            } catch (err) {
+                console.error(err);
+                onShowToast("Fout bij uploaden");
+            } finally {
+                setIsUploading(false);
+            }
+        }
     };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -632,7 +671,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                                 updateBlock(block.id, { ...block.content, options: newOpts });
                                             }}
                                             title="Markeer als goed antwoord"
-                                            className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all ${opt.isCorrect ? 'bg-green-500 border-green-500 text-white shadow-sm' : 'border-slate-200 text-slate-300 hover:border-slate-300'}`}
+                                            className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all ${opt.isCorrect ? 'bg-green-50 border-green-500 text-white shadow-sm' : 'border-slate-200 text-slate-300 hover:border-slate-300'}`}
                                         >
                                             <Check size={16} strokeWidth={3}/>
                                         </button>
@@ -722,24 +761,159 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         );
     };
 
+    // --- VIEW RENDERERS ---
+
+    const renderManageCourses = () => {
+        return (
+            <div className="max-w-6xl mx-auto">
+                <div className="flex justify-between items-center mb-8">
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-900">Cursus Beheer</h2>
+                        <p className="text-slate-500">Overzicht van alle e-learning modules.</p>
+                    </div>
+                    <button 
+                        onClick={() => handleOpenBuilder()}
+                        className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center gap-2"
+                    >
+                        <Plus size={18}/> Nieuwe Cursus
+                    </button>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <table className="w-full text-left">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
+                            <tr>
+                                <th className="px-6 py-4">Training</th>
+                                <th className="px-6 py-4">Status</th>
+                                <th className="px-6 py-4">Auteur</th>
+                                <th className="px-6 py-4">Laatst Gewijzigd</th>
+                                <th className="px-6 py-4 text-right">Acties</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {courses.map(course => (
+                                <tr key={course.id} className="hover:bg-slate-50 group transition-colors">
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 bg-slate-100 rounded-lg overflow-hidden flex-shrink-0 border border-slate-200">
+                                                {course.coverImage ? (
+                                                    <img src={course.coverImage} className="w-full h-full object-cover"/>
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={20}/></div>
+                                                )}
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-slate-900">{course.title}</div>
+                                                <div className="text-xs text-slate-500">{course.modules?.length || 0} hoofdstukken</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        {course.isPublished ? (
+                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
+                                                <Eye size={12}/> Live
+                                            </span>
+                                        ) : (
+                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+                                                <Edit2 size={12}/> Concept
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-slate-600">{course.author}</td>
+                                    <td className="px-6 py-4 text-sm text-slate-500">{course.createdAt}</td>
+                                    <td className="px-6 py-4 text-right">
+                                        <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button 
+                                                onClick={() => handleOpenBuilder(course)}
+                                                className="p-2 border border-slate-200 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 text-slate-500 transition-colors"
+                                                title="Bewerken"
+                                            >
+                                                <Edit2 size={16}/>
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDeleteCourse(course.id)}
+                                                className="p-2 border border-slate-200 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 text-slate-500 transition-colors"
+                                                title="Verwijderen"
+                                            >
+                                                <Trash2 size={16}/>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                            {courses.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Nog geen trainingen aangemaakt.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
+    const renderCatalog = () => (
+        <div>
+            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 px-1">Catalogus</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {(courses || []).filter(c => c.isPublished).map(course => (
+                    <div key={course.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group cursor-pointer overflow-hidden flex flex-col h-full" onClick={() => handleStartCourse(course)}>
+                        <div className="h-40 bg-slate-100 relative overflow-hidden">
+                            {course.coverImage && <img src={course.coverImage} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"/>}
+                            
+                            {/* Play Overlay */}
+                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <div className="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center shadow-lg backdrop-blur-sm">
+                                    <Play size={20} className="ml-1 text-slate-900"/>
+                                </div>
+                            </div>
+                            
+                            {/* Badge */}
+                            <div className="absolute top-3 left-3 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide text-indigo-900 shadow-sm">
+                                {course.category}
+                            </div>
+                        </div>
+                        <div className="p-5 flex flex-col flex-1">
+                            <h3 className="font-bold text-lg text-slate-900 mb-2 leading-tight group-hover:text-indigo-600 transition-colors">{course.title}</h3>
+                            <p className="text-xs text-slate-500 mb-4 line-clamp-2 leading-relaxed flex-1">{course.description || 'Geen beschrijving'}</p>
+                            
+                            <div className="flex items-center justify-between pt-4 border-t border-slate-50 mt-auto">
+                                <div className="flex items-center gap-3 text-xs font-bold text-slate-400">
+                                    <span className="flex items-center gap-1"><Layers size={12}/> {(course.modules || []).length}</span>
+                                    <span className="flex items-center gap-1"><Clock size={12}/> {course.estimatedTime || '30m'}</span>
+                                </div>
+                                <span className="flex items-center gap-1 text-xs font-bold text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full">
+                                    <Sparkles size={10} /> {course.xpPoints} XP
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+                {courses.filter(c => c.isPublished).length === 0 && (
+                    <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50 text-slate-400">
+                        <GraduationCap size={48} className="mx-auto mb-4 opacity-50"/>
+                        <p className="font-bold">Geen trainingen beschikbaar</p>
+                        <p className="text-sm mt-1">Check later terug voor nieuwe content.</p>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+
     // --- MAIN RENDER ---
 
     if (view === 'builder' && activeCourse) {
         return (
             <div className="flex flex-col h-screen bg-white font-sans">
-                {/* Hidden File Input for Uploads */}
-                <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    className="hidden" 
-                    onChange={handleFileChange} 
-                    accept="image/*,video/*"
-                />
+                {/* Hidden File Inputs */}
+                <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileChange} accept="image/*,video/*" />
+                <input type="file" ref={coverInputRef} className="hidden" onChange={handleCoverUpload} accept="image/*" />
 
                 {/* HEADER */}
                 <div className="h-16 border-b border-slate-200 flex items-center justify-between px-6 bg-white z-30 shadow-sm relative">
                     <div className="flex items-center gap-4">
-                        <button onClick={() => setView('dashboard')} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors">
+                        <button onClick={() => setView('manage-courses')} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors">
                             <ArrowLeft size={20}/>
                         </button>
                         <div className="h-8 w-px bg-slate-200"></div>
@@ -751,7 +925,6 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                         />
                     </div>
                     
-                    {/* PUBLISH TOGGLE */}
                     <div className="flex items-center gap-6">
                         <div className="flex items-center gap-3 bg-slate-50 p-1 rounded-lg border border-slate-200">
                             <button
@@ -769,8 +942,15 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                         </div>
 
                         <div className="flex items-center gap-3">
-                            <span className="text-xs text-slate-400 font-medium">
-                                {hasUnsavedChanges ? 'Wijzigingen niet opgeslagen' : 'Opgeslagen'}
+                            <button 
+                                onClick={() => setIsSettingsModalOpen(true)}
+                                className="p-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                                title="Cursus Instellingen"
+                            >
+                                <Settings size={18}/>
+                            </button>
+                            <span className="text-xs text-slate-400 font-medium hidden md:inline">
+                                {hasUnsavedChanges ? 'Niet opgeslagen' : 'Opgeslagen'}
                             </span>
                             <button 
                                 onClick={saveCourse}
@@ -914,6 +1094,65 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                         {renderInspector()}
                     </div>
                 </div>
+
+                {/* SETTINGS MODAL */}
+                <Modal isOpen={isSettingsModalOpen} onClose={() => setIsSettingsModalOpen(false)} title="Cursus Instellingen">
+                    <div className="space-y-6">
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Omslagfoto</label>
+                            <div className="border-2 border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 hover:border-indigo-300 transition-all" onClick={() => coverInputRef.current?.click()}>
+                                {activeCourse.coverImage ? (
+                                    <div className="relative w-full h-32 rounded-lg overflow-hidden mb-2 group">
+                                        <img src={activeCourse.coverImage} className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <Edit2 className="text-white"/>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <ImageIcon className="text-slate-300 w-12 h-12 mb-2"/>
+                                )}
+                                <span className="text-sm font-bold text-indigo-600">Upload Foto</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Beschrijving</label>
+                            <textarea 
+                                className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
+                                rows={3}
+                                value={activeCourse.description}
+                                onChange={(e) => { setActiveCourse({...activeCourse, description: e.target.value}); setHasUnsavedChanges(true); }}
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Categorie</label>
+                                <select 
+                                    className="w-full p-3 border border-slate-200 rounded-xl text-sm"
+                                    value={activeCourse.category}
+                                    onChange={(e) => { setActiveCourse({...activeCourse, category: e.target.value}); setHasUnsavedChanges(true); }}
+                                >
+                                    <option value="General">Algemeen</option>
+                                    <option value="Onboarding">Onboarding</option>
+                                    <option value="Safety">Veiligheid</option>
+                                    <option value="Service">Service</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Niveau</label>
+                                <select 
+                                    className="w-full p-3 border border-slate-200 rounded-xl text-sm"
+                                    value={activeCourse.level}
+                                    onChange={(e) => { setActiveCourse({...activeCourse, level: e.target.value as any}); setHasUnsavedChanges(true); }}
+                                >
+                                    <option value="Beginner">Beginner</option>
+                                    <option value="Intermediate">Gevorderd</option>
+                                    <option value="Advanced">Expert</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button onClick={() => setIsSettingsModalOpen(false)} className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl">Klaar</button>
+                    </div>
+                </Modal>
             </div>
         );
     }
@@ -929,100 +1168,58 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
             />
             <main className="flex-1 overflow-hidden flex flex-col relative p-8">
                 
-                {/* HERO / WELCOME */}
-                <div className="mb-10 flex justify-between items-end">
-                    <div>
-                        <h1 className="text-3xl font-serif font-bold text-slate-900">Welkom terug, {currentUser.name.split(' ')[0]}</h1>
-                        <p className="text-slate-500 mt-1">Je hebt <strong>{courses.filter(c => c.isPublished).length} trainingen</strong> beschikbaar.</p>
-                    </div>
-                    {/* Only managers can create */}
-                    {(currentUser.role === 'Manager' || currentUser.role === 'Senior Medewerker') && (
-                        <button 
-                            onClick={() => handleOpenBuilder()}
-                            className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center gap-2 hover:-translate-y-0.5"
-                        >
-                            <Plus size={18}/> Nieuwe Training
-                        </button>
-                    )}
-                </div>
+                {/* DASHBOARD & CATALOG VIEW */}
+                {(view === 'dashboard' || view === 'catalog') && (
+                    <div className="max-w-7xl mx-auto w-full animate-in fade-in duration-500">
+                        {/* HERO / WELCOME */}
+                        <div className="mb-10 flex justify-between items-end">
+                            <div>
+                                <h1 className="text-3xl font-serif font-bold text-slate-900">Welkom terug, {currentUser.name.split(' ')[0]}</h1>
+                                <p className="text-slate-500 mt-1">Je hebt toegang tot <strong>{courses.filter(c => c.isPublished).length} trainingen</strong>.</p>
+                            </div>
+                        </div>
 
-                {/* CONTINUE WATCHING */}
-                {userProgress.length > 0 && (
-                    <div className="mb-10">
-                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 px-1">Verder kijken</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {userProgress.map(prog => {
-                                const course = courses.find(c => c.id === prog.courseId);
-                                if (!course) return null;
-                                return (
-                                    <div key={prog.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex gap-4 items-center group cursor-pointer hover:border-indigo-200 transition-all">
-                                        <div className="w-16 h-16 rounded-xl bg-slate-100 flex-shrink-0 overflow-hidden relative">
-                                            {course.coverImage && <img src={course.coverImage} className="w-full h-full object-cover"/>}
-                                            <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
-                                                <Play size={20} className="text-white fill-white"/>
+                        {/* CONTINUE WATCHING (Only on Dashboard) */}
+                        {view === 'dashboard' && userProgress.length > 0 && (
+                            <div className="mb-10">
+                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 px-1">Verder kijken</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {userProgress.map(prog => {
+                                        const course = courses.find(c => c.id === prog.courseId);
+                                        if (!course) return null;
+                                        return (
+                                            <div key={prog.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex gap-4 items-center group cursor-pointer hover:border-indigo-200 transition-all" onClick={() => handleStartCourse(course)}>
+                                                <div className="w-16 h-16 rounded-xl bg-slate-100 flex-shrink-0 overflow-hidden relative">
+                                                    {course.coverImage && <img src={course.coverImage} className="w-full h-full object-cover"/>}
+                                                    <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
+                                                        <Play size={20} className="text-white fill-white"/>
+                                                    </div>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <h4 className="font-bold text-slate-900 truncate">{course.title}</h4>
+                                                    <div className="h-1.5 w-full bg-slate-100 rounded-full mt-2 overflow-hidden">
+                                                        <div className="h-full bg-indigo-500" style={{ width: `${prog.progressPercentage}%` }}></div>
+                                                    </div>
+                                                    <p className="text-xs text-slate-400 mt-1">{prog.progressPercentage}% voltooid</p>
+                                                </div>
                                             </div>
-                                        </div>
-                                        <div className="flex-1 min-w-0">
-                                            <h4 className="font-bold text-slate-900 truncate">{course.title}</h4>
-                                            <div className="h-1.5 w-full bg-slate-100 rounded-full mt-2 overflow-hidden">
-                                                <div className="h-full bg-indigo-500" style={{ width: `${prog.progressPercentage}%` }}></div>
-                                            </div>
-                                            <p className="text-xs text-slate-400 mt-1">{prog.progressPercentage}% voltooid</p>
-                                        </div>
-                                    </div>
-                                );
-                            })}
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* CATALOG GRID */}
+                        <div>
+                            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 px-1">Catalogus</h3>
+                            {renderCatalog()}
                         </div>
                     </div>
                 )}
 
-                {/* ALL COURSES */}
-                <div>
-                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 px-1">Catalogus</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                        {(courses || []).filter(c => c.isPublished || currentUser.role === 'Manager').map(course => (
-                            <div key={course.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group cursor-pointer overflow-hidden flex flex-col h-full" onClick={() => (currentUser.role === 'Manager' ? handleOpenBuilder(course) : null)}>
-                                <div className="h-40 bg-slate-100 relative overflow-hidden">
-                                    {course.coverImage && <img src={course.coverImage} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"/>}
-                                    
-                                    {/* Edit Overlay for Managers */}
-                                    {currentUser.role === 'Manager' && (
-                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                            <span className="text-white font-bold flex items-center gap-2 border-2 border-white px-4 py-2 rounded-xl">
-                                                <Edit2 size={16}/> Bewerken
-                                            </span>
-                                        </div>
-                                    )}
-                                    
-                                    {/* Badge */}
-                                    <div className="absolute top-3 left-3 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide text-indigo-900 shadow-sm">
-                                        {course.category}
-                                    </div>
-                                    
-                                    {!course.isPublished && (
-                                        <div className="absolute top-3 right-3 bg-amber-100 text-amber-800 px-2 py-1 rounded-lg text-[10px] font-bold border border-amber-200">
-                                            Concept
-                                        </div>
-                                    )}
-                                </div>
-                                <div className="p-5 flex flex-col flex-1">
-                                    <h3 className="font-bold text-lg text-slate-900 mb-2 leading-tight">{course.title}</h3>
-                                    <p className="text-xs text-slate-500 mb-4 line-clamp-2 leading-relaxed flex-1">{course.description || 'Geen beschrijving'}</p>
-                                    
-                                    <div className="flex items-center justify-between pt-4 border-t border-slate-50 mt-auto">
-                                        <div className="flex items-center gap-3 text-xs font-bold text-slate-400">
-                                            <span className="flex items-center gap-1"><Layers size={12}/> {(course.modules || []).length}</span>
-                                            <span className="flex items-center gap-1"><Clock size={12}/> {course.estimatedTime || '30m'}</span>
-                                        </div>
-                                        <span className="flex items-center gap-1 text-xs font-bold text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full">
-                                            <Sparkles size={10} /> {course.xpPoints} XP
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+                {/* MANAGE COURSES VIEW (Admin Only) */}
+                {view === 'manage-courses' && renderManageCourses()}
+
             </main>
         </div>
     );
