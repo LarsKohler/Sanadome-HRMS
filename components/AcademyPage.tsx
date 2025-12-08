@@ -163,6 +163,13 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     const [isUploading, setIsUploading] = useState(false);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
 
+    // Sidebar Drag State
+    const [draggedLesson, setDraggedLesson] = useState<{moduleId: string, lessonId: string} | null>(null);
+
+    // Hotspot Drag State
+    const [draggingSpotId, setDraggingSpotId] = useState<string | null>(null);
+    const imageContainerRef = useRef<HTMLDivElement>(null);
+
     // PLAYER STATE
     const [playerState, setPlayerState] = useState({
         quizAnswers: {} as Record<string, string>, // blockId -> optionId
@@ -351,6 +358,18 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         setHasUnsavedChanges(true);
     };
 
+    const deleteModule = (moduleId: string) => {
+        if (!activeCourse) return;
+        if (!confirm('Weet je zeker dat je dit hoofdstuk en alle lessen wilt verwijderen?')) return;
+        const updatedModules = activeCourse.modules.filter(m => m.id !== moduleId);
+        setActiveCourse({ ...activeCourse, modules: updatedModules });
+        if (selectedModuleId === moduleId) {
+            setSelectedModuleId(null);
+            setSelectedLessonId(null);
+        }
+        setHasUnsavedChanges(true);
+    };
+
     const addLesson = (moduleId: string) => {
         if (!activeCourse) return;
         const newLesson: AcademyLesson = {
@@ -370,6 +389,119 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         setSelectedLessonId(newLesson.id);
         setHasUnsavedChanges(true);
     };
+
+    const deleteLesson = (moduleId: string, lessonId: string) => {
+        if (!activeCourse) return;
+        if (!confirm('Weet je zeker dat je deze les wilt verwijderen?')) return;
+        const updatedModules = activeCourse.modules.map(m => {
+            if (m.id === moduleId) {
+                return { ...m, lessons: m.lessons.filter(l => l.id !== lessonId) };
+            }
+            return m;
+        });
+        setActiveCourse({ ...activeCourse, modules: updatedModules });
+        if (selectedLessonId === lessonId) {
+            setSelectedLessonId(null);
+        }
+        setHasUnsavedChanges(true);
+    };
+
+    const handleLessonDragStart = (e: React.DragEvent, moduleId: string, lessonId: string) => {
+        setDraggedLesson({ moduleId, lessonId });
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleModuleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+    };
+
+    const handleLessonDrop = (e: React.DragEvent, targetModuleId: string) => {
+        e.preventDefault();
+        if (!draggedLesson || !activeCourse) return;
+        
+        const sourceModule = activeCourse.modules.find(m => m.id === draggedLesson.moduleId);
+        const targetModule = activeCourse.modules.find(m => m.id === targetModuleId);
+        
+        if (!sourceModule || !targetModule) return;
+
+        const lessonToMove = sourceModule.lessons.find(l => l.id === draggedLesson.lessonId);
+        if (!lessonToMove) return;
+
+        // Remove from source
+        const newSourceLessons = sourceModule.lessons.filter(l => l.id !== draggedLesson.lessonId);
+        
+        let newModules = [...activeCourse.modules];
+        
+        if (draggedLesson.moduleId === targetModuleId) {
+            // Reordering within same module (Append to end for now as simplest approach)
+             // In a full implementation we'd find the drop index
+             return; 
+        }
+
+        newModules = newModules.map(m => {
+            if (m.id === draggedLesson.moduleId) {
+                return { ...m, lessons: newSourceLessons };
+            }
+            if (m.id === targetModuleId) {
+                return { ...m, lessons: [...m.lessons, lessonToMove] };
+            }
+            return m;
+        });
+
+        setActiveCourse({ ...activeCourse, modules: newModules });
+        setHasUnsavedChanges(true);
+        setDraggedLesson(null);
+        
+        // Auto select the moved lesson in new place
+        setSelectedModuleId(targetModuleId);
+    };
+
+    // --- HOTSPOT DRAG LOGIC ---
+    const handleHotspotDragStart = (e: React.MouseEvent, spotId: string) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDraggingSpotId(spotId);
+    };
+
+    // Attach global listeners for smooth dragging outside the container
+    useEffect(() => {
+        const handleMove = (e: MouseEvent) => {
+            if (draggingSpotId && imageContainerRef.current && selectedBlockId && activeCourse) {
+                 const rect = imageContainerRef.current.getBoundingClientRect();
+                 let x = ((e.clientX - rect.left) / rect.width) * 100;
+                 let y = ((e.clientY - rect.top) / rect.height) * 100;
+                 
+                 // Clamp values
+                 x = Math.max(0, Math.min(100, x));
+                 y = Math.max(0, Math.min(100, y));
+
+                 // Update course state directly for performance
+                 const context = getActiveContext();
+                 if(!context) return;
+                 
+                 const block = context.lesson.blocks.find(b => b.id === selectedBlockId);
+                 if (block && block.type === 'hotspot') {
+                     const newSpots = block.content.spots.map((s: any) => s.id === draggingSpotId ? { ...s, x, y } : s);
+                     updateBlock(selectedBlockId, { ...block.content, spots: newSpots });
+                 }
+            }
+        };
+        
+        const handleUp = () => {
+            if (draggingSpotId) setDraggingSpotId(null);
+        };
+
+        if (draggingSpotId) {
+            window.addEventListener('mousemove', handleMove);
+            window.addEventListener('mouseup', handleUp);
+        }
+        return () => {
+            window.removeEventListener('mousemove', handleMove);
+            window.removeEventListener('mouseup', handleUp);
+        };
+    }, [draggingSpotId, selectedBlockId, activeCourse]);
+
 
     const addBlock = (type: BlockType) => {
         const context = getActiveContext();
@@ -853,17 +985,21 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                     )}
 
                     {block.type === 'hotspot' && (
-                        <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+                        <div 
+                            ref={isSelected ? imageContainerRef : null} 
+                            className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-50"
+                        >
                             {block.content.imageUrl ? (
                                 <div className="relative">
-                                    <img src={block.content.imageUrl} alt="Hotspot Base" className="w-full object-cover" />
+                                    <img src={block.content.imageUrl} alt="Hotspot Base" className="w-full object-cover select-none pointer-events-none" />
                                     {/* Render Hotspots Visuals */}
                                     {(block.content.spots || []).map((spot: any) => (
                                         <div 
                                             key={spot.id}
-                                            className="absolute w-8 h-8 -ml-4 -mt-4 bg-indigo-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center text-white font-bold text-xs cursor-pointer hover:scale-110 transition-transform z-10"
+                                            className={`absolute w-8 h-8 -ml-4 -mt-4 bg-indigo-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center text-white font-bold text-xs cursor-pointer hover:scale-110 transition-transform z-10 ${isSelected ? 'cursor-move' : ''}`}
                                             style={{ left: `${spot.x}%`, top: `${spot.y}%` }}
                                             title={spot.title}
+                                            onMouseDown={(e) => isSelected && handleHotspotDragStart(e, spot.id)}
                                         >
                                             <LucideIcons.Plus size={14}/>
                                         </div>
@@ -1144,7 +1280,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                             <div className="flex gap-2">
                                                 <div className="flex-1 relative">
                                                     <span className="absolute left-2 top-2 text-xs text-slate-400 font-bold">X</span>
-                                                    <input className="w-full pl-6 p-2 border border-slate-200 rounded-lg text-sm" type="number" value={spot.x} onChange={(e) => {
+                                                    <input className="w-full pl-6 p-2 border border-slate-200 rounded-lg text-sm" type="number" value={Math.round(spot.x)} onChange={(e) => {
                                                         const newSpots = [...block.content.spots];
                                                         newSpots[i].x = parseFloat(e.target.value);
                                                         updateBlock(block.id, { ...block.content, spots: newSpots });
@@ -1152,7 +1288,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                                 </div>
                                                 <div className="flex-1 relative">
                                                     <span className="absolute left-2 top-2 text-xs text-slate-400 font-bold">Y</span>
-                                                    <input className="w-full pl-6 p-2 border border-slate-200 rounded-lg text-sm" type="number" value={spot.y} onChange={(e) => {
+                                                    <input className="w-full pl-6 p-2 border border-slate-200 rounded-lg text-sm" type="number" value={Math.round(spot.y)} onChange={(e) => {
                                                         const newSpots = [...block.content.spots];
                                                         newSpots[i].y = parseFloat(e.target.value);
                                                         updateBlock(block.id, { ...block.content, spots: newSpots });
@@ -1604,7 +1740,12 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                     <div className="w-64 border-r border-slate-200 bg-slate-50 flex flex-col h-full overflow-hidden flex-shrink-0">
                         <div className="p-4 overflow-y-auto flex-1 space-y-6">
                             {(activeCourse.modules || []).map((module, mIdx) => (
-                                <div key={module.id} className="space-y-2">
+                                <div 
+                                    key={module.id} 
+                                    className="space-y-2 group/module"
+                                    onDragOver={handleModuleDragOver}
+                                    onDrop={(e) => handleLessonDrop(e, module.id)}
+                                >
                                     <div className="flex items-center gap-2 px-2">
                                         <div className="w-5 h-5 bg-slate-200 text-slate-500 rounded flex items-center justify-center text-[10px] font-bold">
                                             {mIdx + 1}
@@ -1619,21 +1760,37 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                                 setHasUnsavedChanges(true);
                                             }}
                                         />
+                                        <button onClick={() => deleteModule(module.id)} className="text-slate-400 hover:text-red-500 opacity-0 group-hover/module:opacity-100 transition-opacity">
+                                            <LucideIcons.Trash2 size={14} />
+                                        </button>
                                     </div>
                                     <div className="space-y-0.5">
                                         {(module.lessons || []).map(lesson => (
-                                            <button
+                                            <div 
                                                 key={lesson.id}
-                                                onClick={() => { setSelectedModuleId(module.id); setSelectedLessonId(lesson.id); }}
-                                                className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors ${
-                                                    selectedLessonId === lesson.id 
-                                                    ? 'bg-white shadow-sm text-indigo-700 font-bold' 
-                                                    : 'text-slate-600 hover:bg-slate-200/50'
-                                                }`}
+                                                draggable
+                                                onDragStart={(e) => handleLessonDragStart(e, module.id, lesson.id)}
+                                                className="flex items-center group/lesson"
                                             >
-                                                <LucideIcons.FileText size={14} className="opacity-50"/>
-                                                <span className="truncate">{lesson.title}</span>
-                                            </button>
+                                                <button
+                                                    onClick={() => { setSelectedModuleId(module.id); setSelectedLessonId(lesson.id); }}
+                                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors flex-1 ${
+                                                        selectedLessonId === lesson.id 
+                                                        ? 'bg-white shadow-sm text-indigo-700 font-bold' 
+                                                        : 'text-slate-600 hover:bg-slate-200/50'
+                                                    }`}
+                                                >
+                                                    <LucideIcons.GripVertical size={14} className="opacity-0 group-hover/lesson:opacity-50 cursor-grab mr-1 text-slate-400"/>
+                                                    <LucideIcons.FileText size={14} className="opacity-50"/>
+                                                    <span className="truncate">{lesson.title}</span>
+                                                </button>
+                                                <button 
+                                                    onClick={() => deleteLesson(module.id, lesson.id)}
+                                                    className="p-1 text-slate-300 hover:text-red-500 opacity-0 group-hover/lesson:opacity-100"
+                                                >
+                                                    <LucideIcons.Trash2 size={12} />
+                                                </button>
+                                            </div>
                                         ))}
                                         <button 
                                             onClick={() => addLesson(module.id)}
