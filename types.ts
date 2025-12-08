@@ -163,6 +163,8 @@ export interface AcademyCourse {
     createdAt: string;
     author: string;
     isPublished: boolean;
+    xpPoints?: number; // Gamification
+    estimatedTime?: string;
 }
 
 export interface AcademyProgress {
@@ -175,6 +177,7 @@ export interface AcademyProgress {
     quizScores: Record<string, number>; // lessonId -> score
     startDate?: string;
     completedDate?: string;
+    lastAccessedAt?: string;
 }
 
 // ... existing types ...
@@ -351,6 +354,10 @@ export interface Employee {
 
   // Badges
   badges?: AssignedBadge[];
+  
+  // Gamification
+  xpPoints?: number;
+  level?: number;
 }
 
 export interface Notification {
