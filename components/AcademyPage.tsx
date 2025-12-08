@@ -5,7 +5,7 @@ import {
     BookOpen, GraduationCap, ChevronRight, ChevronDown, 
     Layout, Save, ArrowLeft, FileText, 
     Video, HelpCircle, Image as ImageIcon, MousePointer, 
-    Layers, List, Upload, Check, GripVertical, X, Star, Clock, ArrowRight, Settings, Music, Eye, Sparkles, Loader2
+    Layers, List, Upload, Check, GripVertical, X, Star, Clock, ArrowRight, Settings, Music, Eye, Sparkles, Loader2, MonitorPlay
 } from 'lucide-react';
 import { Employee, AcademyCourse, AcademyProgress, AcademyModule, AcademyLesson, LearningBlock, BlockType } from '../types';
 import AcademySidebar from './AcademySidebar';
@@ -21,11 +21,9 @@ interface AcademyPageProps {
 const BLOCK_TYPES: { type: BlockType; label: string; icon: any; color: string; description: string }[] = [
     { type: 'text', label: 'Rich Text', icon: FileText, color: 'text-slate-600 bg-slate-100', description: 'Tekst, koppen, quotes en opmaak.' },
     { type: 'video', label: 'Video', icon: Video, color: 'text-red-600 bg-red-100', description: 'YouTube, Vimeo of upload.' },
-    { type: 'audio', label: 'Audio', icon: Music, color: 'text-purple-600 bg-purple-100', description: 'Podcast of audiofragment.' },
     { type: 'hotspot', label: 'Hotspot Image', icon: MousePointer, color: 'text-orange-600 bg-orange-100', description: 'Interactieve afbeelding met klikbare punten.' },
     { type: 'flashcard', label: 'Flashcards', icon: Layers, color: 'text-indigo-600 bg-indigo-100', description: 'Omdraaibare kaarten om te oefenen.' },
     { type: 'quiz', label: 'Kennis Quiz', icon: HelpCircle, color: 'text-teal-600 bg-teal-100', description: 'Toets de kennis met vragen.' },
-    { type: 'accordion', label: 'Accordion', icon: List, color: 'text-blue-600 bg-blue-100', description: 'Uitklapbare secties voor veel tekst.' },
 ];
 
 const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onExit }) => {
@@ -57,7 +55,6 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         const unsubscribe = api.subscribeToAcademy(
             (updatedCourses) => {
                 // Only update if we are NOT currently editing to prevent overwrites
-                // Ideally we'd merge, but for now we prioritize builder safety
                 if (view !== 'builder') {
                     setCourses(updatedCourses);
                 }
@@ -71,7 +68,6 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     // --- HELPER: GET CURRENT CONTEXT ---
     const getActiveContext = () => {
         if (!activeCourse || !selectedModuleId || !selectedLessonId) return null;
-        // Add safe check for activeCourse.modules since it can be undefined on new courses
         const module = (activeCourse.modules || []).find(m => m.id === selectedModuleId);
         const lesson = (module?.lessons || []).find(l => l.id === selectedLessonId);
         return { module, lesson };
@@ -81,7 +77,6 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
 
     const handleOpenBuilder = (course?: AcademyCourse) => {
         if (course) {
-            // Deep copy to prevent direct mutation before save
             setActiveCourse(JSON.parse(JSON.stringify(course)));
         } else {
             const newId = crypto.randomUUID();
@@ -121,7 +116,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         const newLesson: AcademyLesson = {
             id: crypto.randomUUID(),
             title: 'Nieuwe Les',
-            blocks: [], // Empty blocks array
+            blocks: [], 
             durationMinutes: 5
         };
         
@@ -141,12 +136,11 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         if (!context || !activeCourse) return;
 
         let content: any = {};
-        // Default content structures
-        if (type === 'text') content = { html: 'Typ hier je tekst...', style: 'paragraph' };
+        if (type === 'text') content = { html: '', style: 'paragraph' };
         if (type === 'video') content = { url: '', source: 'youtube' };
         if (type === 'hotspot') content = { imageUrl: '', spots: [] };
         if (type === 'flashcard') content = { cards: [{ id: '1', front: 'Vraag', back: 'Antwoord' }] };
-        if (type === 'quiz') content = { question: 'Nieuwe vraag?', type: 'single', options: [{ id: '1', text: 'Antwoord A', isCorrect: true }] };
+        if (type === 'quiz') content = { question: 'Nieuwe vraag?', type: 'single', options: [{ id: '1', text: 'Optie A', isCorrect: true }, { id: '2', text: 'Optie B', isCorrect: false }] };
 
         const newBlock: LearningBlock = {
             id: crypto.randomUUID(),
@@ -248,7 +242,6 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         if (!activeCourse) return;
         await api.saveAcademyCourse(activeCourse);
         
-        // Update local list immediately
         setCourses(prev => {
             const idx = prev.findIndex(c => c.id === activeCourse.id);
             if (idx >= 0) {
@@ -282,7 +275,6 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                 const url = await api.uploadFile(file);
                 
                 if (url) {
-                    // Find the block to get its current content
                     const context = getActiveContext();
                     const block = context?.lesson?.blocks.find(b => b.id === blockId);
                     
@@ -305,7 +297,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                 onShowToast("Fout bij uploaden.");
             } finally {
                 setIsUploading(false);
-                if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input
+                if (fileInputRef.current) fileInputRef.current.value = '';
             }
         }
     };
@@ -314,17 +306,21 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
 
     const renderBlockEditor = (block: LearningBlock) => {
         const isSelected = block.id === selectedBlockId;
-        const BlockIcon = BLOCK_TYPES.find(b => b.type === block.type)?.icon || HelpCircle;
+        const styleClass = block.content.style === 'h1' ? 'text-3xl font-bold text-slate-900' : 
+                          block.content.style === 'h2' ? 'text-2xl font-bold text-slate-800 mt-4' :
+                          block.content.style === 'quote' ? 'text-xl italic text-slate-600 border-l-4 border-slate-300 pl-4 py-2' :
+                          block.content.style === 'alert' ? 'bg-amber-50 text-amber-900 p-4 rounded-lg border border-amber-200 font-medium' :
+                          'text-slate-600 leading-relaxed';
 
         return (
             <div 
                 key={block.id}
                 onClick={() => setSelectedBlockId(block.id)}
-                className={`group relative rounded-xl border-2 transition-all cursor-pointer mb-4 ${isSelected ? 'border-indigo-500 bg-white shadow-md ring-2 ring-indigo-100' : 'border-transparent bg-white hover:border-slate-200'}`}
+                className={`group relative rounded-xl border-2 transition-all cursor-pointer mb-4 ${isSelected ? 'border-indigo-500 shadow-lg ring-2 ring-indigo-100 z-10' : 'border-transparent hover:border-slate-200'}`}
             >
                 {/* Drag Handle & Actions */}
-                <div className={`absolute -left-10 top-2 flex flex-col gap-1 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                    <div className="p-1.5 bg-white border border-slate-200 rounded text-slate-400 cursor-grab active:cursor-grabbing">
+                <div className={`absolute -left-12 top-2 flex flex-col gap-1 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                    <div className="p-1.5 bg-white border border-slate-200 rounded text-slate-400 cursor-grab active:cursor-grabbing shadow-sm">
                         <GripVertical size={14}/>
                     </div>
                     <button onClick={(e) => { e.stopPropagation(); moveBlock(block.id, 'up'); }} className="p-1.5 bg-white border border-slate-200 rounded text-slate-500 hover:text-indigo-600"><ChevronDown className="rotate-180" size={14}/></button>
@@ -332,138 +328,103 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                     <button onClick={(e) => { e.stopPropagation(); deleteBlock(block.id); }} className="p-1.5 bg-white border border-slate-200 rounded text-slate-500 hover:text-red-600"><Trash2 size={14}/></button>
                 </div>
 
-                <div className="p-6">
-                    {/* TYPE SPECIFIC RENDER */}
+                <div className="p-2">
+                    {/* TYPE SPECIFIC RENDER - VISUAL PREVIEW ONLY */}
+                    
                     {block.type === 'text' && (
-                        <div className="prose max-w-none">
-                            <textarea 
-                                className="w-full resize-none outline-none bg-transparent text-slate-700"
-                                value={block.content.html}
-                                onChange={(e) => updateBlock(block.id, { ...block.content, html: e.target.value })}
-                                placeholder="Typ hier je tekst..."
-                                rows={Math.max(3, (block.content.html || '').split('\n').length)}
-                            />
-                        </div>
+                        <textarea 
+                            className={`w-full resize-none outline-none bg-transparent ${styleClass}`}
+                            value={block.content.html}
+                            onChange={(e) => updateBlock(block.id, { ...block.content, html: e.target.value })}
+                            placeholder={block.content.style === 'h1' ? "Koptekst..." : "Typ hier je tekst..."}
+                            rows={Math.max(1, (block.content.html || '').split('\n').length)}
+                        />
                     )}
 
                     {block.type === 'video' && (
-                        <div className="flex flex-col gap-4">
-                            <div className="flex items-center gap-2 bg-red-50 p-2 rounded-lg text-red-700 font-bold text-xs w-fit">
-                                <Video size={14}/> Video Embed
-                            </div>
-                            <div className="flex gap-2">
-                                <input 
-                                    className="flex-1 p-2 border border-slate-200 rounded-lg text-sm"
-                                    placeholder="YouTube / Vimeo URL..."
-                                    value={block.content.url}
-                                    onChange={(e) => updateBlock(block.id, { ...block.content, url: e.target.value })}
-                                />
-                                <button 
-                                    onClick={() => handleTriggerUpload(block.id, 'video')}
-                                    disabled={isUploading}
-                                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors"
-                                >
-                                    {isUploading ? <Loader2 className="animate-spin" size={14}/> : <Upload size={14}/>} Upload
-                                </button>
-                            </div>
-                            {block.content.url && (
-                                <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
-                                    {block.content.url.includes('http') && !block.content.url.includes('youtube') && !block.content.url.includes('vimeo') ? (
-                                        <video src={block.content.url} controls className="w-full h-full" />
-                                    ) : (
-                                        <iframe className="w-full h-full pointer-events-none" src={block.content.url.replace('watch?v=', 'embed/')} />
-                                    )}
+                        <div className="rounded-xl overflow-hidden bg-black aspect-video relative group/video">
+                            {block.content.url ? (
+                                block.content.url.includes('http') && !block.content.url.includes('youtube') && !block.content.url.includes('vimeo') ? (
+                                    <video src={block.content.url} controls className="w-full h-full" />
+                                ) : (
+                                    <iframe 
+                                        className="w-full h-full pointer-events-none" 
+                                        src={block.content.url.replace('watch?v=', 'embed/')} 
+                                    />
+                                )
+                            ) : (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 bg-slate-100">
+                                    <MonitorPlay size={48} className="mb-2 opacity-50"/>
+                                    <p className="font-bold text-sm">Geen video geselecteerd</p>
+                                    <p className="text-xs">Configureer in de zijbalk &rarr;</p>
                                 </div>
                             )}
                         </div>
                     )}
 
                     {block.type === 'hotspot' && (
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-2 bg-orange-50 p-2 rounded-lg text-orange-700 font-bold text-xs w-fit">
-                                <MousePointer size={14}/> Hotspot Image
-                            </div>
-                            <div className="flex gap-2">
-                                <input 
-                                    className="flex-1 p-2 border border-slate-200 rounded-lg text-sm"
-                                    placeholder="Afbeelding URL..."
-                                    value={block.content.imageUrl}
-                                    onChange={(e) => updateBlock(block.id, { ...block.content, imageUrl: e.target.value })}
-                                />
-                                <button 
-                                    onClick={() => handleTriggerUpload(block.id, 'image')}
-                                    disabled={isUploading}
-                                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors"
-                                >
-                                    {isUploading ? <Loader2 className="animate-spin" size={14}/> : <Upload size={14}/>} Upload
-                                </button>
-                            </div>
-                            {block.content.imageUrl && (
-                                <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
-                                    <img src={block.content.imageUrl} alt="Hotspot Base" className="w-full object-cover max-h-96" />
-                                    <div className="absolute bottom-2 right-2 bg-white/90 text-[10px] px-2 py-1 rounded shadow text-slate-500">
-                                        Configureer hotspots in Inspector &rarr;
-                                    </div>
+                        <div className="relative rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+                            {block.content.imageUrl ? (
+                                <div className="relative">
+                                    <img src={block.content.imageUrl} alt="Hotspot Base" className="w-full object-cover" />
+                                    {/* Render Hotspots Visuals */}
+                                    {(block.content.spots || []).map((spot: any) => (
+                                        <div 
+                                            key={spot.id}
+                                            className="absolute w-8 h-8 -ml-4 -mt-4 bg-indigo-600 rounded-full border-4 border-white shadow-lg flex items-center justify-center text-white font-bold text-xs cursor-pointer hover:scale-110 transition-transform z-10"
+                                            style={{ left: `${spot.x}%`, top: `${spot.y}%` }}
+                                            title={spot.title}
+                                        >
+                                            <Plus size={14}/>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="h-64 flex flex-col items-center justify-center text-slate-400">
+                                    <ImageIcon size={48} className="mb-2 opacity-50"/>
+                                    <p className="font-bold text-sm">Upload een afbeelding in de zijbalk</p>
                                 </div>
                             )}
                         </div>
                     )}
 
                     {block.type === 'flashcard' && (
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-2 bg-indigo-50 p-2 rounded-lg text-indigo-700 font-bold text-xs w-fit">
-                                <Layers size={14}/> Flashcards
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {(block.content.cards || []).map((card: any, idx: number) => (
-                                    <div key={card.id} className="border border-slate-200 rounded-lg p-4 bg-slate-50/50">
-                                        <div className="flex justify-between mb-2 text-xs font-bold text-slate-400 uppercase">
-                                            <span>Kaart {idx + 1}</span>
-                                            <button onClick={() => {
-                                                const newCards = (block.content.cards || []).filter((c: any) => c.id !== card.id);
-                                                updateBlock(block.id, { ...block.content, cards: newCards });
-                                            }}><X size={12}/></button>
-                                        </div>
-                                        <input 
-                                            className="w-full mb-2 p-2 border rounded text-sm font-bold" 
-                                            placeholder="Voorkant (Vraag)"
-                                            value={card.front}
-                                            onChange={(e) => {
-                                                const newCards = [...(block.content.cards || [])];
-                                                newCards[idx].front = e.target.value;
-                                                updateBlock(block.id, { ...block.content, cards: newCards });
-                                            }}
-                                        />
-                                        <textarea 
-                                            className="w-full p-2 border rounded text-sm" 
-                                            placeholder="Achterkant (Antwoord)"
-                                            rows={2}
-                                            value={card.back}
-                                            onChange={(e) => {
-                                                const newCards = [...(block.content.cards || [])];
-                                                newCards[idx].back = e.target.value;
-                                                updateBlock(block.id, { ...block.content, cards: newCards });
-                                            }}
-                                        />
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {(block.content.cards || []).map((card: any) => (
+                                <div key={card.id} className="aspect-video bg-white border-2 border-slate-200 rounded-xl p-6 flex items-center justify-center text-center shadow-sm">
+                                    <div>
+                                        <div className="text-xs font-bold text-indigo-600 uppercase tracking-wider mb-2">Voorkant</div>
+                                        <div className="text-lg font-bold text-slate-800">{card.front || 'Leeg'}</div>
+                                        <div className="w-full h-px bg-slate-100 my-4"></div>
+                                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Achterkant</div>
+                                        <div className="text-slate-600">{card.back || 'Leeg'}</div>
                                     </div>
-                                ))}
-                                <button 
-                                    onClick={() => updateBlock(block.id, { ...block.content, cards: [...(block.content.cards || []), { id: Math.random().toString(), front: '', back: '' }] })}
-                                    className="border-2 border-dashed border-slate-200 rounded-lg flex items-center justify-center text-slate-400 hover:border-indigo-300 hover:text-indigo-500 transition-colors h-full min-h-[100px]"
-                                >
-                                    <Plus size={24}/>
-                                </button>
-                            </div>
+                                </div>
+                            ))}
+                            {(!block.content.cards || block.content.cards.length === 0) && (
+                                <div className="aspect-video border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center text-slate-400 text-sm">
+                                    Geen kaarten. Voeg toe in zijbalk.
+                                </div>
+                            )}
                         </div>
                     )}
 
-                    {/* Placeholder for other types */}
-                    {!['text', 'video', 'flashcard', 'hotspot'].includes(block.type) && (
-                        <div className="flex items-center gap-3 text-slate-400 italic">
-                            <div className="p-2 bg-slate-100 rounded-lg">
-                                {React.createElement(BlockIcon, { size: 20 })}
+                    {block.type === 'quiz' && (
+                        <div className="bg-slate-50 rounded-xl p-6 border border-slate-200">
+                            <h3 className="text-lg font-bold text-slate-900 mb-4 flex items-start gap-3">
+                                <span className="bg-teal-100 text-teal-700 px-2 py-0.5 rounded text-sm mt-0.5">?</span>
+                                {block.content.question || 'Vraag invullen in zijbalk...'}
+                            </h3>
+                            <div className="space-y-2">
+                                {(block.content.options || []).map((opt: any) => (
+                                    <div key={opt.id} className={`p-3 rounded-lg border flex items-center gap-3 ${opt.isCorrect ? 'bg-green-50 border-green-200' : 'bg-white border-slate-200'}`}>
+                                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${opt.isCorrect ? 'border-green-600 bg-green-600 text-white' : 'border-slate-300'}`}>
+                                            {opt.isCorrect && <Check size={12}/>}
+                                        </div>
+                                        <span className={`text-sm font-medium ${opt.isCorrect ? 'text-green-800' : 'text-slate-700'}`}>{opt.text}</span>
+                                    </div>
+                                ))}
                             </div>
-                            {BLOCK_TYPES.find(b => b.type === block.type)?.label} Editor (Configureer in Inspector rechts)
                         </div>
                     )}
                 </div>
@@ -474,9 +435,9 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     // --- INSPECTOR RENDERER ---
     const renderInspector = () => {
         if (!selectedBlockId) return (
-            <div className="p-6 text-center text-slate-400">
-                <Settings size={48} className="mx-auto mb-4 opacity-20"/>
-                <p className="text-sm">Selecteer een blok om de instellingen te wijzigen.</p>
+            <div className="p-6 text-center text-slate-400 flex flex-col items-center justify-center h-full">
+                <Settings size={48} className="mb-4 opacity-20"/>
+                <p className="text-sm font-medium">Selecteer een blok in het midden om de inhoud te configureren.</p>
             </div>
         );
 
@@ -489,11 +450,13 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         const BlockIcon = BLOCK_TYPES.find(b => b.type === block.type)?.icon || HelpCircle;
 
         return (
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-8 animate-in slide-in-from-right-4 duration-200">
                 <div className="border-b border-slate-100 pb-4">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Blok Type</span>
-                    <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                        {React.createElement(BlockIcon, { size: 18 })}
+                    <h3 className="font-bold text-slate-900 flex items-center gap-2 text-lg">
+                        <div className={`p-1.5 rounded-lg ${BLOCK_TYPES.find(b => b.type === block.type)?.color}`}>
+                            {React.createElement(BlockIcon, { size: 18 })}
+                        </div>
                         {BLOCK_TYPES.find(b => b.type === block.type)?.label}
                     </h3>
                 </div>
@@ -501,112 +464,248 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                 {/* Specific Settings based on Block Type */}
                 {block.type === 'text' && (
                     <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Stijl</label>
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Tekst Stijl</label>
                         <select 
-                            className="w-full p-2 border border-slate-200 rounded-lg text-sm bg-white"
+                            className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
                             value={block.content.style}
                             onChange={(e) => updateBlock(block.id, { ...block.content, style: e.target.value })}
                         >
                             <option value="paragraph">Paragraaf</option>
-                            <option value="h1">Kop 1</option>
-                            <option value="h2">Kop 2</option>
-                            <option value="quote">Quote</option>
+                            <option value="h1">Kop 1 (Groot)</option>
+                            <option value="h2">Kop 2 (Medium)</option>
+                            <option value="quote">Quote Blok</option>
                             <option value="alert">Alert Box</option>
                         </select>
                     </div>
                 )}
 
+                {block.type === 'video' && (
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Video Bron</label>
+                            <div className="flex gap-2 mb-2">
+                                <input 
+                                    className="flex-1 p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    placeholder="YouTube / Vimeo URL..."
+                                    value={block.content.url}
+                                    onChange={(e) => updateBlock(block.id, { ...block.content, url: e.target.value })}
+                                />
+                            </div>
+                            <p className="text-[10px] text-slate-400">Plak een link van YouTube of Vimeo.</p>
+                        </div>
+                        
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-slate-200"></div>
+                            </div>
+                            <div className="relative flex justify-center text-xs uppercase">
+                                <span className="bg-white px-2 text-slate-400 font-bold">Of upload bestand</span>
+                            </div>
+                        </div>
+
+                        <button 
+                            onClick={() => handleTriggerUpload(block.id, 'video')}
+                            disabled={isUploading}
+                            className="w-full py-3 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"
+                        >
+                            {isUploading ? <Loader2 className="animate-spin" size={16}/> : <Upload size={16}/>} 
+                            Video Uploaden (MP4)
+                        </button>
+                    </div>
+                )}
+
                 {block.type === 'hotspot' && (
-                    <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Hotspots</label>
-                        <div className="space-y-2">
-                            {(block.content.spots || []).map((spot: any, i: number) => (
-                                <div key={spot.id} className="p-2 border border-slate-200 rounded bg-slate-50">
-                                    <div className="flex justify-between mb-1">
-                                        <span className="text-xs font-bold">Punt {i + 1}</span>
-                                        <button onClick={() => {
-                                            const newSpots = block.content.spots.filter((s: any) => s.id !== spot.id);
-                                            updateBlock(block.id, { ...block.content, spots: newSpots });
-                                        }}><X size={12}/></button>
+                    <div className="space-y-6">
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Afbeelding</label>
+                            <div className="flex gap-2">
+                                <input 
+                                    className="flex-1 p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    placeholder="URL..."
+                                    value={block.content.imageUrl}
+                                    onChange={(e) => updateBlock(block.id, { ...block.content, imageUrl: e.target.value })}
+                                />
+                                <button 
+                                    onClick={() => handleTriggerUpload(block.id, 'image')}
+                                    className="p-3 bg-slate-100 rounded-xl hover:bg-slate-200 text-slate-600"
+                                >
+                                    <Upload size={18}/>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="text-xs font-bold text-slate-500 uppercase block">Hotspots Punten</label>
+                                <button 
+                                    onClick={() => updateBlock(block.id, { ...block.content, spots: [...(block.content.spots || []), { id: Math.random().toString(), x: 50, y: 50, title: 'Nieuw punt', text: '' }] })}
+                                    className="text-xs font-bold text-indigo-600 hover:underline"
+                                >
+                                    + Toevoegen
+                                </button>
+                            </div>
+                            
+                            <div className="space-y-3 max-h-96 overflow-y-auto pr-1 custom-scrollbar">
+                                {(block.content.spots || []).map((spot: any, i: number) => (
+                                    <div key={spot.id} className="p-3 border border-slate-200 rounded-xl bg-slate-50 relative group">
+                                        <button 
+                                            onClick={() => {
+                                                const newSpots = block.content.spots.filter((s: any) => s.id !== spot.id);
+                                                updateBlock(block.id, { ...block.content, spots: newSpots });
+                                            }}
+                                            className="absolute top-2 right-2 text-slate-400 hover:text-red-500"
+                                        >
+                                            <X size={14}/>
+                                        </button>
+                                        
+                                        <div className="font-bold text-xs text-slate-400 mb-2">Punt {i + 1}</div>
+                                        <div className="space-y-2">
+                                            <input 
+                                                className="w-full p-2 border border-slate-200 rounded-lg text-sm" 
+                                                placeholder="Titel (bv. Motor)" 
+                                                value={spot.title}
+                                                onChange={(e) => {
+                                                    const newSpots = [...block.content.spots];
+                                                    newSpots[i].title = e.target.value;
+                                                    updateBlock(block.id, { ...block.content, spots: newSpots });
+                                                }}
+                                            />
+                                            <div className="flex gap-2">
+                                                <div className="flex-1 relative">
+                                                    <span className="absolute left-2 top-2 text-xs text-slate-400 font-bold">X</span>
+                                                    <input className="w-full pl-6 p-2 border border-slate-200 rounded-lg text-sm" type="number" value={spot.x} onChange={(e) => {
+                                                        const newSpots = [...block.content.spots];
+                                                        newSpots[i].x = parseFloat(e.target.value);
+                                                        updateBlock(block.id, { ...block.content, spots: newSpots });
+                                                    }}/>
+                                                </div>
+                                                <div className="flex-1 relative">
+                                                    <span className="absolute left-2 top-2 text-xs text-slate-400 font-bold">Y</span>
+                                                    <input className="w-full pl-6 p-2 border border-slate-200 rounded-lg text-sm" type="number" value={spot.y} onChange={(e) => {
+                                                        const newSpots = [...block.content.spots];
+                                                        newSpots[i].y = parseFloat(e.target.value);
+                                                        updateBlock(block.id, { ...block.content, spots: newSpots });
+                                                    }}/>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <input 
-                                        className="w-full p-1 border rounded text-xs mb-1" 
-                                        placeholder="Titel" 
-                                        value={spot.title}
-                                        onChange={(e) => {
-                                            const newSpots = [...block.content.spots];
-                                            newSpots[i].title = e.target.value;
-                                            updateBlock(block.id, { ...block.content, spots: newSpots });
-                                        }}
-                                    />
-                                    <div className="flex gap-2 text-xs">
-                                        <input className="w-1/2 p-1 border rounded" placeholder="X %" value={spot.x} onChange={(e) => {
-                                            const newSpots = [...block.content.spots];
-                                            newSpots[i].x = parseFloat(e.target.value);
-                                            updateBlock(block.id, { ...block.content, spots: newSpots });
-                                        }}/>
-                                        <input className="w-1/2 p-1 border rounded" placeholder="Y %" value={spot.y} onChange={(e) => {
-                                            const newSpots = [...block.content.spots];
-                                            newSpots[i].y = parseFloat(e.target.value);
-                                            updateBlock(block.id, { ...block.content, spots: newSpots });
-                                        }}/>
+                                ))}
+                                {(block.content.spots || []).length === 0 && (
+                                    <div className="text-center p-4 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-xs">
+                                        Nog geen punten. Klik op toevoegen.
                                     </div>
-                                </div>
-                            ))}
-                            <button 
-                                onClick={() => updateBlock(block.id, { ...block.content, spots: [...(block.content.spots || []), { id: Math.random().toString(), x: 50, y: 50, title: 'Nieuw punt', text: '' }] })}
-                                className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-xs font-bold"
-                            >
-                                + Hotspot Toevoegen
-                            </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 )}
 
                 {block.type === 'quiz' && (
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                         <div>
                             <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Vraag</label>
                             <input 
-                                className="w-full p-2 border border-slate-200 rounded-lg text-sm font-bold"
+                                className="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
                                 value={block.content.question}
                                 onChange={(e) => updateBlock(block.id, { ...block.content, question: e.target.value })}
+                                placeholder="Typ je vraag..."
                             />
                         </div>
+                        
                         <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Antwoorden</label>
-                            {(block.content.options || []).map((opt: any, i: number) => (
-                                <div key={opt.id} className="flex gap-2 mb-2">
+                            <div className="flex justify-between items-center mb-2">
+                                <label className="text-xs font-bold text-slate-500 uppercase block">Antwoord Opties</label>
+                                <button 
+                                    onClick={() => updateBlock(block.id, { ...block.content, options: [...(block.content.options || []), { id: Math.random().toString(), text: '', isCorrect: false }] })}
+                                    className="text-xs font-bold text-indigo-600 hover:underline"
+                                >
+                                    + Optie
+                                </button>
+                            </div>
+                            <div className="space-y-2">
+                                {(block.content.options || []).map((opt: any, i: number) => (
+                                    <div key={opt.id} className="flex gap-2 items-center">
+                                        <button 
+                                            onClick={() => {
+                                                const newOpts = block.content.options.map((o: any) => ({ ...o, isCorrect: o.id === opt.id }));
+                                                updateBlock(block.id, { ...block.content, options: newOpts });
+                                            }}
+                                            title="Markeer als goed antwoord"
+                                            className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all ${opt.isCorrect ? 'bg-green-500 border-green-500 text-white shadow-sm' : 'border-slate-200 text-slate-300 hover:border-slate-300'}`}
+                                        >
+                                            <Check size={16} strokeWidth={3}/>
+                                        </button>
+                                        <input 
+                                            className="flex-1 p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            value={opt.text}
+                                            onChange={(e) => {
+                                                const newOpts = [...block.content.options];
+                                                newOpts[i].text = e.target.value;
+                                                updateBlock(block.id, { ...block.content, options: newOpts });
+                                            }}
+                                            placeholder={`Optie ${i+1}`}
+                                        />
+                                        <button onClick={() => {
+                                            const newOpts = block.content.options.filter((o: any) => o.id !== opt.id);
+                                            updateBlock(block.id, { ...block.content, options: newOpts });
+                                        }} className="text-slate-300 hover:text-red-500 p-1"><X size={16}/></button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {block.type === 'flashcard' && (
+                    <div>
+                        <div className="flex justify-between items-center mb-4">
+                            <label className="text-xs font-bold text-slate-500 uppercase block">Flashcards</label>
+                            <button 
+                                onClick={() => updateBlock(block.id, { ...block.content, cards: [...(block.content.cards || []), { id: Math.random().toString(), front: '', back: '' }] })}
+                                className="text-xs font-bold text-indigo-600 hover:underline"
+                            >
+                                + Kaart
+                            </button>
+                        </div>
+                        <div className="space-y-4 max-h-96 overflow-y-auto pr-1 custom-scrollbar">
+                            {(block.content.cards || []).map((card: any, idx: number) => (
+                                <div key={card.id} className="p-3 bg-slate-50 border border-slate-200 rounded-xl relative group">
                                     <button 
                                         onClick={() => {
-                                            const newOpts = block.content.options.map((o: any) => ({ ...o, isCorrect: o.id === opt.id }));
-                                            updateBlock(block.id, { ...block.content, options: newOpts });
+                                            const newCards = (block.content.cards || []).filter((c: any) => c.id !== card.id);
+                                            updateBlock(block.id, { ...block.content, cards: newCards });
                                         }}
-                                        className={`w-6 h-6 rounded-full border flex items-center justify-center flex-shrink-0 mt-1 ${opt.isCorrect ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300 text-transparent hover:border-slate-400'}`}
+                                        className="absolute top-2 right-2 text-slate-400 hover:text-red-500"
                                     >
-                                        <Check size={12}/>
+                                        <X size={14}/>
                                     </button>
-                                    <input 
-                                        className="flex-1 p-1.5 border border-slate-200 rounded text-sm"
-                                        value={opt.text}
-                                        onChange={(e) => {
-                                            const newOpts = [...block.content.options];
-                                            newOpts[i].text = e.target.value;
-                                            updateBlock(block.id, { ...block.content, options: newOpts });
-                                        }}
-                                    />
-                                    <button onClick={() => {
-                                        const newOpts = block.content.options.filter((o: any) => o.id !== opt.id);
-                                        updateBlock(block.id, { ...block.content, options: newOpts });
-                                    }} className="text-slate-300 hover:text-red-500"><X size={14}/></button>
+                                    <div className="text-xs font-bold text-slate-400 mb-2">Kaart {idx + 1}</div>
+                                    <div className="space-y-2">
+                                        <input 
+                                            className="w-full p-2 border border-slate-200 rounded-lg text-sm font-bold" 
+                                            placeholder="Voorkant (Vraag)"
+                                            value={card.front}
+                                            onChange={(e) => {
+                                                const newCards = [...(block.content.cards || [])];
+                                                newCards[idx].front = e.target.value;
+                                                updateBlock(block.id, { ...block.content, cards: newCards });
+                                            }}
+                                        />
+                                        <textarea 
+                                            className="w-full p-2 border border-slate-200 rounded-lg text-sm resize-none" 
+                                            placeholder="Achterkant (Antwoord)"
+                                            rows={2}
+                                            value={card.back}
+                                            onChange={(e) => {
+                                                const newCards = [...(block.content.cards || [])];
+                                                newCards[idx].back = e.target.value;
+                                                updateBlock(block.id, { ...block.content, cards: newCards });
+                                            }}
+                                        />
+                                    </div>
                                 </div>
                             ))}
-                            <button 
-                                onClick={() => updateBlock(block.id, { ...block.content, options: [...(block.content.options || []), { id: Math.random().toString(), text: '', isCorrect: false }] })}
-                                className="text-xs text-teal-600 font-bold hover:underline mt-1"
-                            >
-                                + Antwoord toevoegen
-                            </button>
                         </div>
                     </div>
                 )}
@@ -614,7 +713,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                 <div className="pt-6 border-t border-slate-100">
                     <button 
                         onClick={() => deleteBlock(block.id)}
-                        className="w-full py-2 border border-red-200 text-red-600 rounded-lg text-sm font-bold hover:bg-red-50 flex items-center justify-center gap-2"
+                        className="w-full py-3 border border-red-200 text-red-600 bg-red-50 rounded-xl text-sm font-bold hover:bg-red-100 flex items-center justify-center gap-2 transition-colors"
                     >
                         <Trash2 size={16}/> Blok Verwijderen
                     </button>
@@ -738,7 +837,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                         </div>
                     </div>
 
-                    {/* CENTER: CANVAS */}
+                    {/* CENTER: CANVAS (PREVIEW) */}
                     <div className="flex-1 bg-slate-100 overflow-y-auto relative p-8">
                         {selectedLessonId ? (
                             <div className="max-w-3xl mx-auto min-h-[800px] bg-white rounded-xl shadow-sm border border-slate-200 flex flex-col">
@@ -749,7 +848,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                         value={getActiveContext()?.lesson?.title || ''}
                                         onChange={(e) => {
                                             const l = getActiveContext()?.lesson;
-                                            if (l && selectedModuleId) updateBlock('', {}); // Hack to trigger update
+                                            if (l && selectedModuleId) updateBlock('', {}); 
                                             const updated = [...(activeCourse.modules || [])];
                                             const mod = updated.find(m => m.id === selectedModuleId);
                                             const les = (mod?.lessons || []).find(l => l.id === selectedLessonId);
@@ -761,12 +860,12 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                     />
                                 </div>
 
-                                {/* Blocks Canvas */}
+                                {/* Blocks Visuals */}
                                 <div className="p-8 flex-1">
                                     {(getActiveContext()?.lesson?.blocks || []).map(block => renderBlockEditor(block))}
                                     
                                     {/* Add Block Trigger */}
-                                    <div className="relative group/add mt-4">
+                                    <div className="relative group/add mt-8">
                                         <button 
                                             onClick={() => setIsBlockPickerOpen(true)}
                                             className="w-full py-4 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold text-sm hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 opacity-60 hover:opacity-100"
@@ -810,8 +909,8 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                         )}
                     </div>
 
-                    {/* RIGHT: INSPECTOR */}
-                    <div className="w-80 border-l border-slate-200 bg-white flex flex-col h-full overflow-hidden flex-shrink-0">
+                    {/* RIGHT: INSPECTOR (CONTROLS) */}
+                    <div className="w-80 border-l border-slate-200 bg-white flex flex-col h-full overflow-hidden flex-shrink-0 shadow-xl z-20">
                         {renderInspector()}
                     </div>
                 </div>
