@@ -5,7 +5,7 @@ import {
     BookOpen, GraduationCap, ChevronRight, ChevronDown, 
     Layout, Save, ArrowLeft, FileText, 
     Video, HelpCircle, Image as ImageIcon, MousePointer, 
-    Layers, List, Upload, Check, GripVertical, X, Star, Clock, ArrowRight, Settings, Music, Eye, Sparkles
+    Layers, List, Upload, Check, GripVertical, X, Star, Clock, ArrowRight, Settings, Music, Eye, Sparkles, Loader2
 } from 'lucide-react';
 import { Employee, AcademyCourse, AcademyProgress, AcademyModule, AcademyLesson, LearningBlock, BlockType } from '../types';
 import AcademySidebar from './AcademySidebar';
@@ -40,6 +40,12 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
     const [isBlockPickerOpen, setIsBlockPickerOpen] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
+
+    // Refs for uploads
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const activeUploadBlockId = useRef<string | null>(null);
+    const activeUploadType = useRef<'video' | 'image' | null>(null);
 
     // Initial Load & Realtime Sync
     useEffect(() => {
@@ -257,6 +263,53 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         onShowToast("Training opgeslagen!");
     };
 
+    // --- UPLOAD HANDLERS ---
+    const handleTriggerUpload = (blockId: string, type: 'video' | 'image') => {
+        activeUploadBlockId.current = blockId;
+        activeUploadType.current = type;
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        const blockId = activeUploadBlockId.current;
+        const type = activeUploadType.current;
+
+        if (file && blockId && type && activeCourse) {
+            setIsUploading(true);
+            try {
+                onShowToast("Uploaden gestart...");
+                const url = await api.uploadFile(file);
+                
+                if (url) {
+                    // Find the block to get its current content
+                    const context = getActiveContext();
+                    const block = context?.lesson?.blocks.find(b => b.id === blockId);
+                    
+                    if (block) {
+                        const newContent = { ...block.content };
+                        if (type === 'video') {
+                            newContent.url = url;
+                            newContent.source = 'upload';
+                        } else if (type === 'image') {
+                            newContent.imageUrl = url;
+                        }
+                        updateBlock(blockId, newContent);
+                        onShowToast("Bestand succesvol geüpload!");
+                    }
+                } else {
+                    onShowToast("Upload mislukt.");
+                }
+            } catch (err) {
+                console.error(err);
+                onShowToast("Fout bij uploaden.");
+            } finally {
+                setIsUploading(false);
+                if (fileInputRef.current) fileInputRef.current.value = ''; // Reset input
+            }
+        }
+    };
+
     // --- RENDERERS ---
 
     const renderBlockEditor = (block: LearningBlock) => {
@@ -298,15 +351,59 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                             <div className="flex items-center gap-2 bg-red-50 p-2 rounded-lg text-red-700 font-bold text-xs w-fit">
                                 <Video size={14}/> Video Embed
                             </div>
-                            <input 
-                                className="w-full p-2 border border-slate-200 rounded-lg text-sm"
-                                placeholder="YouTube / Vimeo URL..."
-                                value={block.content.url}
-                                onChange={(e) => updateBlock(block.id, { ...block.content, url: e.target.value })}
-                            />
+                            <div className="flex gap-2">
+                                <input 
+                                    className="flex-1 p-2 border border-slate-200 rounded-lg text-sm"
+                                    placeholder="YouTube / Vimeo URL..."
+                                    value={block.content.url}
+                                    onChange={(e) => updateBlock(block.id, { ...block.content, url: e.target.value })}
+                                />
+                                <button 
+                                    onClick={() => handleTriggerUpload(block.id, 'video')}
+                                    disabled={isUploading}
+                                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors"
+                                >
+                                    {isUploading ? <Loader2 className="animate-spin" size={14}/> : <Upload size={14}/>} Upload
+                                </button>
+                            </div>
                             {block.content.url && (
                                 <div className="aspect-video bg-black rounded-lg overflow-hidden relative">
-                                    <iframe className="w-full h-full pointer-events-none" src={block.content.url.replace('watch?v=', 'embed/')} />
+                                    {block.content.url.includes('http') && !block.content.url.includes('youtube') && !block.content.url.includes('vimeo') ? (
+                                        <video src={block.content.url} controls className="w-full h-full" />
+                                    ) : (
+                                        <iframe className="w-full h-full pointer-events-none" src={block.content.url.replace('watch?v=', 'embed/')} />
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {block.type === 'hotspot' && (
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2 bg-orange-50 p-2 rounded-lg text-orange-700 font-bold text-xs w-fit">
+                                <MousePointer size={14}/> Hotspot Image
+                            </div>
+                            <div className="flex gap-2">
+                                <input 
+                                    className="flex-1 p-2 border border-slate-200 rounded-lg text-sm"
+                                    placeholder="Afbeelding URL..."
+                                    value={block.content.imageUrl}
+                                    onChange={(e) => updateBlock(block.id, { ...block.content, imageUrl: e.target.value })}
+                                />
+                                <button 
+                                    onClick={() => handleTriggerUpload(block.id, 'image')}
+                                    disabled={isUploading}
+                                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors"
+                                >
+                                    {isUploading ? <Loader2 className="animate-spin" size={14}/> : <Upload size={14}/>} Upload
+                                </button>
+                            </div>
+                            {block.content.imageUrl && (
+                                <div className="relative rounded-lg overflow-hidden border border-slate-200 bg-slate-50">
+                                    <img src={block.content.imageUrl} alt="Hotspot Base" className="w-full object-cover max-h-96" />
+                                    <div className="absolute bottom-2 right-2 bg-white/90 text-[10px] px-2 py-1 rounded shadow text-slate-500">
+                                        Configureer hotspots in Inspector &rarr;
+                                    </div>
                                 </div>
                             )}
                         </div>
@@ -361,7 +458,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                     )}
 
                     {/* Placeholder for other types */}
-                    {!['text', 'video', 'flashcard'].includes(block.type) && (
+                    {!['text', 'video', 'flashcard', 'hotspot'].includes(block.type) && (
                         <div className="flex items-center gap-3 text-slate-400 italic">
                             <div className="p-2 bg-slate-100 rounded-lg">
                                 {React.createElement(BlockIcon, { size: 20 })}
@@ -421,15 +518,47 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
 
                 {block.type === 'hotspot' && (
                     <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Afbeelding URL</label>
-                        <input 
-                            className="w-full p-2 border border-slate-200 rounded-lg text-sm mb-4"
-                            value={block.content.imageUrl}
-                            onChange={(e) => updateBlock(block.id, { ...block.content, imageUrl: e.target.value })}
-                            placeholder="https://..."
-                        />
-                        <div className="bg-slate-100 rounded-lg p-4 text-center text-xs text-slate-500">
-                            Upload functionaliteit komt hier.
+                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Hotspots</label>
+                        <div className="space-y-2">
+                            {(block.content.spots || []).map((spot: any, i: number) => (
+                                <div key={spot.id} className="p-2 border border-slate-200 rounded bg-slate-50">
+                                    <div className="flex justify-between mb-1">
+                                        <span className="text-xs font-bold">Punt {i + 1}</span>
+                                        <button onClick={() => {
+                                            const newSpots = block.content.spots.filter((s: any) => s.id !== spot.id);
+                                            updateBlock(block.id, { ...block.content, spots: newSpots });
+                                        }}><X size={12}/></button>
+                                    </div>
+                                    <input 
+                                        className="w-full p-1 border rounded text-xs mb-1" 
+                                        placeholder="Titel" 
+                                        value={spot.title}
+                                        onChange={(e) => {
+                                            const newSpots = [...block.content.spots];
+                                            newSpots[i].title = e.target.value;
+                                            updateBlock(block.id, { ...block.content, spots: newSpots });
+                                        }}
+                                    />
+                                    <div className="flex gap-2 text-xs">
+                                        <input className="w-1/2 p-1 border rounded" placeholder="X %" value={spot.x} onChange={(e) => {
+                                            const newSpots = [...block.content.spots];
+                                            newSpots[i].x = parseFloat(e.target.value);
+                                            updateBlock(block.id, { ...block.content, spots: newSpots });
+                                        }}/>
+                                        <input className="w-1/2 p-1 border rounded" placeholder="Y %" value={spot.y} onChange={(e) => {
+                                            const newSpots = [...block.content.spots];
+                                            newSpots[i].y = parseFloat(e.target.value);
+                                            updateBlock(block.id, { ...block.content, spots: newSpots });
+                                        }}/>
+                                    </div>
+                                </div>
+                            ))}
+                            <button 
+                                onClick={() => updateBlock(block.id, { ...block.content, spots: [...(block.content.spots || []), { id: Math.random().toString(), x: 50, y: 50, title: 'Nieuw punt', text: '' }] })}
+                                className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded text-xs font-bold"
+                            >
+                                + Hotspot Toevoegen
+                            </button>
                         </div>
                     </div>
                 )}
@@ -466,6 +595,10 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                             updateBlock(block.id, { ...block.content, options: newOpts });
                                         }}
                                     />
+                                    <button onClick={() => {
+                                        const newOpts = block.content.options.filter((o: any) => o.id !== opt.id);
+                                        updateBlock(block.id, { ...block.content, options: newOpts });
+                                    }} className="text-slate-300 hover:text-red-500"><X size={14}/></button>
                                 </div>
                             ))}
                             <button 
@@ -495,6 +628,15 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     if (view === 'builder' && activeCourse) {
         return (
             <div className="flex flex-col h-screen bg-white font-sans">
+                {/* Hidden File Input for Uploads */}
+                <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    onChange={handleFileChange} 
+                    accept="image/*,video/*"
+                />
+
                 {/* HEADER */}
                 <div className="h-16 border-b border-slate-200 flex items-center justify-between px-6 bg-white z-30 shadow-sm relative">
                     <div className="flex items-center gap-4">
@@ -510,7 +652,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                         />
                     </div>
                     
-                    {/* NEW: PUBLISH TOGGLE */}
+                    {/* PUBLISH TOGGLE */}
                     <div className="flex items-center gap-6">
                         <div className="flex items-center gap-3 bg-slate-50 p-1 rounded-lg border border-slate-200">
                             <button
@@ -692,7 +834,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                 <div className="mb-10 flex justify-between items-end">
                     <div>
                         <h1 className="text-3xl font-serif font-bold text-slate-900">Welkom terug, {currentUser.name.split(' ')[0]}</h1>
-                        <p className="text-slate-500 mt-1">Je hebt <strong>2 trainingen</strong> open staan.</p>
+                        <p className="text-slate-500 mt-1">Je hebt <strong>{courses.filter(c => c.isPublished).length} trainingen</strong> beschikbaar.</p>
                     </div>
                     {/* Only managers can create */}
                     {(currentUser.role === 'Manager' || currentUser.role === 'Senior Medewerker') && (
