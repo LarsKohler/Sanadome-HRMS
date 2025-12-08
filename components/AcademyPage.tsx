@@ -56,8 +56,9 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     // --- HELPER: GET CURRENT CONTEXT ---
     const getActiveContext = () => {
         if (!activeCourse || !selectedModuleId || !selectedLessonId) return null;
-        const module = activeCourse.modules.find(m => m.id === selectedModuleId);
-        const lesson = module?.lessons.find(l => l.id === selectedLessonId);
+        // Add safe check for activeCourse.modules since it can be undefined on new courses
+        const module = (activeCourse.modules || []).find(m => m.id === selectedModuleId);
+        const lesson = (module?.lessons || []).find(l => l.id === selectedLessonId);
         return { module, lesson };
     };
 
@@ -95,7 +96,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
             title: 'Nieuw Hoofdstuk',
             lessons: []
         };
-        setActiveCourse({ ...activeCourse, modules: [...activeCourse.modules, newModule] });
+        setActiveCourse({ ...activeCourse, modules: [...(activeCourse.modules || []), newModule] });
         setHasUnsavedChanges(true);
     };
 
@@ -108,8 +109,8 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
             durationMinutes: 5
         };
         
-        const updatedModules = activeCourse.modules.map(m => {
-            if (m.id === moduleId) return { ...m, lessons: [...m.lessons, newLesson] };
+        const updatedModules = (activeCourse.modules || []).map(m => {
+            if (m.id === moduleId) return { ...m, lessons: [...(m.lessons || []), newLesson] };
             return m;
         });
 
@@ -137,11 +138,11 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
             content
         };
 
-        const updatedModules = activeCourse.modules.map(m => {
+        const updatedModules = (activeCourse.modules || []).map(m => {
             if (m.id === selectedModuleId) {
-                const updatedLessons = m.lessons.map(l => {
+                const updatedLessons = (m.lessons || []).map(l => {
                     if (l.id === selectedLessonId) {
-                        return { ...l, blocks: [...l.blocks, newBlock] };
+                        return { ...l, blocks: [...(l.blocks || []), newBlock] };
                     }
                     return l;
                 });
@@ -160,11 +161,11 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         const context = getActiveContext();
         if (!context || !activeCourse) return;
 
-        const updatedModules = activeCourse.modules.map(m => {
+        const updatedModules = (activeCourse.modules || []).map(m => {
             if (m.id === selectedModuleId) {
-                const updatedLessons = m.lessons.map(l => {
+                const updatedLessons = (m.lessons || []).map(l => {
                     if (l.id === selectedLessonId) {
-                        const updatedBlocks = l.blocks.map(b => b.id === blockId ? { ...b, content } : b);
+                        const updatedBlocks = (l.blocks || []).map(b => b.id === blockId ? { ...b, content } : b);
                         return { ...l, blocks: updatedBlocks };
                     }
                     return l;
@@ -182,11 +183,11 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         const context = getActiveContext();
         if (!context || !activeCourse) return;
 
-        const updatedModules = activeCourse.modules.map(m => {
+        const updatedModules = (activeCourse.modules || []).map(m => {
             if (m.id === selectedModuleId) {
-                const updatedLessons = m.lessons.map(l => {
+                const updatedLessons = (m.lessons || []).map(l => {
                     if (l.id === selectedLessonId) {
-                        const blocks = [...l.blocks];
+                        const blocks = [...(l.blocks || [])];
                         const idx = blocks.findIndex(b => b.id === blockId);
                         if (idx === -1) return l;
                         if (direction === 'up' && idx > 0) {
@@ -210,11 +211,11 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         const context = getActiveContext();
         if (!context || !activeCourse) return;
 
-        const updatedModules = activeCourse.modules.map(m => {
+        const updatedModules = (activeCourse.modules || []).map(m => {
             if (m.id === selectedModuleId) {
-                const updatedLessons = m.lessons.map(l => {
+                const updatedLessons = (m.lessons || []).map(l => {
                     if (l.id === selectedLessonId) {
-                        return { ...l, blocks: l.blocks.filter(b => b.id !== blockId) };
+                        return { ...l, blocks: (l.blocks || []).filter(b => b.id !== blockId) };
                     }
                     return l;
                 });
@@ -264,7 +265,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                 value={block.content.html}
                                 onChange={(e) => updateBlock(block.id, { ...block.content, html: e.target.value })}
                                 placeholder="Typ hier je tekst..."
-                                rows={Math.max(3, block.content.html.split('\n').length)}
+                                rows={Math.max(3, (block.content.html || '').split('\n').length)}
                             />
                         </div>
                     )}
@@ -299,7 +300,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                         <div className="flex justify-between mb-2 text-xs font-bold text-slate-400 uppercase">
                                             <span>Kaart {idx + 1}</span>
                                             <button onClick={() => {
-                                                const newCards = block.content.cards.filter((c: any) => c.id !== card.id);
+                                                const newCards = (block.content.cards || []).filter((c: any) => c.id !== card.id);
                                                 updateBlock(block.id, { ...block.content, cards: newCards });
                                             }}><X size={12}/></button>
                                         </div>
@@ -308,7 +309,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                             placeholder="Voorkant (Vraag)"
                                             value={card.front}
                                             onChange={(e) => {
-                                                const newCards = [...block.content.cards];
+                                                const newCards = [...(block.content.cards || [])];
                                                 newCards[idx].front = e.target.value;
                                                 updateBlock(block.id, { ...block.content, cards: newCards });
                                             }}
@@ -319,7 +320,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                             rows={2}
                                             value={card.back}
                                             onChange={(e) => {
-                                                const newCards = [...block.content.cards];
+                                                const newCards = [...(block.content.cards || [])];
                                                 newCards[idx].back = e.target.value;
                                                 updateBlock(block.id, { ...block.content, cards: newCards });
                                             }}
@@ -339,7 +340,9 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                     {/* Placeholder for other types */}
                     {!['text', 'video', 'flashcard'].includes(block.type) && (
                         <div className="flex items-center gap-3 text-slate-400 italic">
-                            <div className="p-2 bg-slate-100 rounded-lg">{BLOCK_TYPES.find(b => b.type === block.type)?.icon({size: 20})}</div>
+                            <div className="p-2 bg-slate-100 rounded-lg">
+                                {React.createElement(BLOCK_TYPES.find(b => b.type === block.type)?.icon || HelpCircle, { size: 20 })}
+                            </div>
                             {BLOCK_TYPES.find(b => b.type === block.type)?.label} Editor (Configureer in Inspector rechts)
                         </div>
                     )}
@@ -360,7 +363,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         const context = getActiveContext();
         if (!context) return null;
         
-        const block = context.lesson?.blocks.find(b => b.id === selectedBlockId);
+        const block = (context.lesson?.blocks || []).find(b => b.id === selectedBlockId);
         if (!block) return null;
 
         return (
@@ -368,7 +371,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                 <div className="border-b border-slate-100 pb-4">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Blok Type</span>
                     <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                        {BLOCK_TYPES.find(b => b.type === block.type)?.icon({size: 18})}
+                        {React.createElement(BLOCK_TYPES.find(b => b.type === block.type)?.icon || HelpCircle, { size: 18 })}
                         {BLOCK_TYPES.find(b => b.type === block.type)?.label}
                     </h3>
                 </div>
@@ -441,7 +444,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                 </div>
                             ))}
                             <button 
-                                onClick={() => updateBlock(block.id, { ...block.content, options: [...block.content.options, { id: Math.random().toString(), text: '', isCorrect: false }] })}
+                                onClick={() => updateBlock(block.id, { ...block.content, options: [...(block.content.options || []), { id: Math.random().toString(), text: '', isCorrect: false }] })}
                                 className="text-xs text-teal-600 font-bold hover:underline mt-1"
                             >
                                 + Antwoord toevoegen
@@ -502,7 +505,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                     {/* LEFT: NAV RAIL */}
                     <div className="w-64 border-r border-slate-200 bg-slate-50 flex flex-col h-full overflow-hidden flex-shrink-0">
                         <div className="p-4 overflow-y-auto flex-1 space-y-6">
-                            {activeCourse.modules.map((module, mIdx) => (
+                            {(activeCourse.modules || []).map((module, mIdx) => (
                                 <div key={module.id} className="space-y-2">
                                     <div className="flex items-center gap-2 px-2">
                                         <div className="w-5 h-5 bg-slate-200 text-slate-500 rounded flex items-center justify-center text-[10px] font-bold">
@@ -512,7 +515,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                             className="bg-transparent text-xs font-bold text-slate-500 uppercase tracking-wider focus:outline-none focus:text-indigo-600 flex-1"
                                             value={module.title}
                                             onChange={(e) => {
-                                                const updated = [...activeCourse.modules];
+                                                const updated = [...(activeCourse.modules || [])];
                                                 updated[mIdx].title = e.target.value;
                                                 setActiveCourse({...activeCourse, modules: updated});
                                                 setHasUnsavedChanges(true);
@@ -520,7 +523,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                         />
                                     </div>
                                     <div className="space-y-0.5">
-                                        {module.lessons.map(lesson => (
+                                        {(module.lessons || []).map(lesson => (
                                             <button
                                                 key={lesson.id}
                                                 onClick={() => { setSelectedModuleId(module.id); setSelectedLessonId(lesson.id); }}
@@ -557,14 +560,14 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                 <div className="p-8 border-b border-slate-100">
                                     <input 
                                         className="font-serif text-3xl font-bold text-slate-900 border-none focus:ring-0 p-0 bg-transparent w-full placeholder:text-slate-300"
-                                        value={getActiveContext()?.lesson?.title}
+                                        value={getActiveContext()?.lesson?.title || ''}
                                         onChange={(e) => {
                                             const l = getActiveContext()?.lesson;
                                             if (l && selectedModuleId) updateBlock('', {}); // Hack to trigger update, really need specific updateLesson
                                             // Simplifying for brevity: assuming updateLesson logic is working or inline here
-                                            const updated = [...activeCourse.modules];
+                                            const updated = [...(activeCourse.modules || [])];
                                             const mod = updated.find(m => m.id === selectedModuleId);
-                                            const les = mod?.lessons.find(l => l.id === selectedLessonId);
+                                            const les = (mod?.lessons || []).find(l => l.id === selectedLessonId);
                                             if (les) les.title = e.target.value;
                                             setActiveCourse({...activeCourse, modules: updated});
                                             setHasUnsavedChanges(true);
@@ -575,7 +578,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
 
                                 {/* Blocks Canvas */}
                                 <div className="p-8 flex-1">
-                                    {getActiveContext()?.lesson?.blocks.map(block => renderBlockEditor(block))}
+                                    {(getActiveContext()?.lesson?.blocks || []).map(block => renderBlockEditor(block))}
                                     
                                     {/* Add Block Trigger */}
                                     <div className="relative group/add mt-4">
@@ -653,7 +656,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {courses.map(course => (
+                    {(courses || []).map(course => (
                         <div key={course.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl transition-all group cursor-pointer" onClick={() => handleOpenBuilder(course)}>
                             <div className="h-40 bg-slate-100 rounded-xl mb-4 relative overflow-hidden">
                                 {course.coverImage && <img src={course.coverImage} className="w-full h-full object-cover"/>}
@@ -664,7 +667,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                             <h3 className="font-bold text-lg text-slate-900 mb-1">{course.title}</h3>
                             <p className="text-sm text-slate-500 mb-4 line-clamp-2">{course.description || 'Geen beschrijving'}</p>
                             <div className="flex items-center gap-4 text-xs font-bold text-slate-400">
-                                <span className="flex items-center gap-1"><Layers size={14}/> {course.modules.length} Modules</span>
+                                <span className="flex items-center gap-1"><Layers size={14}/> {(course.modules || []).length} Modules</span>
                                 <span className="flex items-center gap-1"><Star size={14} className="text-yellow-400 fill-yellow-400"/> {course.xpPoints} XP</span>
                             </div>
                         </div>

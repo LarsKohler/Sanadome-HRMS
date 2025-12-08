@@ -163,6 +163,7 @@ export interface AcademyCourse {
     isPublished: boolean;
     xpPoints?: number;
     estimatedTime?: string;
+    prerequisiteCourseIds?: string[];
 }
 
 export interface AcademyProgress {
