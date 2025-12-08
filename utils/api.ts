@@ -90,6 +90,23 @@ export const api = {
       }
   },
 
+  subscribeToAcademy: (onCourses: (data: AcademyCourse[]) => void, onProgress: (data: AcademyProgress[]) => void) => {
+      if (isLive && supabase) {
+          const channel = supabase.channel('academy_realtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'academy_courses' }, async () => {
+                const courses = await api.getAcademyCourses();
+                onCourses(courses);
+            })
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'academy_progress' }, async () => {
+                const progress = await api.getAcademyProgress();
+                onProgress(progress);
+            })
+            .subscribe();
+          return () => { supabase.removeChannel(channel); };
+      }
+      return () => {};
+  },
+
   // --- BADGES (NEW) ---
   getBadges: async (): Promise<BadgeDefinition[]> => {
       if (isLive && supabase) {

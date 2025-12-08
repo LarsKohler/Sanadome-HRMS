@@ -268,6 +268,7 @@ export const MOCK_ACADEMY_COURSES: AcademyCourse[] = [
         createdAt: '01-01-2023',
         author: 'Lars Kohler',
         isPublished: true,
+        xpPoints: 150,
         modules: [
             {
                 id: 'm1',
@@ -344,11 +345,12 @@ export const MOCK_ACADEMY_COURSES: AcademyCourse[] = [
         description: 'Essentiële veiligheidsprocedures en wat te doen bij brand of ongevallen.',
         category: 'Veiligheid',
         level: 'Intermediate',
-        prerequisiteCourseIds: ['c1'], // Must finish Basics first
+        prerequisiteCourseIds: ['c1'], 
         targetRoles: ['All'],
         createdAt: '01-02-2023',
         author: 'Security Team',
         isPublished: true,
+        xpPoints: 200,
         modules: [
             {
                 id: 'm1',

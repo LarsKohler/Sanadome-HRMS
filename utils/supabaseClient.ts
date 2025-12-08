@@ -19,13 +19,26 @@ import { createClient } from '@supabase/supabase-js';
   CREATE TABLE IF NOT EXISTS tickets ( id text PRIMARY KEY, data jsonb );
   CREATE TABLE IF NOT EXISTS knowledge_base ( id text PRIMARY KEY, data jsonb );
   CREATE TABLE IF NOT EXISTS system_updates ( id text PRIMARY KEY, data jsonb );
+  CREATE TABLE IF NOT EXISTS evaluations ( id text PRIMARY KEY, employee_id text, data jsonb );
   
   -- NIEUW: Recruitment Tabel
   CREATE TABLE IF NOT EXISTS applicants ( id text PRIMARY KEY, data jsonb );
 
-  -- NIEUW: Academy Tabellen
-  CREATE TABLE IF NOT EXISTS academy_courses ( id text PRIMARY KEY, data jsonb );
-  CREATE TABLE IF NOT EXISTS academy_progress ( id text PRIMARY KEY, employee_id text, course_id text, data jsonb );
+  -- NIEUW: Academy Tabellen (Course Builder)
+  CREATE TABLE IF NOT EXISTS academy_courses (
+    id text PRIMARY KEY, 
+    data jsonb NOT NULL, 
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+  );
+  
+  CREATE TABLE IF NOT EXISTS academy_progress (
+    id text PRIMARY KEY,
+    employee_id text,
+    course_id text,
+    data jsonb NOT NULL, 
+    updated_at timestamptz DEFAULT now()
+  );
 
   -- 2. RLS Aanzetten
   ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
@@ -37,6 +50,7 @@ import { createClient } from '@supabase/supabase-js';
   ALTER TABLE tickets ENABLE ROW LEVEL SECURITY;
   ALTER TABLE knowledge_base ENABLE ROW LEVEL SECURITY;
   ALTER TABLE system_updates ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE evaluations ENABLE ROW LEVEL SECURITY;
   ALTER TABLE applicants ENABLE ROW LEVEL SECURITY;
   ALTER TABLE academy_courses ENABLE ROW LEVEL SECURITY;
   ALTER TABLE academy_progress ENABLE ROW LEVEL SECURITY;
@@ -70,17 +84,40 @@ import { createClient } from '@supabase/supabase-js';
   CREATE POLICY "Templates manage" ON onboarding_templates FOR ALL USING ( is_manager() );
   CREATE POLICY "Debtors manage" ON debtors FOR ALL USING ( is_manager() );
   CREATE POLICY "System manage" ON system_updates FOR ALL USING ( is_manager() );
+  CREATE POLICY "Evaluations manage" ON evaluations FOR ALL USING ( is_manager() );
   
   -- Recruitment Policies
   CREATE POLICY "Applicants manage" ON applicants FOR ALL USING ( is_manager() );
 
   -- Academy Policies
-  CREATE POLICY "Academy courses read" ON academy_courses FOR SELECT USING ( true );
-  CREATE POLICY "Academy courses manage" ON academy_courses FOR ALL USING ( is_manager() );
-  
-  CREATE POLICY "Academy progress read self" ON academy_progress FOR SELECT USING ( employee_id = auth.uid()::text );
-  CREATE POLICY "Academy progress manage self" ON academy_progress FOR ALL USING ( employee_id = auth.uid()::text );
-  CREATE POLICY "Academy progress view manager" ON academy_progress FOR SELECT USING ( is_manager() );
+  -- Iedereen mag cursussen ZIEN (lezen)
+  CREATE POLICY "Academy: Iedereen mag cursussen zien" 
+  ON academy_courses FOR SELECT 
+  USING ( true );
+
+  -- Alleen Managers mogen cursussen MAKEN en BEWERKEN
+  CREATE POLICY "Academy: Alleen managers beheren" 
+  ON academy_courses FOR ALL 
+  USING ( is_manager() );
+
+  -- Medewerkers mogen hun EIGEN voortgang zien
+  CREATE POLICY "Progress: Zie eigen voortgang" 
+  ON academy_progress FOR SELECT 
+  USING ( employee_id = auth.uid()::text );
+
+  -- Medewerkers mogen hun EIGEN voortgang updaten (als ze een les afronden)
+  CREATE POLICY "Progress: Update eigen voortgang" 
+  ON academy_progress FOR ALL 
+  USING ( employee_id = auth.uid()::text );
+
+  -- Managers mogen IEDEREENS voortgang zien (voor rapportages)
+  CREATE POLICY "Progress: Managers zien alles" 
+  ON academy_progress FOR SELECT 
+  USING ( is_manager() );
+
+  -- 5. Realtime aanzetten (Zodat aanpassingen direct zichtbaar zijn bij anderen)
+  alter publication supabase_realtime add table academy_courses;
+  alter publication supabase_realtime add table academy_progress;
 */
 
 // Veilig ophalen van env vars, met fallback naar de door jou opgegeven keys

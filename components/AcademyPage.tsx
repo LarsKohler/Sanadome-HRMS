@@ -5,7 +5,7 @@ import {
     BookOpen, GraduationCap, ChevronRight, ChevronDown, 
     Layout, Save, ArrowLeft, FileText, 
     Video, HelpCircle, Image as ImageIcon, MousePointer, 
-    Layers, List, Upload, Check, GripVertical, X, Star, Clock, ArrowRight, Settings, Music, Eye
+    Layers, List, Upload, Check, GripVertical, X, Star, Clock, ArrowRight, Settings, Music, Eye, Sparkles
 } from 'lucide-react';
 import { Employee, AcademyCourse, AcademyProgress, AcademyModule, AcademyLesson, LearningBlock, BlockType } from '../types';
 import AcademySidebar from './AcademySidebar';
@@ -41,17 +41,26 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     const [isBlockPickerOpen, setIsBlockPickerOpen] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
-    // Initial Load
+    // Initial Load & Realtime Sync
     useEffect(() => {
-        loadData();
-    }, []);
+        // Initial Fetch
+        api.getAcademyCourses().then(setCourses);
+        api.getAcademyProgress().then(setUserProgress);
 
-    const loadData = async () => {
-        const c = await api.getAcademyCourses();
-        const p = await api.getAcademyProgress();
-        setCourses(c);
-        setUserProgress(p);
-    };
+        // Realtime Subscription
+        const unsubscribe = api.subscribeToAcademy(
+            (updatedCourses) => {
+                // Only update if we are NOT currently editing to prevent overwrites
+                // Ideally we'd merge, but for now we prioritize builder safety
+                if (view !== 'builder') {
+                    setCourses(updatedCourses);
+                }
+            },
+            (updatedProgress) => setUserProgress(updatedProgress)
+        );
+
+        return () => { unsubscribe(); };
+    }, [view]);
 
     // --- HELPER: GET CURRENT CONTEXT ---
     const getActiveContext = () => {
@@ -69,8 +78,9 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
             // Deep copy to prevent direct mutation before save
             setActiveCourse(JSON.parse(JSON.stringify(course)));
         } else {
+            const newId = crypto.randomUUID();
             setActiveCourse({
-                id: Math.random().toString(36).substr(2, 9),
+                id: newId,
                 title: 'Nieuwe Training',
                 description: '',
                 category: 'General',
@@ -92,7 +102,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     const addModule = () => {
         if (!activeCourse) return;
         const newModule: AcademyModule = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             title: 'Nieuw Hoofdstuk',
             lessons: []
         };
@@ -103,7 +113,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     const addLesson = (moduleId: string) => {
         if (!activeCourse) return;
         const newLesson: AcademyLesson = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             title: 'Nieuwe Les',
             blocks: [], // Empty blocks array
             durationMinutes: 5
@@ -133,7 +143,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         if (type === 'quiz') content = { question: 'Nieuwe vraag?', type: 'single', options: [{ id: '1', text: 'Antwoord A', isCorrect: true }] };
 
         const newBlock: LearningBlock = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             type,
             content
         };
@@ -231,6 +241,18 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     const saveCourse = async () => {
         if (!activeCourse) return;
         await api.saveAcademyCourse(activeCourse);
+        
+        // Update local list immediately
+        setCourses(prev => {
+            const idx = prev.findIndex(c => c.id === activeCourse.id);
+            if (idx >= 0) {
+                const updated = [...prev];
+                updated[idx] = activeCourse;
+                return updated;
+            }
+            return [...prev, activeCourse];
+        });
+
         setHasUnsavedChanges(false);
         onShowToast("Training opgeslagen!");
     };
@@ -239,6 +261,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
 
     const renderBlockEditor = (block: LearningBlock) => {
         const isSelected = block.id === selectedBlockId;
+        const BlockIcon = BLOCK_TYPES.find(b => b.type === block.type)?.icon || HelpCircle;
 
         return (
             <div 
@@ -341,7 +364,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                     {!['text', 'video', 'flashcard'].includes(block.type) && (
                         <div className="flex items-center gap-3 text-slate-400 italic">
                             <div className="p-2 bg-slate-100 rounded-lg">
-                                {React.createElement(BLOCK_TYPES.find(b => b.type === block.type)?.icon || HelpCircle, { size: 20 })}
+                                {React.createElement(BlockIcon, { size: 20 })}
                             </div>
                             {BLOCK_TYPES.find(b => b.type === block.type)?.label} Editor (Configureer in Inspector rechts)
                         </div>
@@ -365,13 +388,15 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         
         const block = (context.lesson?.blocks || []).find(b => b.id === selectedBlockId);
         if (!block) return null;
+        
+        const BlockIcon = BLOCK_TYPES.find(b => b.type === block.type)?.icon || HelpCircle;
 
         return (
             <div className="p-6 space-y-6">
                 <div className="border-b border-slate-100 pb-4">
                     <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Blok Type</span>
                     <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                        {React.createElement(BLOCK_TYPES.find(b => b.type === block.type)?.icon || HelpCircle, { size: 18 })}
+                        {React.createElement(BlockIcon, { size: 18 })}
                         {BLOCK_TYPES.find(b => b.type === block.type)?.label}
                     </h3>
                 </div>
@@ -484,20 +509,39 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                             placeholder="Naam van de cursus..."
                         />
                     </div>
-                    <div className="flex items-center gap-3">
-                        <span className="text-xs text-slate-400 font-medium">
-                            {hasUnsavedChanges ? 'Wijzigingen niet opgeslagen' : 'Opgeslagen'}
-                        </span>
-                        <button 
-                            onClick={saveCourse}
-                            className={`px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${
-                                hasUnsavedChanges 
-                                ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-0.5' 
-                                : 'bg-slate-100 text-slate-400'
-                            }`}
-                        >
-                            <Save size={18}/> Opslaan
-                        </button>
+                    
+                    {/* NEW: PUBLISH TOGGLE */}
+                    <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-3 bg-slate-50 p-1 rounded-lg border border-slate-200">
+                            <button
+                                onClick={() => { setActiveCourse({...activeCourse, isPublished: false}); setHasUnsavedChanges(true); }}
+                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${!activeCourse.isPublished ? 'bg-white shadow text-slate-800' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                Concept
+                            </button>
+                            <button
+                                onClick={() => { setActiveCourse({...activeCourse, isPublished: true}); setHasUnsavedChanges(true); }}
+                                className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1 ${activeCourse.isPublished ? 'bg-green-100 text-green-700 shadow' : 'text-slate-400 hover:text-slate-600'}`}
+                            >
+                                <Eye size={12} /> Live
+                            </button>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs text-slate-400 font-medium">
+                                {hasUnsavedChanges ? 'Wijzigingen niet opgeslagen' : 'Opgeslagen'}
+                            </span>
+                            <button 
+                                onClick={saveCourse}
+                                className={`px-5 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${
+                                    hasUnsavedChanges 
+                                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:-translate-y-0.5' 
+                                    : 'bg-slate-100 text-slate-400'
+                                }`}
+                            >
+                                <Save size={18}/> Opslaan
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -563,8 +607,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                         value={getActiveContext()?.lesson?.title || ''}
                                         onChange={(e) => {
                                             const l = getActiveContext()?.lesson;
-                                            if (l && selectedModuleId) updateBlock('', {}); // Hack to trigger update, really need specific updateLesson
-                                            // Simplifying for brevity: assuming updateLesson logic is working or inline here
+                                            if (l && selectedModuleId) updateBlock('', {}); // Hack to trigger update
                                             const updated = [...(activeCourse.modules || [])];
                                             const mod = updated.find(m => m.id === selectedModuleId);
                                             const les = (mod?.lessons || []).find(l => l.id === selectedLessonId);
@@ -644,34 +687,100 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                 currentUser={currentUser} 
             />
             <main className="flex-1 overflow-hidden flex flex-col relative p-8">
-                {/* Simple List View for Demo if not in builder */}
-                <div className="flex justify-between items-center mb-8">
-                    <h1 className="text-3xl font-serif font-bold text-slate-900">Mijn Trainingen</h1>
-                    <button 
-                        onClick={() => handleOpenBuilder()}
-                        className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center gap-2"
-                    >
-                        <Plus size={18}/> Nieuwe Cursus
-                    </button>
+                
+                {/* HERO / WELCOME */}
+                <div className="mb-10 flex justify-between items-end">
+                    <div>
+                        <h1 className="text-3xl font-serif font-bold text-slate-900">Welkom terug, {currentUser.name.split(' ')[0]}</h1>
+                        <p className="text-slate-500 mt-1">Je hebt <strong>2 trainingen</strong> open staan.</p>
+                    </div>
+                    {/* Only managers can create */}
+                    {(currentUser.role === 'Manager' || currentUser.role === 'Senior Medewerker') && (
+                        <button 
+                            onClick={() => handleOpenBuilder()}
+                            className="bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center gap-2 hover:-translate-y-0.5"
+                        >
+                            <Plus size={18}/> Nieuwe Training
+                        </button>
+                    )}
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {(courses || []).map(course => (
-                        <div key={course.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl transition-all group cursor-pointer" onClick={() => handleOpenBuilder(course)}>
-                            <div className="h-40 bg-slate-100 rounded-xl mb-4 relative overflow-hidden">
-                                {course.coverImage && <img src={course.coverImage} className="w-full h-full object-cover"/>}
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                                    <Edit2 className="text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-lg" size={32}/>
+                {/* CONTINUE WATCHING */}
+                {userProgress.length > 0 && (
+                    <div className="mb-10">
+                        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 px-1">Verder kijken</h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            {userProgress.map(prog => {
+                                const course = courses.find(c => c.id === prog.courseId);
+                                if (!course) return null;
+                                return (
+                                    <div key={prog.id} className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex gap-4 items-center group cursor-pointer hover:border-indigo-200 transition-all">
+                                        <div className="w-16 h-16 rounded-xl bg-slate-100 flex-shrink-0 overflow-hidden relative">
+                                            {course.coverImage && <img src={course.coverImage} className="w-full h-full object-cover"/>}
+                                            <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
+                                                <Play size={20} className="text-white fill-white"/>
+                                            </div>
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <h4 className="font-bold text-slate-900 truncate">{course.title}</h4>
+                                            <div className="h-1.5 w-full bg-slate-100 rounded-full mt-2 overflow-hidden">
+                                                <div className="h-full bg-indigo-500" style={{ width: `${prog.progressPercentage}%` }}></div>
+                                            </div>
+                                            <p className="text-xs text-slate-400 mt-1">{prog.progressPercentage}% voltooid</p>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {/* ALL COURSES */}
+                <div>
+                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 px-1">Catalogus</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {(courses || []).filter(c => c.isPublished || currentUser.role === 'Manager').map(course => (
+                            <div key={course.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group cursor-pointer overflow-hidden flex flex-col h-full" onClick={() => (currentUser.role === 'Manager' ? handleOpenBuilder(course) : null)}>
+                                <div className="h-40 bg-slate-100 relative overflow-hidden">
+                                    {course.coverImage && <img src={course.coverImage} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"/>}
+                                    
+                                    {/* Edit Overlay for Managers */}
+                                    {currentUser.role === 'Manager' && (
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                            <span className="text-white font-bold flex items-center gap-2 border-2 border-white px-4 py-2 rounded-xl">
+                                                <Edit2 size={16}/> Bewerken
+                                            </span>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Badge */}
+                                    <div className="absolute top-3 left-3 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide text-indigo-900 shadow-sm">
+                                        {course.category}
+                                    </div>
+                                    
+                                    {!course.isPublished && (
+                                        <div className="absolute top-3 right-3 bg-amber-100 text-amber-800 px-2 py-1 rounded-lg text-[10px] font-bold border border-amber-200">
+                                            Concept
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="p-5 flex flex-col flex-1">
+                                    <h3 className="font-bold text-lg text-slate-900 mb-2 leading-tight">{course.title}</h3>
+                                    <p className="text-xs text-slate-500 mb-4 line-clamp-2 leading-relaxed flex-1">{course.description || 'Geen beschrijving'}</p>
+                                    
+                                    <div className="flex items-center justify-between pt-4 border-t border-slate-50 mt-auto">
+                                        <div className="flex items-center gap-3 text-xs font-bold text-slate-400">
+                                            <span className="flex items-center gap-1"><Layers size={12}/> {(course.modules || []).length}</span>
+                                            <span className="flex items-center gap-1"><Clock size={12}/> {course.estimatedTime || '30m'}</span>
+                                        </div>
+                                        <span className="flex items-center gap-1 text-xs font-bold text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full">
+                                            <Sparkles size={10} /> {course.xpPoints} XP
+                                        </span>
+                                    </div>
                                 </div>
                             </div>
-                            <h3 className="font-bold text-lg text-slate-900 mb-1">{course.title}</h3>
-                            <p className="text-sm text-slate-500 mb-4 line-clamp-2">{course.description || 'Geen beschrijving'}</p>
-                            <div className="flex items-center gap-4 text-xs font-bold text-slate-400">
-                                <span className="flex items-center gap-1"><Layers size={14}/> {(course.modules || []).length} Modules</span>
-                                <span className="flex items-center gap-1"><Star size={14} className="text-yellow-400 fill-yellow-400"/> {course.xpPoints} XP</span>
-                            </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
             </main>
         </div>
