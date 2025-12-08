@@ -40,23 +40,30 @@ const RichTextToolbar = ({ onFormat }: { onFormat: (cmd: string, val?: string) =
     );
 };
 
-// Advanced Icon Picker with Search and Full Catalog
+// Advanced Icon Picker with Search and Full Catalog (1400+ Icons)
 const IconPicker = ({ selected, onSelect }: { selected?: string, onSelect: (icon: string) => void }) => {
     const [searchTerm, setSearchTerm] = useState('');
+    const [page, setPage] = useState(1);
+    const ICONS_PER_PAGE = 96; 
     
     // Get all valid icon keys from Lucide
     const allIconKeys = useMemo(() => {
         return Object.keys(LucideIcons).filter(key => 
             key !== 'createLucideIcon' && 
             key !== 'Icon' && 
-            isNaN(Number(key[0])) // Filter out numbers or internal props
+            key !== 'default' &&
+            /^[A-Z]/.test(key) // Ensure it starts with Uppercase (Component Name)
         );
     }, []);
 
     const filteredIcons = useMemo(() => {
-        if (!searchTerm) return allIconKeys.slice(0, 48); // Show first 48 initially for performance
-        return allIconKeys.filter(name => name.toLowerCase().includes(searchTerm.toLowerCase())).slice(0, 48);
+        if (!searchTerm) return allIconKeys;
+        return allIconKeys.filter(name => name.toLowerCase().includes(searchTerm.toLowerCase()));
     }, [allIconKeys, searchTerm]);
+
+    const visibleIcons = useMemo(() => {
+        return filteredIcons.slice(0, page * ICONS_PER_PAGE);
+    }, [filteredIcons, page]);
 
     return (
         <div className="flex flex-col gap-3">
@@ -65,22 +72,21 @@ const IconPicker = ({ selected, onSelect }: { selected?: string, onSelect: (icon
                 <input 
                     type="text" 
                     className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
-                    placeholder="Zoek icoon (bv. star, user)..."
+                    placeholder={`Zoek in ${allIconKeys.length} iconen...`}
                     value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
+                    onChange={(e) => { setSearchTerm(e.target.value); setPage(1); }}
                 />
             </div>
             
-            <div className="grid grid-cols-6 gap-2 max-h-48 overflow-y-auto custom-scrollbar p-1">
+            <div className="grid grid-cols-6 gap-2 max-h-60 overflow-y-auto custom-scrollbar p-1">
                 <button 
                     onClick={() => onSelect('')}
-                    className={`p-2 rounded-lg flex items-center justify-center border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 ${!selected ? 'bg-slate-100' : ''}`}
+                    className={`p-2 rounded-lg flex items-center justify-center border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 ${!selected ? 'bg-slate-100 shadow-inner' : ''}`}
                     title="Geen icoon"
                 >
                     <LucideIcons.X size={18} />
                 </button>
-                {filteredIcons.map((name) => {
-                    // Dynamically get the icon component
+                {visibleIcons.map((name) => {
                     const IconComponent = (LucideIcons as any)[name];
                     if (!IconComponent) return null;
 
@@ -88,7 +94,7 @@ const IconPicker = ({ selected, onSelect }: { selected?: string, onSelect: (icon
                         <button
                             key={name}
                             onClick={() => onSelect(name)}
-                            className={`p-2 rounded-lg flex items-center justify-center transition-all ${selected === name ? 'bg-indigo-600 text-white shadow-md scale-110' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                            className={`p-2 rounded-lg flex items-center justify-center transition-all ${selected === name ? 'bg-indigo-600 text-white shadow-md scale-110 ring-2 ring-offset-1 ring-indigo-500' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 hover:border-slate-300'}`}
                             title={name}
                         >
                             <IconComponent size={18} />
@@ -96,9 +102,18 @@ const IconPicker = ({ selected, onSelect }: { selected?: string, onSelect: (icon
                     );
                 })}
             </div>
-            {searchTerm && filteredIcons.length === 0 && (
-                <p className="text-xs text-slate-400 text-center italic">Geen iconen gevonden.</p>
-            )}
+            
+            <div className="flex justify-between items-center text-xs text-slate-400 px-1">
+                <span>{visibleIcons.length} van {filteredIcons.length}</span>
+                {visibleIcons.length < filteredIcons.length && (
+                    <button 
+                        onClick={() => setPage(p => p + 1)}
+                        className="text-indigo-600 font-bold hover:underline"
+                    >
+                        Meer laden...
+                    </button>
+                )}
+            </div>
         </div>
     );
 };
