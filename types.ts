@@ -97,6 +97,9 @@ export interface LearningBlock {
 export interface TextBlockContent {
     html: string;
     style: 'paragraph' | 'h1' | 'h2' | 'quote' | 'alert' | 'tip';
+    icon?: string; // Icon name from lucide-react (e.g. 'Info', 'AlertTriangle')
+    iconColor?: string; // Tailwind class or hex
+    backgroundColor?: string; // Tailwind class
 }
 
 export interface VideoBlockContent {

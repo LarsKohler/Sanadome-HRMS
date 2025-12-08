@@ -5,7 +5,7 @@ import {
     BookOpen, GraduationCap, ChevronRight, ChevronDown, 
     Layout, Save, ArrowLeft, FileText, 
     Video, HelpCircle, Image as ImageIcon, MousePointer, 
-    Layers, List, Upload, Check, GripVertical, X, Star, Clock, ArrowRight, Settings, Music, Eye, Sparkles, Loader2, MonitorPlay, MoreVertical, AlertTriangle, CheckCircle2, RotateCw, ChevronLeft
+    Layers, List, Upload, Check, GripVertical, X, Star, Clock, ArrowRight, Settings, Music, Eye, Sparkles, Loader2, MonitorPlay, MoreVertical, AlertTriangle, CheckCircle2, RotateCw, ChevronLeft, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Heading1, Heading2, Link as LinkIcon, Info, Lightbulb, Zap, Flag, Target, Award, User, Calendar
 } from 'lucide-react';
 import { Employee, AcademyCourse, AcademyProgress, AcademyModule, AcademyLesson, LearningBlock, BlockType } from '../types';
 import AcademySidebar from './AcademySidebar';
@@ -20,12 +20,72 @@ interface AcademyPageProps {
 
 // --- CONFIG ---
 const BLOCK_TYPES: { type: BlockType; label: string; icon: any; color: string; description: string }[] = [
-    { type: 'text', label: 'Rich Text', icon: FileText, color: 'text-slate-600 bg-slate-100', description: 'Tekst, koppen, quotes en opmaak.' },
+    { type: 'text', label: 'Rich Text & Media', icon: FileText, color: 'text-slate-600 bg-slate-100', description: 'Tekst, koppen, iconen en opmaak.' },
     { type: 'video', label: 'Video', icon: Video, color: 'text-red-600 bg-red-100', description: 'YouTube, Vimeo of upload.' },
     { type: 'hotspot', label: 'Hotspot Image', icon: MousePointer, color: 'text-orange-600 bg-orange-100', description: 'Interactieve afbeelding met klikbare punten.' },
     { type: 'flashcard', label: 'Flashcards', icon: Layers, color: 'text-indigo-600 bg-indigo-100', description: 'Omdraaibare kaarten om te oefenen.' },
     { type: 'quiz', label: 'Kennis Quiz', icon: HelpCircle, color: 'text-teal-600 bg-teal-100', description: 'Toets de kennis met vragen.' },
 ];
+
+const ICONS_CATALOG = {
+    'Info': Info,
+    'AlertTriangle': AlertTriangle,
+    'Lightbulb': Lightbulb,
+    'CheckCircle': CheckCircle,
+    'X': X,
+    'Star': Star,
+    'Zap': Zap,
+    'Flag': Flag,
+    'Target': Target,
+    'Award': Award,
+    'User': User,
+    'Calendar': Calendar,
+    'Settings': Settings,
+    'FileText': FileText,
+    'Video': Video,
+    'Music': Music,
+};
+
+const RichTextToolbar = ({ onFormat }: { onFormat: (cmd: string, val?: string) => void }) => {
+    return (
+        <div className="flex items-center gap-1 bg-white border border-slate-200 p-1 rounded-lg shadow-sm mb-2 w-fit">
+            <button onMouseDown={(e) => { e.preventDefault(); onFormat('bold'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Bold size={16}/></button>
+            <button onMouseDown={(e) => { e.preventDefault(); onFormat('italic'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Italic size={16}/></button>
+            <button onMouseDown={(e) => { e.preventDefault(); onFormat('underline'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Underline size={16}/></button>
+            <div className="w-px h-4 bg-slate-200 mx-1"></div>
+            <button onMouseDown={(e) => { e.preventDefault(); onFormat('formatBlock', 'H1'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Heading1 size={16}/></button>
+            <button onMouseDown={(e) => { e.preventDefault(); onFormat('formatBlock', 'H2'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Heading2 size={16}/></button>
+            <div className="w-px h-4 bg-slate-200 mx-1"></div>
+            <button onMouseDown={(e) => { e.preventDefault(); onFormat('justifyLeft'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><AlignLeft size={16}/></button>
+            <button onMouseDown={(e) => { e.preventDefault(); onFormat('justifyCenter'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><AlignCenter size={16}/></button>
+            <button onMouseDown={(e) => { e.preventDefault(); onFormat('insertUnorderedList'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><List size={16}/></button>
+        </div>
+    );
+};
+
+const IconPicker = ({ selected, onSelect }: { selected?: string, onSelect: (icon: string) => void }) => {
+    return (
+        <div className="grid grid-cols-6 gap-2">
+            {Object.entries(ICONS_CATALOG).map(([name, Icon]) => (
+                <button
+                    key={name}
+                    onClick={() => onSelect(name)}
+                    className={`p-2 rounded-lg flex items-center justify-center transition-all ${selected === name ? 'bg-indigo-600 text-white shadow-md scale-110' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                    title={name}
+                >
+                    <Icon size={18} />
+                </button>
+            ))}
+            <button 
+                onClick={() => onSelect('')}
+                className={`p-2 rounded-lg flex items-center justify-center border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 ${!selected ? 'bg-slate-100' : ''}`}
+                title="Geen icoon"
+            >
+                <X size={18} />
+            </button>
+        </div>
+    );
+};
 
 const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onExit }) => {
     const [view, setView] = useState<string>('dashboard'); 
@@ -255,7 +315,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         if (!context || !activeCourse) return;
 
         let content: any = {};
-        if (type === 'text') content = { html: '', style: 'paragraph' };
+        if (type === 'text') content = { html: 'Start hier met typen...', style: 'paragraph', icon: '', iconColor: 'text-slate-500', backgroundColor: 'bg-transparent' };
         if (type === 'video') content = { url: '', source: 'youtube' };
         if (type === 'hotspot') content = { imageUrl: '', spots: [] };
         if (type === 'flashcard') content = { cards: [{ id: '1', front: 'Vraag', back: 'Antwoord' }] };
@@ -441,29 +501,36 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         }
     };
 
+    // --- EXEC COMMAND HELPER ---
+    const handleFormat = (cmd: string, val?: string) => {
+        document.execCommand(cmd, false, val);
+    };
+
     // --- RENDERERS ---
 
     const renderBlockViewer = (block: LearningBlock) => {
-        const styleClass = block.content.style === 'h1' ? 'text-3xl font-bold text-slate-900 mb-4' : 
-                          block.content.style === 'h2' ? 'text-2xl font-bold text-slate-800 mt-6 mb-3' :
-                          block.content.style === 'quote' ? 'text-xl italic text-slate-600 border-l-4 border-teal-500 pl-6 py-2 my-6 bg-slate-50' :
-                          block.content.style === 'alert' ? 'bg-amber-50 text-amber-900 p-4 rounded-xl border border-amber-200 font-medium flex items-start gap-3 my-4' :
-                          'text-slate-700 leading-relaxed text-lg mb-4';
+        const bgClass = block.content.backgroundColor || 'bg-transparent';
+        const containerClass = `relative ${bgClass} rounded-xl p-2`;
+        
+        const IconComponent = block.content.icon && ICONS_CATALOG[block.content.icon as keyof typeof ICONS_CATALOG] 
+            ? ICONS_CATALOG[block.content.icon as keyof typeof ICONS_CATALOG] 
+            : null;
 
         switch (block.type) {
             case 'text':
-                if (block.content.style === 'alert') {
-                    return (
-                        <div className={styleClass}>
-                            <AlertTriangle className="shrink-0 mt-0.5" size={20}/>
-                            <div>{block.content.html}</div>
-                        </div>
-                    );
-                }
-                if (['h1', 'h2'].includes(block.content.style)) {
-                    return React.createElement(block.content.style, { className: styleClass }, block.content.html);
-                }
-                return <p className={styleClass}>{block.content.html}</p>;
+                return (
+                    <div className={`${containerClass} flex items-start gap-4 mb-4`}>
+                        {IconComponent && (
+                            <div className={`p-2 rounded-lg shrink-0 mt-1 ${block.content.iconColor?.includes('bg-') ? block.content.iconColor : 'bg-slate-100 text-slate-600'}`}>
+                                <IconComponent size={24} />
+                            </div>
+                        )}
+                        <div 
+                            className="prose prose-slate max-w-none text-slate-700 leading-relaxed text-lg"
+                            dangerouslySetInnerHTML={{ __html: block.content.html }} 
+                        />
+                    </div>
+                );
 
             case 'video':
                 return (
@@ -611,11 +678,10 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
 
     const renderBlockEditor = (block: LearningBlock) => {
         const isSelected = block.id === selectedBlockId;
-        const styleClass = block.content.style === 'h1' ? 'text-3xl font-bold text-slate-900' : 
-                          block.content.style === 'h2' ? 'text-2xl font-bold text-slate-800 mt-4' :
-                          block.content.style === 'quote' ? 'text-xl italic text-slate-600 border-l-4 border-slate-300 pl-4 py-2' :
-                          block.content.style === 'alert' ? 'bg-amber-50 text-amber-900 p-4 rounded-lg border border-amber-200 font-medium' :
-                          'text-slate-600 leading-relaxed';
+        const bgClass = block.content.backgroundColor || 'bg-transparent';
+        const IconComponent = block.content.icon && ICONS_CATALOG[block.content.icon as keyof typeof ICONS_CATALOG] 
+            ? ICONS_CATALOG[block.content.icon as keyof typeof ICONS_CATALOG] 
+            : null;
 
         return (
             <div 
@@ -633,17 +699,32 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                     <button onClick={(e) => { e.stopPropagation(); deleteBlock(block.id); }} className="p-1.5 bg-white border border-slate-200 rounded text-slate-500 hover:text-red-600"><Trash2 size={14}/></button>
                 </div>
 
-                <div className="p-2">
-                    {/* TYPE SPECIFIC RENDER - VISUAL PREVIEW ONLY */}
+                <div className={`p-4 rounded-lg ${bgClass}`}>
                     
                     {block.type === 'text' && (
-                        <textarea 
-                            className={`w-full resize-none outline-none bg-transparent ${styleClass}`}
-                            value={block.content.html}
-                            onChange={(e) => updateBlock(block.id, { ...block.content, html: e.target.value })}
-                            placeholder={block.content.style === 'h1' ? "Koptekst..." : "Typ hier je tekst..."}
-                            rows={Math.max(1, (block.content.html || '').split('\n').length)}
-                        />
+                        <div className="relative">
+                            {isSelected && (
+                                <div className="absolute -top-14 left-0 z-20">
+                                    <RichTextToolbar onFormat={handleFormat} />
+                                </div>
+                            )}
+                            <div className="flex gap-4 items-start">
+                                {IconComponent && (
+                                    <div className={`p-2 rounded-lg shrink-0 mt-1 ${block.content.iconColor?.includes('bg-') ? block.content.iconColor : 'bg-slate-100 text-slate-600'}`}>
+                                        <IconComponent size={24} />
+                                    </div>
+                                )}
+                                <div
+                                    className="prose prose-slate max-w-none focus:outline-none min-h-[2rem]"
+                                    contentEditable
+                                    suppressContentEditableWarning
+                                    onInput={(e) => {
+                                        updateBlock(block.id, { ...block.content, html: e.currentTarget.innerHTML });
+                                    }}
+                                    dangerouslySetInnerHTML={{ __html: block.content.html }}
+                                />
+                            </div>
+                        </div>
                     )}
 
                     {block.type === 'video' && (
@@ -768,19 +849,60 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
 
                 {/* Specific Settings based on Block Type */}
                 {block.type === 'text' && (
-                    <div>
-                        <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Tekst Stijl</label>
-                        <select 
-                            className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-indigo-500 outline-none"
-                            value={block.content.style}
-                            onChange={(e) => updateBlock(block.id, { ...block.content, style: e.target.value })}
-                        >
-                            <option value="paragraph">Paragraaf</option>
-                            <option value="h1">Kop 1 (Groot)</option>
-                            <option value="h2">Kop 2 (Medium)</option>
-                            <option value="quote">Quote Blok</option>
-                            <option value="alert">Alert Box</option>
-                        </select>
+                    <div className="space-y-6">
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-3 block">Kies Icoon</label>
+                            <IconPicker 
+                                selected={block.content.icon}
+                                onSelect={(icon) => updateBlock(block.id, { ...block.content, icon })}
+                            />
+                        </div>
+
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Styling</label>
+                            <div className="space-y-3">
+                                <div>
+                                    <span className="text-xs text-slate-400 mb-1 block">Achtergrond</span>
+                                    <div className="flex flex-wrap gap-2">
+                                        {[
+                                            { cls: 'bg-transparent', label: 'Geen' },
+                                            { cls: 'bg-slate-50', label: 'Grijs' },
+                                            { cls: 'bg-blue-50', label: 'Blauw' },
+                                            { cls: 'bg-green-50', label: 'Groen' },
+                                            { cls: 'bg-amber-50', label: 'Geel' },
+                                            { cls: 'bg-red-50', label: 'Rood' }
+                                        ].map(bg => (
+                                            <button 
+                                                key={bg.cls} 
+                                                onClick={() => updateBlock(block.id, { ...block.content, backgroundColor: bg.cls })}
+                                                className={`w-6 h-6 rounded-full border border-slate-200 ${bg.cls} ${block.content.backgroundColor === bg.cls ? 'ring-2 ring-indigo-500 ring-offset-1' : ''}`}
+                                                title={bg.label}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="text-xs text-slate-400 mb-1 block">Icoon Kleur</span>
+                                    <div className="flex flex-wrap gap-2">
+                                        {[
+                                            { cls: 'bg-slate-100 text-slate-600', label: 'Grijs' },
+                                            { cls: 'bg-blue-100 text-blue-600', label: 'Blauw' },
+                                            { cls: 'bg-green-100 text-green-600', label: 'Groen' },
+                                            { cls: 'bg-amber-100 text-amber-600', label: 'Geel' },
+                                            { cls: 'bg-red-100 text-red-600', label: 'Rood' },
+                                            { cls: 'bg-indigo-100 text-indigo-600', label: 'Indigo' }
+                                        ].map(c => (
+                                            <button 
+                                                key={c.cls} 
+                                                onClick={() => updateBlock(block.id, { ...block.content, iconColor: c.cls })}
+                                                className={`w-6 h-6 rounded-full border border-slate-200 ${c.cls.split(' ')[0]} ${block.content.iconColor === c.cls ? 'ring-2 ring-indigo-500 ring-offset-1' : ''}`}
+                                                title={c.label}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -1120,50 +1242,47 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     };
 
     const renderCatalog = () => (
-        <div>
-            <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 px-1">Catalogus</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {(courses || []).filter(c => c.isPublished).map(course => (
-                    <div key={course.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group cursor-pointer overflow-hidden flex flex-col h-full" onClick={() => handleStartCourse(course)}>
-                        <div className="h-40 bg-slate-100 relative overflow-hidden">
-                            {course.coverImage && <img src={course.coverImage} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"/>}
-                            
-                            {/* Play Overlay */}
-                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                                <div className="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center shadow-lg backdrop-blur-sm">
-                                    <Play size={20} className="ml-1 text-slate-900"/>
-                                </div>
-                            </div>
-                            
-                            {/* Badge */}
-                            <div className="absolute top-3 left-3 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide text-indigo-900 shadow-sm">
-                                {course.category}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {(courses || []).filter(c => c.isPublished).map(course => (
+                <div key={course.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all group cursor-pointer overflow-hidden flex flex-col h-full" onClick={() => handleStartCourse(course)}>
+                    <div className="h-40 bg-slate-100 relative overflow-hidden">
+                        {course.coverImage && <img src={course.coverImage} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"/>}
+                        
+                        {/* Play Overlay */}
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <div className="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center shadow-lg backdrop-blur-sm">
+                                <Play size={20} className="ml-1 text-slate-900"/>
                             </div>
                         </div>
-                        <div className="p-5 flex flex-col flex-1">
-                            <h3 className="font-bold text-lg text-slate-900 mb-2 leading-tight group-hover:text-indigo-600 transition-colors">{course.title}</h3>
-                            <p className="text-xs text-slate-500 mb-4 line-clamp-2 leading-relaxed flex-1">{course.description || 'Geen beschrijving'}</p>
-                            
-                            <div className="flex items-center justify-between pt-4 border-t border-slate-50 mt-auto">
-                                <div className="flex items-center gap-3 text-xs font-bold text-slate-400">
-                                    <span className="flex items-center gap-1"><Layers size={12}/> {(course.modules || []).length}</span>
-                                    <span className="flex items-center gap-1"><Clock size={12}/> {course.estimatedTime || '30m'}</span>
-                                </div>
-                                <span className="flex items-center gap-1 text-xs font-bold text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full">
-                                    <Sparkles size={10} /> {course.xpPoints} XP
-                                </span>
-                            </div>
+                        
+                        {/* Badge */}
+                        <div className="absolute top-3 left-3 bg-white/90 backdrop-blur px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide text-indigo-900 shadow-sm">
+                            {course.category}
                         </div>
                     </div>
-                ))}
-                {courses.filter(c => c.isPublished).length === 0 && (
-                    <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50 text-slate-400">
-                        <GraduationCap size={48} className="mx-auto mb-4 opacity-50"/>
-                        <p className="font-bold">Geen trainingen beschikbaar</p>
-                        <p className="text-sm mt-1">Check later terug voor nieuwe content.</p>
+                    <div className="p-5 flex flex-col flex-1">
+                        <h3 className="font-bold text-lg text-slate-900 mb-2 leading-tight group-hover:text-indigo-600 transition-colors">{course.title}</h3>
+                        <p className="text-xs text-slate-500 mb-4 line-clamp-2 leading-relaxed flex-1">{course.description || 'Geen beschrijving'}</p>
+                        
+                        <div className="flex items-center justify-between pt-4 border-t border-slate-50 mt-auto">
+                            <div className="flex items-center gap-3 text-xs font-bold text-slate-400">
+                                <span className="flex items-center gap-1"><Layers size={12}/> {(course.modules || []).length}</span>
+                                <span className="flex items-center gap-1"><Clock size={12}/> {course.estimatedTime || '30m'}</span>
+                            </div>
+                            <span className="flex items-center gap-1 text-xs font-bold text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full">
+                                <Sparkles size={10} /> {course.xpPoints} XP
+                            </span>
+                        </div>
                     </div>
-                )}
-            </div>
+                </div>
+            ))}
+            {courses.filter(c => c.isPublished).length === 0 && (
+                <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50 text-slate-400">
+                    <GraduationCap size={48} className="mx-auto mb-4 opacity-50"/>
+                    <p className="font-bold">Geen trainingen beschikbaar</p>
+                    <p className="text-sm mt-1">Check later terug voor nieuwe content.</p>
+                </div>
+            )}
         </div>
     );
 
