@@ -1,12 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { 
-    Play, CheckCircle, Search, Plus, Edit2, Trash2, 
-    BookOpen, GraduationCap, ChevronRight, ChevronDown, 
-    Layout, Save, ArrowLeft, FileText, 
-    Video, HelpCircle, Image as ImageIcon, MousePointer, 
-    Layers, List, Upload, Check, GripVertical, X, Star, Clock, ArrowRight, Settings, Music, Eye, Sparkles, Loader2, MonitorPlay, MoreVertical, AlertTriangle, CheckCircle2, RotateCw, ChevronLeft, Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Heading1, Heading2, Link as LinkIcon, Info, Lightbulb, Zap, Flag, Target, Award, User, Calendar
-} from 'lucide-react';
+import * as LucideIcons from 'lucide-react'; // Import ALL icons
 import { Employee, AcademyCourse, AcademyProgress, AcademyModule, AcademyLesson, LearningBlock, BlockType } from '../types';
 import AcademySidebar from './AcademySidebar';
 import { api } from '../utils/api';
@@ -20,71 +14,91 @@ interface AcademyPageProps {
 
 // --- CONFIG ---
 const BLOCK_TYPES: { type: BlockType; label: string; icon: any; color: string; description: string }[] = [
-    { type: 'text', label: 'Rich Text & Media', icon: FileText, color: 'text-slate-600 bg-slate-100', description: 'Tekst, koppen, iconen en opmaak.' },
-    { type: 'video', label: 'Video', icon: Video, color: 'text-red-600 bg-red-100', description: 'YouTube, Vimeo of upload.' },
-    { type: 'hotspot', label: 'Hotspot Image', icon: MousePointer, color: 'text-orange-600 bg-orange-100', description: 'Interactieve afbeelding met klikbare punten.' },
-    { type: 'flashcard', label: 'Flashcards', icon: Layers, color: 'text-indigo-600 bg-indigo-100', description: 'Omdraaibare kaarten om te oefenen.' },
-    { type: 'quiz', label: 'Kennis Quiz', icon: HelpCircle, color: 'text-teal-600 bg-teal-100', description: 'Toets de kennis met vragen.' },
+    { type: 'text', label: 'Rich Text & Media', icon: LucideIcons.FileText, color: 'text-slate-600 bg-slate-100', description: 'Tekst, koppen, iconen en opmaak.' },
+    { type: 'video', label: 'Video', icon: LucideIcons.Video, color: 'text-red-600 bg-red-100', description: 'YouTube, Vimeo of upload.' },
+    { type: 'hotspot', label: 'Hotspot Image', icon: LucideIcons.MousePointer, color: 'text-orange-600 bg-orange-100', description: 'Interactieve afbeelding met klikbare punten.' },
+    { type: 'flashcard', label: 'Flashcards', icon: LucideIcons.Layers, color: 'text-indigo-600 bg-indigo-100', description: 'Omdraaibare kaarten om te oefenen.' },
+    { type: 'quiz', label: 'Kennis Quiz', icon: LucideIcons.HelpCircle, color: 'text-teal-600 bg-teal-100', description: 'Toets de kennis met vragen.' },
 ];
-
-const ICONS_CATALOG = {
-    'Info': Info,
-    'AlertTriangle': AlertTriangle,
-    'Lightbulb': Lightbulb,
-    'CheckCircle': CheckCircle,
-    'X': X,
-    'Star': Star,
-    'Zap': Zap,
-    'Flag': Flag,
-    'Target': Target,
-    'Award': Award,
-    'User': User,
-    'Calendar': Calendar,
-    'Settings': Settings,
-    'FileText': FileText,
-    'Video': Video,
-    'Music': Music,
-};
 
 // --- HELPERS ---
 
 const RichTextToolbar = ({ onFormat }: { onFormat: (cmd: string, val?: string) => void }) => {
     return (
         <div className="flex items-center gap-1 bg-white border border-slate-200 p-1 rounded-lg shadow-sm mb-2 w-fit">
-            <button onMouseDown={(e) => { e.preventDefault(); onFormat('bold'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Bold size={16}/></button>
-            <button onMouseDown={(e) => { e.preventDefault(); onFormat('italic'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Italic size={16}/></button>
-            <button onMouseDown={(e) => { e.preventDefault(); onFormat('underline'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Underline size={16}/></button>
+            <button onMouseDown={(e) => { e.preventDefault(); onFormat('bold'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><LucideIcons.Bold size={16}/></button>
+            <button onMouseDown={(e) => { e.preventDefault(); onFormat('italic'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><LucideIcons.Italic size={16}/></button>
+            <button onMouseDown={(e) => { e.preventDefault(); onFormat('underline'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><LucideIcons.Underline size={16}/></button>
             <div className="w-px h-4 bg-slate-200 mx-1"></div>
-            <button onMouseDown={(e) => { e.preventDefault(); onFormat('formatBlock', 'H1'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Heading1 size={16}/></button>
-            <button onMouseDown={(e) => { e.preventDefault(); onFormat('formatBlock', 'H2'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><Heading2 size={16}/></button>
+            <button onMouseDown={(e) => { e.preventDefault(); onFormat('formatBlock', 'H1'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><LucideIcons.Heading1 size={16}/></button>
+            <button onMouseDown={(e) => { e.preventDefault(); onFormat('formatBlock', 'H2'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><LucideIcons.Heading2 size={16}/></button>
             <div className="w-px h-4 bg-slate-200 mx-1"></div>
-            <button onMouseDown={(e) => { e.preventDefault(); onFormat('justifyLeft'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><AlignLeft size={16}/></button>
-            <button onMouseDown={(e) => { e.preventDefault(); onFormat('justifyCenter'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><AlignCenter size={16}/></button>
-            <button onMouseDown={(e) => { e.preventDefault(); onFormat('insertUnorderedList'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><List size={16}/></button>
+            <button onMouseDown={(e) => { e.preventDefault(); onFormat('justifyLeft'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><LucideIcons.AlignLeft size={16}/></button>
+            <button onMouseDown={(e) => { e.preventDefault(); onFormat('justifyCenter'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><LucideIcons.AlignCenter size={16}/></button>
+            <button onMouseDown={(e) => { e.preventDefault(); onFormat('insertUnorderedList'); }} className="p-1.5 hover:bg-slate-100 rounded text-slate-600"><LucideIcons.List size={16}/></button>
         </div>
     );
 };
 
+// Advanced Icon Picker with Search and Full Catalog
 const IconPicker = ({ selected, onSelect }: { selected?: string, onSelect: (icon: string) => void }) => {
+    const [searchTerm, setSearchTerm] = useState('');
+    
+    // Get all valid icon keys from Lucide
+    const allIconKeys = useMemo(() => {
+        return Object.keys(LucideIcons).filter(key => 
+            key !== 'createLucideIcon' && 
+            key !== 'Icon' && 
+            isNaN(Number(key[0])) // Filter out numbers or internal props
+        );
+    }, []);
+
+    const filteredIcons = useMemo(() => {
+        if (!searchTerm) return allIconKeys.slice(0, 48); // Show first 48 initially for performance
+        return allIconKeys.filter(name => name.toLowerCase().includes(searchTerm.toLowerCase())).slice(0, 48);
+    }, [allIconKeys, searchTerm]);
+
     return (
-        <div className="grid grid-cols-6 gap-2">
-            {Object.entries(ICONS_CATALOG).map(([name, Icon]) => (
-                <button
-                    key={name}
-                    onClick={() => onSelect(name)}
-                    className={`p-2 rounded-lg flex items-center justify-center transition-all ${selected === name ? 'bg-indigo-600 text-white shadow-md scale-110' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}
-                    title={name}
+        <div className="flex flex-col gap-3">
+            <div className="relative">
+                <LucideIcons.Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+                <input 
+                    type="text" 
+                    className="w-full pl-9 pr-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="Zoek icoon (bv. star, user)..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+            
+            <div className="grid grid-cols-6 gap-2 max-h-48 overflow-y-auto custom-scrollbar p-1">
+                <button 
+                    onClick={() => onSelect('')}
+                    className={`p-2 rounded-lg flex items-center justify-center border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 ${!selected ? 'bg-slate-100' : ''}`}
+                    title="Geen icoon"
                 >
-                    <Icon size={18} />
+                    <LucideIcons.X size={18} />
                 </button>
-            ))}
-            <button 
-                onClick={() => onSelect('')}
-                className={`p-2 rounded-lg flex items-center justify-center border border-slate-200 text-slate-400 hover:text-red-500 hover:bg-red-50 ${!selected ? 'bg-slate-100' : ''}`}
-                title="Geen icoon"
-            >
-                <X size={18} />
-            </button>
+                {filteredIcons.map((name) => {
+                    // Dynamically get the icon component
+                    const IconComponent = (LucideIcons as any)[name];
+                    if (!IconComponent) return null;
+
+                    return (
+                        <button
+                            key={name}
+                            onClick={() => onSelect(name)}
+                            className={`p-2 rounded-lg flex items-center justify-center transition-all ${selected === name ? 'bg-indigo-600 text-white shadow-md scale-110' : 'bg-white border border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                            title={name}
+                        >
+                            <IconComponent size={18} />
+                        </button>
+                    );
+                })}
+            </div>
+            {searchTerm && filteredIcons.length === 0 && (
+                <p className="text-xs text-slate-400 text-center italic">Geen iconen gevonden.</p>
+            )}
         </div>
     );
 };
@@ -543,8 +557,9 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         const bgClass = block.content.backgroundColor || 'bg-transparent';
         const containerClass = `relative ${bgClass} rounded-xl p-2`;
         
-        const IconComponent = block.content.icon && ICONS_CATALOG[block.content.icon as keyof typeof ICONS_CATALOG] 
-            ? ICONS_CATALOG[block.content.icon as keyof typeof ICONS_CATALOG] 
+        // Dynamically get icon component from big library
+        const IconComponent = block.content.icon && (LucideIcons as any)[block.content.icon] 
+            ? (LucideIcons as any)[block.content.icon] 
             : null;
 
         switch (block.type) {
@@ -596,7 +611,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                 style={{ left: `${spot.x}%`, top: `${spot.y}%` }}
                                 onClick={() => setPlayerState(prev => ({ ...prev, activeHotspot: prev.activeHotspot === spot.id ? null : spot.id }))}
                             >
-                                {playerState.activeHotspot === spot.id ? <X size={14}/> : <Plus size={14}/>}
+                                {playerState.activeHotspot === spot.id ? <LucideIcons.X size={14}/> : <LucideIcons.Plus size={14}/>}
                                 
                                 {playerState.activeHotspot === spot.id && (
                                     <div className="absolute top-10 left-1/2 -translate-x-1/2 w-48 bg-white p-3 rounded-xl shadow-xl text-slate-700 text-sm font-normal text-center z-20 animate-in zoom-in-95 duration-200">
@@ -631,7 +646,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                             <div className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-2">Vraag</div>
                                             <div className="font-bold text-slate-800 text-lg">{card.front}</div>
                                             <div className="absolute bottom-4 right-4 text-slate-300">
-                                                <RotateCw size={16} />
+                                                <LucideIcons.RotateCw size={16} />
                                             </div>
                                         </div>
                                         {/* Back */}
@@ -656,7 +671,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                     <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm my-6">
                         <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-start gap-3">
                             <div className="bg-teal-100 text-teal-700 p-1.5 rounded-lg shrink-0 mt-0.5">
-                                <HelpCircle size={20}/>
+                                <LucideIcons.HelpCircle size={20}/>
                             </div>
                             {block.content.question}
                         </h3>
@@ -684,7 +699,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                     >
                                         <span>{opt.text}</span>
                                         {showResult && isSelected && (
-                                            opt.isCorrect ? <CheckCircle2 size={20} className="text-green-600"/> : <X size={20} className="text-red-600"/>
+                                            opt.isCorrect ? <LucideIcons.CheckCircle2 size={20} className="text-green-600"/> : <LucideIcons.X size={20} className="text-red-600"/>
                                         )}
                                     </button>
                                 );
@@ -693,9 +708,9 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                         {isAnswered && (
                             <div className={`mt-4 p-4 rounded-xl text-sm font-bold flex items-center gap-2 animate-in slide-in-from-top-2 ${isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                 {isCorrect ? (
-                                    <><Check size={18}/> Helemaal goed!</>
+                                    <><LucideIcons.Check size={18}/> Helemaal goed!</>
                                 ) : (
-                                    <><AlertTriangle size={18}/> Helaas, dat is niet juist.</>
+                                    <><LucideIcons.AlertTriangle size={18}/> Helaas, dat is niet juist.</>
                                 )}
                             </div>
                         )}
@@ -710,8 +725,10 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     const renderBlockEditor = (block: LearningBlock) => {
         const isSelected = block.id === selectedBlockId;
         const bgClass = block.content.backgroundColor || 'bg-transparent';
-        const IconComponent = block.content.icon && ICONS_CATALOG[block.content.icon as keyof typeof ICONS_CATALOG] 
-            ? ICONS_CATALOG[block.content.icon as keyof typeof ICONS_CATALOG] 
+        
+        // Dynamically resolve icon from Lucide
+        const IconComponent = block.content.icon && (LucideIcons as any)[block.content.icon] 
+            ? (LucideIcons as any)[block.content.icon] 
             : null;
 
         return (
@@ -723,11 +740,11 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                 {/* Drag Handle & Actions */}
                 <div className={`absolute -left-12 top-2 flex flex-col gap-1 transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                     <div className="p-1.5 bg-white border border-slate-200 rounded text-slate-400 cursor-grab active:cursor-grabbing shadow-sm">
-                        <GripVertical size={14}/>
+                        <LucideIcons.GripVertical size={14}/>
                     </div>
-                    <button onClick={(e) => { e.stopPropagation(); moveBlock(block.id, 'up'); }} className="p-1.5 bg-white border border-slate-200 rounded text-slate-500 hover:text-indigo-600"><ChevronDown className="rotate-180" size={14}/></button>
-                    <button onClick={(e) => { e.stopPropagation(); moveBlock(block.id, 'down'); }} className="p-1.5 bg-white border border-slate-200 rounded text-slate-500 hover:text-indigo-600"><ChevronDown size={14}/></button>
-                    <button onClick={(e) => { e.stopPropagation(); deleteBlock(block.id); }} className="p-1.5 bg-white border border-slate-200 rounded text-slate-500 hover:text-red-600"><Trash2 size={14}/></button>
+                    <button onClick={(e) => { e.stopPropagation(); moveBlock(block.id, 'up'); }} className="p-1.5 bg-white border border-slate-200 rounded text-slate-500 hover:text-indigo-600"><LucideIcons.ChevronDown className="rotate-180" size={14}/></button>
+                    <button onClick={(e) => { e.stopPropagation(); moveBlock(block.id, 'down'); }} className="p-1.5 bg-white border border-slate-200 rounded text-slate-500 hover:text-indigo-600"><LucideIcons.ChevronDown size={14}/></button>
+                    <button onClick={(e) => { e.stopPropagation(); deleteBlock(block.id); }} className="p-1.5 bg-white border border-slate-200 rounded text-slate-500 hover:text-red-600"><LucideIcons.Trash2 size={14}/></button>
                 </div>
 
                 <div className={`p-4 rounded-lg ${bgClass}`}>
@@ -767,7 +784,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                 )
                             ) : (
                                 <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500 bg-slate-100">
-                                    <MonitorPlay size={48} className="mb-2 opacity-50"/>
+                                    <LucideIcons.MonitorPlay size={48} className="mb-2 opacity-50"/>
                                     <p className="font-bold text-sm">Geen video geselecteerd</p>
                                     <p className="text-xs">Configureer in de zijbalk &rarr;</p>
                                 </div>
@@ -788,13 +805,13 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                             style={{ left: `${spot.x}%`, top: `${spot.y}%` }}
                                             title={spot.title}
                                         >
-                                            <Plus size={14}/>
+                                            <LucideIcons.Plus size={14}/>
                                         </div>
                                     ))}
                                 </div>
                             ) : (
                                 <div className="h-64 flex flex-col items-center justify-center text-slate-400">
-                                    <ImageIcon size={48} className="mb-2 opacity-50"/>
+                                    <LucideIcons.Image size={48} className="mb-2 opacity-50"/>
                                     <p className="font-bold text-sm">Upload een afbeelding in de zijbalk</p>
                                 </div>
                             )}
@@ -832,7 +849,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                 {(block.content.options || []).map((opt: any) => (
                                     <div key={opt.id} className={`p-3 rounded-lg border flex items-center gap-3 ${opt.isCorrect ? 'bg-green-50 border-green-200' : 'bg-white border-slate-200'}`}>
                                         <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${opt.isCorrect ? 'border-green-600 bg-green-600 text-white' : 'border-slate-300'}`}>
-                                            {opt.isCorrect && <Check size={12}/>}
+                                            {opt.isCorrect && <LucideIcons.Check size={12}/>}
                                         </div>
                                         <span className={`text-sm font-medium ${opt.isCorrect ? 'text-green-800' : 'text-slate-700'}`}>{opt.text}</span>
                                     </div>
@@ -849,7 +866,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     const renderInspector = () => {
         if (!selectedBlockId) return (
             <div className="p-6 text-center text-slate-400 flex flex-col items-center justify-center h-full">
-                <Settings size={48} className="mb-4 opacity-20"/>
+                <LucideIcons.Settings size={48} className="mb-4 opacity-20"/>
                 <p className="text-sm font-medium">Selecteer een blok in het midden om de inhoud te configureren.</p>
             </div>
         );
@@ -860,7 +877,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         const block = (context.lesson?.blocks || []).find(b => b.id === selectedBlockId);
         if (!block) return null;
         
-        const BlockIcon = BLOCK_TYPES.find(b => b.type === block.type)?.icon || HelpCircle;
+        const BlockIcon = BLOCK_TYPES.find(b => b.type === block.type)?.icon || LucideIcons.HelpCircle;
 
         return (
             <div className="p-6 space-y-8 animate-in slide-in-from-right-4 duration-200">
@@ -962,7 +979,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                             disabled={isUploading}
                             className="w-full py-3 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors"
                         >
-                            {isUploading ? <Loader2 className="animate-spin" size={16}/> : <Upload size={16}/>} 
+                            {isUploading ? <LucideIcons.Loader2 className="animate-spin" size={16}/> : <LucideIcons.Upload size={16}/>} 
                             Video Uploaden (MP4)
                         </button>
                     </div>
@@ -983,7 +1000,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                     onClick={() => handleTriggerUpload(block.id, 'image')}
                                     className="p-3 bg-slate-100 rounded-xl hover:bg-slate-200 text-slate-600"
                                 >
-                                    <Upload size={18}/>
+                                    <LucideIcons.Upload size={18}/>
                                 </button>
                             </div>
                         </div>
@@ -1009,7 +1026,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                             }}
                                             className="absolute top-2 right-2 text-slate-400 hover:text-red-500"
                                         >
-                                            <X size={14}/>
+                                            <LucideIcons.X size={14}/>
                                         </button>
                                         
                                         <div className="font-bold text-xs text-slate-400 mb-2">Punt {i + 1}</div>
@@ -1088,7 +1105,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                             title="Markeer als goed antwoord"
                                             className={`w-8 h-8 rounded-lg border-2 flex items-center justify-center flex-shrink-0 transition-all ${opt.isCorrect ? 'bg-green-50 border-green-500 text-white shadow-sm' : 'border-slate-200 text-slate-300 hover:border-slate-300'}`}
                                         >
-                                            <Check size={16} strokeWidth={3}/>
+                                            <LucideIcons.Check size={16} strokeWidth={3}/>
                                         </button>
                                         <input 
                                             className="flex-1 p-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
@@ -1103,7 +1120,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                         <button onClick={() => {
                                             const newOpts = block.content.options.filter((o: any) => o.id !== opt.id);
                                             updateBlock(block.id, { ...block.content, options: newOpts });
-                                        }} className="text-slate-300 hover:text-red-500 p-1"><X size={16}/></button>
+                                        }} className="text-slate-300 hover:text-red-500 p-1"><LucideIcons.X size={16}/></button>
                                     </div>
                                 ))}
                             </div>
@@ -1132,7 +1149,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                         }}
                                         className="absolute top-2 right-2 text-slate-400 hover:text-red-500"
                                     >
-                                        <X size={14}/>
+                                        <LucideIcons.X size={14}/>
                                     </button>
                                     <div className="text-xs font-bold text-slate-400 mb-2">Kaart {idx + 1}</div>
                                     <div className="space-y-2">
@@ -1169,7 +1186,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                         onClick={() => deleteBlock(block.id)}
                         className="w-full py-3 border border-red-200 text-red-600 bg-red-50 rounded-xl text-sm font-bold hover:bg-red-100 flex items-center justify-center gap-2 transition-colors"
                     >
-                        <Trash2 size={16}/> Blok Verwijderen
+                        <LucideIcons.Trash2 size={16}/> Blok Verwijderen
                     </button>
                 </div>
             </div>
@@ -1190,7 +1207,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                         onClick={() => handleOpenBuilder()}
                         className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-indigo-200 hover:bg-indigo-700 transition-all flex items-center gap-2"
                     >
-                        <Plus size={18}/> Nieuwe Cursus
+                        <LucideIcons.Plus size={18}/> Nieuwe Cursus
                     </button>
                 </div>
 
@@ -1214,7 +1231,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                                 {course.coverImage ? (
                                                     <img src={course.coverImage} className="w-full h-full object-cover"/>
                                                 ) : (
-                                                    <div className="w-full h-full flex items-center justify-center text-slate-300"><ImageIcon size={20}/></div>
+                                                    <div className="w-full h-full flex items-center justify-center text-slate-300"><LucideIcons.Image size={20}/></div>
                                                 )}
                                             </div>
                                             <div>
@@ -1226,11 +1243,11 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                     <td className="px-6 py-4">
                                         {course.isPublished ? (
                                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700">
-                                                <Eye size={12}/> Live
+                                                <LucideIcons.Eye size={12}/> Live
                                             </span>
                                         ) : (
                                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
-                                                <Edit2 size={12}/> Concept
+                                                <LucideIcons.Edit2 size={12}/> Concept
                                             </span>
                                         )}
                                     </td>
@@ -1243,14 +1260,14 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                                 className="p-2 border border-slate-200 rounded-lg hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 text-slate-500 transition-colors"
                                                 title="Bewerken"
                                             >
-                                                <Edit2 size={16}/>
+                                                <LucideIcons.Edit2 size={16}/>
                                             </button>
                                             <button 
                                                 onClick={() => handleDeleteCourse(course.id)}
                                                 className="p-2 border border-slate-200 rounded-lg hover:bg-red-50 hover:text-red-600 hover:border-red-200 text-slate-500 transition-colors"
                                                 title="Verwijderen"
                                             >
-                                                <Trash2 size={16}/>
+                                                <LucideIcons.Trash2 size={16}/>
                                             </button>
                                         </div>
                                     </td>
@@ -1278,7 +1295,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                         {/* Play Overlay */}
                         <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                             <div className="w-12 h-12 bg-white/90 rounded-full flex items-center justify-center shadow-lg backdrop-blur-sm">
-                                <Play size={20} className="ml-1 text-slate-900"/>
+                                <LucideIcons.Play size={20} className="ml-1 text-slate-900"/>
                             </div>
                         </div>
                         
@@ -1293,11 +1310,11 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                         
                         <div className="flex items-center justify-between pt-4 border-t border-slate-50 mt-auto">
                             <div className="flex items-center gap-3 text-xs font-bold text-slate-400">
-                                <span className="flex items-center gap-1"><Layers size={12}/> {(course.modules || []).length}</span>
-                                <span className="flex items-center gap-1"><Clock size={12}/> {course.estimatedTime || '30m'}</span>
+                                <span className="flex items-center gap-1"><LucideIcons.Layers size={12}/> {(course.modules || []).length}</span>
+                                <span className="flex items-center gap-1"><LucideIcons.Clock size={12}/> {course.estimatedTime || '30m'}</span>
                             </div>
                             <span className="flex items-center gap-1 text-xs font-bold text-yellow-600 bg-yellow-50 px-2 py-1 rounded-full">
-                                <Sparkles size={10} /> {course.xpPoints} XP
+                                <LucideIcons.Sparkles size={10} /> {course.xpPoints} XP
                             </span>
                         </div>
                     </div>
@@ -1305,7 +1322,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
             ))}
             {courses.filter(c => c.isPublished).length === 0 && (
                 <div className="col-span-full py-20 text-center border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50 text-slate-400">
-                    <GraduationCap size={48} className="mx-auto mb-4 opacity-50"/>
+                    <LucideIcons.GraduationCap size={48} className="mx-auto mb-4 opacity-50"/>
                     <p className="font-bold">Geen trainingen beschikbaar</p>
                     <p className="text-sm mt-1">Check later terug voor nieuwe content.</p>
                 </div>
@@ -1327,7 +1344,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                 {/* PLAYER HEADER */}
                 <div className="h-16 border-b border-slate-200 flex items-center justify-between px-6 bg-white z-20">
                     <button onClick={() => setView('dashboard')} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors font-bold text-sm">
-                        <ArrowLeft size={18}/> Terug
+                        <LucideIcons.ArrowLeft size={18}/> Terug
                     </button>
                     <h2 className="font-bold text-slate-900">{activeCourse.title}</h2>
                     <div className="w-20"></div> {/* Spacer */}
@@ -1397,13 +1414,13 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                     onClick={handlePlayerPrev}
                                     className="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-all flex items-center gap-2"
                                 >
-                                    <ChevronLeft size={18}/> Vorige
+                                    <LucideIcons.ChevronLeft size={18}/> Vorige
                                 </button>
                                 <button 
                                     onClick={handlePlayerNext}
                                     className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2 hover:-translate-y-0.5"
                                 >
-                                    Volgende <ArrowRight size={18}/>
+                                    Volgende <LucideIcons.ArrowRight size={18}/>
                                 </button>
                             </div>
                         </div>
@@ -1430,7 +1447,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                 <div className="h-16 border-b border-slate-200 flex items-center justify-between px-6 bg-white z-30 shadow-sm relative">
                     <div className="flex items-center gap-4">
                         <button onClick={() => setView('manage-courses')} className="p-2 hover:bg-slate-100 rounded-full text-slate-500 transition-colors">
-                            <ArrowLeft size={20}/>
+                            <LucideIcons.ArrowLeft size={20}/>
                         </button>
                         <div className="h-8 w-px bg-slate-200"></div>
                         <input 
@@ -1453,7 +1470,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                 onClick={() => { setActiveCourse({...activeCourse, isPublished: true}); setHasUnsavedChanges(true); }}
                                 className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all flex items-center gap-1 ${activeCourse.isPublished ? 'bg-green-100 text-green-700 shadow' : 'text-slate-400 hover:text-slate-600'}`}
                             >
-                                <Eye size={12} /> Live
+                                <LucideIcons.Eye size={12} /> Live
                             </button>
                         </div>
 
@@ -1463,7 +1480,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                 className="p-2.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
                                 title="Cursus Instellingen"
                             >
-                                <Settings size={18}/>
+                                <LucideIcons.Settings size={18}/>
                             </button>
                             <span className="text-xs text-slate-400 font-medium hidden md:inline">
                                 {hasUnsavedChanges ? 'Niet opgeslagen' : 'Opgeslagen'}
@@ -1476,7 +1493,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                     : 'bg-slate-100 text-slate-400'
                                 }`}
                             >
-                                <Save size={18}/> Opslaan
+                                <LucideIcons.Save size={18}/> Opslaan
                             </button>
                         </div>
                     </div>
@@ -1514,7 +1531,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                                     : 'text-slate-600 hover:bg-slate-200/50'
                                                 }`}
                                             >
-                                                <FileText size={14} className="opacity-50"/>
+                                                <LucideIcons.FileText size={14} className="opacity-50"/>
                                                 <span className="truncate">{lesson.title}</span>
                                             </button>
                                         ))}
@@ -1522,13 +1539,13 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                             onClick={() => addLesson(module.id)}
                                             className="w-full text-left px-3 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 flex items-center gap-2 mt-1"
                                         >
-                                            <Plus size={12}/> Les Toevoegen
+                                            <LucideIcons.Plus size={12}/> Les Toevoegen
                                         </button>
                                     </div>
                                 </div>
                             ))}
                             <button onClick={addModule} className="w-full py-3 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold text-xs hover:border-indigo-300 hover:text-indigo-500 hover:bg-indigo-50 transition-all flex items-center justify-center gap-2">
-                                <Plus size={14}/> Nieuw Hoofdstuk
+                                <LucideIcons.Plus size={14}/> Nieuw Hoofdstuk
                             </button>
                         </div>
                     </div>
@@ -1566,7 +1583,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                             onClick={() => setIsBlockPickerOpen(true)}
                                             className="w-full py-4 border-2 border-dashed border-slate-200 rounded-xl text-slate-400 font-bold text-sm hover:border-indigo-400 hover:text-indigo-600 hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 opacity-60 hover:opacity-100"
                                         >
-                                            <Plus size={18}/> Klik of typ '/' om content toe te voegen
+                                            <LucideIcons.Plus size={18}/> Klik of typ '/' om content toe te voegen
                                         </button>
 
                                         {/* Block Picker Popover */}
@@ -1598,7 +1615,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                             </div>
                         ) : (
                             <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                                <Layout size={64} className="mb-4 opacity-20"/>
+                                <LucideIcons.Layout size={64} className="mb-4 opacity-20"/>
                                 <h3 className="text-xl font-bold text-slate-600">Selecteer een les</h3>
                                 <p className="text-sm mt-1 max-w-xs text-center">Kies een onderdeel uit de structuur links om de inhoud te bewerken.</p>
                             </div>
@@ -1621,11 +1638,11 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                     <div className="relative w-full h-32 rounded-lg overflow-hidden mb-2 group">
                                         <img src={activeCourse.coverImage} className="w-full h-full object-cover" />
                                         <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <Edit2 className="text-white"/>
+                                            <LucideIcons.Edit2 className="text-white"/>
                                         </div>
                                     </div>
                                 ) : (
-                                    <ImageIcon className="text-slate-300 w-12 h-12 mb-2"/>
+                                    <LucideIcons.Image className="text-slate-300 w-12 h-12 mb-2"/>
                                 )}
                                 <span className="text-sm font-bold text-indigo-600">Upload Foto</span>
                             </div>
@@ -1708,7 +1725,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                                 <div className="w-16 h-16 rounded-xl bg-slate-100 flex-shrink-0 overflow-hidden relative">
                                                     {course.coverImage && <img src={course.coverImage} className="w-full h-full object-cover"/>}
                                                     <div className="absolute inset-0 flex items-center justify-center bg-black/10 group-hover:bg-black/20 transition-colors">
-                                                        <Play size={20} className="text-white fill-white"/>
+                                                        <LucideIcons.Play size={20} className="text-white fill-white"/>
                                                     </div>
                                                 </div>
                                                 <div className="flex-1 min-w-0">
