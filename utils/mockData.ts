@@ -276,15 +276,31 @@ export const MOCK_ACADEMY_COURSES: AcademyCourse[] = [
                     {
                         id: 'l1',
                         title: 'De Eerste Indruk',
-                        type: 'Text',
-                        content: '# De kracht van een glimlach\n\nEen eerste indruk maak je maar één keer. Zorg altijd voor:\n\n*   Oogcontact\n*   Een oprechte glimlach\n*   Een open houding\n\nBij Sanadome groeten we elke gast die we tegenkomen, ook in de gang.',
+                        blocks: [
+                            {
+                                id: 'b1',
+                                type: 'text',
+                                content: {
+                                    html: '# De kracht van een glimlach\n\nEen eerste indruk maak je maar één keer. Zorg altijd voor:\n\n*   Oogcontact\n*   Een oprechte glimlach\n*   Een open houding\n\nBij Sanadome groeten we elke gast die we tegenkomen, ook in de gang.',
+                                    style: 'paragraph'
+                                }
+                            }
+                        ],
                         durationMinutes: 5
                     },
                     {
                         id: 'l2',
                         title: 'Kledij & Uiterlijk',
-                        type: 'Video',
-                        content: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // Placeholder
+                        blocks: [
+                            {
+                                id: 'b2',
+                                type: 'video',
+                                content: {
+                                    url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+                                    source: 'youtube'
+                                }
+                            }
+                        ],
                         durationMinutes: 3
                     }
                 ]
@@ -296,18 +312,27 @@ export const MOCK_ACADEMY_COURSES: AcademyCourse[] = [
                     {
                         id: 'q1',
                         title: 'Eindtoets Module 1',
-                        type: 'Quiz',
-                        content: 'Test je kennis over de basisprincipes.',
-                        durationMinutes: 10,
-                        passingScore: 75,
-                        quizQuestions: [
+                        blocks: [
                             {
-                                id: 'qq1',
-                                question: 'Wat doe je als je een gast tegenkomt in de gang?',
-                                options: ['Je kijkt naar de grond', 'Je groet de gast vriendelijk', 'Je pakt je telefoon'],
-                                correctOptionIndex: 1
+                                id: 'bq1',
+                                type: 'text',
+                                content: { html: 'Test je kennis over de basisprincipes.', style: 'paragraph' }
+                            },
+                            {
+                                id: 'bq2',
+                                type: 'quiz',
+                                content: {
+                                    question: 'Wat doe je als je een gast tegenkomt in de gang?',
+                                    type: 'single',
+                                    options: [
+                                        { id: 'opt1', text: 'Je kijkt naar de grond', isCorrect: false },
+                                        { id: 'opt2', text: 'Je groet de gast vriendelijk', isCorrect: true },
+                                        { id: 'opt3', text: 'Je pakt je telefoon', isCorrect: false }
+                                    ]
+                                }
                             }
-                        ]
+                        ],
+                        durationMinutes: 10
                     }
                 ]
             }
@@ -332,8 +357,13 @@ export const MOCK_ACADEMY_COURSES: AcademyCourse[] = [
                     {
                         id: 'l1',
                         title: 'Brandmelding',
-                        type: 'Text',
-                        content: 'Bel direct intern nummer **333** bij brand.',
+                        blocks: [
+                            {
+                                id: 'b_fire_1',
+                                type: 'text',
+                                content: { html: 'Bel direct intern nummer **333** bij brand.', style: 'alert' }
+                            }
+                        ],
                         durationMinutes: 5
                     }
                 ]

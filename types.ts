@@ -59,89 +59,88 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'MANAGE_ACADEMY': 'Academy Beheren'
 };
 
-// --- ACADEMY / LMS ---
+// --- ACADEMY / LMS (SANABUILDER ENGINE) ---
 
-export type LessonType = 
-  // Standard
-  | 'Text' 
-  | 'Video' 
-  | 'Quiz'
-  // Visual Interactive
-  | 'Hotspot'
-  | 'Accordion'
-  | 'FlipCard'
-  | 'Process'
-  | 'BeforeAfter'
-  // Scenarios
-  | 'Branching'
-  | 'SoftwareSim'
-  // Active Practice
-  | 'DragSort'
-  | 'DragMatch'
-  | 'FillBlanks'
-  // Social/Reflection
-  | 'Reflection'
-  | 'Poll'
-  | 'FileUpload';
+export type BlockType = 
+  // Content & Media
+  | 'text' 
+  | 'video' 
+  | 'audio' 
+  | 'pdf' 
+  | 'embed'
+  // Interaction
+  | 'accordion' 
+  | 'hotspot' 
+  | 'flashcard' 
+  | 'timeline' 
+  | 'tabs' 
+  | 'beforeAfter'
+  // Scenario
+  | 'scenario' 
+  | 'simulation'
+  // Assessment
+  | 'quiz' 
+  | 'ordering' 
+  | 'matching' 
+  | 'fillBlanks' 
+  | 'videoAssignment';
 
-export interface QuizQuestion {
+// Base Block Interface
+export interface LearningBlock {
     id: string;
+    type: BlockType;
+    content: any; // Flexible JSON structure depending on type
+    settings?: any; // Specific settings like autoplay, passing score etc.
+}
+
+// Specific Content Structures (for type safety where needed)
+export interface TextBlockContent {
+    html: string;
+    style: 'paragraph' | 'h1' | 'h2' | 'quote' | 'alert' | 'tip';
+}
+
+export interface VideoBlockContent {
+    url: string;
+    source: 'youtube' | 'vimeo' | 'upload';
+    stops?: Array<{ time: number; question: string; }>; // Pause & Ask feature
+}
+
+export interface HotspotBlockContent {
+    imageUrl: string;
+    spots: Array<{ id: string; x: number; y: number; title: string; text: string }>;
+}
+
+export interface FlashcardBlockContent {
+    cards: Array<{ id: string; front: string; back: string }>;
+}
+
+export interface QuizBlockContent {
     question: string;
-    options: string[];
-    correctOptionIndex: number;
+    type: 'single' | 'multiple';
+    options: Array<{ id: string; text: string; isCorrect: boolean }>;
+    feedback?: string;
 }
 
-// Interfaces for complex content types
-export interface HotspotItem {
-    id: string;
-    x: number; // Percentage
-    y: number; // Percentage
-    title: string;
-    content: string;
+export interface ScenarioBlockContent {
+    startNodeId: string;
+    nodes: Array<{
+        id: string;
+        text: string; // The situation
+        mediaUrl?: string; // Video/Image for situation
+        options: Array<{
+            text: string;
+            nextNodeId: string; // ID or 'END_SUCCESS' / 'END_FAIL'
+            feedback?: string;
+        }>;
+    }>;
 }
 
-export interface FlipCardItem {
-    id: string;
-    front: string; // Text or Image URL
-    back: string;
-}
-
-export interface ProcessStep {
-    id: string;
-    title: string;
-    description: string;
-}
-
-export interface BranchingNode {
-    id: string;
-    text: string; // The situation description
-    options: {
-        text: string;
-        nextNodeId: string; // ID of the next node, or 'END_SUCCESS' / 'END_FAIL'
-        feedback?: string; // Immediate feedback shown after clicking
-    }[];
-}
-
-export interface MatchPair {
-    id: string;
-    left: string;
-    right: string;
-}
-
+// Academy Data Structures
 export interface AcademyLesson {
     id: string;
     title: string;
-    type: LessonType;
-    content: string; // JSON string for complex types, or plain text for 'Text'
+    blocks: LearningBlock[]; // The new flexible content structure
     durationMinutes: number;
-    
-    // Legacy/Simple fields
-    quizQuestions?: QuizQuestion[];
-    passingScore?: number;
-
-    // Complex Data Fields (Optional, usually stored in content JSON but typed here for clarity if needed)
-    mediaUrl?: string; // For Video, Audio, Before/After images
-    mediaUrl2?: string; // For Before/After comparison
 }
 
 export interface AcademyModule {
@@ -157,24 +156,23 @@ export interface AcademyCourse {
     category: string;
     coverImage?: string;
     level: 'Beginner' | 'Intermediate' | 'Advanced';
-    prerequisiteCourseIds?: string[]; // IDs of courses that must be completed first
     modules: AcademyModule[];
-    targetRoles: string[]; // ['All'] or specific roles
+    targetRoles: string[]; 
     createdAt: string;
     author: string;
     isPublished: boolean;
-    xpPoints?: number; // Gamification
+    xpPoints?: number;
     estimatedTime?: string;
 }
 
 export interface AcademyProgress {
-    id: string; // unique ID
+    id: string;
     employeeId: string;
     courseId: string;
     status: 'Not Started' | 'In Progress' | 'Completed';
     progressPercentage: number;
     completedLessonIds: string[];
-    quizScores: Record<string, number>; // lessonId -> score
+    quizScores: Record<string, number>; 
     startDate?: string;
     completedDate?: string;
     lastAccessedAt?: string;
@@ -187,29 +185,29 @@ export type BikeType = 'City Bike Men' | 'City Bike Women' | 'E-Bike';
 
 export interface BikeReservation {
     id: string;
-    groupId?: string; // Links multiple bikes to one booking session
+    groupId?: string; 
     guestName: string;
     roomNumber: string;
     bikeType: BikeType;
-    bikeId?: string; // Specific Asset ID (e.g., H10, E401). Undefined if Pending.
-    amount: number; // Always 1 in asset mode per row
-    startDate: string; // ISO Date YYYY-MM-DD
-    endDate: string; // ISO Date YYYY-MM-DD
-    startTime?: string; // Time of rental start
-    endTime?: string; // Time of return
+    bikeId?: string; 
+    amount: number; 
+    startDate: string; 
+    endDate: string; 
+    startTime?: string; 
+    endTime?: string; 
     status: 'Pending' | 'Active' | 'Completed' | 'Cancelled';
-    signatureUrl?: string; // Data URL
+    signatureUrl?: string; 
     termsAccepted: boolean;
     createdAt: string;
     createdBy: string;
-    damageReport?: string; // If returned with damage
+    damageReport?: string; 
 }
 
 export interface BikeSettings {
-    inventory: Record<BikeType, number>; // Total owned count (legacy/fallback)
-    inMaintenance: string[]; // List of specific Bike IDs currently broken
+    inventory: Record<BikeType, number>; 
+    inMaintenance: string[]; 
     termsAndConditions: string;
-    maintenanceReasons?: Record<string, string>; // Map bikeID to reason
+    maintenanceReasons?: Record<string, string>; 
 }
 
 // --- SURVEYS ---
@@ -235,7 +233,7 @@ export interface Survey {
     createdAt: string;
     status: 'Active' | 'Closed' | 'Draft';
     responseCount: number;
-    completedBy: string[]; // List of employee IDs
+    completedBy: string[]; 
 }
 
 export interface SurveyResponse {
