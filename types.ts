@@ -64,6 +64,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
 export type BlockType = 
   // Content & Media
   | 'text' 
+  | 'image'
   | 'video' 
   | 'audio' 
   | 'pdf' 
@@ -100,6 +101,12 @@ export interface TextBlockContent {
     icon?: string; // Icon name from lucide-react (e.g. 'Info', 'AlertTriangle')
     iconColor?: string; // Tailwind class or hex
     backgroundColor?: string; // Tailwind class
+}
+
+export interface ImageBlockContent {
+    url: string;
+    caption?: string;
+    altText?: string;
 }
 
 export interface VideoBlockContent {

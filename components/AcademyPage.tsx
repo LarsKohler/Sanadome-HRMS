@@ -15,6 +15,7 @@ interface AcademyPageProps {
 // --- CONFIG ---
 const BLOCK_TYPES: { type: BlockType; label: string; icon: any; color: string; description: string }[] = [
     { type: 'text', label: 'Rich Text & Media', icon: LucideIcons.FileText, color: 'text-slate-600 bg-slate-100', description: 'Tekst, koppen, iconen en opmaak.' },
+    { type: 'image', label: 'Afbeelding', icon: LucideIcons.Image, color: 'text-pink-600 bg-pink-100', description: 'Staande afbeelding met bijschrift.' },
     { type: 'video', label: 'Video', icon: LucideIcons.Video, color: 'text-red-600 bg-red-100', description: 'YouTube, Vimeo of upload.' },
     { type: 'hotspot', label: 'Hotspot Image', icon: LucideIcons.MousePointer, color: 'text-orange-600 bg-orange-100', description: 'Interactieve afbeelding met klikbare punten.' },
     { type: 'flashcard', label: 'Flashcards', icon: LucideIcons.Layers, color: 'text-indigo-600 bg-indigo-100', description: 'Omdraaibare kaarten om te oefenen.' },
@@ -376,6 +377,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
 
         let content: any = {};
         if (type === 'text') content = { html: 'Start hier met typen...', style: 'paragraph', icon: '', iconColor: 'text-slate-500', backgroundColor: 'bg-transparent' };
+        if (type === 'image') content = { url: '', caption: '', altText: '' };
         if (type === 'video') content = { url: '', source: 'youtube' };
         if (type === 'hotspot') content = { imageUrl: '', spots: [] };
         if (type === 'flashcard') content = { cards: [{ id: '1', front: 'Vraag', back: 'Antwoord' }] };
@@ -539,12 +541,17 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                     
                     if (block) {
                         const newContent = { ...block.content };
-                        if (type === 'video') {
+                        
+                        // Handle specific block types
+                        if (block.type === 'hotspot') {
+                            newContent.imageUrl = url;
+                        } else if (block.type === 'image') {
+                            newContent.url = url;
+                        } else if (block.type === 'video') {
                             newContent.url = url;
                             newContent.source = 'upload';
-                        } else if (type === 'image') {
-                            newContent.imageUrl = url;
                         }
+
                         updateBlock(blockId, newContent);
                         onShowToast("Bestand succesvol geüpload!");
                     }
@@ -591,6 +598,28 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                             dangerouslySetInnerHTML={{ __html: block.content.html }} 
                         />
                     </div>
+                );
+
+            case 'image':
+                return (
+                    <figure className="my-6">
+                        {block.content.url ? (
+                            <img 
+                                src={block.content.url} 
+                                alt={block.content.altText || 'Afbeelding'} 
+                                className="w-full rounded-2xl shadow-sm border border-slate-100" 
+                            />
+                        ) : (
+                            <div className="w-full h-64 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400">
+                                Geen afbeelding
+                            </div>
+                        )}
+                        {block.content.caption && (
+                            <figcaption className="text-center text-xs text-slate-500 mt-2 italic">
+                                {block.content.caption}
+                            </figcaption>
+                        )}
+                    </figure>
                 );
 
             case 'video':
@@ -786,6 +815,22 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                         </div>
                     )}
 
+                    {block.type === 'image' && (
+                        <div className="text-center">
+                            {block.content.url ? (
+                                <div className="relative group/image">
+                                    <img src={block.content.url} alt={block.content.altText} className="w-full rounded-lg shadow-sm border border-slate-100" />
+                                    {block.content.caption && <p className="text-xs text-slate-500 mt-2 italic">{block.content.caption}</p>}
+                                </div>
+                            ) : (
+                                <div className="h-48 bg-slate-50 rounded-lg flex flex-col items-center justify-center text-slate-400 border border-dashed border-slate-200">
+                                    <LucideIcons.Image size={32} className="mb-2 opacity-50"/>
+                                    <p className="text-xs font-bold">Afbeelding toevoegen</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     {block.type === 'video' && (
                         <div className="rounded-xl overflow-hidden bg-black aspect-video relative group/video">
                             {block.content.url ? (
@@ -961,6 +1006,46 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                     </div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                )}
+
+                {block.type === 'image' && (
+                    <div className="space-y-4">
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Afbeelding</label>
+                            <div className="flex gap-2">
+                                <input 
+                                    className="flex-1 p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                    placeholder="URL..."
+                                    value={block.content.url}
+                                    onChange={(e) => updateBlock(block.id, { ...block.content, url: e.target.value })}
+                                />
+                                <button 
+                                    onClick={() => handleTriggerUpload(block.id, 'image')}
+                                    className="p-3 bg-slate-100 rounded-xl hover:bg-slate-200 text-slate-600"
+                                >
+                                    <LucideIcons.Upload size={18}/>
+                                </button>
+                            </div>
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Onderschrift</label>
+                            <input 
+                                className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                placeholder="Typ onderschrift..."
+                                value={block.content.caption || ''}
+                                onChange={(e) => updateBlock(block.id, { ...block.content, caption: e.target.value })}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Alt Tekst</label>
+                            <input 
+                                className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                placeholder="Beschrijving voor toegankelijkheid..."
+                                value={block.content.altText || ''}
+                                onChange={(e) => updateBlock(block.id, { ...block.content, altText: e.target.value })}
+                            />
                         </div>
                     </div>
                 )}
