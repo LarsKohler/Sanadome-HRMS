@@ -1,11 +1,11 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
     Play, CheckCircle, Search, Plus, Edit2, Trash2, 
     BookOpen, GraduationCap, ChevronRight, ChevronDown, 
     Layout, Save, ArrowLeft, FileText, 
     Video, HelpCircle, Image as ImageIcon, MousePointer, 
-    Layers, List, Upload, Check, GripVertical, X, Star, Clock, ArrowRight, Settings, Music, Eye, Sparkles, Loader2, MonitorPlay, MoreVertical, AlertTriangle
+    Layers, List, Upload, Check, GripVertical, X, Star, Clock, ArrowRight, Settings, Music, Eye, Sparkles, Loader2, MonitorPlay, MoreVertical, AlertTriangle, CheckCircle2, RotateCw, ChevronLeft
 } from 'lucide-react';
 import { Employee, AcademyCourse, AcademyProgress, AcademyModule, AcademyLesson, LearningBlock, BlockType } from '../types';
 import AcademySidebar from './AcademySidebar';
@@ -41,6 +41,13 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
     const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+
+    // PLAYER STATE
+    const [playerState, setPlayerState] = useState({
+        quizAnswers: {} as Record<string, string>, // blockId -> optionId
+        flippedCards: new Set<string>(), // cardId
+        activeHotspot: null as string | null // spotId
+    });
 
     // Refs for uploads
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -112,9 +119,102 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     };
 
     const handleStartCourse = (course: AcademyCourse) => {
-        // Placeholder for Learner Player View
-        onShowToast(`Start training: ${course.title}`);
-        // In a real app, this would switch to a 'player' view.
+        setActiveCourse(course);
+        // Find existing progress or start new
+        const progress = userProgress.find(p => p.courseId === course.id && p.employeeId === currentUser.id);
+        
+        // Default to first lesson
+        const firstModule = course.modules?.[0];
+        const firstLesson = firstModule?.lessons?.[0];
+        
+        setSelectedModuleId(firstModule?.id || null);
+        setSelectedLessonId(firstLesson?.id || null);
+        
+        // Reset player interactive state
+        setPlayerState({ quizAnswers: {}, flippedCards: new Set(), activeHotspot: null });
+        
+        setView('player');
+    };
+
+    const handlePlayerNext = () => {
+        if (!activeCourse || !selectedModuleId || !selectedLessonId) return;
+
+        let foundCurrent = false;
+        let nextModuleId: string | null = null;
+        let nextLessonId: string | null = null;
+
+        for (const module of activeCourse.modules || []) {
+            for (const lesson of module.lessons || []) {
+                if (foundCurrent) {
+                    nextModuleId = module.id;
+                    nextLessonId = lesson.id;
+                    break;
+                }
+                if (lesson.id === selectedLessonId) foundCurrent = true;
+            }
+            if (nextLessonId) break;
+        }
+
+        if (nextLessonId && nextModuleId) {
+            setSelectedModuleId(nextModuleId);
+            setSelectedLessonId(nextLessonId);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        } else {
+            // Course Complete
+            handleFinishCourse();
+        }
+    };
+
+    const handlePlayerPrev = () => {
+        if (!activeCourse || !selectedModuleId || !selectedLessonId) return;
+
+        let prevModuleId: string | null = null;
+        let prevLessonId: string | null = null;
+        let lastModuleId: string | null = null;
+        let lastLessonId: string | null = null;
+
+        for (const module of activeCourse.modules || []) {
+            for (const lesson of module.lessons || []) {
+                if (lesson.id === selectedLessonId) {
+                    prevModuleId = lastModuleId;
+                    prevLessonId = lastLessonId;
+                    break;
+                }
+                lastModuleId = module.id;
+                lastLessonId = lesson.id;
+            }
+            if (prevLessonId) break;
+        }
+
+        if (prevLessonId && prevModuleId) {
+            setSelectedModuleId(prevModuleId);
+            setSelectedLessonId(prevLessonId);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    };
+
+    const handleFinishCourse = async () => {
+        if(!activeCourse) return;
+        
+        const progress: AcademyProgress = {
+            id: crypto.randomUUID(),
+            employeeId: currentUser.id,
+            courseId: activeCourse.id,
+            status: 'Completed',
+            progressPercentage: 100,
+            completedLessonIds: [], // Would track actual IDs in real app
+            quizScores: {},
+            startDate: new Date().toLocaleDateString('nl-NL'),
+            completedDate: new Date().toLocaleDateString('nl-NL')
+        };
+
+        await api.saveAcademyProgress(progress);
+        
+        // Update local state
+        setUserProgress(prev => [...prev.filter(p => p.courseId !== progress.courseId), progress]);
+        
+        onShowToast(`Gefeliciteerd! Je hebt ${activeCourse.title} afgerond.`);
+        setView('dashboard');
     };
 
     // --- BUILDER LOGIC ---
@@ -342,6 +442,172 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
     };
 
     // --- RENDERERS ---
+
+    const renderBlockViewer = (block: LearningBlock) => {
+        const styleClass = block.content.style === 'h1' ? 'text-3xl font-bold text-slate-900 mb-4' : 
+                          block.content.style === 'h2' ? 'text-2xl font-bold text-slate-800 mt-6 mb-3' :
+                          block.content.style === 'quote' ? 'text-xl italic text-slate-600 border-l-4 border-teal-500 pl-6 py-2 my-6 bg-slate-50' :
+                          block.content.style === 'alert' ? 'bg-amber-50 text-amber-900 p-4 rounded-xl border border-amber-200 font-medium flex items-start gap-3 my-4' :
+                          'text-slate-700 leading-relaxed text-lg mb-4';
+
+        switch (block.type) {
+            case 'text':
+                if (block.content.style === 'alert') {
+                    return (
+                        <div className={styleClass}>
+                            <AlertTriangle className="shrink-0 mt-0.5" size={20}/>
+                            <div>{block.content.html}</div>
+                        </div>
+                    );
+                }
+                if (['h1', 'h2'].includes(block.content.style)) {
+                    return React.createElement(block.content.style, { className: styleClass }, block.content.html);
+                }
+                return <p className={styleClass}>{block.content.html}</p>;
+
+            case 'video':
+                return (
+                    <div className="rounded-2xl overflow-hidden bg-black aspect-video relative shadow-lg my-6">
+                        {block.content.url ? (
+                            block.content.url.includes('http') && !block.content.url.includes('youtube') && !block.content.url.includes('vimeo') ? (
+                                <video src={block.content.url} controls className="w-full h-full" />
+                            ) : (
+                                <iframe 
+                                    className="w-full h-full" 
+                                    src={block.content.url.replace('watch?v=', 'embed/')} 
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                    allowFullScreen
+                                />
+                            )
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-slate-500">Video niet beschikbaar</div>
+                        )}
+                    </div>
+                );
+
+            case 'hotspot':
+                return (
+                    <div className="relative rounded-2xl overflow-hidden shadow-lg my-6 bg-slate-100 group">
+                        <img src={block.content.imageUrl} alt="Hotspot" className="w-full object-cover" />
+                        {(block.content.spots || []).map((spot: any) => (
+                            <div 
+                                key={spot.id}
+                                className={`absolute w-8 h-8 -ml-4 -mt-4 rounded-full border-2 border-white shadow-lg flex items-center justify-center font-bold text-xs cursor-pointer transition-all z-10
+                                    ${playerState.activeHotspot === spot.id ? 'bg-white text-teal-600 scale-125' : 'bg-teal-600 text-white hover:scale-110'}
+                                `}
+                                style={{ left: `${spot.x}%`, top: `${spot.y}%` }}
+                                onClick={() => setPlayerState(prev => ({ ...prev, activeHotspot: prev.activeHotspot === spot.id ? null : spot.id }))}
+                            >
+                                {playerState.activeHotspot === spot.id ? <X size={14}/> : <Plus size={14}/>}
+                                
+                                {playerState.activeHotspot === spot.id && (
+                                    <div className="absolute top-10 left-1/2 -translate-x-1/2 w-48 bg-white p-3 rounded-xl shadow-xl text-slate-700 text-sm font-normal text-center z-20 animate-in zoom-in-95 duration-200">
+                                        <div className="font-bold text-slate-900 mb-1">{spot.title}</div>
+                                        {spot.text}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                );
+
+            case 'flashcard':
+                return (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 my-6">
+                        {(block.content.cards || []).map((card: any) => {
+                            const isFlipped = playerState.flippedCards.has(card.id);
+                            return (
+                                <div 
+                                    key={card.id} 
+                                    onClick={() => {
+                                        const newSet = new Set(playerState.flippedCards);
+                                        if (isFlipped) newSet.delete(card.id);
+                                        else newSet.add(card.id);
+                                        setPlayerState(prev => ({ ...prev, flippedCards: newSet }));
+                                    }}
+                                    className="perspective-1000 cursor-pointer h-48 group"
+                                >
+                                    <div className={`relative w-full h-full transition-transform duration-500 transform-style-3d shadow-sm hover:shadow-md rounded-2xl ${isFlipped ? 'rotate-y-180' : ''}`}>
+                                        {/* Front */}
+                                        <div className="absolute inset-0 backface-hidden bg-white border-2 border-slate-100 rounded-2xl flex flex-col items-center justify-center p-6 text-center">
+                                            <div className="text-xs font-bold text-indigo-500 uppercase tracking-wider mb-2">Vraag</div>
+                                            <div className="font-bold text-slate-800 text-lg">{card.front}</div>
+                                            <div className="absolute bottom-4 right-4 text-slate-300">
+                                                <RotateCw size={16} />
+                                            </div>
+                                        </div>
+                                        {/* Back */}
+                                        <div className="absolute inset-0 backface-hidden bg-indigo-600 rounded-2xl flex flex-col items-center justify-center p-6 text-center rotate-y-180 text-white">
+                                            <div className="text-xs font-bold text-indigo-200 uppercase tracking-wider mb-2">Antwoord</div>
+                                            <div className="font-medium text-lg">{card.back}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                );
+
+            case 'quiz':
+                const selectedOptionId = playerState.quizAnswers[block.id];
+                const isAnswered = !!selectedOptionId;
+                const selectedOption = block.content.options.find((o: any) => o.id === selectedOptionId);
+                const isCorrect = selectedOption?.isCorrect;
+
+                return (
+                    <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm my-6">
+                        <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-start gap-3">
+                            <div className="bg-teal-100 text-teal-700 p-1.5 rounded-lg shrink-0 mt-0.5">
+                                <HelpCircle size={20}/>
+                            </div>
+                            {block.content.question}
+                        </h3>
+                        <div className="space-y-3">
+                            {(block.content.options || []).map((opt: any) => {
+                                const isSelected = opt.id === selectedOptionId;
+                                const showResult = isAnswered;
+                                let btnClass = 'border-slate-200 hover:bg-slate-50 text-slate-700';
+                                
+                                if (showResult) {
+                                    if (isSelected && opt.isCorrect) btnClass = 'bg-green-50 border-green-500 text-green-800 ring-1 ring-green-500';
+                                    else if (isSelected && !opt.isCorrect) btnClass = 'bg-red-50 border-red-500 text-red-800 ring-1 ring-red-500';
+                                    else if (opt.isCorrect) btnClass = 'bg-white border-green-200 text-green-700 border-dashed'; // Show correct answer
+                                    else btnClass = 'bg-slate-50 border-slate-100 text-slate-400 opacity-50';
+                                } else if (isSelected) {
+                                    btnClass = 'bg-indigo-50 border-indigo-500 text-indigo-800';
+                                }
+
+                                return (
+                                    <button 
+                                        key={opt.id}
+                                        disabled={isAnswered}
+                                        onClick={() => setPlayerState(prev => ({ ...prev, quizAnswers: { ...prev.quizAnswers, [block.id]: opt.id } }))}
+                                        className={`w-full p-4 rounded-xl border-2 text-left font-medium transition-all flex items-center justify-between ${btnClass}`}
+                                    >
+                                        <span>{opt.text}</span>
+                                        {showResult && isSelected && (
+                                            opt.isCorrect ? <CheckCircle2 size={20} className="text-green-600"/> : <X size={20} className="text-red-600"/>
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                        {isAnswered && (
+                            <div className={`mt-4 p-4 rounded-xl text-sm font-bold flex items-center gap-2 animate-in slide-in-from-top-2 ${isCorrect ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                {isCorrect ? (
+                                    <><Check size={18}/> Helemaal goed!</>
+                                ) : (
+                                    <><AlertTriangle size={18}/> Helaas, dat is niet juist.</>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                );
+
+            default:
+                return null;
+        }
+    };
 
     const renderBlockEditor = (block: LearningBlock) => {
         const isSelected = block.id === selectedBlockId;
@@ -901,7 +1167,111 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         </div>
     );
 
+    const renderPlayer = () => {
+        if (!activeCourse) return null;
+        const context = getActiveContext();
+        if (!context || !context.lesson) return null;
+        
+        // Calculate progress for sidebar visual
+        const totalLessons = activeCourse.modules?.reduce((acc, m) => acc + (m.lessons?.length || 0), 0) || 0;
+        // Simple visual calculation - can be improved
+        
+        return (
+            <div className="flex flex-col h-screen bg-white">
+                {/* PLAYER HEADER */}
+                <div className="h-16 border-b border-slate-200 flex items-center justify-between px-6 bg-white z-20">
+                    <button onClick={() => setView('dashboard')} className="flex items-center gap-2 text-slate-500 hover:text-slate-800 transition-colors font-bold text-sm">
+                        <ArrowLeft size={18}/> Terug
+                    </button>
+                    <h2 className="font-bold text-slate-900">{activeCourse.title}</h2>
+                    <div className="w-20"></div> {/* Spacer */}
+                </div>
+
+                <div className="flex flex-1 overflow-hidden">
+                    {/* PLAYER SIDEBAR */}
+                    <div className="w-80 bg-slate-50 border-r border-slate-200 overflow-y-auto hidden md:block">
+                        <div className="p-6">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Inhoudsopgave</h3>
+                            <div className="space-y-6">
+                                {activeCourse.modules?.map((module, mIdx) => (
+                                    <div key={module.id}>
+                                        <div className="font-bold text-slate-900 text-sm mb-2 px-2 flex items-center gap-2">
+                                            <span className="w-5 h-5 bg-slate-200 rounded-full flex items-center justify-center text-[10px]">{mIdx+1}</span>
+                                            {module.title}
+                                        </div>
+                                        <div className="space-y-1">
+                                            {module.lessons?.map((lesson, lIdx) => {
+                                                const isActive = lesson.id === selectedLessonId;
+                                                return (
+                                                    <button 
+                                                        key={lesson.id}
+                                                        onClick={() => {
+                                                            setSelectedModuleId(module.id);
+                                                            setSelectedLessonId(lesson.id);
+                                                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                                                        }}
+                                                        className={`w-full text-left px-3 py-2.5 rounded-lg text-sm flex items-center gap-3 transition-colors ${
+                                                            isActive 
+                                                            ? 'bg-indigo-50 text-indigo-700 font-bold shadow-sm' 
+                                                            : 'text-slate-600 hover:bg-slate-200/50'
+                                                        }`}
+                                                    >
+                                                        {isActive ? <div className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse"></div> : <div className="w-2 h-2 rounded-full bg-slate-300"></div>}
+                                                        <span className="truncate">{lesson.title}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* PLAYER CONTENT */}
+                    <div className="flex-1 bg-white overflow-y-auto relative">
+                        <div className="max-w-3xl mx-auto py-12 px-8 min-h-full flex flex-col">
+                            
+                            <div className="mb-8 border-b border-slate-100 pb-6">
+                                <span className="text-indigo-600 font-bold text-sm mb-2 block uppercase tracking-wide">
+                                    {context.module?.title}
+                                </span>
+                                <h1 className="text-4xl font-serif font-bold text-slate-900 leading-tight">
+                                    {context.lesson.title}
+                                </h1>
+                            </div>
+
+                            <div className="space-y-8 flex-1">
+                                {(context.lesson.blocks || []).map(block => renderBlockViewer(block))}
+                            </div>
+
+                            {/* Navigation Footer */}
+                            <div className="mt-16 pt-8 border-t border-slate-100 flex justify-between items-center">
+                                <button 
+                                    onClick={handlePlayerPrev}
+                                    className="px-6 py-3 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-all flex items-center gap-2"
+                                >
+                                    <ChevronLeft size={18}/> Vorige
+                                </button>
+                                <button 
+                                    onClick={handlePlayerNext}
+                                    className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-bold shadow-lg hover:bg-indigo-700 transition-all flex items-center gap-2 hover:-translate-y-0.5"
+                                >
+                                    Volgende <ArrowRight size={18}/>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     // --- MAIN RENDER ---
+
+    if (view === 'player' && activeCourse) {
+        return renderPlayer();
+    }
 
     if (view === 'builder' && activeCourse) {
         return (
