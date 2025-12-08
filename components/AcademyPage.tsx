@@ -46,6 +46,8 @@ const ICONS_CATALOG = {
     'Music': Music,
 };
 
+// --- HELPERS ---
+
 const RichTextToolbar = ({ onFormat }: { onFormat: (cmd: string, val?: string) => void }) => {
     return (
         <div className="flex items-center gap-1 bg-white border border-slate-200 p-1 rounded-lg shadow-sm mb-2 w-fit">
@@ -84,6 +86,35 @@ const IconPicker = ({ selected, onSelect }: { selected?: string, onSelect: (icon
                 <X size={18} />
             </button>
         </div>
+    );
+};
+
+// Safe Content Editable Component to prevent cursor jumping
+const BlockTextEditor = ({ html, onChange, className, onFocus }: { html: string, onChange: (val: string) => void, className?: string, onFocus?: () => void }) => {
+    const contentEditableRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        if (contentEditableRef.current && contentEditableRef.current.innerHTML !== html) {
+             // Only update innerHTML if the element is NOT focused to avoid cursor reset loop while typing.
+             // We rely on React state being the source of truth for saving, but local DOM for typing.
+             if (document.activeElement !== contentEditableRef.current) {
+                 contentEditableRef.current.innerHTML = html;
+             }
+        }
+    }, [html]);
+
+    return (
+        <div
+            ref={contentEditableRef}
+            className={className}
+            contentEditable
+            suppressContentEditableWarning
+            onInput={(e) => onChange(e.currentTarget.innerHTML)}
+            onFocus={onFocus}
+            onBlur={(e) => onChange(e.currentTarget.innerHTML)}
+            // Ensure it has height even if empty
+            style={{ minHeight: '1.5em' }} 
+        />
     );
 };
 
@@ -714,14 +745,10 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                         <IconComponent size={24} />
                                     </div>
                                 )}
-                                <div
-                                    className="prose prose-slate max-w-none focus:outline-none min-h-[2rem]"
-                                    contentEditable
-                                    suppressContentEditableWarning
-                                    onInput={(e) => {
-                                        updateBlock(block.id, { ...block.content, html: e.currentTarget.innerHTML });
-                                    }}
-                                    dangerouslySetInnerHTML={{ __html: block.content.html }}
+                                <BlockTextEditor 
+                                    className="prose prose-slate max-w-none focus:outline-none min-h-[2rem] flex-1"
+                                    html={block.content.html}
+                                    onChange={(newHtml) => updateBlock(block.id, { ...block.content, html: newHtml })}
                                 />
                             </div>
                         </div>
