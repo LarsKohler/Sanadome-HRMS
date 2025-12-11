@@ -34,6 +34,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
 
   // Check Permission instead of role
   const canPost = hasPermission(currentUser, 'CREATE_NEWS');
+  const canDelete = hasPermission(currentUser, 'DELETE_NEWS');
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -189,6 +190,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 3xl:grid-cols-5 gap-8">
         {newsItems.map((post) => {
           const isLiked = post.likedBy.includes(currentUser.id);
+          const isAuthor = post.authorName === currentUser.name; // Simple check for now
           
           return (
             <div 
@@ -206,7 +208,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                   <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   
                   {/* Quick Actions on Card for Authors/Admins */}
-                  {canPost && (
+                  {(canPost && (canDelete || isAuthor)) && (
                       <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button 
                             onClick={(e) => { e.stopPropagation(); handleOpenEdit(post); }}
@@ -214,12 +216,14 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                           >
                               <Edit2 size={16} />
                           </button>
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); handleDeleteClick(post.id); }}
-                            className="p-2 bg-white/90 backdrop-blur rounded-lg text-slate-700 hover:text-red-600 shadow-sm"
-                          >
-                              <Trash2 size={16} />
-                          </button>
+                          {canDelete && (
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); handleDeleteClick(post.id); }}
+                                className="p-2 bg-white/90 backdrop-blur rounded-lg text-slate-700 hover:text-red-600 shadow-sm"
+                              >
+                                  <Trash2 size={16} />
+                              </button>
+                          )}
                       </div>
                   )}
                 </div>
@@ -234,12 +238,14 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                         >
                             <Edit2 size={16} />
                         </button>
-                        <button 
-                        onClick={(e) => { e.stopPropagation(); handleDeleteClick(post.id); }}
-                        className="p-2 bg-slate-100 rounded-lg text-slate-500 hover:bg-white hover:text-red-600 shadow-sm border border-slate-200"
-                        >
-                            <Trash2 size={16} />
-                        </button>
+                        {canDelete && (
+                            <button 
+                            onClick={(e) => { e.stopPropagation(); handleDeleteClick(post.id); }}
+                            className="p-2 bg-slate-100 rounded-lg text-slate-500 hover:bg-white hover:text-red-600 shadow-sm border border-slate-200"
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        )}
                     </div>
                 )}
 

@@ -62,6 +62,7 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
 
   // Permissions
   const canManageDocs = hasPermission(currentUser, 'MANAGE_DOCUMENTS');
+  const canDeleteDocs = hasPermission(currentUser, 'DELETE_DOCUMENTS');
   const canViewAll = hasPermission(currentUser, 'VIEW_ALL_DOCUMENTS');
 
   const selectorRef = useRef<HTMLDivElement>(null);
@@ -464,7 +465,9 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
                                                      {activeDropdownId === note.id && (
                                                         <div className="absolute right-0 top-8 w-40 bg-white rounded-xl shadow-xl border border-slate-100 z-20 py-1 overflow-hidden animate-in fade-in zoom-in-95 duration-100">
                                                             <button onClick={() => handleOpenEditNote(note)} className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"><Pencil size={14}/> Bewerken</button>
-                                                            <button onClick={() => handleOpenDeleteNote(note)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14}/> Verwijderen</button>
+                                                            {canDeleteDocs && (
+                                                                <button onClick={() => handleOpenDeleteNote(note)} className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"><Trash2 size={14}/> Verwijderen</button>
+                                                            )}
                                                         </div>
                                                      )}
                                                 </div>
@@ -543,7 +546,7 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <button className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"><Download size={16}/></button>
-                                            {canManageDocs && (
+                                            {canDeleteDocs && (
                                                 <button onClick={() => handleOpenDeleteDoc(doc)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
                                             )}
                                         </div>

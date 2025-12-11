@@ -1,5 +1,4 @@
 
-
 export enum ViewState {
   HOME = 'HOME',
   DIRECTORY = 'DIRECTORY',
@@ -23,13 +22,17 @@ export enum ViewState {
 export type Permission = 
   | 'VIEW_REPORTS'
   | 'MANAGE_EMPLOYEES'
+  | 'DELETE_EMPLOYEES'
   | 'MANAGE_DOCUMENTS'
+  | 'DELETE_DOCUMENTS'
   | 'VIEW_ALL_DOCUMENTS'
   | 'CREATE_NEWS'
+  | 'DELETE_NEWS'
   | 'MANAGE_ONBOARDING'
   | 'VIEW_SYSTEM_STATUS'
   | 'MANAGE_SETTINGS'
   | 'MANAGE_EVALUATIONS'
+  | 'DELETE_EVALUATIONS'
   | 'MANAGE_DEBTORS'
   | 'MANAGE_RECRUITMENT'
   | 'VIEW_CALENDAR'
@@ -39,18 +42,23 @@ export type Permission =
   | 'MANAGE_TICKETS'
   | 'MANAGE_RENTALS'
   | 'MANAGE_ACADEMY'
-  | 'MANAGE_COMPENSATION';
+  | 'MANAGE_COMPENSATION'
+  | 'DELETE_COMPENSATION';
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_REPORTS': 'Rapportages Inzien',
-  'MANAGE_EMPLOYEES': 'Medewerkers Beheren',
+  'MANAGE_EMPLOYEES': 'Medewerkers Bewerken',
+  'DELETE_EMPLOYEES': 'Medewerkers Verwijderen',
   'MANAGE_DOCUMENTS': 'Documenten Beheren',
-  'VIEW_ALL_DOCUMENTS': 'Alle Documenten Inzien',
+  'DELETE_DOCUMENTS': 'Documenten Verwijderen',
+  'VIEW_ALL_DOCUMENTS': 'Alle Dossiers Inzien',
   'CREATE_NEWS': 'Nieuws Plaatsen',
+  'DELETE_NEWS': 'Nieuws Verwijderen',
   'MANAGE_ONBOARDING': 'Onboarding Beheren',
   'VIEW_SYSTEM_STATUS': 'Systeemstatus Inzien',
   'MANAGE_SETTINGS': 'Instellingen Beheren',
   'MANAGE_EVALUATIONS': 'Evaluaties Beheren',
+  'DELETE_EVALUATIONS': 'Evaluaties Verwijderen',
   'MANAGE_DEBTORS': 'Debiteuren Beheren',
   'MANAGE_RECRUITMENT': 'Recruitment Beheren',
   'VIEW_CALENDAR': 'Kalender Inzien',
@@ -60,7 +68,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'MANAGE_TICKETS': 'Tickets Beheren',
   'MANAGE_RENTALS': 'Fietsverhuur Beheren',
   'MANAGE_ACADEMY': 'Academy Beheren',
-  'MANAGE_COMPENSATION': 'Compensatie Beleid Beheren'
+  'MANAGE_COMPENSATION': 'Compensatie Beleid Beheren',
+  'DELETE_COMPENSATION': 'Compensatie Verwijderen'
 };
 
 // --- COMPENSATION ---

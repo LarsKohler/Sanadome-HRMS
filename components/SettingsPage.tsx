@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { Shield, Search, Check, AlertTriangle, User, Save, RefreshCcw, Lock, Unlock, Briefcase } from 'lucide-react';
+import { Shield, Search, Check, AlertTriangle, User, Save, RefreshCcw, Lock, Unlock, Briefcase, Plus, X } from 'lucide-react';
 import { Employee, Permission, PERMISSION_LABELS } from '../types';
 import { ROLE_PERMISSIONS } from '../utils/permissions';
 
@@ -46,15 +46,23 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
   const handleToggleUserPermission = (perm: Permission) => {
       if (!selectedEmployee) return;
 
-      const currentCustom = selectedEmployee.customPermissions;
       const roleDefaults = roleConfigs[selectedEmployee.role] || [];
       
-      let newPermissions = currentCustom ? [...currentCustom] : [...roleDefaults];
+      // If permission is already in role, we CANNOT turn it off (Additive model)
+      if (roleDefaults.includes(perm)) {
+          // Ideally show a toast saying "Granted by role"
+          return; 
+      }
 
-      if (newPermissions.includes(perm)) {
-          newPermissions = newPermissions.filter(p => p !== perm);
+      const currentCustom = selectedEmployee.customPermissions || [];
+      let newPermissions: Permission[];
+
+      if (currentCustom.includes(perm)) {
+          // Remove custom permission
+          newPermissions = currentCustom.filter(p => p !== perm);
       } else {
-          newPermissions.push(perm);
+          // Add custom permission
+          newPermissions = [...currentCustom, perm];
       }
 
       onUpdateEmployee({ ...selectedEmployee, customPermissions: newPermissions });
@@ -62,7 +70,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
 
   const handleResetUserPermissions = () => {
       if (!selectedEmployee) return;
-      onUpdateEmployee({ ...selectedEmployee, customPermissions: undefined });
+      onUpdateEmployee({ ...selectedEmployee, customPermissions: [] });
       onShowToast(`Rechten voor ${selectedEmployee.name} hersteld naar standaard.`);
   };
 
@@ -87,24 +95,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
   };
 
   const handleSaveRoleConfig = () => {
-      onShowToast(`Rol configuratie voor ${selectedRoleKey} opgeslagen.`);
-  };
-
-  const getUserPermissionStatus = (perm: Permission) => {
-      if (!selectedEmployee) return 'disabled';
-      
-      const isCustom = !!selectedEmployee.customPermissions;
-      const roleDefaults = roleConfigs[selectedEmployee.role] || [];
-      const hasPerm = selectedEmployee.customPermissions 
-          ? selectedEmployee.customPermissions.includes(perm) 
-          : roleDefaults.includes(perm);
-
-      const defaultHasPerm = roleDefaults.includes(perm);
-
-      if (!isCustom) {
-          return defaultHasPerm ? 'default-on' : 'default-off';
-      }
-      return hasPerm ? 'custom-on' : 'custom-off';
+      onShowToast(`Rol configuratie voor ${selectedRoleKey} opgeslagen. (Let op: dit is een demo state, DB update vereist backend change).`);
   };
 
   return (
@@ -170,7 +161,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                                   >
                                       <img src={emp.avatar} className="w-8 h-8 rounded-full object-cover border border-slate-100" alt="Av"/>
                                       <span className="truncate flex-1">{emp.name}</span>
-                                      {emp.customPermissions && <div className="w-2 h-2 bg-amber-400 rounded-full shadow-sm" title="Aangepaste rechten"></div>}
+                                      {emp.customPermissions && emp.customPermissions.length > 0 && <div className="w-2 h-2 bg-amber-400 rounded-full shadow-sm" title="Aangepaste rechten"></div>}
                                   </button>
                               ))}
                           </div>
@@ -214,7 +205,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                                 <div className="flex items-center gap-6">
                                     <div className="relative">
                                         <img src={selectedEmployee.avatar} className="w-20 h-20 rounded-2xl object-cover shadow-md border-2 border-white" alt="Avatar"/>
-                                        {selectedEmployee.customPermissions && (
+                                        {selectedEmployee.customPermissions && selectedEmployee.customPermissions.length > 0 && (
                                             <div className="absolute -top-2 -right-2 bg-amber-100 text-amber-700 p-1.5 rounded-full border-2 border-white" title="Aangepaste rechten actief">
                                                 <AlertTriangle size={14} />
                                             </div>
@@ -229,7 +220,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                                         </div>
                                     </div>
                                 </div>
-                                {selectedEmployee.customPermissions && (
+                                {selectedEmployee.customPermissions && selectedEmployee.customPermissions.length > 0 && (
                                     <button 
                                         onClick={handleResetUserPermissions}
                                         className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 text-sm font-bold rounded-xl transition-colors flex items-center gap-2 border border-amber-200"
@@ -241,38 +232,57 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
 
                             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                                 {(Object.keys(PERMISSION_LABELS) as Permission[]).map(perm => {
-                                    const status = getUserPermissionStatus(perm);
-                                    const isActive = status === 'default-on' || status === 'custom-on';
-                                    const isCustom = status === 'custom-on' || status === 'custom-off';
+                                    const roleDefaults = roleConfigs[selectedEmployee.role] || [];
+                                    const customPerms = selectedEmployee.customPermissions || [];
+                                    
+                                    const isInherited = roleDefaults.includes(perm);
+                                    const isCustom = customPerms.includes(perm);
+                                    const isEffective = isInherited || isCustom;
 
                                     return (
                                         <div 
                                             key={perm} 
-                                            onClick={() => handleToggleUserPermission(perm)}
-                                            className={`group p-5 rounded-2xl border-2 cursor-pointer transition-all duration-200 flex items-center justify-between ${
-                                                isActive 
-                                                ? (isCustom ? 'bg-teal-50 border-teal-200' : 'bg-slate-50 border-slate-200 hover:border-teal-200') 
-                                                : 'bg-white border-slate-100 hover:border-slate-300'
+                                            onClick={() => !isInherited && handleToggleUserPermission(perm)}
+                                            className={`group p-5 rounded-2xl border-2 transition-all duration-200 flex items-center justify-between ${
+                                                isInherited 
+                                                    ? 'bg-slate-50 border-slate-200 cursor-default opacity-80' 
+                                                    : isCustom 
+                                                        ? 'bg-teal-50 border-teal-200 cursor-pointer shadow-sm'
+                                                        : 'bg-white border-slate-100 hover:border-slate-300 cursor-pointer'
                                             }`}
                                         >
                                             <div>
-                                                <div className={`font-bold text-sm ${isActive ? 'text-slate-900' : 'text-slate-400'}`}>
+                                                <div className={`font-bold text-sm ${isEffective ? 'text-slate-900' : 'text-slate-400'}`}>
                                                     {PERMISSION_LABELS[perm]}
                                                 </div>
-                                                <div className={`text-xs font-mono mt-1 ${isActive ? 'text-slate-500' : 'text-slate-300'}`}>
-                                                    {perm}
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <div className={`text-xs font-mono ${isEffective ? 'text-slate-500' : 'text-slate-300'}`}>
+                                                        {perm}
+                                                    </div>
+                                                    {isInherited && (
+                                                        <span className="text-[10px] font-bold text-slate-400 bg-slate-200 px-1.5 py-0.5 rounded">ROL</span>
+                                                    )}
+                                                    {isCustom && (
+                                                        <span className="text-[10px] font-bold text-teal-700 bg-teal-100 px-1.5 py-0.5 rounded">EXTRA</span>
+                                                    )}
                                                 </div>
                                             </div>
                                             
-                                            <div className={`relative w-14 h-8 rounded-full transition-colors duration-300 ${
-                                                isActive ? (isCustom ? 'bg-teal-500' : 'bg-slate-400') : 'bg-slate-200'
-                                            }`}>
-                                                <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-sm transition-transform duration-300 transform ${
-                                                    isActive ? 'translate-x-6' : 'translate-x-0'
-                                                }`}>
-                                                    {isActive && isCustom && <div className="absolute inset-0 flex items-center justify-center text-teal-500"><Check size={14} strokeWidth={3}/></div>}
+                                            {isInherited ? (
+                                                <div className="flex items-center justify-center w-8 h-8 bg-green-100 text-green-600 rounded-full" title="Ingeschakeld door Rol">
+                                                    <Check size={16} strokeWidth={3}/>
                                                 </div>
-                                            </div>
+                                            ) : (
+                                                <div className={`relative w-14 h-8 rounded-full transition-colors duration-300 ${
+                                                    isCustom ? 'bg-teal-500' : 'bg-slate-200'
+                                                }`}>
+                                                    <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-sm transition-transform duration-300 transform ${
+                                                        isCustom ? 'translate-x-6' : 'translate-x-0'
+                                                    }`}>
+                                                        {isCustom && <div className="absolute inset-0 flex items-center justify-center text-teal-500"><Plus size={14} strokeWidth={3}/></div>}
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })}

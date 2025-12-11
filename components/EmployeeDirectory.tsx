@@ -52,6 +52,8 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
 
   // Check Permission
   const canManage = hasPermission(currentUser, 'MANAGE_EMPLOYEES');
+  // Specific delete permission
+  const canDelete = hasPermission(currentUser, 'DELETE_EMPLOYEES');
 
   useEffect(() => {
     const handleClickOutside = () => setActiveActionId(null);
@@ -199,7 +201,8 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       documents: [],
       notes: [],
       onboardingTasks: [],
-      evaluations: [firstEvaluation] // Add the planned evaluation
+      evaluations: [firstEvaluation], // Add the planned evaluation
+      customPermissions: [] // Explicitly empty to ensure they use role defaults
     };
 
     onAddEmployee(newEmployee);
@@ -416,17 +419,21 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                                     <Pencil size={14} />
                                     Bewerk medewerker
                                 </button>
-                                <div className="h-px bg-slate-50 my-1"></div>
-                                <button 
-                                    onClick={() => {
-                                        openDeleteModal(employee);
-                                        setActiveActionId(null);
-                                    }}
-                                    className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors font-medium"
-                                >
-                                    <Trash2 size={14} />
-                                    Verwijderen
-                                </button>
+                                {canDelete && (
+                                    <>
+                                        <div className="h-px bg-slate-50 my-1"></div>
+                                        <button 
+                                            onClick={() => {
+                                                openDeleteModal(employee);
+                                                setActiveActionId(null);
+                                            }}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors font-medium"
+                                        >
+                                            <Trash2 size={14} />
+                                            Verwijderen
+                                        </button>
+                                    </>
+                                )}
                               </>
                           )}
                         </div>
