@@ -1,4 +1,5 @@
 
+
 import { Employee, NewsPost, OnboardingTemplate, SystemUpdateLog, KnowledgeArticle, Applicant, Ticket, Vacancy, EvaluationTemplate, BikeSettings, BikeReservation, AcademyCourse, AcademyProgress, CompensationPolicy } from '../types';
 
 export const MOCK_EMPLOYEES: Employee[] = [

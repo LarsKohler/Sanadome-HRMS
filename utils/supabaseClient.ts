@@ -1,4 +1,5 @@
 
+
 import { createClient } from '@supabase/supabase-js';
 
 // --- SQL INSTRUCTIES VOOR SUPABASE ---

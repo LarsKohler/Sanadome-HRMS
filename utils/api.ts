@@ -1,4 +1,5 @@
 
+
 // --- EXISTING API CODE START ---
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
@@ -116,7 +117,7 @@ export const api = {
           await supabase.from('academy_progress').upsert({ 
               id: progress.id, 
               employee_id: progress.employeeId, 
-              course_id: progress.courseId,
+              course_id: progress.courseId, 
               data: progress 
           });
       } else {
