@@ -8,6 +8,7 @@ import {
 import { Employee, KnowledgeArticle } from '../types';
 import { api } from '../utils/api';
 import { hasPermission } from '../utils/permissions';
+import { Modal } from './Modal';
 
 interface KnowledgeBasePageProps {
     currentUser: Employee;
@@ -27,6 +28,9 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isPreviewMode, setIsPreviewMode] = useState(false);
     
+    const [deleteArticleId, setDeleteArticleId] = useState<string | null>(null);
+    const [showMagicConfirm, setShowMagicConfirm] = useState(false);
+
     const canManage = hasPermission(currentUser, 'MANAGE_KNOWLEDGE');
 
     useEffect(() => {
@@ -144,8 +148,7 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
         }
     };
 
-    const handleMagicTemplate = () => {
-        // Smart Assist Logic
+    const applyMagicTemplate = () => {
         const cat = editForm.category?.toLowerCase() || '';
         const title = editForm.title?.toLowerCase() || '';
         let template = '';
@@ -157,12 +160,18 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
         } else {
             template = `## Samenvatting\n[Korte samenvatting]\n\n## Belangrijke punten\n- Punt A\n- Punt B\n\n## Contact\nVoor vragen kun je terecht bij je leidinggevende.`;
         }
-
-        if (editForm.content && editForm.content.length > 10) {
-            if(!confirm("Wil je de huidige tekst vervangen door een sjabloon?")) return;
-        }
+        
         setEditForm({ ...editForm, content: template });
         onShowToast("Sjabloon toegepast!");
+        setShowMagicConfirm(false);
+    };
+
+    const handleMagicTemplate = () => {
+        if (editForm.content && editForm.content.length > 10) {
+            setShowMagicConfirm(true);
+        } else {
+            applyMagicTemplate();
+        }
     };
 
     // --- NAVIGATION HANDLERS ---
@@ -192,12 +201,13 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
         setView('edit');
     };
 
-    const handleDeleteArticle = async (id: string) => {
-        if (confirm("Weet je zeker dat je dit artikel wilt verwijderen?")) {
-            await api.deleteKnowledgeArticle(id);
-            setArticles(prev => prev.filter(a => a.id !== id));
+    const handleConfirmDelete = async () => {
+        if (deleteArticleId) {
+            await api.deleteKnowledgeArticle(deleteArticleId);
+            setArticles(prev => prev.filter(a => a.id !== deleteArticleId));
             if (view === 'read') setView('list');
             onShowToast("Artikel verwijderd.");
+            setDeleteArticleId(null);
         }
     };
 
@@ -441,6 +451,20 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
 
                     </div>
                 </div>
+
+                <Modal 
+                    isOpen={showMagicConfirm} 
+                    onClose={() => setShowMagicConfirm(false)} 
+                    title="Smart Assist"
+                >
+                    <div className="space-y-4">
+                        <p className="text-sm text-slate-600">Je hebt al tekst in het artikel staan. Wil je deze overschrijven met het sjabloon?</p>
+                        <div className="flex justify-end gap-3 pt-2">
+                            <button onClick={() => setShowMagicConfirm(false)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors">Annuleren</button>
+                            <button onClick={applyMagicTemplate} className="px-4 py-2 bg-slate-900 text-white rounded-lg font-bold text-sm shadow-sm hover:bg-slate-800 transition-colors">Overschrijven</button>
+                        </div>
+                    </div>
+                </Modal>
             </div>
         );
     }
@@ -457,7 +481,7 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                             <button onClick={() => handleEditArticle(selectedArticle)} className="p-2 bg-white border border-slate-200 rounded-xl text-slate-600 hover:text-teal-600 transition-colors">
                                 <Edit2 size={18} />
                             </button>
-                            <button onClick={() => handleDeleteArticle(selectedArticle.id)} className="p-2 bg-white border border-slate-200 rounded-xl text-slate-600 hover:text-red-600 transition-colors">
+                            <button onClick={() => setDeleteArticleId(selectedArticle.id)} className="p-2 bg-white border border-slate-200 rounded-xl text-slate-600 hover:text-red-600 transition-colors">
                                 <Trash2 size={18} />
                             </button>
                         </div>
@@ -515,6 +539,20 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                         </div>
                     </div>
                 </div>
+
+                <Modal
+                    isOpen={!!deleteArticleId}
+                    onClose={() => setDeleteArticleId(null)}
+                    title="Artikel Verwijderen"
+                >
+                    <div className="space-y-4">
+                        <p className="text-sm text-slate-600">Weet je zeker dat je dit artikel wilt verwijderen? Dit kan niet ongedaan worden gemaakt.</p>
+                        <div className="flex justify-end gap-3 pt-2">
+                            <button onClick={() => setDeleteArticleId(null)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors">Annuleren</button>
+                            <button onClick={handleConfirmDelete} className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold text-sm shadow-sm hover:bg-red-700 transition-colors">Verwijderen</button>
+                        </div>
+                    </div>
+                </Modal>
             </div>
         );
     }
@@ -536,7 +574,7 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                         className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all w-full md:w-auto justify-center"
                     >
                         <Plus size={18} />
-                        Nieuw Artikel
+                        Nieuwe Artikel
                     </button>
                 )}
             </div>

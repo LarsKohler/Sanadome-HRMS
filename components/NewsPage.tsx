@@ -10,8 +10,8 @@ interface NewsPageProps {
   currentUser: Employee;
   newsItems: NewsPost[];
   onAddNews: (post: NewsPost) => void;
-  onUpdateNews?: (post: NewsPost) => void; // Optional to support incremental adoption
-  onDeleteNews?: (id: string) => void;     // Optional to support incremental adoption
+  onUpdateNews?: (post: NewsPost) => void; 
+  onDeleteNews?: (id: string) => void;     
   onLikeNews: (postId: string, userId: string) => void;
 }
 
@@ -27,6 +27,8 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
   const [content, setContent] = useState('');
   const [imageUrl, setImageUrl] = useState('');
   
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -131,10 +133,15 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
     setIsCreateModalOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-      if (confirm("Weet je zeker dat je dit nieuwsbericht wilt verwijderen?") && onDeleteNews) {
-          onDeleteNews(id);
-          if (selectedPost?.id === id) setSelectedPost(null);
+  const handleDeleteClick = (id: string) => {
+      setConfirmDeleteId(id);
+  };
+
+  const handleConfirmDelete = () => {
+      if (confirmDeleteId && onDeleteNews) {
+          onDeleteNews(confirmDeleteId);
+          if (selectedPost?.id === confirmDeleteId) setSelectedPost(null);
+          setConfirmDeleteId(null);
       }
   };
 
@@ -208,7 +215,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                               <Edit2 size={16} />
                           </button>
                           <button 
-                            onClick={(e) => { e.stopPropagation(); handleDelete(post.id); }}
+                            onClick={(e) => { e.stopPropagation(); handleDeleteClick(post.id); }}
                             className="p-2 bg-white/90 backdrop-blur rounded-lg text-slate-700 hover:text-red-600 shadow-sm"
                           >
                               <Trash2 size={16} />
@@ -228,7 +235,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                             <Edit2 size={16} />
                         </button>
                         <button 
-                        onClick={(e) => { e.stopPropagation(); handleDelete(post.id); }}
+                        onClick={(e) => { e.stopPropagation(); handleDeleteClick(post.id); }}
                         className="p-2 bg-slate-100 rounded-lg text-slate-500 hover:bg-white hover:text-red-600 shadow-sm border border-slate-200"
                         >
                             <Trash2 size={16} />
@@ -293,6 +300,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
           </div>
       )}
 
+      {/* CREATE / EDIT MODAL */}
       <Modal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
@@ -417,6 +425,23 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
             </button>
           </div>
         </form>
+      </Modal>
+
+      {/* DELETE CONFIRMATION MODAL */}
+      <Modal 
+        isOpen={!!confirmDeleteId} 
+        onClose={() => setConfirmDeleteId(null)} 
+        title="Bericht Verwijderen"
+      >
+         <div className="space-y-4">
+            <p className="text-sm text-slate-600">
+               Weet je zeker dat je dit nieuwsbericht wilt verwijderen? Dit kan niet ongedaan worden gemaakt.
+            </p>
+            <div className="flex justify-end gap-3 pt-2">
+               <button onClick={() => setConfirmDeleteId(null)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors">Annuleren</button>
+               <button onClick={handleConfirmDelete} className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold text-sm shadow-sm hover:bg-red-700 transition-colors">Verwijderen</button>
+            </div>
+         </div>
       </Modal>
 
       {selectedPost && (

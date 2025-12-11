@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Briefcase, MapPin, 
@@ -7,7 +6,7 @@ import {
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
   TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy, Lock, Pencil
 } from 'lucide-react';
-import { Employee, EmployeeNote, EmployeeDocument, Notification, ViewState, NewsPost, PersonalDevelopmentGoal, InterimCheckIn, EvaluationCycle } from '../types';
+import { Employee, EmployeeNote, EmployeeDocument, Notification, ViewState, NewsPost, EvaluationCycle } from '../types';
 import { Modal } from './Modal';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { api } from '../utils/api';
@@ -57,17 +56,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   const [activeTab, setActiveTab] = useState('Overzicht');
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   
-  // Growth & Reflection State
-  const [isReflectionModalOpen, setIsReflectionModalOpen] = useState(false);
-  const [selectedGoal, setSelectedGoal] = useState<PersonalDevelopmentGoal | null>(null);
-  const [reflectionText, setReflectionText] = useState('');
-  
-  // Interim Check-in State
-  const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
-  const [activeCheckIn, setActiveCheckIn] = useState<InterimCheckIn | null>(null);
-  const [checkInScore, setCheckInScore] = useState(0);
-  const [checkInNotes, setCheckInNotes] = useState('');
-
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
@@ -145,7 +133,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
     if (isOwnProfile || isManager) {
         // PRIVATE / MANAGEMENT TABS
         availableTabs.push('Carrière');
-        availableTabs.push('Groeipad'); // New Growth Path
         availableTabs.push('Evaluatie');
         
         const hasActiveTasks = employee.onboardingTasks && employee.onboardingTasks.length > 0;
@@ -225,69 +212,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
     onShowToast('Notitie toegevoegd.');
   };
 
-  // --- GOAL ACTIONS ---
-  
-  const handleOpenCheckIn = (goal: PersonalDevelopmentGoal, checkIn: InterimCheckIn) => {
-      setSelectedGoal(goal);
-      setActiveCheckIn(checkIn);
-      setCheckInScore(goal.progress || checkIn.score || 0);
-      setCheckInNotes(checkIn.managerNotes || '');
-      setIsCheckInModalOpen(true);
-  };
-
-  const handleSubmitCheckIn = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!selectedGoal || !activeCheckIn) return;
-
-      // Update the specific check-in
-      const updatedCheckIns = (selectedGoal.checkIns || []).map(ci => 
-          ci.id === activeCheckIn.id 
-          ? { ...ci, status: 'Completed' as const, score: checkInScore, managerNotes: checkInNotes, completedDate: new Date().toLocaleDateString('nl-NL') }
-          : ci
-      );
-
-      // Update the main goal progress
-      const updatedGoal = {
-          ...selectedGoal,
-          checkIns: updatedCheckIns,
-          progress: checkInScore // Set main progress to latest score
-      };
-
-      // Update employee
-      const updatedGoals = (employee.growthGoals || []).map(g => g.id === selectedGoal.id ? updatedGoal : g);
-      const updatedEmployee = { ...employee, growthGoals: updatedGoals };
-      
-      onUpdateEmployee(updatedEmployee);
-      api.saveEmployee(updatedEmployee);
-      
-      setIsCheckInModalOpen(false);
-      onShowToast("Tussentijdse evaluatie opgeslagen!");
-  };
-
-  const handleAddReflection = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!selectedGoal || !reflectionText) return;
-
-      const newReflection = {
-          id: Math.random().toString(36).substr(2, 9),
-          date: new Date().toLocaleDateString('nl-NL'),
-          content: reflectionText,
-          author: currentUser.name
-      };
-
-      const updatedGoals = (employee.growthGoals || []).map(g => 
-          g.id === selectedGoal.id ? { ...g, reflections: [newReflection, ...g.reflections] } : g
-      );
-
-      const updatedEmployee = { ...employee, growthGoals: updatedGoals };
-      onUpdateEmployee(updatedEmployee);
-      api.saveEmployee(updatedEmployee);
-      
-      setIsReflectionModalOpen(false);
-      setReflectionText('');
-      onShowToast("Reflectie toegevoegd!");
-  };
-
   // --- RENDER SECTIONS ---
 
   const renderDashboardOverview = () => {
@@ -309,11 +233,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       const unlockablePlanned = plannedEvaluations.filter(ev => isEvaluationUnlockable(ev.plannedDate));
       
       const totalActions = openOnboardingTasks.length + actionableEvaluations.length + urgentDebtCount + unlockablePlanned.length;
-
-      // Active Growth Goal (The most recent in-progress one)
-      const activeGrowthGoal = (employee.growthGoals || [])
-          .filter(g => g.status !== 'Completed')
-          .sort((a,b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0];
 
       return (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -351,48 +270,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                   {/* MAIN COLUMN */}
                   <div className="lg:col-span-2 space-y-6">
                       
-                      {/* Active Growth Path Card (NEW) */}
-                      {activeGrowthGoal && (
-                          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
-                              <div className="absolute top-0 left-0 w-1 h-full bg-teal-500"></div>
-                              <div className="p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                                  <div>
-                                      <div className="flex items-center gap-2 mb-2">
-                                          <span className="text-[10px] font-bold bg-teal-50 text-teal-700 px-2 py-0.5 rounded uppercase tracking-wide border border-teal-100 flex items-center gap-1">
-                                              <TrendingUp size={10} /> Huidig Groeipad
-                                          </span>
-                                          <span className="text-[10px] font-bold text-slate-400">{activeGrowthGoal.category}</span>
-                                      </div>
-                                      <h3 className="text-xl font-bold text-slate-900">{activeGrowthGoal.title}</h3>
-                                      {/* Find next check-in */}
-                                      {(() => {
-                                          const next = (activeGrowthGoal.checkIns || []).find(c => c.status === 'Planned');
-                                          return next ? (
-                                              <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
-                                                  <Clock size={12}/> Volgende evaluatie: <strong>{next.date}</strong>
-                                              </p>
-                                          ) : (
-                                              <p className="text-xs text-slate-500 mt-1">Afrondende fase.</p>
-                                          );
-                                      })()}
-                                  </div>
-                                  
-                                  <div className="flex items-center gap-4">
-                                      <div className="text-right">
-                                          <div className="text-3xl font-bold text-slate-900">{activeGrowthGoal.progress}%</div>
-                                          <div className="text-xs text-slate-400 uppercase font-bold">Voortgang</div>
-                                      </div>
-                                      <button 
-                                        onClick={() => setActiveTab('Groeipad')}
-                                        className="p-2 bg-slate-50 rounded-full hover:bg-slate-100 text-slate-400 hover:text-teal-600 transition-colors"
-                                      >
-                                          <ChevronRight size={20} />
-                                      </button>
-                                  </div>
-                              </div>
-                          </div>
-                      )}
-
                       {/* Action Center (Only Own Profile/Manager) */}
                       {(isOwnProfile || isManager) && (
                           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
@@ -669,247 +546,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                       </button>
                   </div>
               </div>
-          </div>
-      );
-  };
-
-  const renderGrowthPath = () => {
-      const activeGoals = (employee.growthGoals || []).filter(g => g.status !== 'Completed');
-      const completedGoals = (employee.growthGoals || []).filter(g => g.status === 'Completed');
-
-      return (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              {/* Header */}
-              <div className="flex items-center justify-between">
-                  <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-                      <Target className="text-teal-600" size={24}/> Groeipad & Ontwikkeling
-                  </h2>
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  {/* ACTIVE GOALS */}
-                  <div className="lg:col-span-2 space-y-6">
-                      <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide">Actieve Doelen</h3>
-                      
-                      {activeGoals.map(goal => {
-                          const nextCheckIn = (goal.checkIns || []).find(c => c.status === 'Planned');
-                          const completedCheckIns = (goal.checkIns || []).filter(c => c.status === 'Completed');
-
-                          return (
-                              <div key={goal.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow">
-                                  <div className="flex justify-between items-start mb-4">
-                                      <div>
-                                          <div className="flex items-center gap-2 mb-1">
-                                              <span className="text-[10px] font-bold bg-teal-50 text-teal-700 px-2 py-0.5 rounded uppercase tracking-wide border border-teal-100">{goal.category}</span>
-                                              {goal.deadline && <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-0.5 rounded flex items-center gap-1"><Clock size={10}/> {goal.deadline}</span>}
-                                          </div>
-                                          <h4 className="font-bold text-lg text-slate-900">{goal.title}</h4>
-                                      </div>
-                                      <div className="text-right">
-                                          <span className="text-2xl font-bold text-slate-900">{goal.progress}%</span>
-                                      </div>
-                                  </div>
-
-                                  <p className="text-sm text-slate-600 mb-6">{goal.description}</p>
-
-                                  {/* CHECK-IN TIMELINE */}
-                                  <div className="relative pt-6 pb-6 border-t border-slate-50 mb-4">
-                                      <div className="absolute top-8 left-0 right-0 h-0.5 bg-slate-100 z-0"></div>
-                                      <div className="flex justify-between relative z-10">
-                                          {/* Start Node */}
-                                          <div className="flex flex-col items-center">
-                                              <div className="w-4 h-4 rounded-full bg-teal-500 border-2 border-white ring-2 ring-teal-100 mb-2"></div>
-                                              <span className="text-[10px] text-slate-400">Start</span>
-                                              <span className="text-[10px] font-bold text-slate-600">{goal.startDate}</span>
-                                          </div>
-
-                                          {/* Interim Check-ins */}
-                                          {(goal.checkIns || []).map((checkIn, i) => (
-                                              <div key={i} className="flex flex-col items-center group relative">
-                                                  <div className={`w-4 h-4 rounded-full border-2 border-white mb-2 transition-all cursor-help
-                                                      ${checkIn.status === 'Completed' ? 'bg-teal-500 ring-2 ring-teal-100' : 'bg-white border-slate-300 ring-2 ring-slate-50'}
-                                                  `}></div>
-                                                  <span className="text-[10px] text-slate-400">Check-in {i+1}</span>
-                                                  <span className="text-[10px] font-bold text-slate-600">{checkIn.date}</span>
-                                                  
-                                                  {/* Tooltip with result */}
-                                                  {checkIn.status === 'Completed' && (
-                                                      <div className="absolute bottom-full mb-2 bg-slate-800 text-white text-xs p-2 rounded shadow-lg opacity-0 group-hover:opacity-100 transition-opacity w-32 text-center pointer-events-none">
-                                                          Score: {checkIn.score}% <br/>
-                                                          <span className="text-[9px] opacity-70">op {checkIn.completedDate}</span>
-                                                      </div>
-                                                  )}
-
-                                                  {/* Manager Action Button */}
-                                                  {isManager && checkIn.status === 'Planned' && (
-                                                      <button 
-                                                        onClick={() => handleOpenCheckIn(goal, checkIn)}
-                                                        className="absolute top-6 bg-slate-900 text-white text-[10px] px-2 py-1 rounded shadow-sm hover:bg-slate-700 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-20"
-                                                      >
-                                                          Start Evaluatie
-                                                      </button>
-                                                  )}
-                                              </div>
-                                          ))}
-
-                                          {/* End Node */}
-                                          <div className="flex flex-col items-center">
-                                              <div className="w-4 h-4 rounded-full bg-slate-200 border-2 border-white ring-2 ring-slate-100 mb-2"></div>
-                                              <span className="text-[10px] text-slate-400">Eind</span>
-                                              <span className="text-[10px] font-bold text-slate-600">{goal.deadline}</span>
-                                          </div>
-                                      </div>
-                                  </div>
-
-                                  {/* Action Plan */}
-                                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100 mb-4">
-                                      <span className="text-xs font-bold text-slate-400 uppercase block mb-2">Actieplan</span>
-                                      <p className="text-sm text-slate-700 whitespace-pre-line">{goal.actionPlan}</p>
-                                  </div>
-
-                                  {/* Reflections */}
-                                  <div className="border-t border-slate-100 pt-4">
-                                      <div className="flex justify-between items-center mb-4">
-                                          <span className="text-xs font-bold text-slate-400 uppercase">Reflecties & Updates</span>
-                                          <button 
-                                            onClick={() => { setSelectedGoal(goal); setIsReflectionModalOpen(true); }}
-                                            className="text-xs font-bold text-teal-600 hover:bg-teal-50 px-2 py-1 rounded transition-colors flex items-center gap-1"
-                                          >
-                                              <PenTool size={12}/> Toevoegen
-                                          </button>
-                                      </div>
-                                      
-                                      {goal.reflections && goal.reflections.length > 0 ? (
-                                          <div className="space-y-3">
-                                              {goal.reflections.map(ref => (
-                                                  <div key={ref.id} className="flex gap-3 text-sm">
-                                                      <div className="w-8 h-8 rounded-full bg-slate-100 flex-shrink-0 flex items-center justify-center text-xs font-bold text-slate-500">
-                                                          {ref.author.charAt(0)}
-                                                      </div>
-                                                      <div className="bg-slate-50 p-3 rounded-tr-xl rounded-b-xl flex-1 border border-slate-100">
-                                                          <div className="flex justify-between items-baseline mb-1">
-                                                              <span className="font-bold text-slate-700 text-xs">{ref.author}</span>
-                                                              <span className="text-[10px] text-slate-400">{ref.date}</span>
-                                                          </div>
-                                                          <p className="text-slate-600">{ref.content}</p>
-                                                      </div>
-                                                  </div>
-                                              ))}
-                                          </div>
-                                      ) : (
-                                          <p className="text-xs text-slate-400 italic">Nog geen reflecties toegevoegd.</p>
-                                      )}
-                                  </div>
-                              </div>
-                          );
-                      })}
-
-                      {activeGoals.length === 0 && (
-                          <div className="text-center py-12 bg-white rounded-2xl border border-dashed border-slate-200">
-                              <Target size={48} className="mx-auto text-slate-200 mb-4"/>
-                              <h3 className="font-bold text-slate-900">Geen actieve doelen</h3>
-                              <p className="text-slate-500 text-sm mt-1">Stel samen met je manager nieuwe doelen op tijdens de volgende evaluatie.</p>
-                          </div>
-                      )}
-                  </div>
-
-                  {/* COMPLETED / HISTORY */}
-                  <div>
-                      <h3 className="text-sm font-bold text-slate-500 uppercase tracking-wide mb-6">Behaalde Doelen</h3>
-                      <div className="space-y-4">
-                          {completedGoals.map(goal => (
-                              <div key={goal.id} className="bg-white p-4 rounded-xl border border-slate-200 opacity-75 hover:opacity-100 transition-opacity">
-                                  <div className="flex items-center gap-3 mb-2">
-                                      <div className="bg-green-100 text-green-600 p-1.5 rounded-full">
-                                          <CheckCircle2 size={16}/>
-                                      </div>
-                                      <h4 className="font-bold text-slate-900 text-sm line-clamp-1">{goal.title}</h4>
-                                  </div>
-                                  <p className="text-xs text-slate-500 mb-2 line-clamp-2">{goal.description}</p>
-                                  <div className="text-[10px] font-bold text-slate-400 uppercase">
-                                      {goal.category}
-                                  </div>
-                              </div>
-                          ))}
-                          {completedGoals.length === 0 && (
-                              <p className="text-sm text-slate-400 italic">Nog geen doelen afgerond.</p>
-                          )}
-                      </div>
-                  </div>
-              </div>
-
-              {/* Reflection Modal */}
-              <Modal
-                  isOpen={isReflectionModalOpen}
-                  onClose={() => { setIsReflectionModalOpen(false); setSelectedGoal(null); }}
-                  title="Reflectie Toevoegen"
-              >
-                  <form onSubmit={handleAddReflection} className="space-y-4">
-                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 mb-4">
-                          <span className="text-xs font-bold text-slate-400 uppercase">Doel</span>
-                          <p className="font-bold text-slate-900">{selectedGoal?.title}</p>
-                      </div>
-                      
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Jouw notitie</label>
-                          <textarea 
-                              className="w-full p-3 border border-slate-200 rounded-xl text-sm h-32 focus:ring-2 focus:ring-teal-500 outline-none"
-                              placeholder="Wat heb je gedaan? Wat ging goed? Wat kan beter?"
-                              value={reflectionText}
-                              onChange={e => setReflectionText(e.target.value)}
-                              autoFocus
-                          />
-                      </div>
-
-                      <button className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors">
-                          Opslaan
-                      </button>
-                  </form>
-              </Modal>
-
-              {/* Check-In Modal (Manager Only) */}
-              <Modal
-                  isOpen={isCheckInModalOpen}
-                  onClose={() => { setIsCheckInModalOpen(false); setActiveCheckIn(null); }}
-                  title="Tussentijdse Evaluatie"
-              >
-                  <form onSubmit={handleSubmitCheckIn} className="space-y-6">
-                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                          <h4 className="font-bold text-slate-900">{selectedGoal?.title}</h4>
-                          <p className="text-xs text-slate-500 mt-1">Geplande datum: {activeCheckIn?.date}</p>
-                      </div>
-
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-3">Nieuwe Voortgangsscore</label>
-                          <div className="flex items-center gap-4">
-                              <input 
-                                type="range" 
-                                min="0" 
-                                max="100" 
-                                step="5"
-                                value={checkInScore}
-                                onChange={(e) => setCheckInScore(parseInt(e.target.value))}
-                                className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-teal-600"
-                              />
-                              <span className="text-2xl font-bold text-slate-900 w-16 text-right">{checkInScore}%</span>
-                          </div>
-                      </div>
-
-                      <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Evaluatie Notitie</label>
-                          <textarea 
-                              className="w-full p-3 border border-slate-200 rounded-xl text-sm h-32 focus:ring-2 focus:ring-teal-500 outline-none resize-none"
-                              placeholder="Wat is er besproken? Wat zijn de vervolgstappen?"
-                              value={checkInNotes}
-                              onChange={e => setCheckInNotes(e.target.value)}
-                          />
-                      </div>
-
-                      <button type="submit" className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-colors flex items-center justify-center gap-2">
-                          <Save size={18}/> Evaluatie Vastleggen
-                      </button>
-                  </form>
-              </Modal>
           </div>
       );
   };
@@ -1394,7 +1030,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       {/* Content Area */}
       {activeTab === 'Overzicht' && renderDashboardOverview()}
       {activeTab === 'Carrière' && renderCareerDetails()}
-      {activeTab === 'Groeipad' && renderGrowthPath()}
       {activeTab === 'Documenten' && renderDocumentsContent()}
       {activeTab === 'Evaluatie' && renderPerformanceReport()}
       {activeTab === 'Onboarding' && renderOnboardingContent()}

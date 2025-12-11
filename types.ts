@@ -388,7 +388,6 @@ export interface Employee {
 
   // Evaluations
   evaluations?: EvaluationCycle[];
-  growthGoals?: PersonalDevelopmentGoal[];
 
   // Permissions
   customPermissions?: Permission[];
@@ -481,50 +480,6 @@ export interface EvaluationSignature {
     role: 'Manager' | 'Employee';
 }
 
-export interface InterimCheckIn {
-    id: string;
-    date: string;
-    status: 'Planned' | 'Completed' | 'Skipped';
-    score: number;
-    managerNotes?: string;
-    completedDate?: string;
-}
-
-export interface TrajectoryResource {
-    id: string;
-    title: string;
-    url: string;
-    type: 'Link' | 'File';
-}
-
-export interface PersonalDevelopmentGoal {
-    id: string;
-    title: string;
-    category: string;
-    description: string;
-    actionPlan: string;
-    status: 'Not Started' | 'In Progress' | 'Completed';
-    progress: number;
-    startDate: string;
-    deadline: string;
-    
-    // Evaluation Link
-    linkedEvaluationId?: string;
-    
-    // New fields for Trajectory Management
-    supportLevel?: 'Low' | 'Medium' | 'High';
-    reflections: { id: string; date: string; content: string; author: string }[];
-    checkIns: InterimCheckIn[];
-    
-    // Library
-    isLibraryItem?: boolean;
-
-    // Advanced Trajectory Management
-    resources?: TrajectoryResource[];
-    budget?: { allocated: number; spent: number };
-    managementNotes?: string;
-}
-
 export interface EvaluationCycle {
     id: string;
     employeeId: string;
@@ -554,8 +509,6 @@ export interface EvaluationCycle {
     overallRating?: number; 
     smartAdvice?: string[]; 
     potential?: 'Low' | 'Medium' | 'High'; 
-    
-    developmentPlan?: PersonalDevelopmentGoal[]; 
 }
 
 // --- SYSTEM ---

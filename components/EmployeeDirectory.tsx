@@ -179,8 +179,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
             managerScore: 0
         })),
         goals: [],
-        signatures: [],
-        developmentPlan: []
+        signatures: []
     };
 
     const newEmployee: Employee = {

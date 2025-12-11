@@ -1,8 +1,4 @@
 
-
-
-
-
 import React, { useState, useEffect } from 'react';
 import { 
     Medal, Plus, Search, Trash2, Award, Check, User, Calendar, 
@@ -64,6 +60,10 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
     const [targetEmployeeId, setTargetEmployeeId] = useState<string>('');
     const [searchTerm, setSearchTerm] = useState('');
 
+    // Confirmation States
+    const [deleteBadgeId, setDeleteBadgeId] = useState<string | null>(null);
+    const [revokeBadgeData, setRevokeBadgeData] = useState<{empId: string, badgeId: string} | null>(null);
+
     useEffect(() => {
         loadBadges();
     }, []);
@@ -100,11 +100,12 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
         onShowToast('Nieuwe badge aangemaakt!');
     };
 
-    const handleDeleteBadge = async (id: string) => {
-        if (confirm('Weet je zeker dat je deze badge definitief wilt verwijderen uit het systeem?')) {
-            await api.deleteBadge(id);
-            setBadges(badges.filter(b => b.id !== id));
+    const handleConfirmDelete = async () => {
+        if (deleteBadgeId) {
+            await api.deleteBadge(deleteBadgeId);
+            setBadges(badges.filter(b => b.id !== deleteBadgeId));
             onShowToast('Badge definitie verwijderd.');
+            setDeleteBadgeId(null);
         }
     };
 
@@ -158,18 +159,20 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
         onShowToast(`Badge uitgereikt aan ${targetEmployee.name}!`);
     };
 
-    const handleRevokeBadge = async (employeeId: string, assignedBadgeId: string) => {
-        if(!confirm("Weet je zeker dat je deze badge wilt intrekken bij de medewerker?")) return;
+    const handleConfirmRevoke = async () => {
+        if (!revokeBadgeData) return;
+        const { empId, badgeId } = revokeBadgeData;
 
-        const targetEmployee = employees.find(e => e.id === employeeId);
+        const targetEmployee = employees.find(e => e.id === empId);
         if (!targetEmployee) return;
 
-        const updatedBadges = targetEmployee.badges?.filter(b => b.id !== assignedBadgeId) || [];
+        const updatedBadges = targetEmployee.badges?.filter(b => b.id !== badgeId) || [];
         const updatedEmployee = { ...targetEmployee, badges: updatedBadges };
 
         onUpdateEmployee(updatedEmployee);
         await api.saveEmployee(updatedEmployee);
         onShowToast("Badge succesvol ingetrokken.");
+        setRevokeBadgeData(null);
     };
 
     const openAssignModal = (badgeId: string) => {
@@ -246,7 +249,7 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
                                         <Award size={14} /> Uitreiken
                                     </button>
                                     <button 
-                                        onClick={() => handleDeleteBadge(badge.id)}
+                                        onClick={() => setDeleteBadgeId(badge.id)}
                                         className="py-2 px-4 bg-white border border-slate-200 text-slate-500 rounded-xl text-xs font-bold hover:text-red-600 hover:bg-red-50 hover:border-red-100 transition-colors flex items-center justify-center gap-2"
                                     >
                                         <Trash2 size={14} /> Verwijder
@@ -310,7 +313,7 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
                                                     </div>
                                                 </div>
                                                 <button 
-                                                    onClick={() => handleRevokeBadge(emp.id, assigned.id)}
+                                                    onClick={() => setRevokeBadgeData({ empId: emp.id, badgeId: assigned.id })}
                                                     className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
                                                     title="Badge intrekken"
                                                 >
@@ -470,6 +473,36 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
                     >
                         Uitreiken
                     </button>
+                </div>
+            </Modal>
+
+            {/* DELETE CONFIRMATION MODAL */}
+            <Modal 
+                isOpen={!!deleteBadgeId} 
+                onClose={() => setDeleteBadgeId(null)} 
+                title="Badge Verwijderen"
+            >
+                <div className="space-y-4">
+                    <p className="text-sm text-slate-600">Weet je zeker dat je deze badge definitief wilt verwijderen uit het systeem? Dit kan niet ongedaan worden gemaakt.</p>
+                    <div className="flex justify-end gap-3 pt-2">
+                        <button onClick={() => setDeleteBadgeId(null)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors">Annuleren</button>
+                        <button onClick={handleConfirmDelete} className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold text-sm shadow-sm hover:bg-red-700 transition-colors">Verwijderen</button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* REVOKE CONFIRMATION MODAL */}
+            <Modal 
+                isOpen={!!revokeBadgeData} 
+                onClose={() => setRevokeBadgeData(null)} 
+                title="Badge Intrekken"
+            >
+                <div className="space-y-4">
+                    <p className="text-sm text-slate-600">Weet je zeker dat je deze badge wilt intrekken bij de medewerker?</p>
+                    <div className="flex justify-end gap-3 pt-2">
+                        <button onClick={() => setRevokeBadgeData(null)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors">Annuleren</button>
+                        <button onClick={handleConfirmRevoke} className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold text-sm shadow-sm hover:bg-red-700 transition-colors">Intrekken</button>
+                    </div>
                 </div>
             </Modal>
 

@@ -66,6 +66,10 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [assignForm, setAssignForm] = useState({ employeeId: '', templateId: '', date: '' });
 
+  // Confirmation States
+  const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
+  const [deleteEvaluationId, setDeleteEvaluationId] = useState<{evalId: string, empId: string} | null>(null);
+
   const isManager = hasPermission(currentUser, 'MANAGE_EVALUATIONS');
 
   useEffect(() => {
@@ -209,10 +213,11 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       onShowToast("Template opgeslagen.");
   };
 
-  const handleDeleteTemplate = async (id: string) => {
-      if (confirm("Weet je zeker dat je dit template wilt verwijderen?")) {
-          await api.deleteEvaluationTemplate(id);
+  const confirmDeleteTemplate = async () => {
+      if (deleteTemplateId) {
+          await api.deleteEvaluationTemplate(deleteTemplateId);
           await loadTemplates();
+          setDeleteTemplateId(null);
           onShowToast("Template verwijderd.");
       }
   };
@@ -282,8 +287,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           plannedDate: formattedDate,
           scores: scores,
           goals: [],
-          signatures: [],
-          developmentPlan: []
+          signatures: []
       };
 
       await api.saveEvaluation(newEvaluation);
@@ -401,16 +405,18 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       onShowToast("Evaluatie afgerond en gearchiveerd.");
   };
 
-  const handleDeleteEvaluation = (evaluationId: string, employeeId: string) => {
-      if(confirm("Weet je zeker dat je deze evaluatie wilt verwijderen?")) {
-          const employee = employees.find(e => e.id === employeeId);
+  const confirmDeleteEvaluation = async () => {
+      if (deleteEvaluationId) {
+          const { evalId, empId } = deleteEvaluationId;
+          const employee = employees.find(e => e.id === empId);
           if (employee) {
-              const updatedEvals = (employee.evaluations || []).filter(e => e.id !== evaluationId);
+              const updatedEvals = (employee.evaluations || []).filter(e => e.id !== evalId);
               onUpdateEmployee({ ...employee, evaluations: updatedEvals });
-              api.deleteEvaluation(evaluationId);
+              api.deleteEvaluation(evalId);
               onShowToast("Evaluatie verwijderd.");
-              if (selectedEvaluationId === evaluationId) setSelectedEvaluationId(null);
+              if (selectedEvaluationId === evalId) setSelectedEvaluationId(null);
           }
+          setDeleteEvaluationId(null);
       }
   };
 
@@ -1054,7 +1060,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                     <div className="p-2 bg-teal-50 text-teal-600 rounded-lg">
                                         <ClipboardCheck size={24} />
                                     </div>
-                                    <button onClick={() => handleDeleteTemplate(tpl.id)} className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                                    <button onClick={() => setDeleteTemplateId(tpl.id)} className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
                                 </div>
                                 <h3 className="font-bold text-slate-900 text-lg mb-2">{tpl.title}</h3>
                                 <p className="text-sm text-slate-500 mb-6 line-clamp-2 min-h-[2.5rem]">{tpl.description || 'Geen beschrijving'}</p>
@@ -1091,7 +1097,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                 >
                                     {isManager && (
                                         <button 
-                                            onClick={(e) => { e.stopPropagation(); handleDeleteEvaluation(evaluation.id, employee.id); }}
+                                            onClick={(e) => { e.stopPropagation(); setDeleteEvaluationId({ evalId: evaluation.id, empId: employee.id }); }}
                                             className="absolute top-4 right-4 p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all z-10"
                                         >
                                             <Trash2 size={16}/>
@@ -1236,6 +1242,35 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                 </div>
                 <button type="submit" className="w-full py-3 bg-teal-600 text-white font-bold rounded-xl hover:bg-teal-700">Inplannen</button>
             </form>
+        </Modal>
+
+        {/* DELETE CONFIRMATION MODALS */}
+        <Modal
+            isOpen={!!deleteTemplateId}
+            onClose={() => setDeleteTemplateId(null)}
+            title="Template Verwijderen"
+        >
+            <div className="space-y-4">
+                <p className="text-sm text-slate-600">Weet je zeker dat je dit evaluatie template wilt verwijderen? Dit kan niet ongedaan worden gemaakt.</p>
+                <div className="flex justify-end gap-3 pt-2">
+                    <button onClick={() => setDeleteTemplateId(null)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors">Annuleren</button>
+                    <button onClick={confirmDeleteTemplate} className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold text-sm shadow-sm hover:bg-red-700 transition-colors">Verwijderen</button>
+                </div>
+            </div>
+        </Modal>
+
+        <Modal
+            isOpen={!!deleteEvaluationId}
+            onClose={() => setDeleteEvaluationId(null)}
+            title="Evaluatie Verwijderen"
+        >
+            <div className="space-y-4">
+                <p className="text-sm text-slate-600">Weet je zeker dat je deze evaluatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.</p>
+                <div className="flex justify-end gap-3 pt-2">
+                    <button onClick={() => setDeleteEvaluationId(null)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors">Annuleren</button>
+                    <button onClick={confirmDeleteEvaluation} className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold text-sm shadow-sm hover:bg-red-700 transition-colors">Verwijderen</button>
+                </div>
+            </div>
         </Modal>
 
     </div>
