@@ -78,6 +78,19 @@ export interface CompensationPolicy {
     updatedBy: string;
 }
 
+export interface CompensationLog {
+    id: string;
+    guestName: string;
+    reservationNumber: string;
+    policyId?: string; // Link to policy if used
+    compensationGiven: string; // What was actually given
+    reason: string; // Context or deviation reason
+    cost?: number; // Estimated value
+    givenBy: string; // Employee Name
+    givenById: string; // Employee ID
+    date: string; // Date Given
+}
+
 // --- ACADEMY / LMS (SANABUILDER ENGINE) ---
 
 export type BlockType = 

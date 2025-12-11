@@ -48,6 +48,13 @@ import { createClient } from '@supabase/supabase-js';
     created_at timestamptz DEFAULT now()
   );
 
+  -- NIEUW: Compensatie Logboek (Historie)
+  CREATE TABLE IF NOT EXISTS compensation_logs (
+    id text PRIMARY KEY,
+    data jsonb NOT NULL,
+    created_at timestamptz DEFAULT now()
+  );
+
   -- 2. RLS Aanzetten
   ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
   ALTER TABLE news ENABLE ROW LEVEL SECURITY;
@@ -63,6 +70,7 @@ import { createClient } from '@supabase/supabase-js';
   ALTER TABLE academy_courses ENABLE ROW LEVEL SECURITY;
   ALTER TABLE academy_progress ENABLE ROW LEVEL SECURITY;
   ALTER TABLE compensation_policies ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE compensation_logs ENABLE ROW LEVEL SECURITY;
 
   -- 3. Manager Check Functie
   CREATE OR REPLACE FUNCTION is_manager() RETURNS boolean AS $$
@@ -108,11 +116,17 @@ import { createClient } from '@supabase/supabase-js';
   -- Compensation Policies
   CREATE POLICY "Compensation: Iedereen mag lezen" ON compensation_policies FOR SELECT USING ( true );
   CREATE POLICY "Compensation: Alleen managers beheren" ON compensation_policies FOR ALL USING ( is_manager() );
+  
+  -- Compensation Logs
+  CREATE POLICY "Logs: Iedereen mag schrijven" ON compensation_logs FOR INSERT WITH CHECK ( true );
+  CREATE POLICY "Logs: Iedereen mag lezen" ON compensation_logs FOR SELECT USING ( true );
+  CREATE POLICY "Logs: Alleen managers beheren" ON compensation_logs FOR DELETE USING ( is_manager() );
 
   -- 5. Realtime aanzetten (Zodat aanpassingen direct zichtbaar zijn bij anderen)
   alter publication supabase_realtime add table academy_courses;
   alter publication supabase_realtime add table academy_progress;
   alter publication supabase_realtime add table compensation_policies;
+  alter publication supabase_realtime add table compensation_logs;
 */
 
 // Veilig ophalen van env vars, met fallback naar de door jou opgegeven keys

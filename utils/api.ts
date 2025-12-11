@@ -1,7 +1,9 @@
 
+
+
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, Ticket, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy } from '../types';
+import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, Ticket, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog } from '../types';
 import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_TICKETS, MOCK_EVALUATION_TEMPLATES, MOCK_BIKE_SETTINGS, MOCK_BIKE_RESERVATIONS, MOCK_ACADEMY_COURSES, MOCK_ACADEMY_PROGRESS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
@@ -22,7 +24,7 @@ const generateDemoTasks = (): OnboardingTask[] => [
 ];
 
 export const api = {
-  // --- COMPENSATION POLICIES (SUPABASE ONLY) ---
+  // --- COMPENSATION POLICIES & LOGS (SUPABASE ONLY) ---
   getCompensationPolicies: async (): Promise<CompensationPolicy[]> => {
       if (isLive && supabase) {
           try {
@@ -34,7 +36,7 @@ export const api = {
               return [];
           }
       }
-      return []; // No local fallback anymore
+      return []; 
   },
 
   saveCompensationPolicy: async (policy: CompensationPolicy) => {
@@ -46,6 +48,26 @@ export const api = {
   deleteCompensationPolicy: async (id: string) => {
       if (isLive && supabase) {
           await supabase.from('compensation_policies').delete().eq('id', id);
+      }
+  },
+
+  getCompensationLogs: async (): Promise<CompensationLog[]> => {
+      if (isLive && supabase) {
+          try {
+              const { data, error } = await supabase.from('compensation_logs').select('data');
+              if (!error && data && data.length > 0) return data.map((row: any) => row.data);
+              return [];
+          } catch (e) {
+              console.error("Error fetching compensation logs", e);
+              return [];
+          }
+      }
+      return [];
+  },
+
+  saveCompensationLog: async (log: CompensationLog) => {
+      if (isLive && supabase) {
+          await supabase.from('compensation_logs').upsert({ id: log.id, data: log });
       }
   },
 
