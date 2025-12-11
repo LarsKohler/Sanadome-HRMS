@@ -1,6 +1,3 @@
-
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Scale, Search, Plus, Filter, Euro, AlertCircle, CheckCircle2, 
@@ -149,24 +146,33 @@ const CompensationPage: React.FC<CompensationPageProps> = ({ currentUser, onShow
         setIsLogModalOpen(true);
     };
 
+    const handlePolicyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+        const selectedId = e.target.value;
+        let details = newLog.customDetails;
+        
+        // Auto-fill details if a policy is selected
+        if (selectedId && selectedId !== 'custom') {
+            const policy = policies.find(p => p.id === selectedId);
+            if (policy) {
+                details = policy.standardCompensation;
+            }
+        } else if (selectedId === 'custom') {
+            details = ''; // Clear for custom entry
+        }
+        
+        setNewLog({
+            ...newLog,
+            policyId: selectedId,
+            customDetails: details
+        });
+    };
+
     const handleSaveLog = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        if (!newLog.guestName || !newLog.policyId) {
+        if (!newLog.guestName || !newLog.policyId || !newLog.customDetails) {
             onShowToast("Vul alle verplichte velden in.");
             return;
-        }
-
-        let details = '';
-        if (newLog.policyId === 'custom') {
-            if (!newLog.customDetails || !newLog.reason) {
-                onShowToast("Bij maatwerk zijn details en reden verplicht.");
-                return;
-            }
-            details = newLog.customDetails;
-        } else {
-            const policy = policies.find(p => p.id === newLog.policyId);
-            details = policy ? policy.standardCompensation : 'Onbekend';
         }
 
         const logEntry: CompensationLog = {
@@ -174,7 +180,7 @@ const CompensationPage: React.FC<CompensationPageProps> = ({ currentUser, onShow
             guestName: newLog.guestName,
             reservationNumber: newLog.reservationNumber,
             policyId: newLog.policyId === 'custom' ? undefined : newLog.policyId,
-            compensationGiven: details,
+            compensationGiven: newLog.customDetails,
             reason: newLog.reason,
             cost: newLog.cost ? parseFloat(newLog.cost) : undefined,
             givenBy: currentUser.name,
@@ -611,7 +617,7 @@ const CompensationPage: React.FC<CompensationPageProps> = ({ currentUser, onShow
                         <select 
                             className="w-full p-3 border border-slate-200 rounded-lg text-sm bg-white mb-3"
                             value={newLog.policyId}
-                            onChange={e => setNewLog({...newLog, policyId: e.target.value})}
+                            onChange={handlePolicyChange}
                             required
                         >
                             <option value="">Selecteer situatie...</option>
@@ -621,21 +627,20 @@ const CompensationPage: React.FC<CompensationPageProps> = ({ currentUser, onShow
                             ))}
                         </select>
 
-                        {newLog.policyId && newLog.policyId !== 'custom' && (
-                            <div className="text-sm text-teal-700 bg-teal-50 p-3 rounded border border-teal-100">
-                                <strong>Standaard:</strong> {policies.find(p => p.id === newLog.policyId)?.standardCompensation}
+                        {newLog.policyId && (
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">
+                                    {newLog.policyId === 'custom' ? 'Omschrijving Maatwerk' : 'Aangeboden Compensatie (Aanpasbaar)'}
+                                </label>
+                                <textarea 
+                                    className="w-full p-3 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white"
+                                    rows={2}
+                                    placeholder="Wat is er aangeboden?"
+                                    value={newLog.customDetails}
+                                    onChange={e => setNewLog({...newLog, customDetails: e.target.value})}
+                                    required
+                                />
                             </div>
-                        )}
-
-                        {newLog.policyId === 'custom' && (
-                            <textarea 
-                                className="w-full p-3 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500 outline-none"
-                                rows={2}
-                                placeholder="Wat is er aangeboden?"
-                                value={newLog.customDetails}
-                                onChange={e => setNewLog({...newLog, customDetails: e.target.value})}
-                                required
-                            />
                         )}
                     </div>
 
