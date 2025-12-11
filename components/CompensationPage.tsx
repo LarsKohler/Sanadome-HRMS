@@ -48,6 +48,7 @@ const CompensationPage: React.FC<CompensationPageProps> = ({ currentUser, onShow
 
     // Register Log Modal State
     const [isLogModalOpen, setIsLogModalOpen] = useState(false);
+    const [editingLogId, setEditingLogId] = useState<string | null>(null);
     const [newLog, setNewLog] = useState<{
         guestName: string;
         reservationNumber: string;
@@ -65,6 +66,7 @@ const CompensationPage: React.FC<CompensationPageProps> = ({ currentUser, onShow
     });
 
     const canManage = hasPermission(currentUser, 'MANAGE_COMPENSATION');
+    const isManagerOrSenior = currentUser.role === 'Manager' || currentUser.role === 'Senior Medewerker';
 
     useEffect(() => {
         loadData();
@@ -135,6 +137,7 @@ const CompensationPage: React.FC<CompensationPageProps> = ({ currentUser, onShow
     // --- LOG ACTIONS ---
 
     const handleOpenRegister = () => {
+        setEditingLogId(null);
         setNewLog({
             guestName: '',
             reservationNumber: '',
@@ -144,6 +147,27 @@ const CompensationPage: React.FC<CompensationPageProps> = ({ currentUser, onShow
             cost: ''
         });
         setIsLogModalOpen(true);
+    };
+
+    const handleEditLog = (log: CompensationLog) => {
+        setEditingLogId(log.id);
+        setNewLog({
+            guestName: log.guestName,
+            reservationNumber: log.reservationNumber,
+            policyId: log.policyId || 'custom',
+            customDetails: log.compensationGiven,
+            reason: log.reason,
+            cost: log.cost ? log.cost.toString() : ''
+        });
+        setIsLogModalOpen(true);
+    };
+
+    const handleDeleteLog = async (id: string) => {
+        if (confirm("Weet je zeker dat je deze registratie wilt verwijderen?")) {
+            await api.deleteCompensationLog(id);
+            setLogs(prev => prev.filter(l => l.id !== id));
+            onShowToast("Registratie verwijderd.");
+        }
     };
 
     const handlePolicyChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -175,23 +199,36 @@ const CompensationPage: React.FC<CompensationPageProps> = ({ currentUser, onShow
             return;
         }
 
+        // Get existing log data if editing to preserve created info
+        const existingLog = editingLogId ? logs.find(l => l.id === editingLogId) : null;
+
         const logEntry: CompensationLog = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: editingLogId || Math.random().toString(36).substr(2, 9),
             guestName: newLog.guestName,
             reservationNumber: newLog.reservationNumber,
             policyId: newLog.policyId === 'custom' ? undefined : newLog.policyId,
             compensationGiven: newLog.customDetails,
             reason: newLog.reason,
             cost: newLog.cost ? parseFloat(newLog.cost) : undefined,
-            givenBy: currentUser.name,
-            givenById: currentUser.id,
-            date: new Date().toISOString()
+            givenBy: existingLog ? existingLog.givenBy : currentUser.name,
+            givenById: existingLog ? existingLog.givenById : currentUser.id,
+            date: existingLog ? existingLog.date : new Date().toISOString()
         };
 
         await api.saveCompensationLog(logEntry);
-        setLogs(prev => [logEntry, ...prev]);
+        
+        setLogs(prev => {
+            const index = prev.findIndex(l => l.id === logEntry.id);
+            if (index >= 0) {
+                const newArr = [...prev];
+                newArr[index] = logEntry;
+                return newArr;
+            }
+            return [logEntry, ...prev];
+        });
+
         setIsLogModalOpen(false);
-        onShowToast("Compensatie geregistreerd.");
+        onShowToast(editingLogId ? "Registratie bijgewerkt." : "Compensatie geregistreerd.");
     };
 
     // --- HELPERS ---
@@ -468,38 +505,62 @@ const CompensationPage: React.FC<CompensationPageProps> = ({ currentUser, onShow
                                     <th className="px-6 py-4">Reden</th>
                                     <th className="px-6 py-4">Medewerker</th>
                                     <th className="px-6 py-4 text-right">Waarde</th>
+                                    <th className="px-6 py-4 text-right">Acties</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-sm">
-                                {filteredLogs.map(log => (
-                                    <tr key={log.id} className="hover:bg-slate-50">
-                                        <td className="px-6 py-4 text-slate-500 whitespace-nowrap">
-                                            {new Date(log.date).toLocaleDateString('nl-NL')} <span className="text-xs text-slate-400">{new Date(log.date).toLocaleTimeString('nl-NL', {hour: '2-digit', minute:'2-digit'})}</span>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="font-bold text-slate-900">{log.guestName}</div>
-                                            <div className="text-xs text-slate-500 font-mono">#{log.reservationNumber}</div>
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <div className="font-medium text-slate-700">{log.compensationGiven}</div>
-                                            {log.policyId && !log.policyId.startsWith('custom') && (
-                                                <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500">Volgens beleid</span>
-                                            )}
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600 italic max-w-xs truncate">
-                                            "{log.reason}"
-                                        </td>
-                                        <td className="px-6 py-4 text-slate-600">
-                                            {log.givenBy}
-                                        </td>
-                                        <td className="px-6 py-4 text-right font-mono font-medium text-slate-900">
-                                            {log.cost ? `€ ${log.cost.toFixed(2)}` : '-'}
-                                        </td>
-                                    </tr>
-                                ))}
+                                {filteredLogs.map(log => {
+                                    const canModify = isManagerOrSenior || log.givenById === currentUser.id;
+                                    return (
+                                        <tr key={log.id} className="hover:bg-slate-50 group">
+                                            <td className="px-6 py-4 text-slate-500 whitespace-nowrap">
+                                                {new Date(log.date).toLocaleDateString('nl-NL')} <span className="text-xs text-slate-400">{new Date(log.date).toLocaleTimeString('nl-NL', {hour: '2-digit', minute:'2-digit'})}</span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-slate-900">{log.guestName}</div>
+                                                <div className="text-xs text-slate-500 font-mono">#{log.reservationNumber}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="font-medium text-slate-700">{log.compensationGiven}</div>
+                                                {log.policyId && !log.policyId.startsWith('custom') && (
+                                                    <span className="text-[10px] bg-slate-100 px-2 py-0.5 rounded text-slate-500">Volgens beleid</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-600 italic max-w-xs truncate">
+                                                "{log.reason}"
+                                            </td>
+                                            <td className="px-6 py-4 text-slate-600">
+                                                {log.givenBy}
+                                            </td>
+                                            <td className="px-6 py-4 text-right font-mono font-medium text-slate-900">
+                                                {log.cost ? `€ ${log.cost.toFixed(2)}` : '-'}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                {canModify && (
+                                                    <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button 
+                                                            onClick={() => handleEditLog(log)}
+                                                            className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded transition-colors"
+                                                            title="Bewerken"
+                                                        >
+                                                            <Edit2 size={16}/>
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleDeleteLog(log.id)}
+                                                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                                            title="Verwijderen"
+                                                        >
+                                                            <Trash2 size={16}/>
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                                 {filteredLogs.length === 0 && (
                                     <tr>
-                                        <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic">
+                                        <td colSpan={7} className="px-6 py-12 text-center text-slate-400 italic">
                                             Geen logs gevonden.
                                         </td>
                                     </tr>
@@ -583,11 +644,11 @@ const CompensationPage: React.FC<CompensationPageProps> = ({ currentUser, onShow
                 </form>
             </Modal>
 
-            {/* REGISTER LOG MODAL */}
+            {/* REGISTER/EDIT LOG MODAL */}
             <Modal
                 isOpen={isLogModalOpen}
                 onClose={() => setIsLogModalOpen(false)}
-                title="Compensatie Registreren"
+                title={editingLogId ? "Registratie Bewerken" : "Compensatie Registreren"}
             >
                 <form onSubmit={handleSaveLog} className="space-y-6">
                     <div className="grid grid-cols-2 gap-4">
@@ -669,7 +730,7 @@ const CompensationPage: React.FC<CompensationPageProps> = ({ currentUser, onShow
                     </div>
 
                     <button type="submit" className="w-full py-3 bg-teal-600 text-white rounded-xl font-bold shadow-md hover:bg-teal-700 transition-colors">
-                        Registreren
+                        {editingLogId ? 'Wijzigingen Opslaan' : 'Registreren'}
                     </button>
                 </form>
             </Modal>

@@ -1,6 +1,7 @@
 
 
 
+
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
 import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, Ticket, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog } from '../types';
@@ -68,6 +69,12 @@ export const api = {
   saveCompensationLog: async (log: CompensationLog) => {
       if (isLive && supabase) {
           await supabase.from('compensation_logs').upsert({ id: log.id, data: log });
+      }
+  },
+
+  deleteCompensationLog: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('compensation_logs').delete().eq('id', id);
       }
   },
 
