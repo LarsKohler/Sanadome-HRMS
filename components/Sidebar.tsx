@@ -1,9 +1,10 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
   UserPlus, FileText, PieChart, 
-  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Medal, BookOpen, Truck, ChevronDown, ChevronRight, Bike, GraduationCap
+  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Medal, BookOpen, Truck, ChevronDown, ChevronRight, Bike, GraduationCap, Scale
 } from 'lucide-react';
 import { ViewState, Employee, Permission } from '../types';
 import { hasPermission } from '../utils/permissions';
@@ -50,6 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
       label: 'Receptie Tools',
       items: [
         { icon: Bike, label: 'Fietsverhuur', id: ViewState.BIKE_RENTAL, permission: 'MANAGE_RENTALS' },
+        { icon: Scale, label: 'Compensatie', id: ViewState.COMPENSATION }, 
       ]
     },
     {

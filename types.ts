@@ -1,4 +1,5 @@
 
+
 export enum ViewState {
   HOME = 'HOME',
   DIRECTORY = 'DIRECTORY',
@@ -15,7 +16,8 @@ export enum ViewState {
   EVALUATIONS = 'EVALUATIONS',
   RECRUITMENT = 'RECRUITMENT',
   BIKE_RENTAL = 'BIKE_RENTAL',
-  ACADEMY = 'ACADEMY'
+  ACADEMY = 'ACADEMY',
+  COMPENSATION = 'COMPENSATION'
 }
 
 export type Permission = 
@@ -36,7 +38,8 @@ export type Permission =
   | 'MANAGE_OPERATIONS'
   | 'MANAGE_TICKETS'
   | 'MANAGE_RENTALS'
-  | 'MANAGE_ACADEMY';
+  | 'MANAGE_ACADEMY'
+  | 'MANAGE_COMPENSATION';
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_REPORTS': 'Rapportages Inzien',
@@ -56,8 +59,24 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'MANAGE_OPERATIONS': 'Operations Beheren',
   'MANAGE_TICKETS': 'Tickets Beheren',
   'MANAGE_RENTALS': 'Fietsverhuur Beheren',
-  'MANAGE_ACADEMY': 'Academy Beheren'
+  'MANAGE_ACADEMY': 'Academy Beheren',
+  'MANAGE_COMPENSATION': 'Compensatie Beleid Beheren'
 };
+
+// --- COMPENSATION ---
+export type CompensationCategory = 'Kamer' | 'F&B' | 'Wellness' | 'Service' | 'Overig';
+
+export interface CompensationPolicy {
+    id: string;
+    category: CompensationCategory;
+    complaint: string;
+    standardCompensation: string;
+    procedure: string;
+    maxRefundAmount?: number; // Optional max cash refund
+    authorizedRoles: string[]; // e.g. ['Manager', 'Senior'] who can give this
+    updatedAt: string;
+    updatedBy: string;
+}
 
 // --- ACADEMY / LMS (SANABUILDER ENGINE) ---
 

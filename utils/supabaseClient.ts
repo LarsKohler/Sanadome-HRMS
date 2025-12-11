@@ -40,6 +40,13 @@ import { createClient } from '@supabase/supabase-js';
     updated_at timestamptz DEFAULT now()
   );
 
+  -- NIEUW: Compensatie & Restitutie Beleid
+  CREATE TABLE IF NOT EXISTS compensation_policies (
+    id text PRIMARY KEY,
+    data jsonb NOT NULL,
+    created_at timestamptz DEFAULT now()
+  );
+
   -- 2. RLS Aanzetten
   ALTER TABLE employees ENABLE ROW LEVEL SECURITY;
   ALTER TABLE news ENABLE ROW LEVEL SECURITY;
@@ -54,6 +61,7 @@ import { createClient } from '@supabase/supabase-js';
   ALTER TABLE applicants ENABLE ROW LEVEL SECURITY;
   ALTER TABLE academy_courses ENABLE ROW LEVEL SECURITY;
   ALTER TABLE academy_progress ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE compensation_policies ENABLE ROW LEVEL SECURITY;
 
   -- 3. Manager Check Functie
   CREATE OR REPLACE FUNCTION is_manager() RETURNS boolean AS $$
@@ -90,34 +98,20 @@ import { createClient } from '@supabase/supabase-js';
   CREATE POLICY "Applicants manage" ON applicants FOR ALL USING ( is_manager() );
 
   -- Academy Policies
-  -- Iedereen mag cursussen ZIEN (lezen)
-  CREATE POLICY "Academy: Iedereen mag cursussen zien" 
-  ON academy_courses FOR SELECT 
-  USING ( true );
+  CREATE POLICY "Academy: Iedereen mag cursussen zien" ON academy_courses FOR SELECT USING ( true );
+  CREATE POLICY "Academy: Alleen managers beheren" ON academy_courses FOR ALL USING ( is_manager() );
+  CREATE POLICY "Progress: Zie eigen voortgang" ON academy_progress FOR SELECT USING ( employee_id = auth.uid()::text );
+  CREATE POLICY "Progress: Update eigen voortgang" ON academy_progress FOR ALL USING ( employee_id = auth.uid()::text );
+  CREATE POLICY "Progress: Managers zien alles" ON academy_progress FOR SELECT USING ( is_manager() );
 
-  -- Alleen Managers mogen cursussen MAKEN en BEWERKEN
-  CREATE POLICY "Academy: Alleen managers beheren" 
-  ON academy_courses FOR ALL 
-  USING ( is_manager() );
-
-  -- Medewerkers mogen hun EIGEN voortgang zien
-  CREATE POLICY "Progress: Zie eigen voortgang" 
-  ON academy_progress FOR SELECT 
-  USING ( employee_id = auth.uid()::text );
-
-  -- Medewerkers mogen hun EIGEN voortgang updaten (als ze een les afronden)
-  CREATE POLICY "Progress: Update eigen voortgang" 
-  ON academy_progress FOR ALL 
-  USING ( employee_id = auth.uid()::text );
-
-  -- Managers mogen IEDEREENS voortgang zien (voor rapportages)
-  CREATE POLICY "Progress: Managers zien alles" 
-  ON academy_progress FOR SELECT 
-  USING ( is_manager() );
+  -- Compensation Policies
+  CREATE POLICY "Compensation: Iedereen mag lezen" ON compensation_policies FOR SELECT USING ( true );
+  CREATE POLICY "Compensation: Alleen managers beheren" ON compensation_policies FOR ALL USING ( is_manager() );
 
   -- 5. Realtime aanzetten (Zodat aanpassingen direct zichtbaar zijn bij anderen)
   alter publication supabase_realtime add table academy_courses;
   alter publication supabase_realtime add table academy_progress;
+  alter publication supabase_realtime add table compensation_policies;
 */
 
 // Veilig ophalen van env vars, met fallback naar de door jou opgegeven keys

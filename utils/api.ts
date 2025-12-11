@@ -1,8 +1,9 @@
 
+// --- EXISTING API CODE START ---
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, Ticket, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress } from '../types';
-import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_TICKETS, MOCK_EVALUATION_TEMPLATES, MOCK_BIKE_SETTINGS, MOCK_BIKE_RESERVATIONS, MOCK_ACADEMY_COURSES, MOCK_ACADEMY_PROGRESS } from './mockData';
+import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, Ticket, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy } from '../types';
+import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_TICKETS, MOCK_EVALUATION_TEMPLATES, MOCK_BIKE_SETTINGS, MOCK_BIKE_RESERVATIONS, MOCK_ACADEMY_COURSES, MOCK_ACADEMY_PROGRESS, MOCK_COMPENSATION_POLICIES } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
 export const isLive = !!supabase;
@@ -22,6 +23,43 @@ const generateDemoTasks = (): OnboardingTask[] => [
 ];
 
 export const api = {
+  // --- COMPENSATION POLICIES (NEW) ---
+  getCompensationPolicies: async (): Promise<CompensationPolicy[]> => {
+      if (isLive && supabase) {
+          try {
+              const { data, error } = await supabase.from('compensation_policies').select('data');
+              if (!error && data && data.length > 0) return data.map((row: any) => row.data);
+              return MOCK_COMPENSATION_POLICIES;
+          } catch (e) {
+              return MOCK_COMPENSATION_POLICIES;
+          }
+      }
+      const local = localStorage.getItem('hrms_compensation_policies');
+      return local ? JSON.parse(local) : MOCK_COMPENSATION_POLICIES;
+  },
+
+  saveCompensationPolicy: async (policy: CompensationPolicy) => {
+      if (isLive && supabase) {
+          await supabase.from('compensation_policies').upsert({ id: policy.id, data: policy });
+      } else {
+          const current = await api.getCompensationPolicies();
+          const index = current.findIndex(p => p.id === policy.id);
+          if (index >= 0) current[index] = policy;
+          else current.push(policy);
+          localStorage.setItem('hrms_compensation_policies', JSON.stringify(current));
+      }
+  },
+
+  deleteCompensationPolicy: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('compensation_policies').delete().eq('id', id);
+      } else {
+          const current = await api.getCompensationPolicies();
+          const filtered = current.filter(p => p.id !== id);
+          localStorage.setItem('hrms_compensation_policies', JSON.stringify(filtered));
+      }
+  },
+
   // --- ACADEMY (NEW) ---
   getAcademyCourses: async (): Promise<AcademyCourse[]> => {
       if (isLive && supabase) {
@@ -77,7 +115,7 @@ export const api = {
       if (isLive && supabase) {
           await supabase.from('academy_progress').upsert({ 
               id: progress.id, 
-              employee_id: progress.employeeId,
+              employee_id: progress.employeeId, 
               course_id: progress.courseId,
               data: progress 
           });

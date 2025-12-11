@@ -1,5 +1,5 @@
 
-import { Employee, NewsPost, OnboardingTemplate, SystemUpdateLog, KnowledgeArticle, Applicant, Ticket, Vacancy, EvaluationTemplate, BikeSettings, BikeReservation, AcademyCourse, AcademyProgress } from '../types';
+import { Employee, NewsPost, OnboardingTemplate, SystemUpdateLog, KnowledgeArticle, Applicant, Ticket, Vacancy, EvaluationTemplate, BikeSettings, BikeReservation, AcademyCourse, AcademyProgress, CompensationPolicy } from '../types';
 
 export const MOCK_EMPLOYEES: Employee[] = [
   {
@@ -385,5 +385,51 @@ export const MOCK_ACADEMY_PROGRESS: AcademyProgress[] = [
         quizScores: { 'q1': 100 },
         startDate: '01-02-2023',
         completedDate: '02-02-2023'
+    }
+];
+
+// --- COMPENSATION MOCKS ---
+export const MOCK_COMPENSATION_POLICIES: CompensationPolicy[] = [
+    {
+        id: 'comp1',
+        category: 'Kamer',
+        complaint: 'Defecte Airconditioning',
+        standardCompensation: 'Gratis ontbijt tijdens verblijf OF verhuizing naar andere kamer (upgrade indien mogelijk).',
+        procedure: '1. Controleer of reset mogelijk is via TD. 2. Indien niet op te lossen: bied verhuizing. 3. Als volgeboekt: bied ontbijtcompensatie.',
+        maxRefundAmount: 50,
+        authorizedRoles: ['Manager', 'Senior Medewerker'],
+        updatedAt: '01-01-2023',
+        updatedBy: 'Lars Kohler'
+    },
+    {
+        id: 'comp2',
+        category: 'F&B',
+        complaint: 'Koud eten geserveerd',
+        standardCompensation: 'Gerecht vervangen OF gerecht van rekening halen.',
+        procedure: 'Excuses aanbieden, bord direct mee terug naar keuken nemen. Vraag of gast iets anders wenst.',
+        maxRefundAmount: 25,
+        authorizedRoles: ['All'], // Medewerkers mogen dit ook, met limiet
+        updatedAt: '01-01-2023',
+        updatedBy: 'F&B Manager'
+    },
+    {
+        id: 'comp3',
+        category: 'Kamer',
+        complaint: 'Lawaai overlast andere gasten',
+        standardCompensation: 'Waarschuwing aan veroorzaker. Bij herhaling: drankje in de bar voor klager.',
+        procedure: 'Security inschakelen om polshoogte te nemen.',
+        authorizedRoles: ['All'],
+        updatedAt: '01-02-2023',
+        updatedBy: 'Lars Kohler'
+    },
+    {
+        id: 'comp4',
+        category: 'Wellness',
+        complaint: 'Badjas niet op kamer',
+        standardCompensation: 'Direct badjas laten brengen + excuses.',
+        procedure: 'Contact opnemen met Housekeeping. Indien niet beschikbaar, haal van receptie voorraad.',
+        authorizedRoles: ['All'],
+        updatedAt: '01-01-2023',
+        updatedBy: 'Lars Kohler'
     }
 ];

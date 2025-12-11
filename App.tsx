@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Employee, ViewState, Notification, NewsPost } from './types';
 import Sidebar from './components/Sidebar';
@@ -23,6 +24,7 @@ import TicketDashboard from './components/TicketDashboard';
 import BikeRentalPage from './components/BikeRentalPage'; 
 import BadgeManager from './components/BadgeManager';
 import AcademyPage from './components/AcademyPage'; 
+import CompensationPage from './components/CompensationPage';
 import UpdateNotifier from './components/UpdateNotifier';
 import { api, isLive } from './utils/api';
 
@@ -320,6 +322,8 @@ function App() {
               />;
           case ViewState.BIKE_RENTAL:
               return <BikeRentalPage currentUser={currentUser!} onShowToast={handleShowToast} />;
+          case ViewState.COMPENSATION:
+              return <CompensationPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           default:
               // Fallback for ID-based views (Tickets)
               if (currentView === 'cases') {
