@@ -148,10 +148,9 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
         };
 
         await api.saveApplicant(applicant);
-        // If not using prop based updates, update local state
-        if (!propApplicants) {
-            setApplicants([...applicants, applicant]);
-        }
+        
+        // Force immediate local update for instant feedback
+        setApplicants(prev => [...prev, applicant]);
         
         setIsAddModalOpen(false);
         setNewCandidate({ firstName: '', lastName: '', email: '', phone: '', stage: 'New', vacancyId: '' });
@@ -380,10 +379,8 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
 
     const updateApplicant = async (updated: Applicant) => {
         await api.saveApplicant(updated);
-        // If not using props, update local
-        if (!propApplicants) {
-            setApplicants(prev => prev.map(a => a.id === updated.id ? updated : a));
-        }
+        // Force immediate local update
+        setApplicants(prev => prev.map(a => a.id === updated.id ? updated : a));
         setSelectedApplicant(updated);
     };
 
