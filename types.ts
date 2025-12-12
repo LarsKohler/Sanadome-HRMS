@@ -345,6 +345,7 @@ export interface EmployeeDocument {
 export interface SubTask {
     id: string;
     title: string;
+    description: string; // Added description
     completed: boolean;
 }
 

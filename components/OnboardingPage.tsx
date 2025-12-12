@@ -215,6 +215,9 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
   };
 
   const handleToggleSubtask = (taskId: string, subtaskId: string) => {
+      // Permission check: Only managers/seniors can complete subtasks
+      if (!canEdit) return;
+
       const updatedTasks = (selectedEmployee.onboardingTasks || []).map(t => {
           if (t.id === taskId && t.subtasks) {
               const newSubtasks = t.subtasks.map(st => 
@@ -403,6 +406,7 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   const newSubtask: SubTask = {
                       id: Math.random().toString(36).substr(2, 9),
                       title: 'Nieuwe stap',
+                      description: '',
                       completed: false
                   };
                   return { ...t, subtasks: [...(t.subtasks || []), newSubtask] };
@@ -430,6 +434,19 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
           const updatedTasks = editingTemplate.tasks.map(t => {
               if (t.id === taskId && t.subtasks) {
                   const newSubtasks = t.subtasks.map(st => st.id === subtaskId ? { ...st, title } : st);
+                  return { ...t, subtasks: newSubtasks };
+              }
+              return t;
+          });
+          setEditingTemplate({ ...editingTemplate, tasks: updatedTasks });
+      }
+  };
+
+  const updateSubtaskDescription = (taskId: string, subtaskId: string, description: string) => {
+      if (editingTemplate) {
+          const updatedTasks = editingTemplate.tasks.map(t => {
+              if (t.id === taskId && t.subtasks) {
+                  const newSubtasks = t.subtasks.map(st => st.id === subtaskId ? { ...st, description } : st);
                   return { ...t, subtasks: newSubtasks };
               }
               return t;
@@ -894,20 +911,30 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
                                                                 {/* SUBTASKS DISPLAY */}
                                                                 {task.subtasks && task.subtasks.length > 0 && (
-                                                                    <div className="mt-3 pl-1 border-l-2 border-slate-100 space-y-1">
+                                                                    <div className="mt-3 pl-1 border-l-2 border-slate-100 space-y-2">
                                                                         {task.subtasks.map(subtask => (
-                                                                            <div key={subtask.id} className="flex items-center gap-2 py-1 group/subtask">
+                                                                            <div key={subtask.id} className="flex items-start gap-3 py-1 group/subtask">
                                                                                 <button 
                                                                                     onClick={() => handleToggleSubtask(task.id, subtask.id)}
-                                                                                    className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
-                                                                                        subtask.completed ? 'bg-teal-500 border-teal-500 text-white' : 'bg-white border-slate-300 text-transparent hover:border-teal-400'
+                                                                                    disabled={!canEdit}
+                                                                                    className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center transition-colors flex-shrink-0 ${
+                                                                                        subtask.completed 
+                                                                                            ? 'bg-teal-500 border-teal-500 text-white' 
+                                                                                            : `bg-white border-slate-300 ${canEdit ? 'hover:border-teal-400' : 'opacity-50 cursor-not-allowed'}`
                                                                                     }`}
                                                                                 >
-                                                                                    <Check size={10} strokeWidth={4} />
+                                                                                    {subtask.completed && <Check size={10} strokeWidth={4} />}
                                                                                 </button>
-                                                                                <span className={`text-xs ${subtask.completed ? 'text-slate-400 line-through' : 'text-slate-600'}`}>
-                                                                                    {subtask.title}
-                                                                                </span>
+                                                                                <div className={`flex-1 ${subtask.completed ? 'opacity-50' : ''}`}>
+                                                                                    <div className={`text-sm font-medium ${subtask.completed ? 'text-slate-500 line-through' : 'text-slate-700'}`}>
+                                                                                        {subtask.title}
+                                                                                    </div>
+                                                                                    {subtask.description && (
+                                                                                        <div className="text-xs text-slate-500 mt-0.5">
+                                                                                            {subtask.description}
+                                                                                        </div>
+                                                                                    )}
+                                                                                </div>
                                                                             </div>
                                                                         ))}
                                                                     </div>
@@ -1076,22 +1103,30 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                               {/* Subtasks in Template Editor */}
                                               <div className="mt-2 pl-2 border-l-2 border-slate-100">
                                                   {task.subtasks && task.subtasks.length > 0 && (
-                                                      <div className="space-y-1 mb-2">
+                                                      <div className="space-y-2 mb-2">
                                                           {task.subtasks.map(st => (
-                                                              <div key={st.id} className="flex items-center gap-2">
-                                                                  <div className="w-1 h-1 bg-slate-300 rounded-full"></div>
+                                                              <div key={st.id} className="flex flex-col gap-1 bg-slate-50 p-2 rounded">
+                                                                  <div className="flex items-center gap-2">
+                                                                      <div className="w-1 h-1 bg-slate-300 rounded-full"></div>
+                                                                      <input 
+                                                                          className="text-xs font-bold border-b border-transparent focus:border-slate-300 focus:outline-none w-full bg-transparent text-slate-700"
+                                                                          value={st.title}
+                                                                          onChange={(e) => updateSubtaskTitle(task.id, st.id, e.target.value)}
+                                                                          placeholder="Subtaak titel..."
+                                                                      />
+                                                                      <button 
+                                                                          onClick={() => removeSubtaskFromTemplateTask(task.id, st.id)}
+                                                                          className="text-slate-300 hover:text-red-400"
+                                                                      >
+                                                                          <X size={12}/>
+                                                                      </button>
+                                                                  </div>
                                                                   <input 
-                                                                      className="text-xs border-b border-transparent focus:border-slate-300 focus:outline-none w-full bg-transparent text-slate-600"
-                                                                      value={st.title}
-                                                                      onChange={(e) => updateSubtaskTitle(task.id, st.id, e.target.value)}
-                                                                      placeholder="Subtaak titel..."
+                                                                      className="text-[10px] border-b border-transparent focus:border-slate-300 focus:outline-none w-full bg-transparent text-slate-500 pl-3"
+                                                                      value={st.description}
+                                                                      onChange={(e) => updateSubtaskDescription(task.id, st.id, e.target.value)}
+                                                                      placeholder="Beschrijving (optioneel)..."
                                                                   />
-                                                                  <button 
-                                                                      onClick={() => removeSubtaskFromTemplateTask(task.id, st.id)}
-                                                                      className="text-slate-300 hover:text-red-400"
-                                                                  >
-                                                                      <X size={12}/>
-                                                                  </button>
                                                               </div>
                                                           ))}
                                                       </div>
