@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, CheckCircle2, User, ChevronDown, MessageSquare, Save, PlayCircle, Eye, EyeOff, Calendar, Clock, Trophy, Check, ArrowRight, Circle, Settings, Plus, Trash2, Edit2, Copy, Archive, XCircle, History, FileText, BarChart3, Quote, ListChecks, X } from 'lucide-react';
+import { Search, CheckCircle2, User, ChevronDown, MessageSquare, Save, PlayCircle, Eye, EyeOff, Calendar, Clock, Trophy, Check, ArrowRight, Circle, Settings, Plus, Trash2, Edit2, Copy, Archive, XCircle, History, FileText, BarChart3, Quote, ListChecks, X, PieChart, CheckSquare } from 'lucide-react';
 import { Employee, OnboardingTask, Notification, ViewState, OnboardingWeekData, OnboardingTemplate, OnboardingHistoryEntry, SubTask } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
@@ -71,6 +71,22 @@ const CircularScoreSelector = ({ score, onChange, readOnly }: { score: number, o
                  </div>
              )}
         </div>
+    );
+};
+
+const SimpleCheckSelector = ({ isCompleted, onChange, readOnly }: { isCompleted: boolean, onChange: (completed: boolean) => void, readOnly: boolean }) => {
+    return (
+        <button 
+            onClick={() => !readOnly && onChange(!isCompleted)}
+            disabled={readOnly}
+            className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-200 shrink-0 border-2 ${
+                isCompleted 
+                ? 'bg-teal-500 border-teal-500 text-white shadow-sm' 
+                : 'bg-white border-slate-200 text-slate-200 hover:border-teal-300'
+            } ${readOnly ? 'cursor-default opacity-80' : 'cursor-pointer'}`}
+        >
+            <Check size={24} strokeWidth={isCompleted ? 3 : 2} />
+        </button>
     );
 };
 
@@ -307,7 +323,8 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
               completedBy: undefined,
               completedDate: undefined,
               notes: undefined,
-              subtasks: t.subtasks ? t.subtasks.map(st => ({ ...st, completed: false })) : [] // Reset subtasks
+              subtasks: t.subtasks ? t.subtasks.map(st => ({ ...st, completed: false })) : [],
+              isSimpleCheck: t.isSimpleCheck || false // Copy preference
           }));
 
           const updatedEmployee: Employee = {
@@ -406,10 +423,11 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
               id: Math.random().toString(36).substr(2, 9),
               week,
               category: 'Algemeen',
-              title: 'Nieuwe taak',
+              title: '', // Empty by default for quick typing
               description: '',
               completed: false,
-              subtasks: []
+              subtasks: [],
+              isSimpleCheck: false
           };
           setEditingTemplate({
               ...editingTemplate,
@@ -943,11 +961,19 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                                     }`}>
                                                         <div className="flex items-start gap-4">
                                                             <div className="mt-0.5">
-                                                                <CircularScoreSelector 
-                                                                    score={task.score || 0} 
-                                                                    onChange={(val) => handleScoreChange(task.id, val)} 
-                                                                    readOnly={!canEdit}
-                                                                />
+                                                                {task.isSimpleCheck ? (
+                                                                    <SimpleCheckSelector 
+                                                                        isCompleted={task.score === 100} 
+                                                                        onChange={(completed) => handleScoreChange(task.id, completed ? 100 : 0)} 
+                                                                        readOnly={!canEdit}
+                                                                    />
+                                                                ) : (
+                                                                    <CircularScoreSelector 
+                                                                        score={task.score || 0} 
+                                                                        onChange={(val) => handleScoreChange(task.id, val)} 
+                                                                        readOnly={!canEdit}
+                                                                    />
+                                                                )}
                                                             </div>
                                                             <div className="flex-1 min-w-0">
                                                                 <div className="flex justify-between items-start">
@@ -1152,14 +1178,29 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                   <div className="space-y-3">
                                       {weekTasks.map(task => (
                                           <div key={task.id} className="bg-white p-3 rounded-lg border border-slate-200 space-y-2">
-                                              <div className="flex justify-between items-start">
+                                              <div className="flex justify-between items-start gap-2">
                                                   <input 
-                                                    className="font-bold text-sm w-full border-none p-0 focus:ring-0 text-slate-900"
-                                                    placeholder="Taak titel"
+                                                    className="font-bold text-sm w-full border-none p-0 focus:ring-0 text-slate-900 placeholder:text-slate-300"
+                                                    placeholder="Taak titel (Druk op Enter voor nieuwe taak)"
                                                     value={task.title}
                                                     onChange={(e) => updateTemplateTask(task.id, 'title', e.target.value)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            e.preventDefault();
+                                                            addTaskToTemplate(week);
+                                                        }
+                                                    }}
                                                   />
-                                                  <button onClick={() => removeTaskFromTemplate(task.id)} className="text-slate-300 hover:text-red-500 ml-2"><Trash2 size={14}/></button>
+                                                  <div className="flex items-center gap-1">
+                                                      <button 
+                                                        onClick={() => updateTemplateTask(task.id, 'isSimpleCheck', !task.isSimpleCheck)}
+                                                        className="text-slate-400 hover:text-teal-600 p-1"
+                                                        title={task.isSimpleCheck ? "Wissel naar Score Cirkel" : "Wissel naar Simpele Check"}
+                                                      >
+                                                          {task.isSimpleCheck ? <CheckSquare size={16}/> : <PieChart size={16}/>}
+                                                      </button>
+                                                      <button onClick={() => removeTaskFromTemplate(task.id)} className="text-slate-300 hover:text-red-500 ml-1"><Trash2 size={14}/></button>
+                                                  </div>
                                               </div>
                                               <div className="flex gap-2">
                                                   <input 
