@@ -13,6 +13,14 @@ interface OnboardingPageProps {
   onShowToast: (message: string) => void;
 }
 
+// Default values for backwards compatibility
+const DEFAULT_WEEK_TITLES: Record<number, string> = {
+    1: 'Week 1: Introductie & Basis',
+    2: 'Week 2: Gastencontact & Check-in',
+    3: 'Week 3: Verdieping & Check-out',
+    4: 'Week 4: Zelfstandigheid & Afronding'
+};
+
 const CircularScoreSelector = ({ score, onChange, readOnly }: { score: number, onChange: (newScore: number) => void, readOnly: boolean }) => {
     return (
         <div className="relative w-12 h-12 flex items-center justify-center group shrink-0">
@@ -35,11 +43,11 @@ const CircularScoreSelector = ({ score, onChange, readOnly }: { score: number, o
             </svg>
             
             {!readOnly && (
-                <div className="absolute inset-0 flex flex-wrap opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10 bg-white/95 rounded-full border border-slate-100">
-                    <div className="w-1/2 h-1/2" onClick={() => onChange(score === 100 ? 0 : 100)} title="100%"></div>
-                    <div className="w-1/2 h-1/2" onClick={() => onChange(score === 25 ? 0 : 25)} title="25%"></div>
-                    <div className="w-1/2 h-1/2" onClick={() => onChange(score === 75 ? 0 : 75)} title="75%"></div>
-                    <div className="w-1/2 h-1/2" onClick={() => onChange(score === 50 ? 0 : 50)} title="50%"></div>
+                <div className="absolute inset-0 flex flex-wrap opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10 bg-transparent rounded-full">
+                    <div className="w-1/2 h-1/2 hover:bg-slate-900/5 rounded-tl-full" onClick={() => onChange(score === 100 ? 0 : 100)} title="100%"></div>
+                    <div className="w-1/2 h-1/2 hover:bg-slate-900/5 rounded-tr-full" onClick={() => onChange(score === 25 ? 0 : 25)} title="25%"></div>
+                    <div className="w-1/2 h-1/2 hover:bg-slate-900/5 rounded-bl-full" onClick={() => onChange(score === 75 ? 0 : 75)} title="75%"></div>
+                    <div className="w-1/2 h-1/2 hover:bg-slate-900/5 rounded-br-full" onClick={() => onChange(score === 50 ? 0 : 50)} title="50%"></div>
                 </div>
             )}
             
@@ -250,7 +258,9 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
               onboardingTasks: newTasks,
               onboardingStatus: 'Active',
               activeTemplateId: template.id, // This ID is crucial for tracking
-              onboardingWeeks: [] // Reset weekly data for new track
+              onboardingWeeks: [], // Reset weekly data for new track
+              // Copy custom week titles if available, otherwise use defaults
+              onboardingWeekTitles: template.weekTitles || DEFAULT_WEEK_TITLES
           };
           
           // Immediately update parent state and persist to database
@@ -324,6 +334,7 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
           title: 'Nieuw Traject',
           description: '',
           tasks: [],
+          weekTitles: DEFAULT_WEEK_TITLES, // Init with defaults
           createdAt: new Date().toLocaleDateString('nl-NL')
       };
       setEditingTemplate(newTemplate);
@@ -351,6 +362,13 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
       if (editingTemplate) {
           const updatedTasks = editingTemplate.tasks.map(t => t.id === taskId ? { ...t, [field]: value } : t);
           setEditingTemplate({ ...editingTemplate, tasks: updatedTasks });
+      }
+  };
+
+  const updateTemplateWeekTitle = (week: number, title: string) => {
+      if (editingTemplate) {
+          const newTitles = { ...editingTemplate.weekTitles, [week]: title };
+          setEditingTemplate({ ...editingTemplate, weekTitles: newTitles });
       }
   };
 
@@ -727,6 +745,9 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                             const isAllDone = totalCount > 0 && completedCount === totalCount;
                             const isCurrent = activeWeek === week;
                             const isFuture = activeWeek < week;
+                            
+                            // Use custom title if available, otherwise default
+                            const weekTitle = selectedEmployee.onboardingWeekTitles?.[week] || DEFAULT_WEEK_TITLES[week];
 
                             return (
                                 <div key={week} className={`relative z-10 mb-12 last:mb-0 ${isFuture ? 'opacity-50 grayscale' : ''}`}>
@@ -742,12 +763,7 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                             <div className="flex justify-between items-start mb-6">
                                                 <div>
                                                     <h3 className="text-xl font-bold text-slate-900">
-                                                        Week {week}: {
-                                                            week === 1 ? 'Introductie & Basis' :
-                                                            week === 2 ? 'Gastencontact & Check-in' :
-                                                            week === 3 ? 'Verdieping & Check-out' :
-                                                            'Zelfstandigheid & Afronding'
-                                                        }
+                                                        {weekTitle}
                                                     </h3>
                                                     <p className="text-sm font-medium text-slate-400 mt-1">{completedCount}/{totalCount} taken afgerond</p>
                                                 </div>
@@ -912,10 +928,18 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   <div className="space-y-6">
                       {[1, 2, 3, 4].map((week) => {
                           const weekTasks = editingTemplate.tasks.filter(t => t.week === week);
+                          // Default title if none set
+                          const currentTitle = editingTemplate.weekTitles?.[week] || DEFAULT_WEEK_TITLES[week];
+
                           return (
                               <div key={week} className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                                   <div className="flex justify-between items-center mb-3">
-                                      <h4 className="font-bold text-slate-900 text-sm">Week {week}</h4>
+                                      <input 
+                                        className="font-bold text-slate-900 text-sm bg-transparent border-b border-transparent focus:border-teal-500 focus:outline-none w-3/4"
+                                        value={currentTitle}
+                                        onChange={(e) => updateTemplateWeekTitle(week, e.target.value)}
+                                        placeholder={`Titel voor Week ${week}`}
+                                      />
                                       <button onClick={() => addTaskToTemplate(week as any)} className="text-xs text-teal-600 font-bold hover:underline">+ Taak toevoegen</button>
                                   </div>
                                   <div className="space-y-3">

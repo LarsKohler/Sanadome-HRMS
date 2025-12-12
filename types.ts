@@ -393,6 +393,7 @@ export interface Employee {
   onboardingStatus?: 'Active' | 'Pending' | 'Completed';
   onboardingTasks?: OnboardingTask[];
   onboardingWeeks?: OnboardingWeekData[];
+  onboardingWeekTitles?: Record<number, string>; // NEW: Custom titles per week
   onboardingHistory?: OnboardingHistoryEntry[];
   activeTemplateId?: string;
   mentor?: string;
@@ -447,6 +448,7 @@ export interface OnboardingTemplate {
     description: string;
     role?: string; // Target role
     tasks: OnboardingTask[];
+    weekTitles?: Record<number, string>; // NEW: Custom week titles
     createdAt: string;
 }
 
