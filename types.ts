@@ -110,8 +110,6 @@ export type BlockType =
   // Assessment & Interactive
   | 'quiz' 
   | 'hotspot' // Interactieve Afbeelding
-  | 'concept-map' // Concept Kaarten
-  | 'error-hunt' // Fout Zoektocht
   | 'time-capsule'; // Tijdscapsule
 
 // Base Block Interface
@@ -131,20 +129,6 @@ export interface HotspotItem {
     description: string;
 }
 
-export interface ConceptPair {
-    id: string;
-    term: string; // Left side
-    match: string; // Right side (definition/category)
-}
-
-export interface ErrorItem {
-    id: string;
-    x: number;
-    y: number;
-    description: string; // Why is this an error?
-    solution: string; // What is the correct way?
-}
-
 // Academy Data Structures
 export interface AcademyLesson {
     id: string;
@@ -159,6 +143,18 @@ export interface AcademyModule {
     lessons: AcademyLesson[];
 }
 
+// --- BADGES ---
+export type BadgeIconKey = 'Trophy' | 'Star' | 'Medal' | 'Heart' | 'Zap' | 'Shield' | 'Rocket' | 'Crown' | 'ThumbsUp' | 'Lightbulb' | 'Flame' | 'Target' | 'Users' | 'Eye';
+export type BadgeColor = 'yellow' | 'blue' | 'purple' | 'red' | 'green' | 'pink' | 'orange' | 'slate';
+
+export interface AcademyBadgeConfig {
+    enabled: boolean;
+    name: string;
+    icon: BadgeIconKey;
+    color: BadgeColor;
+    minScore: number; // Percentage 0-100 needed on quizzes
+}
+
 export interface AcademyCourse {
     id: string;
     title: string;
@@ -167,12 +163,15 @@ export interface AcademyCourse {
     coverImage?: string;
     level: 'Beginner' | 'Intermediate' | 'Advanced';
     modules: AcademyModule[];
-    targetRoles: string[]; 
+    targetRoles: string[]; // e.g. ['Manager', 'All']
+    targetEmployees?: string[]; // New: specific employee IDs
+    dueDate?: string; // New: Deadline ISO string
     createdAt: string;
     author: string;
     isPublished: boolean;
     xpPoints?: number;
     prerequisiteCourseIds?: string[];
+    badgeConfig?: AcademyBadgeConfig; // New: Linked Badge
 }
 
 export interface AcademyProgress {
@@ -187,6 +186,8 @@ export interface AcademyProgress {
     timeCapsuleAnswers?: Record<string, { before: string, after?: string }>; // blockId -> answers
     startDate?: string;
     completedDate?: string;
+    isBadgeEarned?: boolean; // New: Explicitly track if they got the badge
+    finalScore?: number; // Average score
 }
 
 // ... existing types ...
@@ -255,10 +256,6 @@ export interface SurveyResponse {
     completedAt: string;
 }
 
-// --- BADGES ---
-export type BadgeIconKey = 'Trophy' | 'Star' | 'Medal' | 'Heart' | 'Zap' | 'Shield' | 'Rocket' | 'Crown' | 'ThumbsUp' | 'Lightbulb' | 'Flame' | 'Target' | 'Users' | 'Eye';
-export type BadgeColor = 'yellow' | 'blue' | 'purple' | 'red' | 'green' | 'pink' | 'orange' | 'slate';
-
 export interface BadgeDefinition {
     id: string;
     name: string;
@@ -274,6 +271,10 @@ export interface AssignedBadge {
     assignedBy: string;
     assignedById: string;
     assignedAt: string;
+    // New: Handle Academy Badges
+    isSystemBadge?: boolean;
+    courseId?: string;
+    meta?: any; 
 }
 
 export interface EmployeeNote {

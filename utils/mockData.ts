@@ -282,7 +282,7 @@ export const MOCK_ACADEMY_COURSES: AcademyCourse[] = [
                                 id: 'b1',
                                 type: 'text',
                                 content: {
-                                    html: 'Welkom bij de Sanadome Academy. In deze cursus leer je de fijne kneepjes van het vak.',
+                                    html: '<p>Welkom bij de Sanadome Academy. In deze cursus leer je de fijne kneepjes van het vak.</p>',
                                     style: 'paragraph'
                                 }
                             },
@@ -315,17 +315,6 @@ export const MOCK_ACADEMY_COURSES: AcademyCourse[] = [
                                     url: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // Placeholder
                                     source: 'youtube'
                                 }
-                            },
-                            {
-                                id: 'b5',
-                                type: 'concept-map',
-                                content: {
-                                    pairs: [
-                                        { id: 'p1', term: 'Open Houding', match: 'Armen langs lichaam, glimlach' },
-                                        { id: 'p2', term: 'Gesloten Houding', match: 'Armen over elkaar, frons' },
-                                        { id: 'p3', term: 'Oogcontact', match: 'Vertrouwen & Aandacht' }
-                                    ]
-                                }
                             }
                         ]
                     }
@@ -340,17 +329,6 @@ export const MOCK_ACADEMY_COURSES: AcademyCourse[] = [
                         title: 'Interactieve Oefeningen',
                         durationMinutes: 15,
                         blocks: [
-                            {
-                                id: 'bq1',
-                                type: 'error-hunt',
-                                content: {
-                                    imageUrl: 'https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?auto=format&fit=crop&w=1600&q=80', // payment terminal scene
-                                    errors: [
-                                        { id: 'e1', x: 20, y: 30, description: 'Kassalade staat open', solution: 'Sluit de lade na elke transactie.' },
-                                        { id: 'e2', x: 60, y: 50, description: 'Medewerker kijkt op telefoon', solution: 'Geen telefoons achter de balie.' }
-                                    ]
-                                }
-                            },
                             {
                                 id: 'bq2',
                                 type: 'hotspot',

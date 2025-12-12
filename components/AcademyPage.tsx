@@ -6,9 +6,10 @@ import {
     Award, BarChart3, Users, Filter, Search, ArrowLeft, GraduationCap,
     Download, PieChart, FileCheck, AlertCircle, Type, Image as ImageIcon,
     Video, HelpCircle, GripVertical, ArrowUp, ArrowDown, Eye, Layers, Settings, Shield, User,
-    Map, Target, Zap, Timer, MousePointer2, ArrowRight
+    Map, Target, Zap, Timer, MousePointer2, ArrowRight as ArrowIcon,
+    Bold, Italic, List, Heading1, Link as LinkIcon, Upload, Calendar, Medal, Star, Heart, Trophy, Rocket, Crown, ThumbsUp, Lightbulb, Flame
 } from 'lucide-react';
-import { Employee, AcademyCourse, AcademyProgress, AcademyModule, AcademyLesson, LearningBlock, BlockType, HotspotItem, ConceptPair, ErrorItem } from '../types';
+import { Employee, AcademyCourse, AcademyProgress, AcademyModule, AcademyLesson, LearningBlock, BlockType, HotspotItem, BadgeIconKey, BadgeColor } from '../types';
 import { api } from '../utils/api';
 import AcademySidebar from './AcademySidebar';
 import { Modal } from './Modal';
@@ -22,6 +23,65 @@ interface AcademyPageProps {
     onExit: () => void;
 }
 
+const BADGE_ICONS: Record<BadgeIconKey, React.ElementType> = {
+    'Trophy': Trophy, 'Star': Star, 'Medal': Medal, 'Heart': Heart, 'Zap': Zap, 'Shield': Shield,
+    'Rocket': Rocket, 'Crown': Crown, 'ThumbsUp': ThumbsUp, 'Lightbulb': Lightbulb, 'Flame': Flame,
+    'Target': Target, 'Users': Users, 'Eye': Eye
+};
+
+const BADGE_COLORS: Record<BadgeColor, string> = {
+    'yellow': 'bg-yellow-100 text-yellow-600 border-yellow-200',
+    'blue': 'bg-blue-100 text-blue-600 border-blue-200',
+    'purple': 'bg-purple-100 text-purple-600 border-purple-200',
+    'red': 'bg-red-100 text-red-600 border-red-200',
+    'green': 'bg-green-100 text-green-600 border-green-200',
+    'pink': 'bg-pink-100 text-pink-600 border-pink-200',
+    'orange': 'bg-orange-100 text-orange-600 border-orange-200',
+    'slate': 'bg-slate-100 text-slate-600 border-slate-200'
+};
+
+// --- RICH TEXT EDITOR COMPONENT ---
+const RichTextEditor = ({ value, onChange }: { value: string, onChange: (val: string) => void }) => {
+    const editorRef = useRef<HTMLDivElement>(null);
+
+    const execCmd = (command: string, value: string | null = null) => {
+        document.execCommand(command, false, value);
+    };
+
+    // Initialize content
+    useEffect(() => {
+        if (editorRef.current && editorRef.current.innerHTML !== value) {
+            editorRef.current.innerHTML = value;
+        }
+    }, []);
+
+    const handleInput = () => {
+        if (editorRef.current) {
+            onChange(editorRef.current.innerHTML);
+        }
+    };
+
+    return (
+        <div className="border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm">
+            <div className="bg-slate-50 border-b border-slate-200 p-2 flex gap-1 flex-wrap">
+                <button onClick={() => execCmd('bold')} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-colors" title="Dikgedrukt"><Bold size={16}/></button>
+                <button onClick={() => execCmd('italic')} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-colors" title="Cursief"><Italic size={16}/></button>
+                <div className="w-px h-6 bg-slate-200 mx-1 self-center"></div>
+                <button onClick={() => execCmd('formatBlock', 'H3')} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-colors font-bold text-xs" title="Kop">H3</button>
+                <button onClick={() => execCmd('insertUnorderedList')} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-colors" title="Lijst"><List size={16}/></button>
+            </div>
+            <div 
+                ref={editorRef}
+                className="p-4 min-h-[150px] outline-none prose prose-slate max-w-none text-sm"
+                contentEditable
+                onInput={handleInput}
+                onBlur={handleInput}
+                suppressContentEditableWarning={true}
+            />
+        </div>
+    );
+};
+
 const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onShowToast, onExit }) => {
     const [view, setView] = useState<'dashboard' | 'catalog' | 'player' | 'builder' | 'certificates' | 'manage-courses' | 'manage-students' | 'manage-analytics'>('dashboard');
     const [courses, setCourses] = useState<AcademyCourse[]>([]);
@@ -33,9 +93,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
     const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
     const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
     const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({}); 
-    // New Player States
-    const [conceptMapState, setConceptMapState] = useState<Record<string, Record<string, string>>>({}); // blockId -> { termId: matchId }
-    const [errorHuntState, setErrorHuntState] = useState<Record<string, string[]>>({}); // blockId -> foundErrorIds[]
+    // Interactive State
     const [hotspotState, setHotspotState] = useState<Record<string, string | null>>({}); // blockId -> activeHotspotId
     const [capsuleState, setCapsuleState] = useState<Record<string, string>>({}); // blockId -> text
 
@@ -44,6 +102,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
     const [activeBuilderModuleId, setActiveBuilderModuleId] = useState<string | null>(null);
     const [activeBuilderLessonId, setActiveBuilderLessonId] = useState<string | null>(null);
     const [builderPreviewMode, setBuilderPreviewMode] = useState(false);
+    const [isCourseSettingsOpen, setIsCourseSettingsOpen] = useState(false);
     
     // Drag & Drop Builder State
     const [draggedBlockIndex, setDraggedBlockIndex] = useState<number | null>(null);
@@ -51,6 +110,14 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
     // Catalog State
     const [catalogSearch, setCatalogSearch] = useState('');
     const [catalogCategory, setCatalogCategory] = useState('All');
+
+    // Upload Refs
+    const courseCoverInputRef = useRef<HTMLInputElement>(null);
+    const blockImageInputRef = useRef<HTMLInputElement>(null);
+    const hotspotImageInputRef = useRef<HTMLInputElement>(null);
+    
+    // Temporary state to track which block triggered an upload
+    const [uploadingBlockId, setUploadingBlockId] = useState<string | null>(null);
 
     const isManager = hasPermission(currentUser, 'MANAGE_ACADEMY');
 
@@ -96,7 +163,11 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                 startDate: new Date().toLocaleDateString('nl-NL')
             };
             api.saveAcademyProgress(newProgress);
-            setUserProgress([...userProgress, newProgress]);
+            setUserProgress(prev => [...prev, newProgress]);
+        } else if (progress.status === 'Completed') {
+            // Re-open course for review, but keep status completed
+            setView('player');
+            return;
         }
 
         setView('player');
@@ -108,47 +179,55 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
         const currentProgress = userProgress.find(p => p.courseId === activeCourse.id);
         if (!currentProgress) return; 
 
-        // Handle Time Capsule Saves
-        const activeModule = activeCourse.modules.find(m => m.id === moduleId);
-        const activeLesson = activeModule?.lessons.find(l => l.id === lessonId);
-        
-        if (activeLesson) {
-            activeLesson.blocks.forEach(block => {
-                if (block.type === 'time-capsule') {
-                    const answer = capsuleState[block.id];
-                    if (answer) {
-                        // Persist answer (mock implementation)
-                        console.log("Saving capsule:", answer);
-                        // In real app: save to progress.timeCapsuleAnswers
-                    }
-                }
-            });
-        }
-
+        // If already completed, just move next
         if (currentProgress.completedLessonIds.includes(lessonId)) {
             handlePlayerNext();
             return;
         }
 
         const totalLessons = activeCourse.modules.reduce((acc, m) => acc + m.lessons.length, 0);
-        const newCompletedIds = [...currentProgress.completedLessonIds, lessonId];
-        const newPercentage = Math.round((newCompletedIds.length / totalLessons) * 100);
+        
+        // Ensure unique IDs
+        const newCompletedIds = Array.from(new Set([...currentProgress.completedLessonIds, lessonId]));
+        
+        // Calculate percentage precisely
+        const newPercentage = Math.min(100, Math.round((newCompletedIds.length / totalLessons) * 100));
+        
+        // Check completion based on count, not just percentage to avoid rounding errors
+        const isCompleted = newCompletedIds.length >= totalLessons;
+
+        // Calculate Average Score if Completed
+        let isBadgeEarned = false;
+        let finalScore = 0;
+
+        if (isCompleted) {
+            // Simplified: If course has badge config, check logic
+            if (activeCourse.badgeConfig && activeCourse.badgeConfig.enabled) {
+                finalScore = 100; // Mock score
+                if (finalScore >= activeCourse.badgeConfig.minScore) {
+                    isBadgeEarned = true;
+                }
+            }
+        }
         
         const updatedProgress: AcademyProgress = {
             ...currentProgress,
             completedLessonIds: newCompletedIds,
             progressPercentage: newPercentage,
-            status: newPercentage === 100 ? 'Completed' : 'In Progress',
-            completedDate: newPercentage === 100 ? new Date().toLocaleDateString('nl-NL') : undefined
+            status: isCompleted ? 'Completed' : 'In Progress',
+            completedDate: isCompleted ? new Date().toLocaleDateString('nl-NL') : undefined,
+            isBadgeEarned,
+            finalScore
         };
 
+        // Optimistic Update
         setUserProgress(prev => prev.map(p => p.id === updatedProgress.id ? updatedProgress : p));
         setAllProgress(prev => prev.map(p => p.id === updatedProgress.id ? updatedProgress : p));
         
         await api.saveAcademyProgress(updatedProgress);
 
-        if (newPercentage === 100) {
-            onShowToast(`Cursus voltooid! Gefeliciteerd!`);
+        if (isCompleted) {
+            onShowToast(isBadgeEarned ? `Cursus voltooid! Je hebt de badge "${activeCourse.badgeConfig?.name}" verdiend!` : `Cursus voltooid!`);
             handleFinishCourse();
         } else {
             handlePlayerNext();
@@ -181,8 +260,12 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
             setSelectedLessonId(nextLessonId);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } else {
-            if (userProgress.find(p => p.courseId === activeCourse.id)?.status === 'Completed') {
-                setView('dashboard');
+            // End of course logic
+            const prog = userProgress.find(p => p.courseId === activeCourse.id);
+            if (prog?.status === 'Completed') {
+                handleFinishCourse();
+            } else {
+                onShowToast("Je hebt het einde van de lessen bereikt. Rond de laatste les af om te voltooien.");
             }
         }
     };
@@ -217,6 +300,8 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
 
     const handleFinishCourse = async () => {
         setView('dashboard');
+        // Force refresh data to ensure consistency
+        await loadData();
     };
 
     // --- BUILDER LOGIC ---
@@ -225,11 +310,12 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
         const newCourse: AcademyCourse = {
             id: crypto.randomUUID(),
             title: 'Nieuwe Cursus',
-            description: 'Beschrijf hier waar de cursus over gaat...',
+            description: 'Korte beschrijving voor in de catalogus...',
             category: 'Algemeen',
             level: 'Beginner',
             modules: [],
             targetRoles: ['All'],
+            targetEmployees: [],
             createdAt: new Date().toLocaleDateString('nl-NL'),
             author: currentUser.name,
             isPublished: false,
@@ -239,6 +325,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
         setActiveBuilderModuleId(null);
         setActiveBuilderLessonId(null);
         setView('builder');
+        setIsCourseSettingsOpen(true);
     };
 
     const handleEditCourse = (course: AcademyCourse) => {
@@ -269,6 +356,43 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
             await api.deleteAcademyCourse(id);
             setCourses(prev => prev.filter(c => c.id !== id));
             onShowToast("Cursus verwijderd.");
+        }
+    };
+
+    // --- UPLOAD HANDLERS ---
+
+    const handleCourseCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0] && editingCourse) {
+            onShowToast("Uploaden...");
+            const url = await api.uploadFile(e.target.files[0]);
+            if (url) {
+                setEditingCourse({ ...editingCourse, coverImage: url });
+                onShowToast("Omslagfoto bijgewerkt.");
+            }
+        }
+    };
+
+    const handleBlockImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0] && uploadingBlockId) {
+            onShowToast("Afbeelding uploaden...");
+            const url = await api.uploadFile(e.target.files[0]);
+            if (url) {
+                updateBlock(uploadingBlockId, { url: url });
+                onShowToast("Afbeelding toegevoegd.");
+            }
+            setUploadingBlockId(null);
+        }
+    };
+
+    const handleHotspotImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0] && uploadingBlockId) {
+            onShowToast("Achtergrond uploaden...");
+            const url = await api.uploadFile(e.target.files[0]);
+            if (url) {
+                updateBlock(uploadingBlockId, { imageUrl: url });
+                onShowToast("Achtergrond bijgewerkt.");
+            }
+            setUploadingBlockId(null);
         }
     };
 
@@ -336,7 +460,6 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
         e.preventDefault();
         if (draggedBlockIndex === null || draggedBlockIndex === index) return;
         
-        // Reorder logic here (simplified)
         if (!editingCourse || !activeBuilderModuleId || !activeBuilderLessonId) return;
 
         const updatedModules = editingCourse.modules.map(m => {
@@ -363,15 +486,12 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
         if (!editingCourse || !activeBuilderModuleId || !activeBuilderLessonId) return;
 
         let content = {};
-        // Default Content Initialization
         switch(type) {
             case 'text': content = { html: 'Start hier met typen...', style: 'paragraph' }; break;
-            case 'image': content = { url: 'https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?auto=format&fit=crop&w=800&q=80', caption: '' }; break;
+            case 'image': content = { url: '', caption: '' }; break;
             case 'video': content = { url: '', source: 'youtube' }; break;
             case 'quiz': content = { question: 'Nieuwe vraag?', type: 'single', options: [{id: '1', text: 'Optie A', isCorrect: true}, {id: '2', text: 'Optie B', isCorrect: false}] }; break;
-            case 'hotspot': content = { imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1600&q=80', spots: [] }; break;
-            case 'concept-map': content = { pairs: [{ id: '1', term: 'Begrip', match: 'Definitie' }] }; break;
-            case 'error-hunt': content = { imageUrl: 'https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?auto=format&fit=crop&w=1600&q=80', errors: [] }; break;
+            case 'hotspot': content = { imageUrl: '', spots: [] }; break;
             case 'time-capsule': content = { question: 'Wat hoop je te leren?' }; break;
         }
 
@@ -480,23 +600,79 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
             const newSpot: HotspotItem = {
                 id: crypto.randomUUID(),
                 x, y,
-                title: 'Nieuwe Hotspot',
-                description: 'Beschrijving hier...'
+                title: 'Nieuw Punt',
+                description: 'Beschrijving...'
             };
             updateBlock(block.id, { spots: [...(spots || []), newSpot] });
         };
 
         const activeSpotId = hotspotState[block.id];
 
+        // --- SMART TOOLTIP POSITIONING ---
+        const getTooltipClasses = (x: number, y: number) => {
+            let classes = "absolute mb-3 w-64 bg-white p-4 rounded-xl shadow-xl text-slate-700 text-sm text-left z-20 animate-in fade-in slide-in-from-bottom-2";
+            let arrowClasses = "absolute w-3 h-3 bg-white rotate-45";
+            
+            // Y-Axis: If too high up (< 20%), show below instead of above
+            if (y < 20) {
+                classes += " top-full mt-3"; // Show below
+                arrowClasses += " -top-1.5 left-1/2 -translate-x-1/2 border-t border-l border-slate-100";
+            } else {
+                classes += " bottom-full mb-3"; // Show above (default)
+                arrowClasses += " -bottom-1.5 left-1/2 -translate-x-1/2 border-b border-r border-slate-100";
+            }
+
+            // X-Axis: If too far left or right, adjust alignment
+            if (x < 15) {
+                classes += " left-0 translate-x-4"; // Align left edge
+                if (y >= 20) arrowClasses = "absolute -bottom-1.5 left-4 bg-white rotate-45"; // Adjust arrow
+            } else if (x > 85) {
+                classes += " right-0 -translate-x-4"; // Align right edge
+                if (y >= 20) arrowClasses = "absolute -bottom-1.5 right-4 bg-white rotate-45"; // Adjust arrow
+            } else {
+                classes += " left-1/2 -translate-x-1/2"; // Center
+            }
+
+            return { container: classes, arrow: arrowClasses };
+        };
+
         return (
-            <div className="relative rounded-xl overflow-hidden border border-slate-200">
-                <img 
-                    src={imageUrl} 
-                    className="w-full h-auto object-cover cursor-crosshair" 
-                    onClick={handleImageClick}
-                    alt="Hotspot Base"
-                />
-                {(spots || []).map((spot: HotspotItem) => (
+            <div className={`relative rounded-xl border border-slate-200 bg-slate-50 min-h-[300px] flex items-center justify-center group ${isEditor ? '' : 'overflow-hidden'}`}>
+                {imageUrl ? (
+                    <>
+                        <img 
+                            src={imageUrl} 
+                            className={`w-full h-auto object-cover rounded-xl ${isEditor ? 'cursor-crosshair' : ''}`}
+                            onClick={handleImageClick}
+                            alt="Hotspot Base"
+                        />
+                        {isEditor && (
+                            <button 
+                                onClick={() => { setUploadingBlockId(block.id); hotspotImageInputRef.current?.click(); }}
+                                className="absolute top-4 right-4 bg-white/90 p-2 rounded-lg shadow-sm hover:bg-white text-slate-700 text-xs font-bold flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                                <ImageIcon size={14}/> Wijzig Afbeelding
+                            </button>
+                        )}
+                    </>
+                ) : (
+                    isEditor ? (
+                        <div 
+                            onClick={() => { setUploadingBlockId(block.id); hotspotImageInputRef.current?.click(); }}
+                            className="flex flex-col items-center justify-center p-10 cursor-pointer text-slate-400 hover:text-indigo-600 transition-colors"
+                        >
+                            <ImageIcon size={48} className="mb-2"/>
+                            <span className="font-bold text-sm">Klik om achtergrond te uploaden</span>
+                        </div>
+                    ) : <div className="p-10 text-center text-slate-400 italic">Geen afbeelding beschikbaar</div>
+                )}
+
+                {(spots || []).map((spot: HotspotItem) => {
+                    const pos = getTooltipClasses(spot.x, spot.y);
+                    // Use same smart positioning logic for editor controls to prevent clipping
+                    const editorPos = isEditor ? pos : { container: '', arrow: '' };
+                    
+                    return (
                     <div
                         key={spot.id}
                         className="absolute w-8 h-8 -ml-4 -mt-4 bg-indigo-600 rounded-full border-2 border-white shadow-lg flex items-center justify-center text-white font-bold cursor-pointer hover:scale-110 transition-transform z-10"
@@ -507,22 +683,34 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                         
                         {/* Tooltip for Player */}
                         {!isEditor && activeSpotId === spot.id && (
-                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 bg-white p-4 rounded-xl shadow-xl text-slate-700 text-sm text-left z-20 animate-in fade-in slide-in-from-bottom-2">
+                            <div className={pos.container} onClick={(e) => e.stopPropagation()}>
                                 <h4 className="font-bold text-slate-900 mb-1">{spot.title}</h4>
                                 <p>{spot.description}</p>
-                                <div className="absolute bottom-[-6px] left-1/2 -translate-x-1/2 w-3 h-3 bg-white rotate-45"></div>
+                                <div className={pos.arrow}></div>
                             </div>
                         )}
                         
-                        {/* Editor Controls */}
+                        {/* Editor Controls - Use smart positioning to avoid clipping */}
                         {isEditor && (
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white p-2 rounded shadow-lg flex gap-2 z-30">
+                            <div className={`${editorPos.container} w-56 flex flex-col gap-2 p-3 bg-white shadow-xl border border-slate-100`} onClick={(e) => e.stopPropagation()}>
                                 <input 
-                                    className="border rounded px-1 text-xs text-black w-24" 
+                                    className="border rounded px-2 py-1 text-xs text-black font-bold w-full" 
                                     value={spot.title} 
+                                    placeholder="Titel"
                                     onClick={(e) => e.stopPropagation()}
                                     onChange={(e) => {
                                         const newSpots = spots.map((s: any) => s.id === spot.id ? { ...s, title: e.target.value } : s);
+                                        updateBlock(block.id, { spots: newSpots });
+                                    }}
+                                />
+                                <textarea
+                                    className="border rounded px-2 py-1 text-xs text-black w-full resize-none"
+                                    rows={2}
+                                    placeholder="Beschrijving"
+                                    value={spot.description}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) => {
+                                        const newSpots = spots.map((s: any) => s.id === spot.id ? { ...s, description: e.target.value } : s);
                                         updateBlock(block.id, { spots: newSpots });
                                     }}
                                 />
@@ -532,152 +720,15 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                                         const newSpots = spots.filter((s: any) => s.id !== spot.id);
                                         updateBlock(block.id, { spots: newSpots });
                                     }}
-                                    className="text-red-500 hover:text-red-700"
+                                    className="text-red-500 hover:text-red-700 text-xs w-full text-right font-bold"
                                 >
-                                    <Trash2 size={12}/>
+                                    Verwijder Punt
                                 </button>
+                                <div className={editorPos.arrow}></div>
                             </div>
                         )}
                     </div>
-                ))}
-            </div>
-        );
-    };
-
-    const renderConceptMap = (block: LearningBlock, isEditor: boolean) => {
-        const { pairs } = block.content;
-        const shuffledMatches = useMemo(() => {
-            return [...(pairs || [])].sort(() => Math.random() - 0.5);
-        }, [pairs]);
-
-        const handleMatch = (termId: string, matchId: string) => {
-            setConceptMapState(prev => ({
-                ...prev,
-                [block.id]: { ...(prev[block.id] || {}), [termId]: matchId }
-            }));
-        };
-
-        return (
-            <div className="bg-indigo-50/50 p-6 rounded-xl border border-indigo-100">
-                <h4 className="font-bold text-indigo-900 mb-4 flex items-center gap-2"><Map size={18}/> Concept Kaarten</h4>
-                
-                {isEditor ? (
-                    <div className="space-y-2">
-                        {(pairs || []).map((pair: ConceptPair, idx: number) => (
-                            <div key={pair.id} className="flex gap-2 items-center">
-                                <input 
-                                    className="flex-1 p-2 border rounded text-sm"
-                                    value={pair.term}
-                                    placeholder="Begrip"
-                                    onChange={(e) => {
-                                        const newPairs = [...pairs];
-                                        newPairs[idx].term = e.target.value;
-                                        updateBlock(block.id, { pairs: newPairs });
-                                    }}
-                                />
-                                <ArrowRight size={16} className="text-slate-400"/>
-                                <input 
-                                    className="flex-1 p-2 border rounded text-sm"
-                                    value={pair.match}
-                                    placeholder="Definitie / Match"
-                                    onChange={(e) => {
-                                        const newPairs = [...pairs];
-                                        newPairs[idx].match = e.target.value;
-                                        updateBlock(block.id, { pairs: newPairs });
-                                    }}
-                                />
-                                <button onClick={() => {
-                                    const newPairs = pairs.filter((p: any) => p.id !== pair.id);
-                                    updateBlock(block.id, { pairs: newPairs });
-                                }} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
-                            </div>
-                        ))}
-                        <button 
-                            onClick={() => updateBlock(block.id, { pairs: [...(pairs || []), { id: crypto.randomUUID(), term: '', match: '' }] })}
-                            className="text-xs font-bold text-indigo-600 hover:underline mt-2"
-                        >
-                            + Paar Toevoegen
-                        </button>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-2 gap-8">
-                        <div className="space-y-3">
-                            {(pairs || []).map((pair: ConceptPair) => (
-                                <div key={pair.id} className="p-3 bg-white border border-indigo-100 rounded-lg shadow-sm font-medium text-slate-700">
-                                    {pair.term}
-                                </div>
-                            ))}
-                        </div>
-                        <div className="space-y-3">
-                            {shuffledMatches.map((pair: ConceptPair) => (
-                                <div key={pair.id} className="p-3 bg-white border-2 border-dashed border-indigo-200 rounded-lg text-slate-500 cursor-grab active:cursor-grabbing hover:bg-indigo-50 transition-colors">
-                                    {pair.match}
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                )}
-            </div>
-        );
-    };
-
-    const renderErrorHunt = (block: LearningBlock, isEditor: boolean) => {
-        const { imageUrl, errors } = block.content;
-        
-        const handleImageClick = (e: React.MouseEvent<HTMLImageElement>) => {
-            if (!isEditor) return;
-            const rect = e.currentTarget.getBoundingClientRect();
-            const x = ((e.clientX - rect.left) / rect.width) * 100;
-            const y = ((e.clientY - rect.top) / rect.height) * 100;
-            
-            const newError: ErrorItem = {
-                id: crypto.randomUUID(),
-                x, y,
-                description: 'Beschrijf de fout...',
-                solution: 'Wat is de oplossing?'
-            };
-            updateBlock(block.id, { errors: [...(errors || []), newError] });
-        };
-
-        return (
-            <div className="relative rounded-xl overflow-hidden border border-slate-200">
-                <img 
-                    src={imageUrl} 
-                    className={`w-full h-auto object-cover ${isEditor ? 'cursor-crosshair' : 'cursor-pointer'}`}
-                    onClick={handleImageClick}
-                    alt="Error Hunt"
-                />
-                {(errors || []).map((err: ErrorItem) => (
-                    <div
-                        key={err.id}
-                        className={`absolute w-8 h-8 -ml-4 -mt-4 rounded-full border-2 border-white shadow-lg flex items-center justify-center font-bold z-10 ${isEditor ? 'bg-red-500 text-white' : 'bg-transparent hover:bg-red-500/20'}`}
-                        style={{ left: `${err.x}%`, top: `${err.y}%` }}
-                    >
-                        {isEditor && <span className="text-xs">!</span>}
-                        {isEditor && (
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white p-2 rounded shadow-lg w-48 z-30">
-                                <textarea 
-                                    className="border rounded w-full text-xs text-black mb-1 p-1" 
-                                    value={err.description} 
-                                    onChange={(e) => {
-                                        const newErrors = errors.map((x: any) => x.id === err.id ? { ...x, description: e.target.value } : x);
-                                        updateBlock(block.id, { errors: newErrors });
-                                    }}
-                                />
-                                <button 
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        const newErrors = errors.filter((x: any) => x.id !== err.id);
-                                        updateBlock(block.id, { errors: newErrors });
-                                    }}
-                                    className="text-red-500 text-xs w-full text-right"
-                                >
-                                    Verwijder
-                                </button>
-                            </div>
-                        )}
-                    </div>
-                ))}
+                )})}
             </div>
         );
     };
@@ -721,55 +772,86 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
         switch(block.type) {
             case 'text':
                 return isEditor && !builderPreviewMode ? (
-                    <div className="p-2">
-                        <textarea 
-                            className="w-full p-3 border border-slate-200 rounded-lg text-slate-700 focus:ring-2 focus:ring-indigo-500 min-h-[100px]"
-                            value={block.content.html}
-                            onChange={(e) => updateBlock(block.id, { html: e.target.value })}
-                        />
-                    </div>
+                    <RichTextEditor 
+                        value={block.content.html} 
+                        onChange={(html) => updateBlock(block.id, { html })}
+                    />
                 ) : (
-                    <div className={`prose prose-slate max-w-none ${block.content.style === 'h1' ? 'text-2xl font-bold text-slate-900' : 'text-slate-700'}`}>
-                        {block.content.style === 'alert' ? (
-                            <div className="bg-amber-50 border-l-4 border-amber-500 p-4 text-amber-900 rounded-r-lg my-4 flex items-start gap-3">
-                                <AlertCircle size={20} className="shrink-0 mt-0.5"/>
-                                <div dangerouslySetInnerHTML={{ __html: block.content.html }}></div>
-                            </div>
-                        ) : (
-                            <div dangerouslySetInnerHTML={{ __html: block.content.html }}></div>
-                        )}
-                    </div>
+                    <div 
+                        className="prose prose-slate max-w-none text-slate-700"
+                        dangerouslySetInnerHTML={{ __html: block.content.html }}
+                    />
                 );
             case 'image':
-                return isEditor && !builderPreviewMode ? (
-                    <div className="bg-slate-50 p-4 rounded-xl border border-dashed border-slate-300">
-                        <input 
-                            className="w-full text-sm p-2 border rounded"
-                            placeholder="Afbeelding URL..."
-                            value={block.content.url}
-                            onChange={(e) => updateBlock(block.id, { url: e.target.value })}
-                        />
-                    </div>
-                ) : (
+                return (
                     <div className="my-6">
-                        <img src={block.content.url} alt={block.content.caption} className="rounded-xl shadow-sm w-full object-cover max-h-[500px]" />
-                        {block.content.caption && <p className="text-center text-xs text-slate-500 mt-2">{block.content.caption}</p>}
+                        {block.content.url ? (
+                            <div className="relative group">
+                                <img src={block.content.url} alt={block.content.caption} className="rounded-xl shadow-sm w-full object-cover max-h-[500px]" />
+                                {isEditor && !builderPreviewMode && (
+                                    <button 
+                                        onClick={() => { setUploadingBlockId(block.id); blockImageInputRef.current?.click(); }}
+                                        className="absolute top-4 right-4 bg-white/90 p-2 rounded-lg shadow-sm hover:bg-white text-slate-700 text-xs font-bold flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                    >
+                                        <ImageIcon size={14}/> Wijzig
+                                    </button>
+                                )}
+                            </div>
+                        ) : (
+                            isEditor && !builderPreviewMode && (
+                                <div 
+                                    onClick={() => { setUploadingBlockId(block.id); blockImageInputRef.current?.click(); }}
+                                    className="bg-slate-50 p-8 rounded-xl border border-dashed border-slate-300 flex flex-col items-center justify-center cursor-pointer text-slate-400 hover:text-indigo-600 hover:border-indigo-300 transition-all"
+                                >
+                                    <ImageIcon size={32} className="mb-2"/>
+                                    <span className="font-bold text-sm">Upload Afbeelding</span>
+                                </div>
+                            )
+                        )}
+                        {isEditor && !builderPreviewMode && block.content.url && (
+                            <input 
+                                className="w-full text-sm p-2 border rounded mt-2 bg-slate-50"
+                                placeholder="Onderschrift..."
+                                value={block.content.caption || ''}
+                                onChange={(e) => updateBlock(block.id, { caption: e.target.value })}
+                            />
+                        )}
+                        {!isEditor && block.content.caption && <p className="text-center text-xs text-slate-500 mt-2">{block.content.caption}</p>}
                     </div>
                 );
             case 'video':
                 return (
                     <div className="aspect-video bg-slate-900 rounded-xl overflow-hidden shadow-lg my-6">
-                        <iframe src={block.content.url} className="w-full h-full" frameBorder="0" allowFullScreen></iframe>
+                        {block.content.url ? (
+                            <iframe src={block.content.url} className="w-full h-full" frameBorder="0" allowFullScreen></iframe>
+                        ) : (
+                            <div className="flex items-center justify-center h-full text-slate-500">Video Embed Placeholder</div>
+                        )}
+                        {isEditor && !builderPreviewMode && (
+                            <input 
+                                className="w-full p-2 text-xs border-t border-slate-700 bg-slate-800 text-white" 
+                                placeholder="YouTube Embed URL..."
+                                value={block.content.url}
+                                onChange={(e) => updateBlock(block.id, { url: e.target.value })}
+                            />
+                        )}
                     </div>
                 );
             case 'quiz':
                 return (
                     <div className="my-8 bg-indigo-50 border border-indigo-100 rounded-xl p-6">
                         <h4 className="font-bold text-indigo-900 mb-4 flex items-center gap-2">
-                            <HelpCircle size={20} className="text-indigo-600"/> Quiz: {block.content.question}
+                            <HelpCircle size={20} className="text-indigo-600"/> 
+                            {isEditor && !builderPreviewMode ? (
+                                <input 
+                                    className="bg-transparent border-b border-indigo-200 w-full focus:outline-none focus:border-indigo-500"
+                                    value={block.content.question}
+                                    onChange={(e) => updateBlock(block.id, { question: e.target.value })}
+                                />
+                            ) : block.content.question}
                         </h4>
                         <div className="space-y-2">
-                            {block.content.options.map((opt: any) => {
+                            {block.content.options.map((opt: any, idx: number) => {
                                 const isSelected = quizAnswers[block.id] === opt.id;
                                 const showResult = !!quizAnswers[block.id];
                                 const isCorrect = opt.isCorrect;
@@ -784,28 +866,62 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                                 }
 
                                 return (
-                                    <label key={opt.id} className={`flex items-center gap-3 p-3 bg-white border rounded-lg cursor-pointer transition-colors ${styleClass}`}>
-                                        <input 
-                                            type="radio" 
-                                            name={`quiz-${block.id}`} 
-                                            className="w-4 h-4 text-indigo-600 focus:ring-indigo-500" 
-                                            disabled={showResult}
-                                            onChange={() => setQuizAnswers(prev => ({ ...prev, [block.id]: opt.id }))}
-                                        />
-                                        <span className="text-sm font-medium">{opt.text}</span>
-                                        {showResult && isCorrect && <CheckCircle2 size={16} className="text-green-600 ml-auto"/>}
-                                    </label>
+                                    <div key={opt.id} className="flex gap-2 items-center">
+                                        {isEditor && !builderPreviewMode && (
+                                            <input 
+                                                type="radio" 
+                                                checked={opt.isCorrect} 
+                                                onChange={() => {
+                                                    const newOpts = block.content.options.map((o:any) => ({...o, isCorrect: o.id === opt.id}));
+                                                    updateBlock(block.id, { options: newOpts });
+                                                }}
+                                            />
+                                        )}
+                                        <label className={`flex-1 flex items-center gap-3 p-3 bg-white border rounded-lg cursor-pointer transition-colors ${styleClass}`}>
+                                            {!isEditor && (
+                                                <input 
+                                                    type="radio" 
+                                                    name={`quiz-${block.id}`} 
+                                                    className="w-4 h-4 text-indigo-600 focus:ring-indigo-500" 
+                                                    disabled={showResult}
+                                                    onChange={() => setQuizAnswers(prev => ({ ...prev, [block.id]: opt.id }))}
+                                                />
+                                            )}
+                                            {isEditor && !builderPreviewMode ? (
+                                                <input 
+                                                    className="w-full text-sm border-none focus:ring-0 p-0"
+                                                    value={opt.text}
+                                                    onChange={(e) => {
+                                                        const newOpts = [...block.content.options];
+                                                        newOpts[idx].text = e.target.value;
+                                                        updateBlock(block.id, { options: newOpts });
+                                                    }}
+                                                />
+                                            ) : (
+                                                <span className="text-sm font-medium">{opt.text}</span>
+                                            )}
+                                            {showResult && isCorrect && <CheckCircle2 size={16} className="text-green-600 ml-auto"/>}
+                                        </label>
+                                        {isEditor && !builderPreviewMode && (
+                                            <button onClick={() => {
+                                                const newOpts = block.content.options.filter((o:any) => o.id !== opt.id);
+                                                updateBlock(block.id, { options: newOpts });
+                                            }}><X size={16} className="text-red-400"/></button>
+                                        )}
+                                    </div>
                                 );
                             })}
+                            {isEditor && !builderPreviewMode && (
+                                <button onClick={() => {
+                                    const newOpts = [...block.content.options, { id: crypto.randomUUID(), text: 'Nieuwe optie', isCorrect: false }];
+                                    updateBlock(block.id, { options: newOpts });
+                                }} className="text-xs text-indigo-600 font-bold">+ Optie toevoegen</button>
+                            )}
                         </div>
                     </div>
                 );
             case 'hotspot':
                 return renderHotspotImage(block, isEditor);
-            case 'concept-map':
-                return renderConceptMap(block, isEditor);
-            case 'error-hunt':
-                return renderErrorHunt(block, isEditor);
             case 'time-capsule':
                 return renderTimeCapsule(block, isEditor);
             default:
@@ -932,6 +1048,14 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                     </div>
                     <div className="flex items-center gap-3">
                         <button 
+                            onClick={() => setIsCourseSettingsOpen(true)}
+                            className="p-2 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors"
+                            title="Cursus Instellingen"
+                        >
+                            <Settings size={20} />
+                        </button>
+                        <div className="h-6 w-px bg-slate-200 mx-2"></div>
+                        <button 
                             onClick={() => setBuilderPreviewMode(!builderPreviewMode)}
                             className={`px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 border transition-all ${builderPreviewMode ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-white text-slate-600 border-slate-200'}`}
                         >
@@ -945,18 +1069,18 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                 
                 <div className="flex-1 flex overflow-hidden">
                     
-                    {/* LEFT: Structure */}
-                    <div className={`w-72 bg-white border-r border-slate-200 flex flex-col ${builderPreviewMode ? 'hidden' : 'flex'}`}>
-                        <div className="p-4 border-b border-slate-100 flex justify-between items-center">
-                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Inhoudsopgave</h3>
-                            <button onClick={addModule} className="p-1 hover:bg-slate-100 rounded text-indigo-600"><Plus size={16}/></button>
+                    {/* LEFT: Structure ONLY */}
+                    <div className={`w-80 bg-white border-r border-slate-200 flex flex-col ${builderPreviewMode ? 'hidden' : 'flex'}`}>
+                        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                            <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Structuur</h3>
+                            <button onClick={addModule} className="p-1 hover:bg-slate-200 rounded text-indigo-600 transition-colors" title="Nieuwe Module"><Plus size={18}/></button>
                         </div>
                         <div className="flex-1 overflow-y-auto p-2 space-y-4">
                             {editingCourse.modules.map((mod, mIdx) => (
                                 <div key={mod.id} className="bg-slate-50 rounded-lg border border-slate-200 overflow-hidden">
-                                    <div className="p-3 flex items-center justify-between group">
+                                    <div className="p-3 flex items-center justify-between group bg-white border-b border-slate-100">
                                         <input 
-                                            className="bg-transparent font-bold text-sm text-slate-700 w-full focus:outline-none"
+                                            className="bg-transparent font-bold text-sm text-slate-800 w-full focus:outline-none"
                                             value={mod.title}
                                             onChange={(e) => {
                                                 const mods = [...editingCourse.modules];
@@ -964,41 +1088,27 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                                                 setEditingCourse({...editingCourse, modules: mods});
                                             }}
                                         />
-                                        <button onClick={() => addLesson(mod.id)} className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-indigo-600"><Plus size={14}/></button>
+                                        <button onClick={() => addLesson(mod.id)} className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-indigo-600 transition-opacity"><Plus size={14}/></button>
                                     </div>
                                     <div className="divide-y divide-slate-100">
                                         {mod.lessons.map(les => (
                                             <div 
                                                 key={les.id} 
                                                 onClick={() => { setActiveBuilderModuleId(mod.id); setActiveBuilderLessonId(les.id); }}
-                                                className={`px-4 py-2 text-sm cursor-pointer flex justify-between items-center group ${activeBuilderLessonId === les.id ? 'bg-white text-indigo-600 font-bold border-l-4 border-indigo-600' : 'text-slate-600 hover:bg-white'}`}
+                                                className={`px-4 py-3 text-sm cursor-pointer flex justify-between items-center group transition-colors ${activeBuilderLessonId === les.id ? 'bg-indigo-50 text-indigo-700 font-bold border-l-4 border-indigo-500' : 'text-slate-600 hover:bg-slate-100 border-l-4 border-transparent'}`}
                                             >
                                                 <span className="truncate">{les.title}</span>
                                             </div>
                                         ))}
-                                        {mod.lessons.length === 0 && <div className="px-4 py-2 text-xs text-slate-400 italic">Geen lessen</div>}
+                                        {mod.lessons.length === 0 && <div className="px-4 py-3 text-xs text-slate-400 italic text-center">Nog geen lessen</div>}
                                     </div>
                                 </div>
                             ))}
-                        </div>
-                        <div className="p-4 border-t border-slate-100">
-                            <div className="text-xs text-slate-400 mb-2">Metadata</div>
-                            <input 
-                                className="w-full text-xs p-2 border rounded mb-2" 
-                                placeholder="Afbeelding URL"
-                                value={editingCourse.coverImage || ''}
-                                onChange={(e) => setEditingCourse({...editingCourse, coverImage: e.target.value})}
-                            />
-                            <select 
-                                className="w-full text-xs p-2 border rounded"
-                                value={editingCourse.category}
-                                onChange={(e) => setEditingCourse({...editingCourse, category: e.target.value})}
-                            >
-                                <option value="Algemeen">Algemeen</option>
-                                <option value="Veiligheid">Veiligheid</option>
-                                <option value="Gastvrijheid">Gastvrijheid</option>
-                                <option value="IT">IT</option>
-                            </select>
+                            {editingCourse.modules.length === 0 && (
+                                <div className="text-center p-8 text-slate-400 italic text-sm">
+                                    Klik op + om een module toe te voegen.
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -1076,8 +1186,6 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                                     { type: 'video', label: 'Video Embed', icon: Video },
                                     { type: 'quiz', label: 'Quiz Vraag', icon: HelpCircle },
                                     { type: 'hotspot', label: 'Hotspot Afbeelding', icon: MousePointer2 },
-                                    { type: 'concept-map', label: 'Concept Kaart', icon: Map },
-                                    { type: 'error-hunt', label: 'Fout Zoektocht', icon: Target },
                                     { type: 'time-capsule', label: 'Tijdscapsule', icon: Timer },
                                 ].map((tool) => (
                                     <div
@@ -1101,6 +1209,221 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                         </div>
                     )}
                 </div>
+
+                {/* SETTINGS MODAL */}
+                <Modal isOpen={isCourseSettingsOpen} onClose={() => setIsCourseSettingsOpen(false)} title="Cursus Instellingen">
+                    <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+                        
+                        {/* TABBED INTERFACE inside modal for better organization */}
+                        <div className="space-y-8">
+                            {/* GENERAL */}
+                            <div>
+                                <h4 className="text-xs font-bold text-slate-900 uppercase mb-4 border-b border-slate-100 pb-2">Algemene Informatie</h4>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-xs text-slate-400 mb-1 block">Titel</label>
+                                        <input 
+                                            className="w-full text-sm p-3 border rounded-xl bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            value={editingCourse.title}
+                                            onChange={(e) => setEditingCourse({...editingCourse, title: e.target.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-slate-400 mb-1 block">Categorie</label>
+                                        <select 
+                                            className="w-full text-sm p-3 border rounded-xl bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            value={editingCourse.category}
+                                            onChange={(e) => setEditingCourse({...editingCourse, category: e.target.value})}
+                                        >
+                                            <option value="Algemeen">Algemeen</option>
+                                            <option value="Veiligheid">Veiligheid</option>
+                                            <option value="Gastvrijheid">Gastvrijheid</option>
+                                            <option value="IT">IT</option>
+                                            <option value="Leiderschap">Leiderschap</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-slate-400 mb-1 block">Korte Beschrijving (Catalogus)</label>
+                                        <textarea 
+                                            className="w-full text-sm p-3 border rounded-xl bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none resize-none h-24"
+                                            placeholder="Waar gaat deze cursus over?"
+                                            value={editingCourse.description}
+                                            onChange={(e) => setEditingCourse({...editingCourse, description: e.target.value})}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* REWARD / BADGE */}
+                            <div>
+                                <h4 className="text-xs font-bold text-slate-900 uppercase mb-4 border-b border-slate-100 pb-2 flex items-center gap-2">
+                                    <Award size={14}/> Beloning & Badge
+                                </h4>
+                                
+                                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <input 
+                                            type="checkbox" 
+                                            id="enableBadge"
+                                            className="w-5 h-5 rounded text-indigo-600 focus:ring-indigo-500"
+                                            checked={editingCourse.badgeConfig?.enabled || false}
+                                            onChange={(e) => setEditingCourse({
+                                                ...editingCourse, 
+                                                badgeConfig: { 
+                                                    ...(editingCourse.badgeConfig || { name: '', icon: 'Star', color: 'blue', minScore: 100 }), 
+                                                    enabled: e.target.checked 
+                                                }
+                                            })}
+                                        />
+                                        <label htmlFor="enableBadge" className="text-sm font-bold text-slate-700">Badge toekennen bij afronding</label>
+                                    </div>
+
+                                    {(editingCourse.badgeConfig?.enabled) && (
+                                        <div className="space-y-4 pl-8 animate-in slide-in-from-top-2 fade-in">
+                                            <div>
+                                                <label className="text-xs text-slate-400 mb-1 block">Badge Naam</label>
+                                                <input 
+                                                    className="w-full text-sm p-2 border rounded-lg bg-white"
+                                                    value={editingCourse.badgeConfig.name}
+                                                    onChange={(e) => setEditingCourse({
+                                                        ...editingCourse,
+                                                        badgeConfig: { ...editingCourse.badgeConfig!, name: e.target.value }
+                                                    })}
+                                                    placeholder="bv. Security Expert"
+                                                />
+                                            </div>
+                                            
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div>
+                                                    <label className="text-xs text-slate-400 mb-1 block">Icoon</label>
+                                                    <div className="grid grid-cols-4 gap-2 bg-white p-2 rounded-lg border border-slate-200 max-h-32 overflow-y-auto">
+                                                        {(Object.keys(BADGE_ICONS) as BadgeIconKey[]).map(iconKey => {
+                                                            const Icon = BADGE_ICONS[iconKey];
+                                                            return (
+                                                                <button
+                                                                    key={iconKey}
+                                                                    onClick={() => setEditingCourse({
+                                                                        ...editingCourse,
+                                                                        badgeConfig: { ...editingCourse.badgeConfig!, icon: iconKey }
+                                                                    })}
+                                                                    className={`p-2 rounded flex items-center justify-center transition-all ${editingCourse.badgeConfig?.icon === iconKey ? 'bg-indigo-100 text-indigo-700' : 'hover:bg-slate-50 text-slate-400'}`}
+                                                                >
+                                                                    <Icon size={16}/>
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs text-slate-400 mb-1 block">Kleur</label>
+                                                    <div className="flex flex-wrap gap-2 bg-white p-2 rounded-lg border border-slate-200">
+                                                        {(Object.keys(BADGE_COLORS) as BadgeColor[]).map(color => (
+                                                            <button
+                                                                key={color}
+                                                                onClick={() => setEditingCourse({
+                                                                    ...editingCourse,
+                                                                    badgeConfig: { ...editingCourse.badgeConfig!, color: color }
+                                                                })}
+                                                                className={`w-6 h-6 rounded-full border-2 transition-all ${editingCourse.badgeConfig?.color === color ? 'ring-2 ring-offset-2 ring-slate-400 scale-110' : ''} ${BADGE_COLORS[color].split(' ')[0].replace('bg-', 'bg-')}`}
+                                                                style={{ backgroundColor: `var(--color-${color}-100)` }} // Fallback if tailwind class dynamic compilation fails, usually better to map explicit colors
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="text-xs text-slate-400 mb-1 block">Vereiste Score (%)</label>
+                                                <input 
+                                                    type="number"
+                                                    className="w-24 text-sm p-2 border rounded-lg bg-white"
+                                                    value={editingCourse.badgeConfig.minScore}
+                                                    onChange={(e) => setEditingCourse({
+                                                        ...editingCourse,
+                                                        badgeConfig: { ...editingCourse.badgeConfig!, minScore: parseInt(e.target.value) }
+                                                    })}
+                                                    min={0} max={100}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* TARGETING */}
+                            <div>
+                                <h4 className="text-xs font-bold text-slate-900 uppercase mb-4 border-b border-slate-100 pb-2">Doelgroep</h4>
+                                <div className="space-y-4">
+                                    <div>
+                                        <label className="text-xs text-slate-400 mb-1 block">Deadline (Optioneel)</label>
+                                        <input 
+                                            type="date"
+                                            className="w-full text-sm p-3 border rounded-xl bg-slate-50 focus:ring-2 focus:ring-indigo-500 outline-none"
+                                            value={editingCourse.dueDate || ''}
+                                            onChange={(e) => setEditingCourse({...editingCourse, dueDate: e.target.value})}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="text-xs text-slate-400 mb-1 block">Zichtbaar voor Rollen</label>
+                                        <div className="flex flex-wrap gap-2">
+                                            {['All', 'Manager', 'Senior Medewerker', 'Medewerker'].map(role => (
+                                                <button
+                                                    key={role}
+                                                    onClick={() => {
+                                                        const current = editingCourse.targetRoles;
+                                                        const updated = current.includes(role) 
+                                                            ? current.filter(r => r !== role) 
+                                                            : [...current, role];
+                                                        setEditingCourse({...editingCourse, targetRoles: updated});
+                                                    }}
+                                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                                                        editingCourse.targetRoles.includes(role) 
+                                                        ? 'bg-indigo-50 text-indigo-700 border-indigo-200' 
+                                                        : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                                    }`}
+                                                >
+                                                    {role === 'All' ? 'Iedereen' : role}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* COVER IMAGE */}
+                            <div>
+                                <h4 className="text-xs font-bold text-slate-900 uppercase mb-4 border-b border-slate-100 pb-2">Media</h4>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Omslagfoto</label>
+                                <input type="file" ref={courseCoverInputRef} className="hidden" accept="image/*" onChange={handleCourseCoverUpload} />
+                                
+                                {editingCourse.coverImage ? (
+                                    <div className="relative group rounded-xl overflow-hidden h-40 w-full border border-slate-200">
+                                        <img src={editingCourse.coverImage} className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button 
+                                                onClick={() => courseCoverInputRef.current?.click()} 
+                                                className="bg-white text-slate-900 px-4 py-2 rounded-lg font-bold text-xs shadow-sm hover:bg-slate-100"
+                                            >
+                                                Wijzig Foto
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <button 
+                                        onClick={() => courseCoverInputRef.current?.click()} 
+                                        className="w-full h-32 border-2 border-dashed border-slate-300 rounded-xl flex flex-col items-center justify-center text-slate-400 hover:border-indigo-400 hover:text-indigo-600 transition-all hover:bg-slate-50"
+                                    >
+                                        <ImageIcon size={24} className="mb-2"/>
+                                        <span className="text-xs font-bold">Klik om te uploaden</span>
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="flex justify-end pt-4 border-t border-slate-100 mt-4">
+                        <button onClick={() => setIsCourseSettingsOpen(false)} className="px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-colors shadow-sm">Klaar</button>
+                    </div>
+                </Modal>
             </div>
         );
     };
@@ -1172,29 +1495,30 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
     };
 
     const renderManageStudents = () => {
-        // ... existing implementation
+        // ... existing implementation or placeholder
         return <div className="p-8">Studenten Beheer (Placeholder)</div>;
     };
 
     const renderAnalytics = () => {
-        // ... existing implementation
+        // ... existing implementation or placeholder
         return <div className="p-8">Analytics (Placeholder)</div>;
     };
 
     const renderCertificates = () => {
-        // ... existing implementation
+        // ... existing implementation or placeholder
         return <div className="p-8">Certificaten (Placeholder)</div>;
     };
 
     const renderDashboard = () => {
         const inProgress = userProgress.filter(p => p.status === 'In Progress');
         const completed = userProgress.filter(p => p.status === 'Completed');
+        const badgesEarned = userProgress.filter(p => p.isBadgeEarned);
 
         return (
             <div className="p-8 max-w-7xl mx-auto">
                 <div className="mb-8">
                     <h2 className="text-3xl font-bold text-slate-900 mb-2">Welkom terug, {currentUser.name}</h2>
-                    <p className="text-slate-500">Hier is je voortgang in de Sanadome Academy.</p>
+                    <p className="text-slate-500">Hier is je voortgang in de SanaLearn Academy.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
@@ -1207,9 +1531,40 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                         <div className="text-3xl font-bold text-green-600">{completed.length}</div>
                     </div>
                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Certificaten</div>
-                        <div className="text-3xl font-bold text-amber-500">{completed.length}</div>
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Badges</div>
+                        <div className="text-3xl font-bold text-amber-500">{badgesEarned.length}</div>
                     </div>
+                </div>
+
+                {/* MY BADGES SECTION */}
+                <div className="mb-12">
+                    <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                        <Trophy size={20} className="text-amber-500"/> Mijn Badges
+                    </h3>
+                    {badgesEarned.length > 0 ? (
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                            {badgesEarned.map((p, idx) => {
+                                const course = courses.find(c => c.id === p.courseId);
+                                if (!course || !course.badgeConfig) return null;
+                                const Icon = BADGE_ICONS[course.badgeConfig.icon] || Star;
+                                const colorClass = BADGE_COLORS[course.badgeConfig.color] || 'bg-slate-100 text-slate-600 border-slate-200';
+
+                                return (
+                                    <div key={idx} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col items-center text-center">
+                                        <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 border-2 ${colorClass}`}>
+                                            <Icon size={20}/>
+                                        </div>
+                                        <div className="text-sm font-bold text-slate-900 leading-tight">{course.badgeConfig.name}</div>
+                                        <div className="text-[10px] text-slate-400 mt-1">{p.completedDate}</div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <div className="p-8 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-center text-slate-400 italic">
+                            Nog geen badges verdiend. Voltooi cursussen om badges te verzamelen!
+                        </div>
+                    )}
                 </div>
 
                 <h3 className="text-xl font-bold text-slate-900 mb-6">Verder leren</h3>
@@ -1224,7 +1579,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                                     <div className="p-5">
                                         <h4 className="font-bold text-slate-900 mb-2">{course.title}</h4>
                                         <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden mb-3">
-                                            <div className="h-full bg-indigo-500" style={{width: `${p.progressPercentage}%`}}></div>
+                                            <div className="h-full bg-indigo-500 transition-all duration-1000" style={{width: `${p.progressPercentage}%`}}></div>
                                         </div>
                                         <div className="flex justify-between text-xs text-slate-500">
                                             <span>{p.progressPercentage}% Voltooid</span>
@@ -1246,10 +1601,17 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
 
     const renderCatalog = () => {
         const publishedCourses = courses.filter(c => c.isPublished);
-        const filtered = publishedCourses.filter(c => 
-            (catalogCategory === 'All' || c.category === catalogCategory) &&
-            c.title.toLowerCase().includes(catalogSearch.toLowerCase())
-        );
+        const filtered = publishedCourses.filter(c => {
+            const matchesSearch = c.title.toLowerCase().includes(catalogSearch.toLowerCase());
+            const matchesCategory = catalogCategory === 'All' || c.category === catalogCategory;
+            
+            // Check targeting permissions
+            const isTargetRole = c.targetRoles.includes('All') || c.targetRoles.includes(currentUser.role);
+            const isTargetEmployee = c.targetEmployees && c.targetEmployees.includes(currentUser.id);
+            const canView = isManager || isTargetRole || isTargetEmployee;
+
+            return matchesSearch && matchesCategory && canView;
+        });
 
         const categories = ['All', ...Array.from(new Set(publishedCourses.map(c => c.category)))];
 
@@ -1293,6 +1655,16 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                                 <div className="absolute top-3 right-3 bg-white/90 backdrop-blur px-2 py-1 rounded text-xs font-bold text-slate-700">
                                     {course.level}
                                 </div>
+                                {course.badgeConfig?.enabled && (
+                                    <div className="absolute top-3 left-3 bg-amber-100 text-amber-700 px-2 py-1 rounded-full text-xs font-bold shadow-sm flex items-center gap-1 border border-amber-200">
+                                        <Award size={12}/> Badge
+                                    </div>
+                                )}
+                                {course.dueDate && (
+                                    <div className="absolute bottom-3 left-3 bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold shadow-sm flex items-center gap-1">
+                                        <Clock size={12}/> Deadline: {course.dueDate}
+                                    </div>
+                                )}
                             </div>
                             <div className="p-5 flex-1 flex flex-col">
                                 <div className="text-xs font-bold text-indigo-600 uppercase tracking-wide mb-1">{course.category}</div>
