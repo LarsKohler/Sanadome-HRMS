@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { Employee, ViewState, Notification, NewsPost } from './types';
 import Sidebar from './components/Sidebar';
@@ -183,6 +182,7 @@ function App() {
           <>
             <AcademyPage 
                 currentUser={currentUser!}
+                employees={employees}
                 onShowToast={handleShowToast}
                 onExit={() => setCurrentView(ViewState.HOME)}
             />

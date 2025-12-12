@@ -3,24 +3,28 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Play, CheckCircle2, ChevronRight, ChevronLeft, Layout, 
     Plus, Edit3, Trash2, Save, X, MoreVertical, BookOpen, Clock, 
-    Award, BarChart3, Users, Filter, Search, ArrowLeft, GraduationCap
+    Award, BarChart3, Users, Filter, Search, ArrowLeft, GraduationCap,
+    Download, PieChart, FileCheck, AlertCircle
 } from 'lucide-react';
 import { Employee, AcademyCourse, AcademyProgress, AcademyModule, AcademyLesson, LearningBlock } from '../types';
 import { api } from '../utils/api';
 import AcademySidebar from './AcademySidebar';
 import { Modal } from './Modal';
 import { hasPermission } from '../utils/permissions';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart as RePieChart, Pie, Cell, Legend } from 'recharts';
 
 interface AcademyPageProps {
     currentUser: Employee;
+    employees: Employee[];
     onShowToast: (message: string) => void;
     onExit: () => void;
 }
 
-const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onExit }) => {
-    const [view, setView] = useState<'dashboard' | 'catalog' | 'player' | 'builder' | 'certificates'>('dashboard');
+const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onShowToast, onExit }) => {
+    const [view, setView] = useState<'dashboard' | 'catalog' | 'player' | 'builder' | 'certificates' | 'manage-courses' | 'manage-students' | 'manage-analytics'>('dashboard');
     const [courses, setCourses] = useState<AcademyCourse[]>([]);
     const [userProgress, setUserProgress] = useState<AcademyProgress[]>([]);
+    const [allProgress, setAllProgress] = useState<AcademyProgress[]>([]);
     
     // Player State
     const [activeCourse, setActiveCourse] = useState<AcademyCourse | null>(null);
@@ -42,11 +46,13 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
 
     const loadData = async () => {
         const c = await api.getAcademyCourses();
-        const p = await api.getAcademyProgress(); // In real app, filter by currentUser inside API or here
-        // Filtering progress for current user
-        const myProgress = p.filter(prog => prog.employeeId === currentUser.id);
+        const p = await api.getAcademyProgress(); 
         
         setCourses(c);
+        setAllProgress(p); // Store all for admin views
+        
+        // Filtering progress for current user only for dashboard/player
+        const myProgress = p.filter(prog => prog.employeeId === currentUser.id);
         setUserProgress(myProgress);
     };
 
@@ -152,8 +158,12 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
 
         await api.saveAcademyProgress(progress);
         
-        // Update local state: Ensure we remove ANY old entry for this course before adding the updated one
-        setUserProgress(prev => [...prev.filter(p => p.courseId !== progress.courseId), progress]);
+        // Update local state
+        const updatedUserProgress = [...userProgress.filter(p => p.courseId !== progress.courseId), progress];
+        setUserProgress(updatedUserProgress);
+        
+        // Also update global progress for immediate admin view reflection
+        setAllProgress(prev => [...prev.filter(p => p.id !== progress.id), progress]);
         
         onShowToast(`Gefeliciteerd! Je hebt ${activeCourse.title} afgerond.`);
         setView('dashboard');
@@ -184,12 +194,27 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         setView('builder');
     };
 
+    const handleDeleteCourse = async (id: string) => {
+        if(confirm("Weet je zeker dat je deze cursus wilt verwijderen?")) {
+            await api.deleteAcademyCourse(id);
+            setCourses(prev => prev.filter(c => c.id !== id));
+            onShowToast("Cursus verwijderd.");
+        }
+    };
+
+    const handleTogglePublish = async (course: AcademyCourse) => {
+        const updated = { ...course, isPublished: !course.isPublished };
+        await api.saveAcademyCourse(updated);
+        setCourses(prev => prev.map(c => c.id === course.id ? updated : c));
+        onShowToast(updated.isPublished ? "Cursus gepubliceerd." : "Cursus offline gehaald.");
+    };
+
     const handleSaveCourse = async () => {
         if (editingCourse) {
             await api.saveAcademyCourse(editingCourse);
             await loadData();
             onShowToast("Cursus opgeslagen.");
-            setView('dashboard'); // Or back to manage list
+            setView('manage-courses'); // Back to manage list
         }
     };
 
@@ -231,7 +256,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         <div className="p-8">
             <h2 className="text-2xl font-bold text-slate-900 mb-6">Mijn Dashboard</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {courses.map(course => {
+                {courses.filter(c => c.isPublished || isManager).map(course => {
                     const prog = userProgress.find(p => p.courseId === course.id);
                     return (
                         <div key={course.id} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col overflow-hidden">
@@ -247,6 +272,11 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                 {prog?.status === 'Completed' && (
                                     <div className="absolute top-3 right-3 bg-green-500 text-white rounded-full p-1 shadow-md">
                                         <CheckCircle2 size={16} />
+                                    </div>
+                                )}
+                                {!course.isPublished && (
+                                    <div className="absolute top-3 left-3 bg-amber-500 text-white px-2 py-1 rounded text-xs font-bold shadow-md">
+                                        Draft
                                     </div>
                                 )}
                             </div>
@@ -290,36 +320,12 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                     );
                 })}
             </div>
-            
-            {isManager && (
-                <div className="mt-12 pt-8 border-t border-slate-200">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-xl font-bold text-slate-900">Beheer Cursussen</h2>
-                        <button onClick={handleCreateCourse} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg font-bold text-sm hover:bg-slate-800">
-                            <Plus size={16} /> Nieuwe Cursus
-                        </button>
-                    </div>
-                    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-                        {courses.map(course => (
-                            <div key={course.id} className="p-4 border-b border-slate-100 last:border-0 flex items-center justify-between hover:bg-slate-50">
-                                <div>
-                                    <div className="font-bold text-slate-900">{course.title}</div>
-                                    <div className="text-xs text-slate-500">{course.category} • {course.modules.length} modules</div>
-                                </div>
-                                <button onClick={() => handleEditCourse(course)} className="p-2 text-slate-400 hover:text-indigo-600">
-                                    <Edit3 size={18} />
-                                </button>
-                            </div>
-                        ))}
-                        {courses.length === 0 && <div className="p-8 text-center text-slate-400 italic">Geen cursussen beschikbaar.</div>}
-                    </div>
-                </div>
-            )}
         </div>
     );
 
     const renderCatalog = () => {
         const filteredCourses = courses.filter(c => {
+            if (!c.isPublished && !isManager) return false;
             const matchSearch = c.title.toLowerCase().includes(catalogSearch.toLowerCase()) || 
                                 c.description.toLowerCase().includes(catalogSearch.toLowerCase());
             const matchCat = catalogCategory === 'All' || c.category === catalogCategory;
@@ -382,6 +388,11 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                     <div className="absolute bottom-4 left-4 text-white">
                                         <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 backdrop-blur-md px-2 py-1 rounded">{course.level}</span>
                                     </div>
+                                    {!course.isPublished && (
+                                        <div className="absolute top-3 left-3 bg-amber-500 text-white px-2 py-1 rounded text-xs font-bold shadow-md">
+                                            Draft
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="p-6 flex-1 flex flex-col">
@@ -512,7 +523,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         return (
             <div className="h-full flex flex-col">
                 <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0">
-                    <button onClick={() => setView('dashboard')} className="text-slate-500 hover:text-slate-800 font-bold text-sm">Annuleren</button>
+                    <button onClick={() => setView('manage-courses')} className="text-slate-500 hover:text-slate-800 font-bold text-sm">Annuleren</button>
                     <h2 className="font-bold text-slate-900">Cursus Bewerken</h2>
                     <button onClick={handleSaveCourse} className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 flex items-center gap-2">
                         <Save size={16}/> Opslaan
@@ -615,6 +626,269 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
         );
     };
 
+    const renderManageCourses = () => {
+        return (
+            <div className="p-8 max-w-7xl mx-auto">
+                <div className="flex justify-between items-center mb-8">
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-900">Beheer Cursussen</h2>
+                        <p className="text-slate-500">Overzicht van alle beschikbare trainingen.</p>
+                    </div>
+                    <button onClick={handleCreateCourse} className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 shadow-lg">
+                        <Plus size={18} /> Nieuwe Cursus
+                    </button>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <table className="w-full text-left">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            <tr>
+                                <th className="px-6 py-4">Cursus</th>
+                                <th className="px-6 py-4">Categorie</th>
+                                <th className="px-6 py-4">Niveau</th>
+                                <th className="px-6 py-4">Modules</th>
+                                <th className="px-6 py-4">Status</th>
+                                <th className="px-6 py-4 text-right">Acties</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {courses.map(course => (
+                                <tr key={course.id} className="hover:bg-slate-50">
+                                    <td className="px-6 py-4 font-bold text-slate-900">{course.title}</td>
+                                    <td className="px-6 py-4 text-sm text-slate-600">
+                                        <span className="bg-slate-100 px-2 py-1 rounded text-xs font-bold uppercase tracking-wide">{course.category}</span>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-slate-600">{course.level}</td>
+                                    <td className="px-6 py-4 text-sm text-slate-600">{course.modules.length}</td>
+                                    <td className="px-6 py-4">
+                                        <button 
+                                            onClick={() => handleTogglePublish(course)}
+                                            className={`px-3 py-1 rounded-full text-xs font-bold border transition-colors ${course.isPublished ? 'bg-green-50 text-green-700 border-green-200 hover:bg-green-100' : 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'}`}
+                                        >
+                                            {course.isPublished ? 'Gepubliceerd' : 'Concept'}
+                                        </button>
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        <div className="flex justify-end gap-2">
+                                            <button onClick={() => handleEditCourse(course)} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                                                <Edit3 size={16} />
+                                            </button>
+                                            <button onClick={() => handleDeleteCourse(course.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                                <Trash2 size={16} />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                            {courses.length === 0 && (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic">Geen cursussen gevonden.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
+    const renderManageStudents = () => {
+        return (
+            <div className="p-8 max-w-7xl mx-auto">
+                <div className="mb-8">
+                    <h2 className="text-2xl font-bold text-slate-900">Studenten & Voortgang</h2>
+                    <p className="text-slate-500">Inzicht in wie welke training volgt.</p>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <table className="w-full text-left">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            <tr>
+                                <th className="px-6 py-4">Medewerker</th>
+                                <th className="px-6 py-4">Cursus</th>
+                                <th className="px-6 py-4">Voortgang</th>
+                                <th className="px-6 py-4">Status</th>
+                                <th className="px-6 py-4 text-right">Startdatum</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {allProgress.map(progress => {
+                                const employee = employees.find(e => e.id === progress.employeeId);
+                                const course = courses.find(c => c.id === progress.courseId);
+                                if (!employee || !course) return null;
+
+                                return (
+                                    <tr key={progress.id} className="hover:bg-slate-50">
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <img src={employee.avatar} className="w-8 h-8 rounded-full border border-slate-200" alt="Avatar"/>
+                                                <div>
+                                                    <div className="font-bold text-slate-900 text-sm">{employee.name}</div>
+                                                    <div className="text-xs text-slate-500">{employee.role}</div>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4 text-sm font-medium text-slate-700">{course.title}</td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                    <div className="h-full bg-indigo-500" style={{width: `${progress.progressPercentage}%`}}></div>
+                                                </div>
+                                                <span className="text-xs font-bold text-slate-600">{progress.progressPercentage}%</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2.5 py-1 rounded text-xs font-bold uppercase tracking-wide ${
+                                                progress.status === 'Completed' ? 'bg-green-50 text-green-700' : 
+                                                progress.status === 'In Progress' ? 'bg-blue-50 text-blue-700' : 
+                                                'bg-slate-100 text-slate-500'
+                                            }`}>
+                                                {progress.status === 'In Progress' ? 'Bezig' : 
+                                                 progress.status === 'Completed' ? 'Voltooid' : 'Gestart'}
+                                            </span>
+                                        </td>
+                                        <td className="px-6 py-4 text-right text-sm text-slate-500 font-mono">
+                                            {progress.startDate}
+                                        </td>
+                                    </tr>
+                                );
+                            })}
+                            {allProgress.length === 0 && (
+                                <tr>
+                                    <td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">Geen voortgangsdata beschikbaar.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
+    };
+
+    const renderAnalytics = () => {
+        const totalEnrollments = allProgress.length;
+        const totalCompleted = allProgress.filter(p => p.status === 'Completed').length;
+        const completionRate = totalEnrollments > 0 ? Math.round((totalCompleted / totalEnrollments) * 100) : 0;
+
+        // Data for charts
+        const coursePopularity = courses.map(c => ({
+            name: c.title,
+            students: allProgress.filter(p => p.courseId === c.id).length
+        })).sort((a,b) => b.students - a.students).slice(0, 5);
+
+        const statusData = [
+            { name: 'Voltooid', value: totalCompleted },
+            { name: 'Bezig', value: totalEnrollments - totalCompleted }
+        ];
+        const COLORS = ['#22c55e', '#3b82f6'];
+
+        return (
+            <div className="p-8 max-w-7xl mx-auto">
+                <div className="mb-8">
+                    <h2 className="text-2xl font-bold text-slate-900">Rapportages</h2>
+                    <p className="text-slate-500">Statistieken over leerprestaties.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Totaal Inschrijvingen</div>
+                        <div className="text-3xl font-bold text-slate-900">{totalEnrollments}</div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Voltooide Cursussen</div>
+                        <div className="text-3xl font-bold text-green-600">{totalCompleted}</div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Voltooiingspercentage</div>
+                        <div className="text-3xl font-bold text-indigo-600">{completionRate}%</div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-96">
+                        <h3 className="font-bold text-slate-900 mb-6">Populairste Cursussen</h3>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart layout="vertical" data={coursePopularity} margin={{ left: 40 }}>
+                                <XAxis type="number" hide />
+                                <YAxis dataKey="name" type="category" width={150} tick={{fontSize: 11}} />
+                                <Tooltip cursor={{fill: '#f8fafc'}} />
+                                <Bar dataKey="students" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={20} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-96">
+                        <h3 className="font-bold text-slate-900 mb-6">Status Overzicht</h3>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <RePieChart>
+                                <Pie 
+                                    data={statusData} 
+                                    innerRadius={60} 
+                                    outerRadius={80} 
+                                    paddingAngle={5} 
+                                    dataKey="value"
+                                >
+                                    {statusData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip />
+                                <Legend verticalAlign="bottom" height={36}/>
+                            </RePieChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
+    const renderCertificates = () => {
+        const completed = userProgress.filter(p => p.status === 'Completed');
+
+        return (
+            <div className="p-8 max-w-7xl mx-auto">
+                <div className="mb-8">
+                    <h2 className="text-2xl font-bold text-slate-900">Mijn Certificaten</h2>
+                    <p className="text-slate-500">Bewijzen van deelname voor voltooide trainingen.</p>
+                </div>
+
+                {completed.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {completed.map(prog => {
+                            const course = courses.find(c => c.id === prog.courseId);
+                            if (!course) return null;
+                            return (
+                                <div key={prog.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+                                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                                        <Award size={80} />
+                                    </div>
+                                    <div className="relative z-10">
+                                        <div className="w-12 h-12 bg-green-50 text-green-600 rounded-xl flex items-center justify-center mb-4 border border-green-100">
+                                            <Award size={24} />
+                                        </div>
+                                        <h3 className="font-bold text-slate-900 text-lg leading-tight mb-1">{course.title}</h3>
+                                        <p className="text-sm text-slate-500 mb-6">Behaald op {prog.completedDate}</p>
+                                        
+                                        <button className="w-full py-2.5 border border-slate-200 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center justify-center gap-2">
+                                            <Download size={16}/> Download PDF
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div className="py-20 text-center bg-white rounded-2xl border border-dashed border-slate-200">
+                        <Award size={48} className="mx-auto text-slate-300 mb-4" />
+                        <h3 className="text-lg font-bold text-slate-900">Nog geen certificaten</h3>
+                        <p className="text-slate-500 mt-1">Voltooi een cursus om een certificaat te verdienen.</p>
+                        <button onClick={() => setView('catalog')} className="mt-4 text-indigo-600 font-bold text-sm hover:underline">Naar Catalogus</button>
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     return (
         <div className="flex h-screen bg-slate-50 overflow-hidden">
             <AcademySidebar 
@@ -628,13 +902,10 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                 {view === 'catalog' && renderCatalog()}
                 {view === 'player' && renderPlayer()}
                 {view === 'builder' && renderBuilder()}
-                {/* Fallback for other views */}
-                {(view === 'certificates' || view.startsWith('manage')) && (
-                    <div className="p-10 text-center text-slate-400">
-                        <h2 className="text-xl font-bold mb-2">Work in Progress</h2>
-                        <p>Deze module is nog in ontwikkeling.</p>
-                    </div>
-                )}
+                {view === 'certificates' && renderCertificates()}
+                {view === 'manage-courses' && renderManageCourses()}
+                {view === 'manage-students' && renderManageStudents()}
+                {view === 'manage-analytics' && renderAnalytics()}
             </main>
         </div>
     );
