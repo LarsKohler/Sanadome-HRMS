@@ -107,90 +107,49 @@ export type BlockType =
   | 'text' 
   | 'image'
   | 'video' 
-  | 'audio' 
-  | 'pdf' 
-  | 'embed'
-  // Interaction
-  | 'accordion' 
-  | 'hotspot' 
-  | 'flashcard' 
-  | 'timeline' 
-  | 'tabs' 
-  | 'beforeAfter'
-  // Scenario
-  | 'scenario' 
-  | 'simulation'
-  // Assessment
+  // Assessment & Interactive
   | 'quiz' 
-  | 'ordering' 
-  | 'matching' 
-  | 'fillBlanks' 
-  | 'videoAssignment';
+  | 'hotspot' // Interactieve Afbeelding
+  | 'concept-map' // Concept Kaarten
+  | 'error-hunt' // Fout Zoektocht
+  | 'time-capsule'; // Tijdscapsule
 
 // Base Block Interface
 export interface LearningBlock {
     id: string;
     type: BlockType;
-    content: any; // Flexible JSON structure depending on type
-    settings?: any; // Specific settings like autoplay, passing score etc.
+    content: any; 
+    title?: string;
 }
 
-// Specific Content Structures (for type safety where needed)
-export interface TextBlockContent {
-    html: string;
-    style: 'paragraph' | 'h1' | 'h2' | 'quote' | 'alert' | 'tip';
-    icon?: string; // Icon name from lucide-react (e.g. 'Info', 'AlertTriangle')
-    iconColor?: string; // Tailwind class or hex
-    backgroundColor?: string; // Tailwind class
+// Specific Content Structures
+export interface HotspotItem {
+    id: string;
+    x: number; // percentage left
+    y: number; // percentage top
+    title: string;
+    description: string;
 }
 
-export interface ImageBlockContent {
-    url: string;
-    caption?: string;
-    altText?: string;
+export interface ConceptPair {
+    id: string;
+    term: string; // Left side
+    match: string; // Right side (definition/category)
 }
 
-export interface VideoBlockContent {
-    url: string;
-    source: 'youtube' | 'vimeo' | 'upload';
-    stops?: Array<{ time: number; question: string; }>; // Pause & Ask feature
-}
-
-export interface HotspotBlockContent {
-    imageUrl: string;
-    spots: Array<{ id: string; x: number; y: number; title: string; text: string }>;
-}
-
-export interface FlashcardBlockContent {
-    cards: Array<{ id: string; front: string; back: string }>;
-}
-
-export interface QuizBlockContent {
-    question: string;
-    type: 'single' | 'multiple';
-    options: Array<{ id: string; text: string; isCorrect: boolean }>;
-    feedback?: string;
-}
-
-export interface ScenarioBlockContent {
-    startNodeId: string;
-    nodes: Array<{
-        id: string;
-        text: string; // The situation
-        mediaUrl?: string; // Video/Image for situation
-        options: Array<{
-            text: string;
-            nextNodeId: string; // ID or 'END_SUCCESS' / 'END_FAIL'
-            feedback?: string;
-        }>;
-    }>;
+export interface ErrorItem {
+    id: string;
+    x: number;
+    y: number;
+    description: string; // Why is this an error?
+    solution: string; // What is the correct way?
 }
 
 // Academy Data Structures
 export interface AcademyLesson {
     id: string;
     title: string;
-    blocks: LearningBlock[]; // The new flexible content structure
+    blocks: LearningBlock[]; 
     durationMinutes: number;
 }
 
@@ -213,7 +172,6 @@ export interface AcademyCourse {
     author: string;
     isPublished: boolean;
     xpPoints?: number;
-    estimatedTime?: string;
     prerequisiteCourseIds?: string[];
 }
 
@@ -225,9 +183,10 @@ export interface AcademyProgress {
     progressPercentage: number;
     completedLessonIds: string[];
     quizScores: Record<string, number>; 
+    // New storage for interactive elements
+    timeCapsuleAnswers?: Record<string, { before: string, after?: string }>; // blockId -> answers
     startDate?: string;
     completedDate?: string;
-    lastAccessedAt?: string;
 }
 
 // ... existing types ...

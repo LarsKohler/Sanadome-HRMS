@@ -258,8 +258,8 @@ export const MOCK_BIKE_RESERVATIONS: BikeReservation[] = [
 export const MOCK_ACADEMY_COURSES: AcademyCourse[] = [
     {
         id: 'c1',
-        title: 'Gastvrijheid Basis',
-        description: 'De fundamentele principes van gastvrijheid bij Sanadome. Leer hoe je gasten begroet, helpt en een onvergetelijke ervaring biedt.',
+        title: 'Gastvrijheid Masterclass',
+        description: 'De ultieme gids voor 5-sterren service bij Sanadome. Van lichaamstaal tot conflictbeheersing.',
         category: 'Gastvrijheid',
         coverImage: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=1600&q=80',
         level: 'Beginner',
@@ -267,21 +267,22 @@ export const MOCK_ACADEMY_COURSES: AcademyCourse[] = [
         createdAt: '01-01-2023',
         author: 'Lars Kohler',
         isPublished: true,
-        xpPoints: 150,
+        xpPoints: 500,
         modules: [
             {
                 id: 'm1',
-                title: 'Welkom & Houding',
+                title: 'De Basis van Service',
                 lessons: [
                     {
                         id: 'l1',
-                        title: 'De Eerste Indruk',
+                        title: 'Welkom bij Sanadome',
+                        durationMinutes: 5,
                         blocks: [
                             {
                                 id: 'b1',
                                 type: 'text',
                                 content: {
-                                    html: 'Bij Sanadome geloven we dat een eerste indruk allesbepalend is. Een oprechte glimlach en oogcontact zijn de basis.',
+                                    html: 'Welkom bij de Sanadome Academy. In deze cursus leer je de fijne kneepjes van het vak.',
                                     style: 'paragraph'
                                 }
                             },
@@ -289,58 +290,79 @@ export const MOCK_ACADEMY_COURSES: AcademyCourse[] = [
                                 id: 'b2',
                                 type: 'image',
                                 content: {
-                                    url: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=800&q=80',
-                                    caption: 'Een warme begroeting aan de receptie.'
+                                    url: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1600&q=80',
+                                    caption: 'Onze prachtige entree.'
+                                }
+                            },
+                            {
+                                id: 'b3',
+                                type: 'time-capsule',
+                                content: {
+                                    question: 'Wat hoop je te leren van deze cursus en hoe denk je dit over 3 maanden toe te passen?'
                                 }
                             }
-                        ],
-                        durationMinutes: 5
+                        ]
                     },
                     {
                         id: 'l2',
-                        title: 'Kledij & Uiterlijk',
+                        title: 'Lichaamstaal & Houding',
+                        durationMinutes: 10,
                         blocks: [
                             {
-                                id: 'b3',
+                                id: 'b4',
                                 type: 'video',
                                 content: {
                                     url: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // Placeholder
                                     source: 'youtube'
                                 }
+                            },
+                            {
+                                id: 'b5',
+                                type: 'concept-map',
+                                content: {
+                                    pairs: [
+                                        { id: 'p1', term: 'Open Houding', match: 'Armen langs lichaam, glimlach' },
+                                        { id: 'p2', term: 'Gesloten Houding', match: 'Armen over elkaar, frons' },
+                                        { id: 'p3', term: 'Oogcontact', match: 'Vertrouwen & Aandacht' }
+                                    ]
+                                }
                             }
-                        ],
-                        durationMinutes: 3
+                        ]
                     }
                 ]
             },
             {
                 id: 'm2',
-                title: 'Toetsing',
+                title: 'Kennis Toetsing',
                 lessons: [
                     {
                         id: 'q1',
-                        title: 'Eindtoets Module 1',
+                        title: 'Interactieve Oefeningen',
+                        durationMinutes: 15,
                         blocks: [
                             {
                                 id: 'bq1',
-                                type: 'text',
-                                content: { html: 'Test je kennis over de basisprincipes.', style: 'paragraph' }
+                                type: 'error-hunt',
+                                content: {
+                                    imageUrl: 'https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?auto=format&fit=crop&w=1600&q=80', // payment terminal scene
+                                    errors: [
+                                        { id: 'e1', x: 20, y: 30, description: 'Kassalade staat open', solution: 'Sluit de lade na elke transactie.' },
+                                        { id: 'e2', x: 60, y: 50, description: 'Medewerker kijkt op telefoon', solution: 'Geen telefoons achter de balie.' }
+                                    ]
+                                }
                             },
                             {
                                 id: 'bq2',
-                                type: 'quiz',
+                                type: 'hotspot',
                                 content: {
-                                    question: 'Wat doe je als je een gast tegenkomt in de gang?',
-                                    type: 'single',
-                                    options: [
-                                        { id: 'opt1', text: 'Je kijkt naar de grond', isCorrect: false },
-                                        { id: 'opt2', text: 'Je groet de gast vriendelijk', isCorrect: true },
-                                        { id: 'opt3', text: 'Je pakt je telefoon', isCorrect: false }
+                                    imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1600&q=80',
+                                    spots: [
+                                        { id: 'h1', x: 50, y: 50, title: 'Hoofdingang', description: 'Hier begroet je elke gast.' },
+                                        { id: 'h2', x: 20, y: 80, title: 'Bagagekar', description: 'Voor VIP gasten.' }
                                     ]
                                 }
                             }
-                        ],
-                        durationMinutes: 10
+                        ]
                     }
                 ]
             }
@@ -348,8 +370,8 @@ export const MOCK_ACADEMY_COURSES: AcademyCourse[] = [
     },
     {
         id: 'c2',
-        title: 'Veiligheid & Calamiteiten',
-        description: 'Essentiële veiligheidsprocedures en wat te doen bij brand of ongevallen.',
+        title: 'BHV & Veiligheid',
+        description: 'Procedures bij brand, ontruiming en medische noodgevallen.',
         category: 'Veiligheid',
         coverImage: 'https://images.unsplash.com/photo-1582213782179-e0d53f98f2ca?auto=format&fit=crop&w=1600&q=80',
         level: 'Intermediate',
@@ -367,14 +389,14 @@ export const MOCK_ACADEMY_COURSES: AcademyCourse[] = [
                     {
                         id: 'l1',
                         title: 'Brandmelding',
+                        durationMinutes: 5,
                         blocks: [
                             {
                                 id: 'b_fire_1',
                                 type: 'text',
                                 content: { html: 'Bel direct intern nummer **333** bij brand.', style: 'alert' }
                             }
-                        ],
-                        durationMinutes: 5
+                        ]
                     }
                 ]
             }
@@ -387,11 +409,13 @@ export const MOCK_ACADEMY_PROGRESS: AcademyProgress[] = [
         id: 'p1',
         employeeId: '2', // Janique
         courseId: 'c1',
-        status: 'Completed',
-        progressPercentage: 100,
-        completedLessonIds: ['l1', 'l2', 'q1'],
-        quizScores: { 'q1': 100 },
-        startDate: '01-02-2023',
-        completedDate: '02-02-2023'
+        status: 'In Progress',
+        progressPercentage: 50,
+        completedLessonIds: ['l1'],
+        quizScores: {},
+        timeCapsuleAnswers: {
+            'b3': { before: 'Ik hoop beter te leren omgaan met lastige gasten.' }
+        },
+        startDate: '01-02-2023'
     }
 ];
