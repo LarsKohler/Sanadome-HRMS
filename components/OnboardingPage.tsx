@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, CheckCircle2, User, ChevronDown, MessageSquare, Save, PlayCircle, Eye, EyeOff, Calendar, Clock, Trophy, Check, ArrowRight, Circle, Settings, Plus, Trash2, Edit2, Copy, Archive, XCircle, History, FileText, BarChart3, Quote } from 'lucide-react';
-import { Employee, OnboardingTask, Notification, ViewState, OnboardingWeekData, OnboardingTemplate, OnboardingHistoryEntry } from '../types';
+import { Search, CheckCircle2, User, ChevronDown, MessageSquare, Save, PlayCircle, Eye, EyeOff, Calendar, Clock, Trophy, Check, ArrowRight, Circle, Settings, Plus, Trash2, Edit2, Copy, Archive, XCircle, History, FileText, BarChart3, Quote, ListChecks, X } from 'lucide-react';
+import { Employee, OnboardingTask, Notification, ViewState, OnboardingWeekData, OnboardingTemplate, OnboardingHistoryEntry, SubTask } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
 
@@ -97,6 +97,21 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
   // History Report State
   const [viewingHistoryEntry, setViewingHistoryEntry] = useState<OnboardingHistoryEntry | null>(null);
+
+  // Computed available categories from all templates
+  const availableCategories = useMemo(() => {
+      const cats = new Set<string>();
+      templates.forEach(t => t.tasks.forEach(task => {
+          if (task.category) cats.add(task.category);
+      }));
+      // Add standard ones if missing
+      cats.add('Algemeen');
+      cats.add('IT & Systemen');
+      cats.add('Front Office');
+      cats.add('F&B');
+      cats.add('Cultuur');
+      return Array.from(cats).sort();
+  }, [templates]);
 
   useEffect(() => {
     // Fetch Templates
@@ -199,6 +214,19 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
     }
   };
 
+  const handleToggleSubtask = (taskId: string, subtaskId: string) => {
+      const updatedTasks = (selectedEmployee.onboardingTasks || []).map(t => {
+          if (t.id === taskId && t.subtasks) {
+              const newSubtasks = t.subtasks.map(st => 
+                  st.id === subtaskId ? { ...st, completed: !st.completed } : st
+              );
+              return { ...t, subtasks: newSubtasks };
+          }
+          return t;
+      });
+      onUpdateEmployee({ ...selectedEmployee, onboardingTasks: updatedTasks });
+  };
+
   const handleUpdateTaskNote = (taskId: string, note: string) => {
       const updatedTasks = (selectedEmployee.onboardingTasks || []).map(t => {
         if (t.id === taskId) {
@@ -250,7 +278,8 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
               completed: false,
               completedBy: undefined,
               completedDate: undefined,
-              notes: undefined
+              notes: undefined,
+              subtasks: t.subtasks ? t.subtasks.map(st => ({ ...st, completed: false })) : [] // Reset subtasks
           }));
 
           const updatedEmployee: Employee = {
@@ -349,7 +378,8 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
               category: 'Algemeen',
               title: 'Nieuwe taak',
               description: '',
-              completed: false
+              completed: false,
+              subtasks: []
           };
           setEditingTemplate({
               ...editingTemplate,
@@ -361,6 +391,49 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
   const updateTemplateTask = (taskId: string, field: keyof OnboardingTask, value: any) => {
       if (editingTemplate) {
           const updatedTasks = editingTemplate.tasks.map(t => t.id === taskId ? { ...t, [field]: value } : t);
+          setEditingTemplate({ ...editingTemplate, tasks: updatedTasks });
+      }
+  };
+
+  // Subtask management in Template Editor
+  const addSubtaskToTemplateTask = (taskId: string) => {
+      if (editingTemplate) {
+          const updatedTasks = editingTemplate.tasks.map(t => {
+              if (t.id === taskId) {
+                  const newSubtask: SubTask = {
+                      id: Math.random().toString(36).substr(2, 9),
+                      title: 'Nieuwe stap',
+                      completed: false
+                  };
+                  return { ...t, subtasks: [...(t.subtasks || []), newSubtask] };
+              }
+              return t;
+          });
+          setEditingTemplate({ ...editingTemplate, tasks: updatedTasks });
+      }
+  };
+
+  const removeSubtaskFromTemplateTask = (taskId: string, subtaskId: string) => {
+      if (editingTemplate) {
+          const updatedTasks = editingTemplate.tasks.map(t => {
+              if (t.id === taskId && t.subtasks) {
+                  return { ...t, subtasks: t.subtasks.filter(st => st.id !== subtaskId) };
+              }
+              return t;
+          });
+          setEditingTemplate({ ...editingTemplate, tasks: updatedTasks });
+      }
+  };
+
+  const updateSubtaskTitle = (taskId: string, subtaskId: string, title: string) => {
+      if (editingTemplate) {
+          const updatedTasks = editingTemplate.tasks.map(t => {
+              if (t.id === taskId && t.subtasks) {
+                  const newSubtasks = t.subtasks.map(st => st.id === subtaskId ? { ...st, title } : st);
+                  return { ...t, subtasks: newSubtasks };
+              }
+              return t;
+          });
           setEditingTemplate({ ...editingTemplate, tasks: updatedTasks });
       }
   };
@@ -777,78 +850,101 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                             {/* Tasks List */}
                                             <div className="space-y-3">
                                                 {tasks.map(task => (
-                                                    <div key={task.id} className={`group flex items-start gap-4 p-4 rounded-xl border transition-all duration-200 ${
+                                                    <div key={task.id} className={`group flex flex-col p-4 rounded-xl border transition-all duration-200 ${
                                                         task.score === 100 
                                                         ? 'bg-slate-50 border-slate-100' 
                                                         : 'bg-white border-slate-200 hover:border-teal-200 hover:shadow-sm'
                                                     }`}>
-                                                        <div className="mt-0.5">
-                                                            <CircularScoreSelector 
-                                                                score={task.score || 0} 
-                                                                onChange={(val) => handleScoreChange(task.id, val)} 
-                                                                readOnly={!canEdit}
-                                                            />
-                                                        </div>
-                                                        <div className="flex-1 min-w-0">
-                                                            <div className="flex justify-between items-start">
-                                                                <div>
-                                                                    <div className="flex items-center gap-2 mb-1">
-                                                                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase tracking-wider">{task.category}</span>
-                                                                        {task.completedBy && (
-                                                                            <span className="text-[10px] text-slate-400 font-medium">via {task.completedBy}</span>
+                                                        <div className="flex items-start gap-4">
+                                                            <div className="mt-0.5">
+                                                                <CircularScoreSelector 
+                                                                    score={task.score || 0} 
+                                                                    onChange={(val) => handleScoreChange(task.id, val)} 
+                                                                    readOnly={!canEdit}
+                                                                />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex justify-between items-start">
+                                                                    <div>
+                                                                        <div className="flex items-center gap-2 mb-1">
+                                                                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase tracking-wider">{task.category}</span>
+                                                                            {task.completedBy && (
+                                                                                <span className="text-[10px] text-slate-400 font-medium">via {task.completedBy}</span>
+                                                                            )}
+                                                                        </div>
+                                                                        <h4 className={`font-bold text-sm ${task.score === 100 ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
+                                                                            {task.title}
+                                                                        </h4>
+                                                                        <p className="text-xs text-slate-500 mt-1 line-clamp-2">{task.description}</p>
+                                                                    </div>
+
+                                                                    <div className="flex items-center gap-2">
+                                                                        {(canEdit || (task.notes && task.notesVisibleToEmployee)) && (
+                                                                            <button 
+                                                                                onClick={() => setOpenTaskNoteId(openTaskNoteId === task.id ? null : task.id)}
+                                                                                className={`p-2 rounded-lg hover:bg-slate-100 transition-colors ${
+                                                                                    task.notes ? 'text-teal-600 bg-teal-50' : 'text-slate-300 hover:text-slate-600 opacity-0 group-hover:opacity-100'
+                                                                                }`}
+                                                                            >
+                                                                                <MessageSquare size={16} />
+                                                                            </button>
                                                                         )}
                                                                     </div>
-                                                                    <h4 className={`font-bold text-sm ${task.score === 100 ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
-                                                                        {task.title}
-                                                                    </h4>
-                                                                    <p className="text-xs text-slate-500 mt-1 line-clamp-2">{task.description}</p>
                                                                 </div>
 
-                                                                <div className="flex items-center gap-2">
-                                                                    {(canEdit || (task.notes && task.notesVisibleToEmployee)) && (
-                                                                        <button 
-                                                                            onClick={() => setOpenTaskNoteId(openTaskNoteId === task.id ? null : task.id)}
-                                                                            className={`p-2 rounded-lg hover:bg-slate-100 transition-colors ${
-                                                                                task.notes ? 'text-teal-600 bg-teal-50' : 'text-slate-300 hover:text-slate-600 opacity-0 group-hover:opacity-100'
-                                                                            }`}
-                                                                        >
-                                                                            <MessageSquare size={16} />
-                                                                        </button>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-
-                                                            {/* Task Note / Feedback Area */}
-                                                            {(openTaskNoteId === task.id || (task.notes && task.notesVisibleToEmployee && !isManager)) && (
-                                                                <div className={`mt-3 pt-3 border-t border-dashed border-slate-200 animate-in slide-in-from-top-1 ${!openTaskNoteId && !task.notes ? 'hidden' : ''}`}>
-                                                                    {canEdit ? (
-                                                                        <div className="bg-amber-50 p-3 rounded-lg border border-amber-100">
-                                                                            <div className="flex justify-between items-center mb-2">
-                                                                                <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wide flex items-center gap-1"><MessageSquare size={10}/> Feedback</span>
+                                                                {/* SUBTASKS DISPLAY */}
+                                                                {task.subtasks && task.subtasks.length > 0 && (
+                                                                    <div className="mt-3 pl-1 border-l-2 border-slate-100 space-y-1">
+                                                                        {task.subtasks.map(subtask => (
+                                                                            <div key={subtask.id} className="flex items-center gap-2 py-1 group/subtask">
                                                                                 <button 
-                                                                                    onClick={() => handleToggleNoteVisibility(task.id)}
-                                                                                    className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 px-2 py-0.5 rounded border transition-colors ${task.notesVisibleToEmployee ? 'bg-green-50 text-green-700 border-green-200' : 'bg-white text-slate-400 border-slate-200'}`}
+                                                                                    onClick={() => handleToggleSubtask(task.id, subtask.id)}
+                                                                                    className={`w-4 h-4 rounded border flex items-center justify-center transition-colors ${
+                                                                                        subtask.completed ? 'bg-teal-500 border-teal-500 text-white' : 'bg-white border-slate-300 text-transparent hover:border-teal-400'
+                                                                                    }`}
                                                                                 >
-                                                                                    {task.notesVisibleToEmployee ? <Eye size={10}/> : <EyeOff size={10}/>}
-                                                                                    {task.notesVisibleToEmployee ? 'Openbaar' : 'Privé'}
+                                                                                    <Check size={10} strokeWidth={4} />
                                                                                 </button>
+                                                                                <span className={`text-xs ${subtask.completed ? 'text-slate-400 line-through' : 'text-slate-600'}`}>
+                                                                                    {subtask.title}
+                                                                                </span>
                                                                             </div>
-                                                                            <textarea 
-                                                                                className="w-full bg-white border border-amber-200 rounded-lg p-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-400"
-                                                                                rows={2}
-                                                                                placeholder="Typ feedback..."
-                                                                                value={task.notes || ''}
-                                                                                onChange={(e) => handleUpdateTaskNote(task.id, e.target.value)}
-                                                                            />
-                                                                        </div>
-                                                                    ) : (
-                                                                        <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                                                            <span className="font-bold text-slate-400 block mb-1 text-[10px] uppercase tracking-wider">Notitie van Manager</span>
-                                                                            <p className="text-xs text-slate-700 italic">"{task.notes}"</p>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            )}
+                                                                        ))}
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Task Note / Feedback Area */}
+                                                                {(openTaskNoteId === task.id || (task.notes && task.notesVisibleToEmployee && !isManager)) && (
+                                                                    <div className={`mt-3 pt-3 border-t border-dashed border-slate-200 animate-in slide-in-from-top-1 ${!openTaskNoteId && !task.notes ? 'hidden' : ''}`}>
+                                                                        {canEdit ? (
+                                                                            <div className="bg-amber-50 p-3 rounded-lg border border-amber-100">
+                                                                                <div className="flex justify-between items-center mb-2">
+                                                                                    <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wide flex items-center gap-1"><MessageSquare size={10}/> Feedback</span>
+                                                                                    <button 
+                                                                                        onClick={() => handleToggleNoteVisibility(task.id)}
+                                                                                        className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 px-2 py-0.5 rounded border transition-colors ${task.notesVisibleToEmployee ? 'bg-green-50 text-green-700 border-green-200' : 'bg-white text-slate-400 border-slate-200'}`}
+                                                                                    >
+                                                                                        {task.notesVisibleToEmployee ? <Eye size={10}/> : <EyeOff size={10}/>}
+                                                                                        {task.notesVisibleToEmployee ? 'Openbaar' : 'Privé'}
+                                                                                    </button>
+                                                                                </div>
+                                                                                <textarea 
+                                                                                    className="w-full bg-white border border-amber-200 rounded-lg p-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                                                                    rows={2}
+                                                                                    placeholder="Typ feedback..."
+                                                                                    value={task.notes || ''}
+                                                                                    onChange={(e) => handleUpdateTaskNote(task.id, e.target.value)}
+                                                                                />
+                                                                            </div>
+                                                                        ) : (
+                                                                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                                                                <span className="font-bold text-slate-400 block mb-1 text-[10px] uppercase tracking-wider">Notitie van Manager</span>
+                                                                                <p className="text-xs text-slate-700 italic">"{task.notes}"</p>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 ))}
@@ -958,15 +1054,54 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                                   <input 
                                                     className="text-xs bg-slate-50 border-none rounded px-2 py-1 w-1/3 text-slate-600"
                                                     placeholder="Categorie"
+                                                    list="category-suggestions" 
                                                     value={task.category}
                                                     onChange={(e) => updateTemplateTask(task.id, 'category', e.target.value)}
                                                   />
+                                                  {/* Category Autocomplete Datalist */}
+                                                  <datalist id="category-suggestions">
+                                                      {availableCategories.map(cat => (
+                                                          <option key={cat} value={cat} />
+                                                      ))}
+                                                  </datalist>
+
                                                   <input 
                                                     className="text-xs bg-slate-50 border-none rounded px-2 py-1 w-2/3 text-slate-600"
                                                     placeholder="Omschrijving"
                                                     value={task.description}
                                                     onChange={(e) => updateTemplateTask(task.id, 'description', e.target.value)}
                                                   />
+                                              </div>
+
+                                              {/* Subtasks in Template Editor */}
+                                              <div className="mt-2 pl-2 border-l-2 border-slate-100">
+                                                  {task.subtasks && task.subtasks.length > 0 && (
+                                                      <div className="space-y-1 mb-2">
+                                                          {task.subtasks.map(st => (
+                                                              <div key={st.id} className="flex items-center gap-2">
+                                                                  <div className="w-1 h-1 bg-slate-300 rounded-full"></div>
+                                                                  <input 
+                                                                      className="text-xs border-b border-transparent focus:border-slate-300 focus:outline-none w-full bg-transparent text-slate-600"
+                                                                      value={st.title}
+                                                                      onChange={(e) => updateSubtaskTitle(task.id, st.id, e.target.value)}
+                                                                      placeholder="Subtaak titel..."
+                                                                  />
+                                                                  <button 
+                                                                      onClick={() => removeSubtaskFromTemplateTask(task.id, st.id)}
+                                                                      className="text-slate-300 hover:text-red-400"
+                                                                  >
+                                                                      <X size={12}/>
+                                                                  </button>
+                                                              </div>
+                                                          ))}
+                                                      </div>
+                                                  )}
+                                                  <button 
+                                                      onClick={() => addSubtaskToTemplateTask(task.id)}
+                                                      className="text-[10px] text-teal-600 font-bold hover:underline flex items-center gap-1"
+                                                  >
+                                                      <Plus size={10}/> Subtaak
+                                                  </button>
                                               </div>
                                           </div>
                                       ))}

@@ -341,6 +341,13 @@ export interface EmployeeDocument {
   uploadedBy: string;
 }
 
+// NEW SUBTASK INTERFACE
+export interface SubTask {
+    id: string;
+    title: string;
+    completed: boolean;
+}
+
 export interface OnboardingTask {
   id: string;
   week: number;
@@ -353,6 +360,7 @@ export interface OnboardingTask {
   completedDate?: string;
   notes?: string;
   notesVisibleToEmployee?: boolean;
+  subtasks?: SubTask[]; // Added subtasks array
 }
 
 export interface OnboardingWeekData {
