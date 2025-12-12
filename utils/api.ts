@@ -14,6 +14,16 @@ export const GITHUB_CONFIG = {
     ENABLE: true 
 };
 
+// Helper to sanitize applicant data (ensure arrays exist)
+const sanitizeApplicants = (data: any[]): Applicant[] => {
+    return data.map(app => ({
+        ...app,
+        interviews: app.interviews || [],
+        scorecards: app.scorecards || [],
+        timeline: app.timeline || []
+    }));
+};
+
 export const api = {
   // --- GLOBAL SETTINGS (MODULE VISIBILITY) ---
   getGlobalSettings: async (): Promise<GlobalSettings | null> => {
@@ -186,14 +196,14 @@ export const api = {
       if (isLive && supabase) {
           try {
               const { data, error } = await supabase.from('applicants').select('data');
-              if (!error && data && data.length > 0) return data.map((row: any) => row.data);
-              return MOCK_APPLICANTS;
+              if (!error && data && data.length > 0) return sanitizeApplicants(data.map((row: any) => row.data));
+              return sanitizeApplicants(MOCK_APPLICANTS);
           } catch (e) {
-              return MOCK_APPLICANTS;
+              return sanitizeApplicants(MOCK_APPLICANTS);
           }
       }
       const local = localStorage.getItem('hrms_applicants');
-      return local ? JSON.parse(local) : MOCK_APPLICANTS;
+      return sanitizeApplicants(local ? JSON.parse(local) : MOCK_APPLICANTS);
   },
 
   saveApplicant: async (applicant: Applicant) => {

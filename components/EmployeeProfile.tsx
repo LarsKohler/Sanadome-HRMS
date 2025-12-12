@@ -310,8 +310,9 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
           sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
           
           applicants.forEach(app => {
-              app.interviews.forEach(int => {
-                  if (int.interviewers.includes(currentUser.id) && int.status === 'Scheduled') {
+              // Safe access for interviews
+              (app.interviews || []).forEach(int => {
+                  if (int.interviewers && int.interviewers.includes(currentUser.id) && int.status === 'Scheduled') {
                       const intDate = new Date(int.date);
                       if (intDate >= new Date() && intDate <= sevenDaysFromNow) {
                           recruitmentActions.push({

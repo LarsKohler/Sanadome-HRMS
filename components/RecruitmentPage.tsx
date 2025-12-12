@@ -204,9 +204,10 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
             content: `Interview gepland op ${interview.date} om ${interview.time}`
         };
 
+        const currentInterviews = selectedApplicant.interviews || [];
         const updated = {
             ...selectedApplicant,
-            interviews: [...selectedApplicant.interviews, interview],
+            interviews: [...currentInterviews, interview],
             timeline: [event, ...selectedApplicant.timeline]
         };
 
@@ -265,14 +266,16 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
         };
 
         // Mark interview as completed
-        const updatedInterviews = selectedApplicant.interviews.map(i => 
+        const currentInterviews = selectedApplicant.interviews || [];
+        const updatedInterviews = currentInterviews.map(i => 
             i.id === scorecardInterviewId ? { ...i, status: 'Completed' as const } : i
         );
 
+        const currentScorecards = selectedApplicant.scorecards || [];
         const updated = {
             ...selectedApplicant,
             interviews: updatedInterviews,
-            scorecards: [...selectedApplicant.scorecards, scorecard],
+            scorecards: [...currentScorecards, scorecard],
             timeline: [event, ...selectedApplicant.timeline]
         };
 
@@ -305,7 +308,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
     };
 
     const getAverageScore = (app: Applicant) => {
-        if (app.scorecards.length === 0) return 0;
+        if (!app.scorecards || app.scorecards.length === 0) return 0;
         let total = 0;
         let count = 0;
         app.scorecards.forEach(sc => {
@@ -620,7 +623,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                                         {getAverageScore(selectedApplicant)} <Star size={20} className="text-yellow-400 fill-current"/>
                                     </div>
                                     <div className="text-xs text-slate-500 mt-1">
-                                        Op basis van {selectedApplicant.scorecards.length} beoordelingen
+                                        Op basis van {selectedApplicant.scorecards ? selectedApplicant.scorecards.length : 0} beoordelingen
                                     </div>
                                 </div>
                             </div>
@@ -639,13 +642,13 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                                         onClick={() => setActiveDetailTab('interviews')}
                                         className={`px-4 py-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeDetailTab === 'interviews' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500'}`}
                                     >
-                                        Gesprekken <span className="bg-slate-100 px-2 py-0.5 rounded-full text-xs">{selectedApplicant.interviews.length}</span>
+                                        Gesprekken <span className="bg-slate-100 px-2 py-0.5 rounded-full text-xs">{selectedApplicant.interviews ? selectedApplicant.interviews.length : 0}</span>
                                     </button>
                                     <button 
                                         onClick={() => setActiveDetailTab('evaluations')}
                                         className={`px-4 py-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeDetailTab === 'evaluations' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500'}`}
                                     >
-                                        Beoordeling <span className="bg-slate-100 px-2 py-0.5 rounded-full text-xs">{selectedApplicant.scorecards.length}</span>
+                                        Beoordeling <span className="bg-slate-100 px-2 py-0.5 rounded-full text-xs">{selectedApplicant.scorecards ? selectedApplicant.scorecards.length : 0}</span>
                                     </button>
                                 </div>
 
@@ -671,7 +674,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
 
                                             {/* Timeline */}
                                             <div className="relative space-y-6 before:absolute before:inset-0 before:ml-2.5 before:-translate-x-px before:h-full before:w-0.5 before:bg-slate-200">
-                                                {selectedApplicant.timeline.map(event => (
+                                                {(selectedApplicant.timeline || []).map(event => (
                                                     <div key={event.id} className="relative pl-8">
                                                         <div className="absolute left-0 top-1 w-5 h-5 rounded-full bg-white border-4 border-slate-300"></div>
                                                         <div className="flex items-center gap-2 mb-1">
@@ -698,12 +701,12 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                                                 )}
                                             </div>
 
-                                            {selectedApplicant.interviews.length > 0 ? (
+                                            {selectedApplicant.interviews && selectedApplicant.interviews.length > 0 ? (
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                     {selectedApplicant.interviews.map(int => {
                                                         // Check if I am an interviewer and if it's not scored yet
-                                                        const isInterviewer = int.interviewers.includes(currentUser.id) || isAllowedToSchedule;
-                                                        const isScored = selectedApplicant.scorecards.some(sc => sc.interviewId === int.id);
+                                                        const isInterviewer = int.interviewers && int.interviewers.includes(currentUser.id) || isAllowedToSchedule;
+                                                        const isScored = selectedApplicant.scorecards && selectedApplicant.scorecards.some(sc => sc.interviewId === int.id);
                                                         
                                                         return (
                                                             <div key={int.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col h-full">
@@ -723,7 +726,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                                                                 </div>
                                                                 <div className="space-y-2 text-sm text-slate-600 flex-1">
                                                                     <div className="flex items-center gap-2"><MapPin size={14}/> {int.location}</div>
-                                                                    <div className="flex items-center gap-2"><Users size={14}/> {int.interviewers.length} Interviewers</div>
+                                                                    <div className="flex items-center gap-2"><Users size={14}/> {int.interviewers ? int.interviewers.length : 0} Interviewers</div>
                                                                 </div>
                                                                 
                                                                 {!isScored && isInterviewer && (
@@ -754,7 +757,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                                                 {/* Button removed here to enforce linking to interview */}
                                             </div>
 
-                                            {selectedApplicant.scorecards.map(sc => (
+                                            {(selectedApplicant.scorecards || []).map(sc => (
                                                 <div key={sc.id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                                                     <div className="flex justify-between items-start mb-4">
                                                         <div className="flex items-center gap-3">
@@ -791,7 +794,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                                                     )}
                                                 </div>
                                             ))}
-                                            {selectedApplicant.scorecards.length === 0 && (
+                                            {(!selectedApplicant.scorecards || selectedApplicant.scorecards.length === 0) && (
                                                 <div className="text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
                                                     Nog geen beoordelingen. Plan eerst een gesprek in om te kunnen beoordelen.
                                                 </div>
