@@ -415,7 +415,7 @@ export interface Notification {
   id: string;
   recipientId: string;
   senderName: string;
-  type: 'Note' | 'Document' | 'Onboarding' | 'Evaluation' | 'System' | 'Badge';
+  type: 'Note' | 'Document' | 'Onboarding' | 'Evaluation' | 'System' | 'Badge' | 'Recruitment';
   title: string;
   message: string;
   date: string;
@@ -585,6 +585,7 @@ export interface RecruitmentTimelineEvent {
 
 export interface CandidateScorecard {
     id: string;
+    interviewId: string; // Linked to Interview
     interviewer: string;
     date: string;
     skills: { name: string; score: number }[];

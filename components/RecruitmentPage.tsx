@@ -51,6 +51,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
 
     // Scorecard State
     const [isScorecardModalOpen, setIsScorecardModalOpen] = useState(false);
+    const [scorecardInterviewId, setScorecardInterviewId] = useState<string | null>(null); // NEW: To link to interview
     const [newScorecard, setNewScorecard] = useState<Partial<CandidateScorecard>>({
         recommendation: 'Maybe',
         notes: '',
@@ -63,6 +64,9 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
 
     // Note State
     const [newNote, setNewNote] = useState('');
+
+    // Permissions
+    const isAllowedToSchedule = currentUser.role === 'Manager' || currentUser.role === 'Senior Medewerker';
 
     // Initial Load
     useEffect(() => {
@@ -198,17 +202,44 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
         };
 
         await updateApplicant(updated);
+        
+        // Notify Interviewers
+        if (onAddNotification && employees) {
+            interview.interviewers.forEach(interviewerId => {
+                if (interviewerId !== currentUser.id) { // Don't notify self
+                    onAddNotification({
+                        id: crypto.randomUUID(),
+                        recipientId: interviewerId,
+                        senderName: currentUser.name,
+                        type: 'Recruitment',
+                        title: '📅 Sollicitatiegesprek Ingepland',
+                        message: `Je bent ingepland voor een gesprek met ${selectedApplicant.firstName} ${selectedApplicant.lastName} op ${new Date(interview.date).toLocaleDateString()} om ${interview.time}.`,
+                        date: 'Zojuist',
+                        read: false,
+                        targetView: ViewState.RECRUITMENT,
+                        isPinned: true
+                    });
+                }
+            });
+        }
+
         setIsScheduleModalOpen(false);
         setNewInterview({ date: '', time: '', location: 'Sanadome Meeting Room', interviewers: [currentUser.id] });
-        onShowToast("Interview ingepland.");
+        onShowToast("Interview ingepland en uitnodigingen verstuurd.");
+    };
+
+    const openScorecardModal = (interviewId: string) => {
+        setScorecardInterviewId(interviewId);
+        setIsScorecardModalOpen(true);
     };
 
     const handleAddScorecard = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!selectedApplicant) return;
+        if (!selectedApplicant || !scorecardInterviewId) return;
 
         const scorecard: CandidateScorecard = {
             id: Math.random().toString(36).substr(2, 9),
+            interviewId: scorecardInterviewId,
             interviewer: currentUser.name,
             date: new Date().toLocaleDateString('nl-NL'),
             skills: newScorecard.skills || [],
@@ -224,15 +255,22 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
             content: `Beoordeling toegevoegd: ${scorecard.recommendation}`
         };
 
+        // Mark interview as completed
+        const updatedInterviews = selectedApplicant.interviews.map(i => 
+            i.id === scorecardInterviewId ? { ...i, status: 'Completed' as const } : i
+        );
+
         const updated = {
             ...selectedApplicant,
+            interviews: updatedInterviews,
             scorecards: [...selectedApplicant.scorecards, scorecard],
             timeline: [event, ...selectedApplicant.timeline]
         };
 
         await updateApplicant(updated);
         setIsScorecardModalOpen(false);
-        onShowToast("Beoordeling opgeslagen.");
+        setScorecardInterviewId(null);
+        onShowToast("Beoordeling opgeslagen en gesprek afgerond.");
     };
 
     const updateApplicant = async (updated: Applicant) => {
@@ -641,33 +679,52 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                                         <div className="space-y-6">
                                             <div className="flex justify-between items-center">
                                                 <h3 className="font-bold text-slate-900">Geplande Gesprekken</h3>
-                                                <button onClick={() => setIsScheduleModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-slate-800">
-                                                    <Plus size={16}/> Gesprek Inplannen
-                                                </button>
+                                                {isAllowedToSchedule && (
+                                                    <button onClick={() => setIsScheduleModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-slate-800">
+                                                        <Plus size={16}/> Gesprek Inplannen
+                                                    </button>
+                                                )}
                                             </div>
 
                                             {selectedApplicant.interviews.length > 0 ? (
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    {selectedApplicant.interviews.map(int => (
-                                                        <div key={int.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
-                                                            <div className="flex justify-between items-start mb-4">
-                                                                <div className="flex items-center gap-2">
-                                                                    <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center font-bold text-sm">
-                                                                        {new Date(int.date).getDate()}
+                                                    {selectedApplicant.interviews.map(int => {
+                                                        // Check if I am an interviewer and if it's not scored yet
+                                                        const isInterviewer = int.interviewers.includes(currentUser.id) || isAllowedToSchedule;
+                                                        const isScored = selectedApplicant.scorecards.some(sc => sc.interviewId === int.id);
+                                                        
+                                                        return (
+                                                            <div key={int.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col h-full">
+                                                                <div className="flex justify-between items-start mb-4">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center font-bold text-sm">
+                                                                            {new Date(int.date).getDate()}
+                                                                        </div>
+                                                                        <div>
+                                                                            <div className="text-sm font-bold text-slate-900">{new Date(int.date).toLocaleDateString('nl-NL', {month: 'long'})}</div>
+                                                                            <div className="text-xs text-slate-500">{int.time}</div>
+                                                                        </div>
                                                                     </div>
-                                                                    <div>
-                                                                        <div className="text-sm font-bold text-slate-900">{new Date(int.date).toLocaleDateString('nl-NL', {month: 'long'})}</div>
-                                                                        <div className="text-xs text-slate-500">{int.time}</div>
-                                                                    </div>
+                                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide ${int.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                                        {int.status}
+                                                                    </span>
                                                                 </div>
-                                                                <span className="px-2 py-1 bg-slate-100 rounded text-[10px] font-bold uppercase tracking-wide text-slate-500">{int.status}</span>
+                                                                <div className="space-y-2 text-sm text-slate-600 flex-1">
+                                                                    <div className="flex items-center gap-2"><MapPin size={14}/> {int.location}</div>
+                                                                    <div className="flex items-center gap-2"><Users size={14}/> {int.interviewers.length} Interviewers</div>
+                                                                </div>
+                                                                
+                                                                {!isScored && isInterviewer && (
+                                                                    <button 
+                                                                        onClick={() => openScorecardModal(int.id)}
+                                                                        className="mt-4 w-full py-2 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors flex items-center justify-center gap-2"
+                                                                    >
+                                                                        <Star size={14}/> Beoordelen
+                                                                    </button>
+                                                                )}
                                                             </div>
-                                                            <div className="space-y-2 text-sm text-slate-600">
-                                                                <div className="flex items-center gap-2"><MapPin size={14}/> {int.location}</div>
-                                                                <div className="flex items-center gap-2"><Users size={14}/> {int.interviewers.length} Interviewers</div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
+                                                        );
+                                                    })}
                                                 </div>
                                             ) : (
                                                 <div className="text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
@@ -682,9 +739,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                                         <div className="space-y-6">
                                             <div className="flex justify-between items-center">
                                                 <h3 className="font-bold text-slate-900">Scorecards</h3>
-                                                <button onClick={() => setIsScorecardModalOpen(true)} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-sm font-bold shadow-sm hover:bg-slate-800">
-                                                    <Star size={16}/> Beoordeling Toevoegen
-                                                </button>
+                                                {/* Button removed here to enforce linking to interview */}
                                             </div>
 
                                             {selectedApplicant.scorecards.map(sc => (
@@ -724,6 +779,11 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                                                     )}
                                                 </div>
                                             ))}
+                                            {selectedApplicant.scorecards.length === 0 && (
+                                                <div className="text-center py-12 bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
+                                                    Nog geen beoordelingen. Plan eerst een gesprek in om te kunnen beoordelen.
+                                                </div>
+                                            )}
                                         </div>
                                     )}
                                 </div>
@@ -829,7 +889,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                             onChange={(e) => setNewScorecard({...newScorecard, notes: e.target.value})}
                         />
                     </div>
-                    <button type="submit" className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg">Opslaan</button>
+                    <button type="submit" className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg">Opslaan & Gesprek Afronden</button>
                 </form>
             </Modal>
 
