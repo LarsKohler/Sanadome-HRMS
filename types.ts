@@ -400,6 +400,7 @@ export interface Employee {
   
   // Onboarding
   onboardingStatus?: 'Active' | 'Pending' | 'Completed';
+  onboardingWeekCount?: number; // NEW: Dynamic week count for user
   onboardingTasks?: OnboardingTask[];
   onboardingWeeks?: OnboardingWeekData[];
   onboardingWeekTitles?: Record<number, string>; // NEW: Custom titles per week
@@ -456,6 +457,7 @@ export interface OnboardingTemplate {
     title: string;
     description: string;
     role?: string; // Target role
+    weekCount?: number; // NEW: Dynamic week count for template
     tasks: OnboardingTask[];
     weekTitles?: Record<number, string>; // NEW: Custom week titles
     createdAt: string;

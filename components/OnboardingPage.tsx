@@ -18,7 +18,11 @@ const DEFAULT_WEEK_TITLES: Record<number, string> = {
     1: 'Week 1: Introductie & Basis',
     2: 'Week 2: Gastencontact & Check-in',
     3: 'Week 3: Verdieping & Check-out',
-    4: 'Week 4: Zelfstandigheid & Afronding'
+    4: 'Week 4: Zelfstandigheid & Afronding',
+    5: 'Week 5', 
+    6: 'Week 6', 
+    7: 'Week 7', 
+    8: 'Week 8'
 };
 
 const CircularScoreSelector = ({ score, onChange, readOnly }: { score: number, onChange: (newScore: number) => void, readOnly: boolean }) => {
@@ -152,9 +156,17 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
   const tasksByWeek = useMemo(() => {
     const tasks = selectedEmployee.onboardingTasks || [];
-    const grouped: Record<number, OnboardingTask[]> = { 1: [], 2: [], 3: [], 4: [] };
+    const grouped: Record<number, OnboardingTask[]> = {};
+    const weekCount = selectedEmployee.onboardingWeekCount || 4;
+    
+    // Initialize groups based on dynamic week count
+    for(let i=1; i<=weekCount; i++) {
+        grouped[i] = [];
+    }
+    
     tasks.forEach(t => {
-        if (grouped[t.week]) grouped[t.week].push(t);
+        if (!grouped[t.week]) grouped[t.week] = [];
+        grouped[t.week].push(t);
     });
     return grouped;
   }, [selectedEmployee]);
@@ -168,12 +180,13 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
   // Determine current active week based on completion
   const activeWeek = useMemo(() => {
-      for(let w = 1; w <= 4; w++) {
+      const weekCount = selectedEmployee.onboardingWeekCount || 4;
+      for(let w = 1; w <= weekCount; w++) {
           const tasks = tasksByWeek[w] || [];
           if (tasks.some(t => t.score !== 100)) return w;
       }
-      return 4; // All done
-  }, [tasksByWeek]);
+      return weekCount; // All done or last week
+  }, [tasksByWeek, selectedEmployee]);
 
   const handleScoreChange = (taskId: string, score: number) => {
       if (!canEdit) return;
@@ -292,7 +305,8 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
               activeTemplateId: template.id, // This ID is crucial for tracking
               onboardingWeeks: [], // Reset weekly data for new track
               // Copy custom week titles if available, otherwise use defaults
-              onboardingWeekTitles: template.weekTitles || DEFAULT_WEEK_TITLES
+              onboardingWeekTitles: template.weekTitles || DEFAULT_WEEK_TITLES,
+              onboardingWeekCount: template.weekCount || 4 // Copy week count
           };
           
           // Immediately update parent state and persist to database
@@ -367,13 +381,14 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
           description: '',
           tasks: [],
           weekTitles: DEFAULT_WEEK_TITLES, // Init with defaults
-          createdAt: new Date().toLocaleDateString('nl-NL')
+          createdAt: new Date().toLocaleDateString('nl-NL'),
+          weekCount: 4 // Default
       };
       setEditingTemplate(newTemplate);
       setIsEditingTemplate(true);
   };
 
-  const addTaskToTemplate = (week: 1 | 2 | 3 | 4) => {
+  const addTaskToTemplate = (week: number) => {
       if (editingTemplate) {
           const newTask: OnboardingTask = {
               id: Math.random().toString(36).substr(2, 9),
@@ -389,6 +404,45 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
               tasks: [...editingTemplate.tasks, newTask]
           });
       }
+  };
+
+  // --- WEEK MANAGEMENT IN TEMPLATE ---
+  const handleAddWeek = () => {
+      if (!editingTemplate) return;
+      setEditingTemplate({
+          ...editingTemplate,
+          weekCount: (editingTemplate.weekCount || 4) + 1
+      });
+  };
+
+  const handleRemoveWeek = (weekToDelete: number) => {
+      if (!editingTemplate || (editingTemplate.weekCount || 4) <= 1) return;
+
+      // 1. Filter out tasks from deleted week
+      let newTasks = editingTemplate.tasks.filter(t => t.week !== weekToDelete);
+
+      // 2. Shift tasks > weekToDelete down
+      newTasks = newTasks.map(t => t.week > weekToDelete ? { ...t, week: t.week - 1 } : t);
+
+      // 3. Shift Week Titles
+      const newTitles: Record<number, string> = {};
+      const currentTitles = editingTemplate.weekTitles || DEFAULT_WEEK_TITLES;
+      
+      // Copy before
+      for(let i=1; i < weekToDelete; i++) {
+          if(currentTitles[i]) newTitles[i] = currentTitles[i];
+      }
+      // Shift after
+      for(let i=weekToDelete + 1; i <= (editingTemplate.weekCount || 4); i++) {
+          if(currentTitles[i]) newTitles[i-1] = currentTitles[i];
+      }
+
+      setEditingTemplate({
+          ...editingTemplate,
+          tasks: newTasks,
+          weekTitles: newTitles,
+          weekCount: (editingTemplate.weekCount || 4) - 1
+      });
   };
 
   const updateTemplateTask = (taskId: string, field: keyof OnboardingTask, value: any) => {
@@ -754,6 +808,8 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                                          <span>{template.tasks.length} taken</span>
                                                          <span>•</span>
                                                          <span>{template.role || 'Algemeen'}</span>
+                                                         <span>•</span>
+                                                         <span>{template.weekCount || 4} weken</span>
                                                      </div>
                                                  </div>
                                                  <div className="w-10 h-10 rounded-full bg-slate-50 group-hover:bg-teal-50 flex items-center justify-center text-slate-400 group-hover:text-teal-600 transition-colors">
@@ -827,7 +883,8 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                         {/* Connecting Line */}
                         <div className="absolute top-8 bottom-8 left-[19px] w-0.5 bg-slate-100 z-0"></div>
 
-                        {[1, 2, 3, 4].map((week) => {
+                        {Array.from({ length: selectedEmployee.onboardingWeekCount || 4 }).map((_, i) => {
+                            const week = i + 1;
                             const tasks = tasksByWeek[week] || [];
                             const weekData = getWeekData(week);
                             const completedCount = tasks.filter(t => t.score === 100).length;
@@ -837,7 +894,7 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                             const isFuture = activeWeek < week;
                             
                             // Use custom title if available, otherwise default
-                            const weekTitle = selectedEmployee.onboardingWeekTitles?.[week] || DEFAULT_WEEK_TITLES[week];
+                            const weekTitle = selectedEmployee.onboardingWeekTitles?.[week] || DEFAULT_WEEK_TITLES[week] || `Week ${week}`;
 
                             return (
                                 <div key={week} className={`relative z-10 mb-12 last:mb-0 ${isFuture ? 'opacity-50 grayscale' : ''}`}>
@@ -1049,13 +1106,14 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   </div>
 
                   <div className="space-y-6">
-                      {[1, 2, 3, 4].map((week) => {
+                      {Array.from({ length: editingTemplate.weekCount || 4 }).map((_, i) => {
+                          const week = i + 1;
                           const weekTasks = editingTemplate.tasks.filter(t => t.week === week);
                           // Default title if none set
-                          const currentTitle = editingTemplate.weekTitles?.[week] || DEFAULT_WEEK_TITLES[week];
+                          const currentTitle = editingTemplate.weekTitles?.[week] || DEFAULT_WEEK_TITLES[week] || `Week ${week}`;
 
                           return (
-                              <div key={week} className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                              <div key={week} className="bg-slate-50 p-4 rounded-xl border border-slate-200 relative group/week">
                                   <div className="flex justify-between items-center mb-3">
                                       <input 
                                         className="font-bold text-slate-900 text-sm bg-transparent border-b border-transparent focus:border-teal-500 focus:outline-none w-3/4"
@@ -1063,7 +1121,14 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                         onChange={(e) => updateTemplateWeekTitle(week, e.target.value)}
                                         placeholder={`Titel voor Week ${week}`}
                                       />
-                                      <button onClick={() => addTaskToTemplate(week as any)} className="text-xs text-teal-600 font-bold hover:underline">+ Taak toevoegen</button>
+                                      <div className="flex gap-2">
+                                          <button onClick={() => addTaskToTemplate(week)} className="text-xs text-teal-600 font-bold hover:underline">+ Taak</button>
+                                          {(editingTemplate.weekCount || 4) > 1 && (
+                                              <button onClick={() => handleRemoveWeek(week)} className="text-slate-300 hover:text-red-500">
+                                                  <Trash2 size={16}/>
+                                              </button>
+                                          )}
+                                      </div>
                                   </div>
                                   <div className="space-y-3">
                                       {weekTasks.map(task => (
@@ -1145,6 +1210,13 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                               </div>
                           );
                       })}
+                      
+                      <button 
+                        onClick={handleAddWeek}
+                        className="w-full py-3 border-2 border-dashed border-slate-300 text-slate-500 rounded-xl font-bold hover:bg-slate-50 hover:text-slate-700 flex items-center justify-center gap-2"
+                      >
+                          <Plus size={18} /> Week Toevoegen
+                      </button>
                   </div>
 
                   <button onClick={handleSaveTemplate} className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold">Opslaan</button>
@@ -1155,7 +1227,7 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                       <div key={t.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
                           <div>
                               <div className="font-bold text-slate-900">{t.title}</div>
-                              <div className="text-xs text-slate-500">{t.tasks.length} taken • {t.role || 'Geen rol'}</div>
+                              <div className="text-xs text-slate-500">{t.tasks.length} taken • {t.weekCount || 4} weken • {t.role || 'Geen rol'}</div>
                           </div>
                           <div className="flex gap-2">
                               <button onClick={() => { setEditingTemplate(t); setIsEditingTemplate(true); }} className="p-2 bg-white border border-slate-200 rounded-lg hover:text-teal-600"><Edit2 size={16}/></button>
