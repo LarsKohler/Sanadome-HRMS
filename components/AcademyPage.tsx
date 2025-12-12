@@ -4,7 +4,8 @@ import {
     Play, CheckCircle2, ChevronRight, ChevronLeft, Layout, 
     Plus, Edit3, Trash2, Save, X, MoreVertical, BookOpen, Clock, 
     Award, BarChart3, Users, Filter, Search, ArrowLeft, GraduationCap,
-    Download, PieChart, FileCheck, AlertCircle
+    Download, PieChart, FileCheck, AlertCircle, Type, Image as ImageIcon,
+    Video, HelpCircle, GripVertical, ArrowUp, ArrowDown, Eye, Layers
 } from 'lucide-react';
 import { Employee, AcademyCourse, AcademyProgress, AcademyModule, AcademyLesson, LearningBlock } from '../types';
 import { api } from '../utils/api';
@@ -33,6 +34,9 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
 
     // Builder State
     const [editingCourse, setEditingCourse] = useState<AcademyCourse | null>(null);
+    const [activeBuilderModuleId, setActiveBuilderModuleId] = useState<string | null>(null);
+    const [activeBuilderLessonId, setActiveBuilderLessonId] = useState<string | null>(null);
+    const [builderPreviewMode, setBuilderPreviewMode] = useState(false);
 
     // Catalog State
     const [catalogSearch, setCatalogSearch] = useState('');
@@ -49,9 +53,8 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
         const p = await api.getAcademyProgress(); 
         
         setCourses(c);
-        setAllProgress(p); // Store all for admin views
+        setAllProgress(p); 
         
-        // Filtering progress for current user only for dashboard/player
         const myProgress = p.filter(prog => prog.employeeId === currentUser.id);
         setUserProgress(myProgress);
     };
@@ -61,10 +64,8 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
     const handleStartCourse = (course: AcademyCourse) => {
         setActiveCourse(course);
         
-        // Find where user left off or start new
         const progress = userProgress.find(p => p.courseId === course.id);
         if (progress && progress.status === 'In Progress') {
-             // Logic to resume would go here, for now start at beginning if no deep linking
              if (course.modules.length > 0 && course.modules[0].lessons.length > 0) {
                  setSelectedModuleId(course.modules[0].id);
                  setSelectedLessonId(course.modules[0].lessons[0].id);
@@ -105,7 +106,6 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
             setSelectedLessonId(nextLessonId);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } else {
-            // End of course
             handleFinishCourse();
         }
     };
@@ -141,28 +141,24 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
     const handleFinishCourse = async () => {
         if(!activeCourse) return;
         
-        // CHECK FOR EXISTING PROGRESS TO REUSE ID (Prevent Duplicates)
         const existingProgress = userProgress.find(p => p.courseId === activeCourse.id && p.employeeId === currentUser.id);
 
         const progress: AcademyProgress = {
-            id: existingProgress ? existingProgress.id : crypto.randomUUID(), // Reuse ID or create new
+            id: existingProgress ? existingProgress.id : crypto.randomUUID(), 
             employeeId: currentUser.id,
             courseId: activeCourse.id,
             status: 'Completed',
             progressPercentage: 100,
-            completedLessonIds: [], // Would track actual IDs in real app
+            completedLessonIds: [], 
             quizScores: {},
-            startDate: existingProgress ? existingProgress.startDate : new Date().toLocaleDateString('nl-NL'), // Keep original start date
+            startDate: existingProgress ? existingProgress.startDate : new Date().toLocaleDateString('nl-NL'),
             completedDate: new Date().toLocaleDateString('nl-NL')
         };
 
         await api.saveAcademyProgress(progress);
         
-        // Update local state
         const updatedUserProgress = [...userProgress.filter(p => p.courseId !== progress.courseId), progress];
         setUserProgress(updatedUserProgress);
-        
-        // Also update global progress for immediate admin view reflection
         setAllProgress(prev => [...prev.filter(p => p.id !== progress.id), progress]);
         
         onShowToast(`Gefeliciteerd! Je hebt ${activeCourse.title} afgerond.`);
@@ -175,7 +171,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
         const newCourse: AcademyCourse = {
             id: crypto.randomUUID(),
             title: 'Nieuwe Cursus',
-            description: '',
+            description: 'Beschrijf hier waar de cursus over gaat...',
             category: 'Algemeen',
             level: 'Beginner',
             modules: [],
@@ -186,11 +182,15 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
             xpPoints: 100
         };
         setEditingCourse(newCourse);
+        setActiveBuilderModuleId(null);
+        setActiveBuilderLessonId(null);
         setView('builder');
     };
 
     const handleEditCourse = (course: AcademyCourse) => {
-        setEditingCourse(course);
+        setEditingCourse(JSON.parse(JSON.stringify(course))); // Deep copy
+        setActiveBuilderModuleId(course.modules.length > 0 ? course.modules[0].id : null);
+        setActiveBuilderLessonId(course.modules.length > 0 && course.modules[0].lessons.length > 0 ? course.modules[0].lessons[0].id : null);
         setView('builder');
     };
 
@@ -214,21 +214,24 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
             await api.saveAcademyCourse(editingCourse);
             await loadData();
             onShowToast("Cursus opgeslagen.");
-            setView('manage-courses'); // Back to manage list
+            setView('manage-courses'); 
         }
     };
+
+    // -- Builder Structure Manipulations --
 
     const addModule = () => {
         if (!editingCourse) return;
         const newModule: AcademyModule = {
             id: crypto.randomUUID(),
-            title: 'Nieuwe Module',
+            title: 'Nieuw Hoofdstuk',
             lessons: []
         };
         setEditingCourse({
             ...editingCourse,
             modules: [...editingCourse.modules, newModule]
         });
+        setActiveBuilderModuleId(newModule.id);
     };
 
     const addLesson = (moduleId: string) => {
@@ -236,13 +239,114 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
         const newLesson: AcademyLesson = {
             id: crypto.randomUUID(),
             title: 'Nieuwe Les',
-            blocks: [{ id: crypto.randomUUID(), type: 'text', content: { html: 'Start hier...', style: 'paragraph' }}],
+            blocks: [],
             durationMinutes: 5
         };
         
         const updatedModules = editingCourse.modules.map(m => {
             if (m.id === moduleId) {
                 return { ...m, lessons: [...m.lessons, newLesson] };
+            }
+            return m;
+        });
+
+        setEditingCourse({ ...editingCourse, modules: updatedModules });
+        setActiveBuilderLessonId(newLesson.id);
+    };
+
+    const addBlock = (type: 'text' | 'image' | 'video' | 'quiz') => {
+        if (!editingCourse || !activeBuilderModuleId || !activeBuilderLessonId) return;
+
+        let content = {};
+        if (type === 'text') content = { html: 'Start hier met typen...', style: 'paragraph' };
+        if (type === 'image') content = { url: 'https://via.placeholder.com/800x400', caption: '' };
+        if (type === 'video') content = { url: '', source: 'youtube' };
+        if (type === 'quiz') content = { question: 'Nieuwe vraag?', type: 'single', options: [{id: '1', text: 'Optie A', isCorrect: true}, {id: '2', text: 'Optie B', isCorrect: false}] };
+
+        const newBlock: LearningBlock = {
+            id: crypto.randomUUID(),
+            type,
+            content
+        };
+
+        const updatedModules = editingCourse.modules.map(m => {
+            if (m.id === activeBuilderModuleId) {
+                const updatedLessons = m.lessons.map(l => {
+                    if (l.id === activeBuilderLessonId) {
+                        return { ...l, blocks: [...l.blocks, newBlock] };
+                    }
+                    return l;
+                });
+                return { ...m, lessons: updatedLessons };
+            }
+            return m;
+        });
+
+        setEditingCourse({ ...editingCourse, modules: updatedModules });
+    };
+
+    const updateBlock = (blockId: string, newContent: any) => {
+        if (!editingCourse || !activeBuilderModuleId || !activeBuilderLessonId) return;
+
+        const updatedModules = editingCourse.modules.map(m => {
+            if (m.id === activeBuilderModuleId) {
+                const updatedLessons = m.lessons.map(l => {
+                    if (l.id === activeBuilderLessonId) {
+                        const updatedBlocks = l.blocks.map(b => 
+                            b.id === blockId ? { ...b, content: { ...b.content, ...newContent } } : b
+                        );
+                        return { ...l, blocks: updatedBlocks };
+                    }
+                    return l;
+                });
+                return { ...m, lessons: updatedLessons };
+            }
+            return m;
+        });
+
+        setEditingCourse({ ...editingCourse, modules: updatedModules });
+    };
+
+    const deleteBlock = (blockId: string) => {
+        if (!editingCourse || !activeBuilderModuleId || !activeBuilderLessonId) return;
+
+        const updatedModules = editingCourse.modules.map(m => {
+            if (m.id === activeBuilderModuleId) {
+                const updatedLessons = m.lessons.map(l => {
+                    if (l.id === activeBuilderLessonId) {
+                        return { ...l, blocks: l.blocks.filter(b => b.id !== blockId) };
+                    }
+                    return l;
+                });
+                return { ...m, lessons: updatedLessons };
+            }
+            return m;
+        });
+
+        setEditingCourse({ ...editingCourse, modules: updatedModules });
+    };
+
+    const moveBlock = (blockId: string, direction: 'up' | 'down') => {
+        if (!editingCourse || !activeBuilderModuleId || !activeBuilderLessonId) return;
+
+        const updatedModules = editingCourse.modules.map(m => {
+            if (m.id === activeBuilderModuleId) {
+                const updatedLessons = m.lessons.map(l => {
+                    if (l.id === activeBuilderLessonId) {
+                        const idx = l.blocks.findIndex(b => b.id === blockId);
+                        if (idx < 0) return l;
+                        if (direction === 'up' && idx === 0) return l;
+                        if (direction === 'down' && idx === l.blocks.length - 1) return l;
+
+                        const newBlocks = [...l.blocks];
+                        const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+                        [newBlocks[idx], newBlocks[swapIdx]] = [newBlocks[swapIdx], newBlocks[idx]];
+                        
+                        return { ...l, blocks: newBlocks };
+                    }
+                    return l;
+                });
+                return { ...m, lessons: updatedLessons };
             }
             return m;
         });
@@ -430,10 +534,59 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
         );
     };
 
+    // --- PLAYER & BLOCK RENDERER ---
+
+    const renderBlock = (block: LearningBlock) => {
+        switch(block.type) {
+            case 'text':
+                return (
+                    <div className={`prose prose-slate max-w-none ${block.content.style === 'h1' ? 'text-2xl font-bold text-slate-900' : 'text-slate-700'}`}>
+                        {block.content.style === 'alert' ? (
+                            <div className="bg-amber-50 border-l-4 border-amber-500 p-4 text-amber-900 rounded-r-lg my-4">
+                                <div dangerouslySetInnerHTML={{ __html: block.content.html }}></div>
+                            </div>
+                        ) : (
+                            <div dangerouslySetInnerHTML={{ __html: block.content.html }}></div>
+                        )}
+                    </div>
+                );
+            case 'image':
+                return (
+                    <div className="my-6">
+                        <img src={block.content.url} alt={block.content.caption} className="rounded-xl shadow-sm w-full object-cover max-h-[500px]" />
+                        {block.content.caption && <p className="text-center text-xs text-slate-500 mt-2">{block.content.caption}</p>}
+                    </div>
+                );
+            case 'video':
+                return (
+                    <div className="aspect-video bg-slate-900 rounded-xl overflow-hidden shadow-lg my-6">
+                        <iframe src={block.content.url} className="w-full h-full" frameBorder="0" allowFullScreen></iframe>
+                    </div>
+                );
+            case 'quiz':
+                return (
+                    <div className="my-8 bg-slate-50 border border-slate-200 rounded-xl p-6">
+                        <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                            <HelpCircle size={20} className="text-indigo-600"/> Quiz: {block.content.question}
+                        </h4>
+                        <div className="space-y-2">
+                            {block.content.options.map((opt: any) => (
+                                <label key={opt.id} className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-indigo-300 transition-colors">
+                                    <input type="radio" name={`quiz-${block.id}`} className="w-4 h-4 text-indigo-600 focus:ring-indigo-500" />
+                                    <span className="text-sm font-medium text-slate-700">{opt.text}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                );
+            default:
+                return null;
+        }
+    };
+
     const renderPlayer = () => {
         if (!activeCourse || !selectedModuleId || !selectedLessonId) return null;
         
-        // Find current lesson
         const module = activeCourse.modules.find(m => m.id === selectedModuleId);
         const lesson = module?.lessons.find(l => l.id === selectedLessonId);
 
@@ -441,7 +594,6 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
 
         return (
             <div className="flex flex-col h-full">
-                {/* Player Header */}
                 <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0">
                     <button onClick={() => setView('dashboard')} className="text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold text-sm">
                         <ArrowLeft size={18} /> Terug naar Dashboard
@@ -482,24 +634,15 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                         <div className="max-w-3xl mx-auto">
                             <h1 className="text-3xl font-bold text-slate-900 mb-6">{lesson.title}</h1>
                             
-                            {/* Render Blocks */}
-                            <div className="space-y-8">
+                            <div className="space-y-4">
                                 {lesson.blocks.map(block => (
                                     <div key={block.id}>
-                                        {block.type === 'text' && (
-                                            <div className="prose prose-slate max-w-none">
-                                                {/* In a real app, use a markdown parser or HTML sanitizer */}
-                                                <div dangerouslySetInnerHTML={{ __html: block.content.html }}></div>
-                                            </div>
-                                        )}
-                                        {block.type === 'video' && (
-                                            <div className="aspect-video bg-slate-900 rounded-xl overflow-hidden shadow-lg">
-                                                <iframe src={block.content.url} className="w-full h-full" frameBorder="0" allowFullScreen></iframe>
-                                            </div>
-                                        )}
-                                        {/* Add other block renderers here */}
+                                        {renderBlock(block)}
                                     </div>
                                 ))}
+                                {lesson.blocks.length === 0 && (
+                                    <p className="text-slate-400 italic">Deze les heeft nog geen inhoud.</p>
+                                )}
                             </div>
 
                             <div className="mt-12 pt-8 border-t border-slate-100 flex justify-between">
@@ -517,110 +660,322 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
         );
     };
 
+    // --- VISUAL BUILDER ---
+
     const renderBuilder = () => {
         if (!editingCourse) return null;
 
+        const activeModule = editingCourse.modules.find(m => m.id === activeBuilderModuleId);
+        const activeLesson = activeModule?.lessons.find(l => l.id === activeBuilderLessonId);
+
         return (
-            <div className="h-full flex flex-col">
-                <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0">
-                    <button onClick={() => setView('manage-courses')} className="text-slate-500 hover:text-slate-800 font-bold text-sm">Annuleren</button>
-                    <h2 className="font-bold text-slate-900">Cursus Bewerken</h2>
-                    <button onClick={handleSaveCourse} className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 flex items-center gap-2">
-                        <Save size={16}/> Opslaan
-                    </button>
+            <div className="h-full flex flex-col bg-slate-50">
+                {/* Header */}
+                <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0 z-20">
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => setView('manage-courses')} className="text-slate-500 hover:text-slate-800 font-bold text-sm flex items-center gap-2">
+                            <ArrowLeft size={16}/> Terug
+                        </button>
+                        <div className="h-6 w-px bg-slate-200"></div>
+                        <input 
+                            className="font-bold text-slate-900 border-none focus:ring-0 text-lg p-0"
+                            value={editingCourse.title}
+                            onChange={(e) => setEditingCourse({...editingCourse, title: e.target.value})}
+                        />
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button 
+                            onClick={() => setBuilderPreviewMode(!builderPreviewMode)}
+                            className={`px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 border transition-all ${builderPreviewMode ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-white text-slate-600 border-slate-200'}`}
+                        >
+                            <Eye size={16}/> {builderPreviewMode ? 'Bewerk Modus' : 'Preview'}
+                        </button>
+                        <button onClick={handleSaveCourse} className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 flex items-center gap-2 shadow-sm">
+                            <Save size={16}/> Opslaan
+                        </button>
+                    </div>
                 </div>
                 
-                <div className="flex-1 overflow-y-auto p-8">
-                    <div className="max-w-4xl mx-auto space-y-8">
-                        {/* Course Info */}
-                        <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Titel</label>
-                                <input 
-                                    type="text" 
-                                    className="w-full p-2 border border-slate-200 rounded-lg font-bold text-lg"
-                                    value={editingCourse.title}
-                                    onChange={e => setEditingCourse({...editingCourse, title: e.target.value})}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Omslagafbeelding URL</label>
-                                <input 
-                                    type="text" 
-                                    className="w-full p-2 border border-slate-200 rounded-lg text-sm"
-                                    placeholder="https://..."
-                                    value={editingCourse.coverImage || ''}
-                                    onChange={e => setEditingCourse({...editingCourse, coverImage: e.target.value})}
-                                />
-                            </div>
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Beschrijving</label>
-                                <textarea 
-                                    className="w-full p-2 border border-slate-200 rounded-lg text-sm"
-                                    value={editingCourse.description}
-                                    onChange={e => setEditingCourse({...editingCourse, description: e.target.value})}
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Categorie</label>
-                                    <input 
-                                        type="text" 
-                                        className="w-full p-2 border border-slate-200 rounded-lg text-sm"
-                                        value={editingCourse.category}
-                                        onChange={e => setEditingCourse({...editingCourse, category: e.target.value})}
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Niveau</label>
-                                    <select 
-                                        className="w-full p-2 border border-slate-200 rounded-lg text-sm"
-                                        value={editingCourse.level}
-                                        onChange={e => setEditingCourse({...editingCourse, level: e.target.value as any})}
-                                    >
-                                        <option value="Beginner">Beginner</option>
-                                        <option value="Intermediate">Intermediate</option>
-                                        <option value="Advanced">Advanced</option>
-                                    </select>
-                                </div>
-                            </div>
+                <div className="flex-1 flex overflow-hidden">
+                    
+                    {/* LEFT: Structure */}
+                    <div className={`w-72 bg-white border-r border-slate-200 flex flex-col ${builderPreviewMode ? 'hidden' : 'flex'}`}>
+                        <div className="p-4 border-b border-slate-100 flex justify-between items-center">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Inhoudsopgave</h3>
+                            <button onClick={addModule} className="p-1 hover:bg-slate-100 rounded text-indigo-600"><Plus size={16}/></button>
                         </div>
-
-                        {/* Modules */}
-                        <div className="space-y-4">
-                            <div className="flex justify-between items-center">
-                                <h3 className="font-bold text-slate-900 text-lg">Modules</h3>
-                                <button onClick={addModule} className="text-sm font-bold text-indigo-600 hover:underline">+ Module Toevoegen</button>
-                            </div>
-                            
+                        <div className="flex-1 overflow-y-auto p-2 space-y-4">
                             {editingCourse.modules.map((mod, mIdx) => (
-                                <div key={mod.id} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-                                    <div className="mb-4">
+                                <div key={mod.id} className="bg-slate-50 rounded-lg border border-slate-200 overflow-hidden">
+                                    <div className="p-3 flex items-center justify-between group">
                                         <input 
-                                            type="text" 
-                                            className="w-full font-bold text-slate-800 border-none p-0 focus:ring-0 text-lg"
+                                            className="bg-transparent font-bold text-sm text-slate-700 w-full focus:outline-none"
                                             value={mod.title}
-                                            onChange={e => {
-                                                const newModules = [...editingCourse.modules];
-                                                newModules[mIdx].title = e.target.value;
-                                                setEditingCourse({...editingCourse, modules: newModules});
+                                            onChange={(e) => {
+                                                const mods = [...editingCourse.modules];
+                                                mods[mIdx].title = e.target.value;
+                                                setEditingCourse({...editingCourse, modules: mods});
                                             }}
                                         />
+                                        <button onClick={() => addLesson(mod.id)} className="opacity-0 group-hover:opacity-100 p-1 text-slate-400 hover:text-indigo-600"><Plus size={14}/></button>
                                     </div>
-                                    
-                                    <div className="space-y-2 ml-4 border-l-2 border-slate-100 pl-4">
-                                        {mod.lessons.map((les, lIdx) => (
-                                            <div key={les.id} className="flex items-center justify-between p-2 bg-slate-50 rounded-lg border border-slate-100">
-                                                <span className="text-sm font-medium">{les.title}</span>
-                                                <button className="text-xs text-slate-400 hover:text-indigo-600 font-bold">Bewerk Inhoud</button>
+                                    <div className="divide-y divide-slate-100">
+                                        {mod.lessons.map(les => (
+                                            <div 
+                                                key={les.id} 
+                                                onClick={() => { setActiveBuilderModuleId(mod.id); setActiveBuilderLessonId(les.id); }}
+                                                className={`px-4 py-2 text-sm cursor-pointer flex justify-between items-center group ${activeBuilderLessonId === les.id ? 'bg-white text-indigo-600 font-bold border-l-4 border-indigo-600' : 'text-slate-600 hover:bg-white'}`}
+                                            >
+                                                <span className="truncate">{les.title}</span>
+                                                {/* Allow renaming lesson in sidebar? keeping simple for now */}
                                             </div>
                                         ))}
-                                        <button onClick={() => addLesson(mod.id)} className="text-xs font-bold text-indigo-600 mt-2 hover:underline">+ Les Toevoegen</button>
+                                        {mod.lessons.length === 0 && <div className="px-4 py-2 text-xs text-slate-400 italic">Geen lessen</div>}
                                     </div>
                                 </div>
                             ))}
                         </div>
+                        <div className="p-4 border-t border-slate-100">
+                            <div className="text-xs text-slate-400 mb-2">Metadata</div>
+                            <input 
+                                className="w-full text-xs p-2 border rounded mb-2" 
+                                placeholder="Afbeelding URL"
+                                value={editingCourse.coverImage || ''}
+                                onChange={(e) => setEditingCourse({...editingCourse, coverImage: e.target.value})}
+                            />
+                            <select 
+                                className="w-full text-xs p-2 border rounded"
+                                value={editingCourse.category}
+                                onChange={(e) => setEditingCourse({...editingCourse, category: e.target.value})}
+                            >
+                                <option value="Algemeen">Algemeen</option>
+                                <option value="Veiligheid">Veiligheid</option>
+                                <option value="Gastvrijheid">Gastvrijheid</option>
+                                <option value="IT">IT</option>
+                            </select>
+                        </div>
                     </div>
+
+                    {/* CENTER: Canvas */}
+                    <div className="flex-1 overflow-y-auto bg-slate-100 p-8">
+                        <div className="max-w-3xl mx-auto bg-white min-h-[800px] shadow-sm rounded-xl p-8 border border-slate-200">
+                            {activeLesson ? (
+                                <>
+                                    <div className="mb-8 border-b border-slate-100 pb-4">
+                                        <input 
+                                            className="text-3xl font-bold text-slate-900 w-full border-none focus:ring-0 p-0 placeholder:text-slate-300"
+                                            placeholder="Titel van de les"
+                                            value={activeLesson.title}
+                                            onChange={(e) => {
+                                                const mods = [...editingCourse.modules];
+                                                const m = mods.find(x => x.id === activeBuilderModuleId);
+                                                const l = m?.lessons.find(x => x.id === activeBuilderLessonId);
+                                                if(l) l.title = e.target.value;
+                                                setEditingCourse({...editingCourse, modules: mods});
+                                            }}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-6">
+                                        {activeLesson.blocks.map((block, idx) => (
+                                            <div key={block.id} className="relative group border border-transparent hover:border-slate-200 rounded-xl p-2 transition-all">
+                                                {/* Block Controls */}
+                                                {!builderPreviewMode && (
+                                                    <div className="absolute right-2 top-2 flex gap-1 opacity-0 group-hover:opacity-100 bg-white shadow-sm border border-slate-200 rounded-lg p-1 z-10">
+                                                        <button onClick={() => moveBlock(block.id, 'up')} className="p-1 hover:bg-slate-50 text-slate-400 hover:text-slate-700"><ArrowUp size={14}/></button>
+                                                        <button onClick={() => moveBlock(block.id, 'down')} className="p-1 hover:bg-slate-50 text-slate-400 hover:text-slate-700"><ArrowDown size={14}/></button>
+                                                        <div className="w-px bg-slate-200 mx-1"></div>
+                                                        <button onClick={() => deleteBlock(block.id)} className="p-1 hover:bg-red-50 text-slate-400 hover:text-red-600"><Trash2 size={14}/></button>
+                                                    </div>
+                                                )}
+
+                                                {/* Block Editors */}
+                                                {block.type === 'text' && (
+                                                    <div>
+                                                        {builderPreviewMode ? (
+                                                            renderBlock(block)
+                                                        ) : (
+                                                            <div className="p-2">
+                                                                <div className="flex gap-2 mb-2">
+                                                                    <button onClick={() => updateBlock(block.id, { style: 'h1' })} className={`px-2 py-1 text-xs font-bold rounded ${block.content.style === 'h1' ? 'bg-slate-900 text-white' : 'bg-slate-100'}`}>H1</button>
+                                                                    <button onClick={() => updateBlock(block.id, { style: 'paragraph' })} className={`px-2 py-1 text-xs font-bold rounded ${block.content.style === 'paragraph' ? 'bg-slate-900 text-white' : 'bg-slate-100'}`}>P</button>
+                                                                    <button onClick={() => updateBlock(block.id, { style: 'alert' })} className={`px-2 py-1 text-xs font-bold rounded ${block.content.style === 'alert' ? 'bg-amber-500 text-white' : 'bg-slate-100'}`}>Alert</button>
+                                                                </div>
+                                                                <textarea 
+                                                                    className="w-full p-3 border border-slate-200 rounded-lg text-slate-700 focus:ring-2 focus:ring-indigo-500 min-h-[100px]"
+                                                                    value={block.content.html}
+                                                                    onChange={(e) => updateBlock(block.id, { html: e.target.value })}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {block.type === 'image' && (
+                                                    <div>
+                                                        {builderPreviewMode ? (
+                                                            renderBlock(block)
+                                                        ) : (
+                                                            <div className="bg-slate-50 p-4 rounded-xl border border-dashed border-slate-300">
+                                                                <div className="flex gap-4">
+                                                                    {block.content.url && <img src={block.content.url} className="w-24 h-24 object-cover rounded-lg bg-white" />}
+                                                                    <div className="flex-1 space-y-2">
+                                                                        <input 
+                                                                            className="w-full text-sm p-2 border rounded"
+                                                                            placeholder="Afbeelding URL..."
+                                                                            value={block.content.url}
+                                                                            onChange={(e) => updateBlock(block.id, { url: e.target.value })}
+                                                                        />
+                                                                        <input 
+                                                                            className="w-full text-sm p-2 border rounded"
+                                                                            placeholder="Onderschrift..."
+                                                                            value={block.content.caption || ''}
+                                                                            onChange={(e) => updateBlock(block.id, { caption: e.target.value })}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {block.type === 'video' && (
+                                                    <div>
+                                                        {builderPreviewMode ? (
+                                                            renderBlock(block)
+                                                        ) : (
+                                                            <div className="bg-slate-50 p-4 rounded-xl border border-dashed border-slate-300">
+                                                                <div className="flex items-center gap-3 mb-2">
+                                                                    <Video size={20} className="text-slate-400"/>
+                                                                    <span className="text-sm font-bold text-slate-600">Video Embed</span>
+                                                                </div>
+                                                                <input 
+                                                                    className="w-full text-sm p-2 border rounded"
+                                                                    placeholder="Youtube Embed URL..."
+                                                                    value={block.content.url}
+                                                                    onChange={(e) => updateBlock(block.id, { url: e.target.value })}
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+
+                                                {block.type === 'quiz' && (
+                                                    <div>
+                                                        {builderPreviewMode ? (
+                                                            renderBlock(block)
+                                                        ) : (
+                                                            <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                                                                <input 
+                                                                    className="w-full bg-transparent font-bold text-indigo-900 border-none focus:ring-0 p-0 mb-3"
+                                                                    placeholder="Vraag..."
+                                                                    value={block.content.question}
+                                                                    onChange={(e) => updateBlock(block.id, { question: e.target.value })}
+                                                                />
+                                                                <div className="space-y-2">
+                                                                    {block.content.options.map((opt: any, oIdx: number) => (
+                                                                        <div key={opt.id} className="flex gap-2 items-center">
+                                                                            <button 
+                                                                                onClick={() => {
+                                                                                    const newOpts = block.content.options.map((o: any) => ({...o, isCorrect: o.id === opt.id}));
+                                                                                    updateBlock(block.id, { options: newOpts });
+                                                                                }}
+                                                                                className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${opt.isCorrect ? 'border-green-500 bg-green-500 text-white' : 'border-slate-300 bg-white'}`}
+                                                                            >
+                                                                                {opt.isCorrect && <CheckCircle2 size={14}/>}
+                                                                            </button>
+                                                                            <input 
+                                                                                className="flex-1 text-sm p-2 border rounded bg-white"
+                                                                                value={opt.text}
+                                                                                onChange={(e) => {
+                                                                                    const newOpts = [...block.content.options];
+                                                                                    newOpts[oIdx].text = e.target.value;
+                                                                                    updateBlock(block.id, { options: newOpts });
+                                                                                }}
+                                                                            />
+                                                                            <button 
+                                                                                onClick={() => {
+                                                                                    const newOpts = block.content.options.filter((o: any) => o.id !== opt.id);
+                                                                                    updateBlock(block.id, { options: newOpts });
+                                                                                }}
+                                                                                className="text-slate-400 hover:text-red-500"
+                                                                            >
+                                                                                <X size={16}/>
+                                                                            </button>
+                                                                        </div>
+                                                                    ))}
+                                                                    <button 
+                                                                        onClick={() => {
+                                                                            const newOpts = [...block.content.options, { id: crypto.randomUUID(), text: 'Nieuwe Optie', isCorrect: false }];
+                                                                            updateBlock(block.id, { options: newOpts });
+                                                                        }}
+                                                                        className="text-xs font-bold text-indigo-600 hover:underline pl-8"
+                                                                    >
+                                                                        + Optie toevoegen
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {!builderPreviewMode && (
+                                        <div className="mt-8 border-t-2 border-dashed border-slate-200 pt-8 text-center">
+                                            <p className="text-sm text-slate-400 mb-4">Voeg een blok toe aan deze les</p>
+                                            <div className="flex justify-center gap-4">
+                                                <button onClick={() => addBlock('text')} className="flex flex-col items-center gap-2 p-4 rounded-xl hover:bg-slate-50 transition-colors group">
+                                                    <div className="w-12 h-12 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-500 group-hover:border-indigo-500 group-hover:text-indigo-600 shadow-sm">
+                                                        <Type size={20}/>
+                                                    </div>
+                                                    <span className="text-xs font-bold text-slate-600">Tekst</span>
+                                                </button>
+                                                <button onClick={() => addBlock('image')} className="flex flex-col items-center gap-2 p-4 rounded-xl hover:bg-slate-50 transition-colors group">
+                                                    <div className="w-12 h-12 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-500 group-hover:border-indigo-500 group-hover:text-indigo-600 shadow-sm">
+                                                        <ImageIcon size={20}/>
+                                                    </div>
+                                                    <span className="text-xs font-bold text-slate-600">Afbeelding</span>
+                                                </button>
+                                                <button onClick={() => addBlock('video')} className="flex flex-col items-center gap-2 p-4 rounded-xl hover:bg-slate-50 transition-colors group">
+                                                    <div className="w-12 h-12 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-500 group-hover:border-indigo-500 group-hover:text-indigo-600 shadow-sm">
+                                                        <Video size={20}/>
+                                                    </div>
+                                                    <span className="text-xs font-bold text-slate-600">Video</span>
+                                                </button>
+                                                <button onClick={() => addBlock('quiz')} className="flex flex-col items-center gap-2 p-4 rounded-xl hover:bg-slate-50 transition-colors group">
+                                                    <div className="w-12 h-12 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-500 group-hover:border-indigo-500 group-hover:text-indigo-600 shadow-sm">
+                                                        <HelpCircle size={20}/>
+                                                    </div>
+                                                    <span className="text-xs font-bold text-slate-600">Quiz</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <div className="h-full flex flex-col items-center justify-center text-slate-300">
+                                    <Layers size={64} className="mb-4 opacity-20"/>
+                                    <p className="text-lg font-bold">Selecteer een les om te bewerken</p>
+                                    <p className="text-sm">Of maak een nieuwe module/les aan in de zijbalk.</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* RIGHT: Toolbox (Only visible in edit mode) */}
+                    {!builderPreviewMode && (
+                        <div className="w-64 bg-white border-l border-slate-200 p-4 hidden xl:block">
+                            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Tips & Info</h3>
+                            <div className="space-y-4 text-xs text-slate-500 leading-relaxed">
+                                <p>Gebruik <strong>Tekst</strong> blokken voor uitleg en theorie.</p>
+                                <p>Voeg <strong>Afbeeldingen</strong> toe om concepten te visualiseren. Gebruik directe URLs.</p>
+                                <p>Gebruik <strong>Video</strong> voor instructiefilmpjes. YouTube 'Embed' links werken het best.</p>
+                                <p>Eindig een les met een <strong>Quiz</strong> om de kennis te toetsen.</p>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         );
@@ -770,7 +1125,6 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
         const totalCompleted = allProgress.filter(p => p.status === 'Completed').length;
         const completionRate = totalEnrollments > 0 ? Math.round((totalCompleted / totalEnrollments) * 100) : 0;
 
-        // Data for charts
         const coursePopularity = courses.map(c => ({
             name: c.title,
             students: allProgress.filter(p => p.courseId === c.id).length
