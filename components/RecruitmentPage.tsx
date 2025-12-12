@@ -15,6 +15,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGri
 interface RecruitmentPageProps {
     currentUser: Employee;
     employees?: Employee[]; // Needed for scheduling interviews
+    applicants?: Applicant[]; // Receive applicants from App.tsx
     onShowToast: (message: string) => void;
     onHireCandidate: (applicant: Applicant) => void;
     onAddNotification?: (notification: Notification) => void;
@@ -22,7 +23,7 @@ interface RecruitmentPageProps {
 
 const STAGES: ApplicantStage[] = ['New', 'Screening', 'Interview 1', 'Interview 2', 'Offer', 'Hired'];
 
-const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employees, onShowToast, onHireCandidate, onAddNotification }) => {
+const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employees, applicants: propApplicants, onShowToast, onHireCandidate, onAddNotification }) => {
     const [activeView, setActiveView] = useState<'dashboard' | 'pipeline' | 'archive'>('pipeline');
     const [applicants, setApplicants] = useState<Applicant[]>([]);
     const [vacancies] = useState<Vacancy[]>(MOCK_VACANCIES);
@@ -51,7 +52,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
 
     // Scorecard State
     const [isScorecardModalOpen, setIsScorecardModalOpen] = useState(false);
-    const [scorecardInterviewId, setScorecardInterviewId] = useState<string | null>(null); // NEW: To link to interview
+    const [scorecardInterviewId, setScorecardInterviewId] = useState<string | null>(null); // NEW: Link to interview
     const [newScorecard, setNewScorecard] = useState<Partial<CandidateScorecard>>({
         recommendation: 'Maybe',
         notes: '',
@@ -68,10 +69,14 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
     // Permissions
     const isAllowedToSchedule = currentUser.role === 'Manager' || currentUser.role === 'Senior Medewerker';
 
-    // Initial Load
+    // Initial Load & Prop Sync
     useEffect(() => {
-        loadApplicants();
-    }, []);
+        if (propApplicants) {
+            setApplicants(propApplicants);
+        } else {
+            loadApplicants();
+        }
+    }, [propApplicants]);
 
     const loadApplicants = async () => {
         try {
@@ -135,7 +140,11 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
         };
 
         await api.saveApplicant(applicant);
-        setApplicants([...applicants, applicant]);
+        // If not using prop based updates, update local state
+        if (!propApplicants) {
+            setApplicants([...applicants, applicant]);
+        }
+        
         setIsAddModalOpen(false);
         setNewCandidate({ firstName: '', lastName: '', email: '', phone: '', stage: 'New', vacancyId: '' });
         onShowToast("Kandidaat toegevoegd.");
@@ -206,7 +215,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
         // Notify Interviewers
         if (onAddNotification && employees) {
             interview.interviewers.forEach(interviewerId => {
-                if (interviewerId !== currentUser.id) { // Don't notify self
+                if (interviewerId !== currentUser.id) { 
                     onAddNotification({
                         id: crypto.randomUUID(),
                         recipientId: interviewerId,
@@ -275,7 +284,10 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
 
     const updateApplicant = async (updated: Applicant) => {
         await api.saveApplicant(updated);
-        setApplicants(prev => prev.map(a => a.id === updated.id ? updated : a));
+        // If not using props, update local
+        if (!propApplicants) {
+            setApplicants(prev => prev.map(a => a.id === updated.id ? updated : a));
+        }
         setSelectedApplicant(updated);
     };
 

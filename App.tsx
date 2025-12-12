@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Employee, ViewState, Notification, NewsPost, GlobalSettings } from './types';
+import { Employee, ViewState, Notification, NewsPost, GlobalSettings, Applicant } from './types';
 import Sidebar from './components/Sidebar';
 import TopNav from './components/TopNav';
 import EmployeeDirectory from './components/EmployeeDirectory';
@@ -39,6 +39,7 @@ function App() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [newsItems, setNewsItems] = useState<NewsPost[]>([]);
+  const [applicants, setApplicants] = useState<Applicant[]>([]); // GLOBAL STATE
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
   
@@ -55,11 +56,13 @@ function App() {
       const emps = await api.getEmployees();
       const news = await api.getNews();
       const notifs = await api.getNotifications();
-      const settings = await api.getGlobalSettings(); // New
+      const apps = await api.getApplicants(); // Fetch Applicants
+      const settings = await api.getGlobalSettings(); 
       
       setEmployees(emps);
       setNewsItems(news);
       setNotifications(notifs);
+      setApplicants(apps);
       setGlobalSettings(settings);
     };
 
@@ -69,7 +72,8 @@ function App() {
         const unsubscribe = api.subscribe(
             setEmployees,
             setNewsItems,
-            setNotifications
+            setNotifications,
+            setApplicants // Add callback
         );
         return () => { unsubscribe(); };
     }
@@ -216,6 +220,7 @@ function App() {
               return <EmployeeProfile 
                   employee={currentUser!} 
                   currentUser={currentUser!}
+                  applicants={applicants} // Pass applicants
                   onUpdateEmployee={handleUpdateEmployee}
                   onChangeView={setCurrentView}
                   onAddNotification={handleAddNotification}
@@ -238,6 +243,7 @@ function App() {
               return <EmployeeProfile 
                   employee={targetProfile}
                   currentUser={currentUser!}
+                  applicants={applicants} // Pass applicants
                   onUpdateEmployee={handleUpdateEmployee}
                   onChangeView={setCurrentView}
                   onAddNotification={handleAddNotification}
@@ -311,8 +317,10 @@ function App() {
           case ViewState.RECRUITMENT:
               return <RecruitmentPage 
                   currentUser={currentUser!}
-                  employees={employees} // Passed employees here
+                  employees={employees} 
+                  applicants={applicants} // Pass applicants prop
                   onShowToast={handleShowToast}
+                  onAddNotification={handleAddNotification} // Pass notification handler
                   onHireCandidate={async (applicant) => {
                       const newId = crypto.randomUUID();
                       const newEmployee: Employee = {

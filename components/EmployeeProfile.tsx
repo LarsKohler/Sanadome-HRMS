@@ -5,15 +5,15 @@ import {
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy, Lock, Pencil, Medal
+  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy, Lock, Pencil, Medal, Calendar as CalendarIcon
 } from 'lucide-react';
-import { Employee, EmployeeNote, EmployeeDocument, Notification, ViewState, NewsPost, EvaluationCycle, BadgeIconKey, BadgeColor, AssignedBadge, AcademyCourse, AcademyProgress } from '../types';
+import { Employee, EmployeeNote, EmployeeDocument, Notification, ViewState, NewsPost, EvaluationCycle, BadgeIconKey, BadgeColor, AssignedBadge, AcademyCourse, AcademyProgress, Applicant } from '../types';
 import { Modal } from './Modal';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { api } from '../utils/api';
 import { hasPermission } from '../utils/permissions';
 
-// Import shared badge assets logic if available or duplicate locally
+// ... (Existing Constants BADGE_ICONS, BADGE_COLORS) ...
 const BADGE_ICONS: Record<BadgeIconKey, React.ElementType> = {
     'Trophy': Trophy,
     'Star': Star,
@@ -45,6 +45,7 @@ const BADGE_COLORS: Record<BadgeColor, string> = {
 interface EmployeeProfileProps {
   employee: Employee; // The profile being viewed
   currentUser: Employee; // The person viewing the profile
+  applicants?: Applicant[]; // NEW
   onNext: () => void;
   onPrevious: () => void;
   onChangeView: (view: ViewState) => void;
@@ -73,6 +74,7 @@ const isEvaluationUnlockable = (dateStr?: string) => {
 const EmployeeProfile: React.FC<EmployeeProfileProps> = ({ 
   employee, 
   currentUser,
+  applicants,
   onNext, 
   onPrevious,
   onChangeView,
@@ -83,6 +85,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   managers,
   latestNews
 }) => {
+  // ... (Existing State & Effects) ...
   const [activeTab, setActiveTab] = useState('Overzicht');
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   
@@ -135,14 +138,14 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       }
   }, [employee.activeTemplateId, employee.onboardingStatus, employee.onboardingTasks, isOwnProfile, isManager]);
 
-  // Load Combined Badges (Manual + Academy)
+  // Load Combined Badges
   useEffect(() => {
       const fetchBadges = async () => {
           const manualBadges = employee.badges || [];
           let displayBadges: any[] = [];
 
           // 1. Process Manual Badges
-          const badgeDefinitions = await api.getBadges(); // Need definitions for name/icon
+          const badgeDefinitions = await api.getBadges(); 
           
           manualBadges.forEach(b => {
               const def = badgeDefinitions.find(d => d.id === b.badgeId);
@@ -189,7 +192,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   // Fetch Data for Dashboard
   useEffect(() => {
       const loadDashboardData = async () => {
-          // Only load sensitive data if own profile or manager
           if (isOwnProfile && hasPermission(employee, 'MANAGE_DEBTORS')) {
               try {
                   const debtors = await api.getDebtors();
@@ -211,29 +213,21 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   }, [employee, isOwnProfile]);
 
   const tabs = useMemo(() => {
-    // PUBLIC TABS
     const availableTabs = ['Overzicht'];
-
     if (isOwnProfile || isManager) {
-        // PRIVATE / MANAGEMENT TABS
         availableTabs.push('Carrière');
         availableTabs.push('Evaluatie');
-        
         const hasActiveTasks = employee.onboardingTasks && employee.onboardingTasks.length > 0;
         const isStatusActive = employee.onboardingStatus === 'Active';
         const hasActive = isStatusActive && hasActiveTasks;
         const hasHistory = employee.onboardingHistory && employee.onboardingHistory.length > 0;
-
         if (hasActive || hasHistory) {
             availableTabs.push('Onboarding');
         }
-        
         availableTabs.push('Documenten');
     } else {
-        // VISITOR TABS
         availableTabs.push('Contact');
     }
-    
     return availableTabs;
   }, [employee.onboardingStatus, employee.onboardingHistory, employee.onboardingTasks, isOwnProfile, isManager]);
 
@@ -244,21 +238,17 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   }, [tabs, activeTab]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'banner') => {
-    if (!isOwnProfile) return; // Security check
-
+    // ... existing implementation
+    if (!isOwnProfile) return; 
     const file = e.target.files?.[0];
     if (!file) return;
-
     onShowToast(`${type === 'avatar' ? 'Profielfoto' : 'Banner'} uploaden...`);
-
     try {
         const oldUrl = type === 'avatar' ? employee.avatar : employee.banner;
         if (oldUrl && oldUrl.includes('supabase')) {
              await api.deleteFile(oldUrl);
         }
-
         const publicUrl = await api.uploadFile(file);
-        
         if (publicUrl) {
             const updatedEmployee = { ...employee, [type]: publicUrl };
             onUpdateEmployee(updatedEmployee);
@@ -273,6 +263,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   };
 
   const handleAddNote = (e: React.FormEvent) => {
+    // ... existing implementation
     e.preventDefault();
     const newNote: EmployeeNote = {
       id: Math.random().toString(36).substr(2, 9),
@@ -280,7 +271,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       category: noteCategory,
       content: noteContent,
       date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
-      author: currentUser.name, // Author is the one logged in
+      author: currentUser.name, 
       visibleToEmployee: noteVisible,
       impact: noteImpact,
       score: noteImpact === 'Neutral' ? 0 : (noteImpact === 'Negative' ? -Math.abs(noteScore) : Math.abs(noteScore))
@@ -308,15 +299,34 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
 
       // Actions (Only for owner/manager)
       const openOnboardingTasks = employee.onboardingTasks?.filter(t => t.score !== 100) || [];
-      
-      // EXPLICITLY SEPARATE actionable from planned
       const actionableEvaluations = employee.evaluations?.filter(ev => ev.status === 'EmployeeInput' || ev.status === 'ManagerInput') || [];
       const plannedEvaluations = employee.evaluations?.filter(ev => ev.status === 'Planned') || [];
-      
-      // Calculate unlockable planned evaluations (within 2 weeks)
       const unlockablePlanned = plannedEvaluations.filter(ev => isEvaluationUnlockable(ev.plannedDate));
       
-      const totalActions = openOnboardingTasks.length + actionableEvaluations.length + urgentDebtCount + unlockablePlanned.length;
+      // RECRUITMENT ACTIONS (NEW)
+      const recruitmentActions: { applicantName: string, date: string, time: string, id: string }[] = [];
+      if (isOwnProfile && applicants) {
+          const sevenDaysFromNow = new Date();
+          sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+          
+          applicants.forEach(app => {
+              app.interviews.forEach(int => {
+                  if (int.interviewers.includes(currentUser.id) && int.status === 'Scheduled') {
+                      const intDate = new Date(int.date);
+                      if (intDate >= new Date() && intDate <= sevenDaysFromNow) {
+                          recruitmentActions.push({
+                              applicantName: `${app.firstName} ${app.lastName}`,
+                              date: int.date,
+                              time: int.time,
+                              id: app.id // use app id to nav
+                          });
+                      }
+                  }
+              });
+          });
+      }
+
+      const totalActions = openOnboardingTasks.length + actionableEvaluations.length + urgentDebtCount + unlockablePlanned.length + recruitmentActions.length;
 
       return (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -374,6 +384,22 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                               </div>
                               
                               <div className="divide-y divide-slate-50">
+                                  {/* RECRUITMENT ACTIONS */}
+                                  {recruitmentActions.map((action, idx) => (
+                                      <div key={`rec-${idx}`} className="p-4 hover:bg-purple-50/30 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.RECRUITMENT)}>
+                                          <div className="p-2 bg-purple-100 text-purple-600 rounded-lg">
+                                              <User size={18} />
+                                          </div>
+                                          <div className="flex-1">
+                                              <div className="text-sm font-bold text-purple-900">Sollicitatiegesprek: {action.applicantName}</div>
+                                              <div className="text-xs text-purple-700 flex items-center gap-2">
+                                                  <CalendarIcon size={10} /> {new Date(action.date).toLocaleDateString()} om {action.time}
+                                              </div>
+                                          </div>
+                                          <ChevronRight size={16} className="text-slate-300 group-hover:text-purple-600" />
+                                      </div>
+                                  ))}
+
                                   {urgentDebtCount > 0 && (
                                       <div className="p-4 hover:bg-red-50/30 transition-colors flex items-center gap-4 group cursor-pointer" onClick={() => onChangeView(ViewState.DEBT_CONTROL)}>
                                           <div className="p-2 bg-red-100 text-red-600 rounded-lg">
@@ -459,6 +485,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                       )}
 
                       {/* BADGES SECTION */}
+                      {/* ... (Existing Badges Section) ... */}
                       <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
                           <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider flex items-center gap-2">
                               <Trophy size={16} className="text-teal-600"/> Badges & Prestaties
@@ -617,7 +644,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       );
   };
 
-  // ... rest of the component (renderCareerDetails, renderDocumentsContent, etc.) remains unchanged
   const renderCareerDetails = () => {
       const departmentDisplay = employee.departments ? employee.departments.join(', ') : 'Geen afdeling';
 
@@ -716,6 +742,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   );
 
   const renderPerformanceReport = () => {
+     // ... (Existing Performance Report Implementation)
      // Prepare Graph Data
      const evaluations = [...(employee.evaluations || [])].sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
      const chartData = evaluations
@@ -755,13 +782,8 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {(employee.evaluations || []).length > 0 ? (
                     employee.evaluations?.map(ev => {
-                        // Check locked status
                         const isPlanned = ev.status === 'Planned';
-                        // IMPORTANT: Only consider it locked if it is strictly 'Planned' AND date is in future
-                        // If status is 'EmployeeInput', it is UNLOCKED regardless of date
                         const isLocked = isPlanned && !isEvaluationUnlockable(ev.plannedDate);
-                        
-                        // New Logic: If status is EmployeeInput, show distinct actionable state
                         const isActionable = ev.status === 'EmployeeInput' && isOwnProfile;
 
                         return (
@@ -791,7 +813,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                     <div className="flex justify-between items-start mb-4">
                                         {isPlanned ? (
                                             <div className="w-10 h-10 rounded-xl bg-slate-200 text-slate-500 flex items-center justify-center font-bold text-xs shadow-sm">
-                                                <Calendar size={16}/>
+                                                <CalendarIcon size={16}/>
                                             </div>
                                         ) : isActionable ? (
                                             <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-600 flex items-center justify-center font-bold text-xs shadow-sm animate-pulse">
