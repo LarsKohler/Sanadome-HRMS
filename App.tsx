@@ -311,6 +311,7 @@ function App() {
           case ViewState.RECRUITMENT:
               return <RecruitmentPage 
                   currentUser={currentUser!}
+                  employees={employees} // Passed employees here
                   onShowToast={handleShowToast}
                   onHireCandidate={async (applicant) => {
                       const newId = crypto.randomUUID();

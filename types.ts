@@ -598,6 +598,16 @@ export interface CandidateTask {
     completed: boolean;
 }
 
+export interface Interview {
+    id: string;
+    date: string;
+    time: string;
+    interviewers: string[]; // Employee IDs or Names
+    location: string;
+    notes?: string;
+    status: 'Scheduled' | 'Completed' | 'Cancelled';
+}
+
 export interface Applicant {
     id: string;
     vacancyId: string;
@@ -608,24 +618,18 @@ export interface Applicant {
     stage: ApplicantStage;
     appliedDate: string;
     rating?: number; // 1-5 stars
-    matchScore?: number; // AI Score
+    matchScore?: number; // Legacy or manual score
     skills?: string[];
     tags?: string[];
-    notes?: string;
+    notes?: string; // Quick note
     avatar?: string;
     resumeUrl?: string;
+    motivationUrl?: string; // New: Motivation letter
     
-    // AI Analysis
-    aiReasoning?: {
-        pros: string[];
-        cons: string[];
-        summary: string;
-    };
-
     // Extended
     timeline: RecruitmentTimelineEvent[];
     scorecards: CandidateScorecard[];
-    tasks: CandidateTask[];
+    interviews: Interview[]; // New: Scheduled interviews
 }
 
 export interface Vacancy {

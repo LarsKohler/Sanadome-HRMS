@@ -109,11 +109,14 @@ export const MOCK_APPLICANTS: Applicant[] = [
     vacancyId: 'v1',
     stage: 'Interview 1',
     appliedDate: '15-10-2023',
-    matchScore: 85,
+    matchScore: 0,
     skills: ['Horeca', 'Engels', 'Flexibel'],
-    timeline: [],
+    timeline: [
+        { id: 't1', type: 'StatusChange', author: 'System', date: '15-10-2023', content: 'Sollicitatie ontvangen' },
+        { id: 't2', type: 'Note', author: 'Lars Kohler', date: '16-10-2023', content: 'Goede eerste indruk, uitnodigen voor gesprek.' }
+    ],
     scorecards: [],
-    tasks: []
+    interviews: []
   }
 ];
 
