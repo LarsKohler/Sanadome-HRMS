@@ -36,15 +36,13 @@ export type Permission =
   | 'DELETE_EVALUATIONS'
   | 'MANAGE_DEBTORS'
   | 'MANAGE_RECRUITMENT'
-  | 'VIEW_CALENDAR'
-  | 'MANAGE_CASES'
   | 'MANAGE_KNOWLEDGE'
   | 'MANAGE_OPERATIONS'
-  | 'MANAGE_TICKETS'
   | 'MANAGE_RENTALS'
   | 'MANAGE_ACADEMY'
   | 'MANAGE_COMPENSATION'
-  | 'DELETE_COMPENSATION';
+  | 'DELETE_COMPENSATION'
+  | 'MANAGE_TICKETS';
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_REPORTS': 'Rapportages Inzien',
@@ -62,15 +60,13 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'DELETE_EVALUATIONS': 'Evaluaties Verwijderen',
   'MANAGE_DEBTORS': 'Debiteuren Beheren',
   'MANAGE_RECRUITMENT': 'Recruitment Beheren',
-  'VIEW_CALENDAR': 'Kalender Inzien',
-  'MANAGE_CASES': 'Cases Beheren',
   'MANAGE_KNOWLEDGE': 'Kennisbank Beheren',
   'MANAGE_OPERATIONS': 'Operations Beheren',
-  'MANAGE_TICKETS': 'Tickets Beheren',
   'MANAGE_RENTALS': 'Fietsverhuur Beheren',
   'MANAGE_ACADEMY': 'Academy Beheren',
   'MANAGE_COMPENSATION': 'Compensatie Beleid Beheren',
-  'DELETE_COMPENSATION': 'Compensatie Verwijderen'
+  'DELETE_COMPENSATION': 'Compensatie Verwijderen',
+  'MANAGE_TICKETS': 'Tickets & Meldingen Beheren'
 };
 
 // --- GLOBAL SETTINGS & MODULE CONTROL ---
@@ -87,6 +83,36 @@ export interface GlobalSettings {
 }
 
 // ... existing types ...
+
+// --- TICKETS ---
+export type TicketStatus = 'Open' | 'In Progress' | 'Resolved' | 'Closed';
+export type TicketPriority = 'Low' | 'Medium' | 'High';
+export type TicketType = 'Bug' | 'Idea' | 'Fix';
+
+export interface TicketMessage {
+    id: string;
+    senderId: string;
+    senderName: string;
+    content: string;
+    timestamp: string;
+    type: 'internal' | 'public' | 'system';
+    avatar?: string;
+}
+
+export interface Ticket {
+    id: string;
+    title: string;
+    description: string;
+    type: TicketType;
+    priority: TicketPriority;
+    page?: string;
+    status: TicketStatus;
+    submittedBy: string;
+    submittedById: string;
+    submittedAt: string;
+    resolvedAt?: string;
+    messages: TicketMessage[];
+}
 
 // --- COMPENSATION ---
 export type CompensationCategory = 'Kamer' | 'F&B' | 'Wellness' | 'Service' | 'Overig';
@@ -544,36 +570,6 @@ export interface KnowledgeArticle {
     views: number;
     isPinned: boolean;
     reviewDate?: string;
-}
-
-// --- TICKETS ---
-export type TicketStatus = 'Open' | 'In Progress' | 'Resolved' | 'Closed';
-export type TicketPriority = 'Low' | 'Medium' | 'High';
-export type TicketType = 'Bug' | 'Idea' | 'Fix' | 'Other';
-
-export interface TicketMessage {
-    id: string;
-    senderId: string;
-    senderName: string;
-    content: string;
-    timestamp: string;
-    type: 'public' | 'internal' | 'system';
-    avatar?: string;
-}
-
-export interface Ticket {
-    id: string;
-    title: string;
-    description: string;
-    type: TicketType;
-    priority: TicketPriority;
-    status: TicketStatus;
-    page?: string;
-    submittedBy: string;
-    submittedById: string;
-    submittedAt: string;
-    resolvedAt?: string;
-    messages: TicketMessage[];
 }
 
 // --- RECRUITMENT ---

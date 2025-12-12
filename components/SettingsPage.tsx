@@ -20,7 +20,6 @@ const MODULE_NAMES: Record<string, string> = {
     [ViewState.ACADEMY]: 'Academy',
     [ViewState.KNOWLEDGE_BASE]: 'Kennisbank',
     [ViewState.DIRECTORY]: 'Collega\'s',
-    'calendar': 'Kalender', // Special ID
     [ViewState.BIKE_RENTAL]: 'Fietsverhuur',
     [ViewState.COMPENSATION]: 'Compensatie',
     [ViewState.ONBOARDING]: 'Onboarding',
@@ -29,7 +28,6 @@ const MODULE_NAMES: Record<string, string> = {
     [ViewState.DOCUMENTS]: 'Documenten',
     [ViewState.DEBT_CONTROL]: 'Debiteuren',
     [ViewState.LINEN_AUDIT]: 'Linnen Audit',
-    'cases': 'Ticket Systeem', // Special ID
     [ViewState.REPORTS]: 'Rapportages'
 };
 

@@ -44,7 +44,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
         { icon: BookOpen, label: 'Kennisbank', id: ViewState.KNOWLEDGE_BASE },
         { icon: CheckSquare, label: 'Taken', id: 'tasks', badge: 2 },
         { icon: Users, label: 'Collega\'s', id: ViewState.DIRECTORY },
-        { icon: Calendar, label: 'Kalender', id: 'calendar', permission: 'VIEW_CALENDAR' },
       ]
     },
     {
@@ -68,7 +67,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
       items: [
         { icon: Euro, label: 'Debiteuren', id: ViewState.DEBT_CONTROL, permission: 'MANAGE_DEBTORS' },
         { icon: Truck, label: 'Linnen Audit', id: ViewState.LINEN_AUDIT, permission: 'MANAGE_OPERATIONS' },
-        { icon: FileBarChart, label: 'Cases', id: 'cases', permission: 'MANAGE_CASES' },
         { icon: PieChart, label: 'Rapportages', id: ViewState.REPORTS, permission: 'VIEW_REPORTS' },
       ]
     },

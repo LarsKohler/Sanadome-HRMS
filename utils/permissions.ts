@@ -19,15 +19,13 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'DELETE_EVALUATIONS', // Specific
     'MANAGE_DEBTORS',
     'MANAGE_RECRUITMENT',
-    'VIEW_CALENDAR',
-    'MANAGE_CASES',
     'MANAGE_KNOWLEDGE',
     'MANAGE_OPERATIONS',
-    'MANAGE_TICKETS',
     'MANAGE_RENTALS',
     'MANAGE_ACADEMY',
     'MANAGE_COMPENSATION',
-    'DELETE_COMPENSATION' // Specific
+    'DELETE_COMPENSATION', // Specific
+    'MANAGE_TICKETS'
   ],
   'Senior Medewerker': [
     'CREATE_NEWS',
@@ -36,7 +34,6 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'VIEW_REPORTS', 
     'MANAGE_DEBTORS',
     'MANAGE_RECRUITMENT',
-    'VIEW_CALENDAR',
     'MANAGE_OPERATIONS',
     'MANAGE_RENTALS',
     'MANAGE_ACADEMY',
@@ -44,7 +41,6 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     // Seniors do NOT get DELETE permissions by default anymore
   ],
   'Medewerker': [
-    'VIEW_CALENDAR',
     'MANAGE_RENTALS'
   ]
 };

@@ -19,7 +19,6 @@ import LinenAuditPage from './components/LinenAuditPage';
 import KnowledgeBasePage from './components/KnowledgeBasePage';
 import EvaluationsPage from './components/EvaluationsPage';
 import RecruitmentPage from './components/RecruitmentPage';
-import TicketDashboard from './components/TicketDashboard';
 import BikeRentalPage from './components/BikeRentalPage'; 
 import BadgeManager from './components/BadgeManager';
 import AcademyPage from './components/AcademyPage'; 
@@ -342,10 +341,6 @@ function App() {
           case ViewState.COMPENSATION:
               return <CompensationPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           default:
-              // Fallback for ID-based views (Tickets)
-              if (currentView === 'cases') {
-                  return <TicketDashboard onShowToast={handleShowToast} currentUser={currentUser!} onAddNotification={handleAddNotification} onOpenFeedbackModal={() => {}}/>;
-              }
               return <div className="p-10">Pagina niet gevonden of in ontwikkeling.</div>;
       }
   };

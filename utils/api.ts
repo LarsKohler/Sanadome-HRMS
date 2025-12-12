@@ -1,8 +1,8 @@
 
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, Ticket, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings } from '../types';
-import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_TICKETS, MOCK_EVALUATION_TEMPLATES, MOCK_BIKE_SETTINGS, MOCK_BIKE_RESERVATIONS, MOCK_ACADEMY_COURSES, MOCK_ACADEMY_PROGRESS } from './mockData';
+import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, Ticket } from '../types';
+import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_EVALUATION_TEMPLATES, MOCK_BIKE_SETTINGS, MOCK_BIKE_RESERVATIONS, MOCK_ACADEMY_COURSES, MOCK_ACADEMY_PROGRESS, MOCK_TICKETS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
 export const isLive = !!supabase;
@@ -42,6 +42,33 @@ export const api = {
           await supabase.from('global_settings').upsert({ id: 'main', modules: settings.modules, updated_at: new Date().toISOString() });
       } else {
           localStorage.setItem('hrms_global_settings', JSON.stringify(settings));
+      }
+  },
+
+  // --- TICKETS ---
+  getTickets: async (): Promise<Ticket[]> => {
+      if (isLive && supabase) {
+          try {
+              const { data, error } = await supabase.from('tickets').select('data');
+              if (!error && data && data.length > 0) return data.map((row: any) => row.data);
+              return MOCK_TICKETS;
+          } catch (e) {
+              return MOCK_TICKETS;
+          }
+      }
+      const local = localStorage.getItem('hrms_tickets');
+      return local ? JSON.parse(local) : MOCK_TICKETS;
+  },
+
+  saveTicket: async (ticket: Ticket) => {
+      if (isLive && supabase) {
+          await supabase.from('tickets').upsert({ id: ticket.id, data: ticket });
+      } else {
+          const current = await api.getTickets();
+          const index = current.findIndex(t => t.id === ticket.id);
+          if (index >= 0) current[index] = ticket;
+          else current.unshift(ticket);
+          localStorage.setItem('hrms_tickets', JSON.stringify(current));
       }
   },
 
@@ -266,33 +293,6 @@ export const api = {
           if (index >= 0) current[index] = reservation;
           else current.unshift(reservation);
           localStorage.setItem('hrms_bike_reservations', JSON.stringify(current));
-      }
-  },
-
-  // --- TICKETS (NEW) ---
-  getTickets: async (): Promise<Ticket[]> => {
-      if (isLive && supabase) {
-          try {
-              const { data, error } = await supabase.from('tickets').select('data');
-              if (!error && data && data.length > 0) return data.map((row: any) => row.data);
-              return MOCK_TICKETS;
-          } catch (e) {
-              return MOCK_TICKETS;
-          }
-      }
-      const local = localStorage.getItem('hrms_tickets');
-      return local ? JSON.parse(local) : MOCK_TICKETS;
-  },
-
-  saveTicket: async (ticket: Ticket) => {
-      if (isLive && supabase) {
-          await supabase.from('tickets').upsert({ id: ticket.id, data: ticket });
-      } else {
-          const current = await api.getTickets();
-          const index = current.findIndex(t => t.id === ticket.id);
-          if (index >= 0) current[index] = ticket;
-          else current.unshift(ticket);
-          localStorage.setItem('hrms_tickets', JSON.stringify(current));
       }
   },
 
