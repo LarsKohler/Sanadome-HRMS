@@ -4,7 +4,7 @@ import {
     UserPlus, Search, Plus, Calendar, MessageSquare, ChevronRight, BarChart3, 
     LayoutDashboard, Clock, FileText, CheckCircle2, X, MoreHorizontal, 
     Trash2, Check, ArrowRight, Target, Users, Phone, Mail, Linkedin, MapPin, 
-    Download, Split, Archive, Star, PenTool, Upload, ThumbsUp, ThumbsDown
+    Download, Split, Archive, Star, PenTool, Upload, ThumbsUp, ThumbsDown, Ban, AlertCircle
 } from 'lucide-react';
 import { Employee, Applicant, Vacancy, ApplicantStage, RecruitmentTimelineEvent, Notification, ViewState, CandidateScorecard, Interview } from '../types';
 import { MOCK_VACANCIES } from '../utils/mockData';
@@ -62,6 +62,10 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
             { name: 'Communicatie', score: 3 }
         ]
     });
+
+    // Rejection State
+    const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+    const [rejectionReason, setRejectionReason] = useState('');
 
     // Note State
     const [newNote, setNewNote] = useState('');
@@ -238,6 +242,33 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
         onShowToast("Interview ingepland en uitnodigingen verstuurd.");
     };
 
+    const handleCancelInterview = async (interviewId: string) => {
+        if (!selectedApplicant) return;
+
+        if (confirm("Weet je zeker dat je dit gesprek wilt annuleren?")) {
+            const updatedInterviews = selectedApplicant.interviews.map(int => 
+                int.id === interviewId ? { ...int, status: 'Cancelled' as const } : int
+            );
+
+            const event: RecruitmentTimelineEvent = {
+                id: Math.random().toString(36).substr(2, 9),
+                type: 'StatusChange',
+                author: currentUser.name,
+                date: new Date().toLocaleDateString('nl-NL'),
+                content: `Interview geannuleerd.`
+            };
+
+            const updated = {
+                ...selectedApplicant,
+                interviews: updatedInterviews,
+                timeline: [event, ...selectedApplicant.timeline]
+            };
+
+            await updateApplicant(updated);
+            onShowToast("Gesprek geannuleerd.");
+        }
+    };
+
     const openScorecardModal = (interviewId: string) => {
         setScorecardInterviewId(interviewId);
         setIsScorecardModalOpen(true);
@@ -305,6 +336,29 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
 
         const updated = { ...selectedApplicant, stage: newStage };
         await updateApplicant(updated);
+    };
+
+    const handleConfirmRejection = async () => {
+        if (!selectedApplicant || !rejectionReason.trim()) return;
+
+        const event: RecruitmentTimelineEvent = {
+            id: Math.random().toString(36).substr(2, 9),
+            type: 'StatusChange',
+            author: currentUser.name,
+            date: new Date().toLocaleDateString('nl-NL'),
+            content: `Kandidaat afgewezen. Reden: ${rejectionReason}`
+        };
+
+        const updated = {
+            ...selectedApplicant,
+            stage: 'Rejected' as ApplicantStage,
+            timeline: [event, ...selectedApplicant.timeline]
+        };
+
+        await updateApplicant(updated);
+        setIsRejectModalOpen(false);
+        setRejectionReason('');
+        onShowToast("Kandidaat afgewezen en status bijgewerkt.");
     };
 
     const getAverageScore = (app: Applicant) => {
@@ -575,12 +629,21 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
+                                {selectedApplicant.stage !== 'Rejected' && (
+                                    <button 
+                                        onClick={() => setIsRejectModalOpen(true)}
+                                        className="px-4 py-2 border border-red-200 text-red-600 rounded-lg text-sm font-bold hover:bg-red-50 flex items-center gap-2"
+                                    >
+                                        <Ban size={16}/> Afwijzen
+                                    </button>
+                                )}
                                 <select 
                                     value={selectedApplicant.stage}
                                     onChange={(e) => handleStageChange(e.target.value as ApplicantStage)}
                                     className="bg-white border border-slate-200 text-slate-700 text-sm font-bold py-2 px-3 rounded-lg focus:ring-2 focus:ring-teal-500 outline-none"
                                 >
                                     {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                                    <option value="Rejected">Afgewezen</option>
                                 </select>
                                 <button onClick={() => setSelectedApplicant(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400">
                                     <X size={24}/>
@@ -709,7 +772,16 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                                                         const isScored = selectedApplicant.scorecards && selectedApplicant.scorecards.some(sc => sc.interviewId === int.id);
                                                         
                                                         return (
-                                                            <div key={int.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col h-full">
+                                                            <div key={int.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col h-full relative group">
+                                                                {int.status === 'Scheduled' && isAllowedToSchedule && (
+                                                                    <button 
+                                                                        onClick={() => handleCancelInterview(int.id)}
+                                                                        className="absolute top-4 right-4 text-slate-300 hover:text-red-500 p-1 hover:bg-red-50 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                                                                        title="Gesprek annuleren"
+                                                                    >
+                                                                        <X size={16}/>
+                                                                    </button>
+                                                                )}
                                                                 <div className="flex justify-between items-start mb-4">
                                                                     <div className="flex items-center gap-2">
                                                                         <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center font-bold text-sm">
@@ -720,7 +792,11 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                                                                             <div className="text-xs text-slate-500">{int.time}</div>
                                                                         </div>
                                                                     </div>
-                                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide ${int.status === 'Completed' ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide ${
+                                                                        int.status === 'Completed' ? 'bg-green-100 text-green-700' : 
+                                                                        int.status === 'Cancelled' ? 'bg-red-100 text-red-700' :
+                                                                        'bg-slate-100 text-slate-500'
+                                                                    }`}>
                                                                         {int.status}
                                                                     </span>
                                                                 </div>
@@ -729,7 +805,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                                                                     <div className="flex items-center gap-2"><Users size={14}/> {int.interviewers ? int.interviewers.length : 0} Interviewers</div>
                                                                 </div>
                                                                 
-                                                                {!isScored && isInterviewer && (
+                                                                {!isScored && isInterviewer && int.status === 'Scheduled' && (
                                                                     <button 
                                                                         onClick={() => openScorecardModal(int.id)}
                                                                         className="mt-4 w-full py-2 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-lg text-xs font-bold hover:bg-indigo-100 transition-colors flex items-center justify-center gap-2"
@@ -906,6 +982,39 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                     </div>
                     <button type="submit" className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg">Opslaan & Gesprek Afronden</button>
                 </form>
+            </Modal>
+
+            {/* REJECTION REASON MODAL */}
+            <Modal isOpen={isRejectModalOpen} onClose={() => setIsRejectModalOpen(false)} title="Kandidaat Afwijzen">
+                <div className="space-y-4">
+                    <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-start gap-3">
+                        <AlertCircle className="text-red-600 shrink-0 mt-0.5" size={18}/>
+                        <p className="text-sm text-red-800">
+                            Weet je zeker dat je <strong>{selectedApplicant?.firstName} {selectedApplicant?.lastName}</strong> wilt afwijzen? 
+                            Dit beëindigt de sollicitatieprocedure.
+                        </p>
+                    </div>
+                    
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Reden van afwijzing (Intern)</label>
+                        <textarea 
+                            className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none" 
+                            rows={3} 
+                            placeholder="Bijv. Niet genoeg ervaring, past niet in team..."
+                            value={rejectionReason}
+                            onChange={(e) => setRejectionReason(e.target.value)}
+                            autoFocus
+                        />
+                    </div>
+
+                    <button 
+                        onClick={handleConfirmRejection} 
+                        disabled={!rejectionReason.trim()}
+                        className="w-full py-3 bg-red-600 text-white font-bold rounded-xl shadow-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        Bevestigen & Afwijzen
+                    </button>
+                </div>
             </Modal>
 
         </div>
