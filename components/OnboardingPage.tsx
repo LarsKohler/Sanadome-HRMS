@@ -102,20 +102,32 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
   // History Report State
   const [viewingHistoryEntry, setViewingHistoryEntry] = useState<OnboardingHistoryEntry | null>(null);
 
-  // Computed available categories from all templates
+  // Computed available categories from all templates AND current editing session
   const availableCategories = useMemo(() => {
       const cats = new Set<string>();
+      
+      // 1. From saved templates
       templates.forEach(t => t.tasks.forEach(task => {
           if (task.category) cats.add(task.category);
       }));
-      // Add standard ones if missing
+      
+      // 2. From currently editing template
+      if (editingTemplate) {
+          editingTemplate.tasks.forEach(task => {
+              if (task.category && task.category.trim()) {
+                  cats.add(task.category.trim());
+              }
+          });
+      }
+
+      // 3. Add standard ones if missing
       cats.add('Algemeen');
       cats.add('IT & Systemen');
       cats.add('Front Office');
       cats.add('F&B');
       cats.add('Cultuur');
       return Array.from(cats).sort();
-  }, [templates]);
+  }, [templates, editingTemplate]);
 
   useEffect(() => {
     // Fetch Templates
@@ -1087,6 +1099,13 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                       <h3 className="font-bold text-slate-900">Template Bewerken</h3>
                   </div>
                   
+                  {/* Single Datalist Definition for Autocomplete */}
+                  <datalist id="category-suggestions">
+                      {availableCategories.map(cat => (
+                          <option key={cat} value={cat} />
+                      ))}
+                  </datalist>
+                  
                   <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Template Naam</label>
                       <input 
@@ -1150,12 +1169,6 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                                     value={task.category}
                                                     onChange={(e) => updateTemplateTask(task.id, 'category', e.target.value)}
                                                   />
-                                                  {/* Category Autocomplete Datalist */}
-                                                  <datalist id="category-suggestions">
-                                                      {availableCategories.map(cat => (
-                                                          <option key={cat} value={cat} />
-                                                      ))}
-                                                  </datalist>
 
                                                   <input 
                                                     className="text-xs bg-slate-50 border-none rounded px-2 py-1 w-2/3 text-slate-600"
