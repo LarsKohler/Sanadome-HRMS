@@ -303,18 +303,24 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       const plannedEvaluations = employee.evaluations?.filter(ev => ev.status === 'Planned') || [];
       const unlockablePlanned = plannedEvaluations.filter(ev => isEvaluationUnlockable(ev.plannedDate));
       
-      // RECRUITMENT ACTIONS (NEW)
+      // RECRUITMENT ACTIONS (UPDATED LOGIC)
       const recruitmentActions: { applicantName: string, date: string, time: string, id: string }[] = [];
       if (isOwnProfile && applicants) {
           const sevenDaysFromNow = new Date();
           sevenDaysFromNow.setDate(sevenDaysFromNow.getDate() + 7);
+          // Use today 00:00 for comparison
+          const today = new Date();
+          today.setHours(0,0,0,0);
           
           applicants.forEach(app => {
+              // Hide actions if candidate is rejected or hired
+              if (app.stage === 'Rejected' || app.stage === 'Hired') return;
+
               // Safe access for interviews
               (app.interviews || []).forEach(int => {
                   if (int.interviewers && int.interviewers.includes(currentUser.id) && int.status === 'Scheduled') {
                       const intDate = new Date(int.date);
-                      if (intDate >= new Date() && intDate <= sevenDaysFromNow) {
+                      if (intDate >= today && intDate <= sevenDaysFromNow) {
                           recruitmentActions.push({
                               applicantName: `${app.firstName} ${app.lastName}`,
                               date: int.date,
