@@ -19,6 +19,7 @@ export enum ViewState {
   COMPENSATION = 'COMPENSATION'
 }
 
+// ... existing permissions ...
 export type Permission = 
   | 'VIEW_REPORTS'
   | 'MANAGE_EMPLOYEES'
@@ -71,6 +72,21 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'MANAGE_COMPENSATION': 'Compensatie Beleid Beheren',
   'DELETE_COMPENSATION': 'Compensatie Verwijderen'
 };
+
+// --- GLOBAL SETTINGS & MODULE CONTROL ---
+export interface ModuleConfig {
+    id: ViewState;
+    name: string; // Readable name
+    enabled: boolean; // Global switch
+    hiddenForRoles: string[]; // Array of Role Names
+    hiddenForUsers: string[]; // Array of Employee IDs
+}
+
+export interface GlobalSettings {
+    modules: Record<string, ModuleConfig>; // Keyed by ViewState
+}
+
+// ... existing types ...
 
 // --- COMPENSATION ---
 export type CompensationCategory = 'Kamer' | 'F&B' | 'Wellness' | 'Service' | 'Overig';

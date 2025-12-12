@@ -1,5 +1,5 @@
 
-import { Employee, Permission } from '../types';
+import { Employee, Permission, ViewState, GlobalSettings } from '../types';
 
 // Define default permissions per role
 export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
@@ -76,4 +76,29 @@ export const getCustomPermissionsOnly = (user: Employee): Permission[] => {
   // Return only permissions that are in custom BUT NOT in role
   // (Cleaning up redundancy)
   return custom.filter(p => !roleDefaults.includes(p));
+};
+
+// NEW: Helper to check if a module is enabled globally/specifically
+export const isModuleEnabled = (view: ViewState, user: Employee | null, settings: GlobalSettings | null): boolean => {
+    if (!user) return false;
+    
+    // Core modules always available
+    if (view === ViewState.HOME || view === ViewState.SETTINGS || view === ViewState.SYSTEM_STATUS) return true;
+
+    // If no settings loaded yet, default to ENABLED (fail-open for UX, or closed for security - chosen Open for now)
+    if (!settings) return true;
+
+    const config = settings.modules[view];
+    
+    // If not configured, assume enabled
+    if (!config) return true;
+
+    // 1. Global Switch
+    if (!config.enabled) return false;
+
+    // 2. Check exclusions
+    if (config.hiddenForRoles && config.hiddenForRoles.includes(user.role)) return false;
+    if (config.hiddenForUsers && config.hiddenForUsers.includes(user.id)) return false;
+
+    return true;
 };

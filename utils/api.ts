@@ -1,10 +1,7 @@
 
-
-
-
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, Ticket, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog } from '../types';
+import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, Ticket, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings } from '../types';
 import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_TICKETS, MOCK_EVALUATION_TEMPLATES, MOCK_BIKE_SETTINGS, MOCK_BIKE_RESERVATIONS, MOCK_ACADEMY_COURSES, MOCK_ACADEMY_PROGRESS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
@@ -25,6 +22,29 @@ const generateDemoTasks = (): OnboardingTask[] => [
 ];
 
 export const api = {
+  // --- GLOBAL SETTINGS (MODULE VISIBILITY) ---
+  getGlobalSettings: async (): Promise<GlobalSettings | null> => {
+      if (isLive && supabase) {
+          try {
+              const { data, error } = await supabase.from('global_settings').select('modules').eq('id', 'main').single();
+              if (!error && data) return { modules: data.modules };
+              return null; // No settings yet
+          } catch (e) {
+              return null;
+          }
+      }
+      const local = localStorage.getItem('hrms_global_settings');
+      return local ? JSON.parse(local) : null;
+  },
+
+  saveGlobalSettings: async (settings: GlobalSettings) => {
+      if (isLive && supabase) {
+          await supabase.from('global_settings').upsert({ id: 'main', modules: settings.modules, updated_at: new Date().toISOString() });
+      } else {
+          localStorage.setItem('hrms_global_settings', JSON.stringify(settings));
+      }
+  },
+
   // --- COMPENSATION POLICIES & LOGS (SUPABASE ONLY) ---
   getCompensationPolicies: async (): Promise<CompensationPolicy[]> => {
       if (isLive && supabase) {

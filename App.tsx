@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Employee, ViewState, Notification, NewsPost } from './types';
+import { Employee, ViewState, Notification, NewsPost, GlobalSettings } from './types';
 import Sidebar from './components/Sidebar';
 import TopNav from './components/TopNav';
 import EmployeeDirectory from './components/EmployeeDirectory';
@@ -26,6 +26,7 @@ import AcademyPage from './components/AcademyPage';
 import CompensationPage from './components/CompensationPage';
 import UpdateNotifier from './components/UpdateNotifier';
 import { api, isLive } from './utils/api';
+import { isModuleEnabled } from './utils/permissions';
 
 function App() {
   const [currentUser, setCurrentUser] = useState<Employee | null>(() => {
@@ -40,6 +41,7 @@ function App() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [newsItems, setNewsItems] = useState<NewsPost[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
   
   // Toast State
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -54,10 +56,12 @@ function App() {
       const emps = await api.getEmployees();
       const news = await api.getNews();
       const notifs = await api.getNotifications();
+      const settings = await api.getGlobalSettings(); // New
       
       setEmployees(emps);
       setNewsItems(news);
       setNotifications(notifs);
+      setGlobalSettings(settings);
     };
 
     if (isAuthenticated) {
@@ -158,6 +162,12 @@ function App() {
       setNotifications(prev => prev.filter(n => n.recipientId !== currentUser?.id));
   };
 
+  const handleUpdateGlobalSettings = (newSettings: GlobalSettings) => {
+      setGlobalSettings(newSettings);
+      api.saveGlobalSettings(newSettings);
+      handleShowToast('Systeem instellingen opgeslagen.');
+  };
+
   if (!isAuthenticated) {
       return <Login onLogin={handleLogin} />;
   }
@@ -176,8 +186,13 @@ function App() {
       }} />;
   }
 
+  // Check if current view is enabled, else redirect home
+  if (!isModuleEnabled(currentView, currentUser, globalSettings)) {
+      setCurrentView(ViewState.HOME);
+  }
+
   // --- ACADEMY LAYOUT CHECK ---
-  if (currentView === ViewState.ACADEMY) {
+  if (currentView === ViewState.ACADEMY && isModuleEnabled(ViewState.ACADEMY, currentUser, globalSettings)) {
       return (
           <>
             <AcademyPage 
@@ -277,6 +292,8 @@ function App() {
                   currentUser={currentUser!}
                   onUpdateEmployee={handleUpdateEmployee}
                   onShowToast={handleShowToast}
+                  globalSettings={globalSettings}
+                  onUpdateGlobalSettings={handleUpdateGlobalSettings}
               />;
           case ViewState.DEBT_CONTROL:
               return <DebtControlPage currentUser={currentUser!} onShowToast={handleShowToast} />;
@@ -341,6 +358,7 @@ function App() {
         user={currentUser!}
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
+        globalSettings={globalSettings}
       />
       
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">

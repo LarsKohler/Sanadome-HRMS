@@ -1,13 +1,12 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
   UserPlus, FileText, PieChart, 
   Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Medal, BookOpen, Truck, ChevronDown, ChevronRight, Bike, GraduationCap, Scale
 } from 'lucide-react';
-import { ViewState, Employee, Permission } from '../types';
-import { hasPermission } from '../utils/permissions';
+import { ViewState, Employee, Permission, GlobalSettings } from '../types';
+import { hasPermission, isModuleEnabled } from '../utils/permissions';
 
 interface SidebarProps {
   currentView: ViewState;
@@ -16,6 +15,7 @@ interface SidebarProps {
   isOpen: boolean;
   onClose: () => void;
   systemVersion?: string;
+  globalSettings: GlobalSettings | null; // NEW PROP
 }
 
 interface SidebarItem {
@@ -31,7 +31,7 @@ interface SidebarSection {
   items: SidebarItem[];
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOpen, onClose, systemVersion = 'v1.0' }) => {
+const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOpen, onClose, systemVersion = 'v1.0', globalSettings }) => {
   
   // Sections configuration
   const sections: SidebarSection[] = [
@@ -95,8 +95,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
           }
       });
 
-      // Merge with existing state so we don't collapse others if user opened them manually (optional preference)
-      // For strictly auto-collapse behavior, just setExpandedSections(newExpanded);
       setExpandedSections(prev => ({ ...prev, ...newExpanded }));
   }, [currentView]);
 
@@ -153,10 +151,19 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
           {/* Navigation Items */}
           <nav className="space-y-4">
             {sections.map((section) => {
-              // Check if section has any visible items based on permissions
-              const hasVisibleItems = section.items.some(item => !item.permission || hasPermission(user, item.permission));
+              // 1. Check Permissions
+              // 2. Check Global Module Settings (Deactivation)
+              const visibleItems = section.items.filter(item => {
+                  const hasPerm = !item.permission || hasPermission(user, item.permission);
+                  // Check if module is enabled globally for this user
+                  let moduleEnabled = true;
+                  if (Object.values(ViewState).includes(item.id as ViewState)) {
+                      moduleEnabled = isModuleEnabled(item.id as ViewState, user || null, globalSettings);
+                  }
+                  return hasPerm && moduleEnabled;
+              });
               
-              if (!hasVisibleItems) return null;
+              if (visibleItems.length === 0) return null;
 
               const isExpanded = expandedSections[section.label];
 
@@ -171,12 +178,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
                   </button>
                   
                   <div className={`space-y-1 overflow-hidden transition-all duration-300 ease-in-out ${isExpanded ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`}>
-                      {section.items.map((item) => {
-                        // Permission Check
-                        if (item.permission && !hasPermission(user, item.permission)) {
-                            return null;
-                        }
-
+                      {visibleItems.map((item) => {
                         const isActive = currentView === item.id;
                         return (
                           <button
