@@ -37,8 +37,6 @@ export const MOCK_EMPLOYEES: Employee[] = [
   }
 ];
 
-// ... existing mocks ...
-
 export const MOCK_NEWS: NewsPost[] = [
   {
     id: '1',
@@ -283,8 +281,16 @@ export const MOCK_ACADEMY_COURSES: AcademyCourse[] = [
                                 id: 'b1',
                                 type: 'text',
                                 content: {
-                                    html: '# De kracht van een glimlach\n\nEen eerste indruk maak je maar één keer. Zorg altijd voor:\n\n*   Oogcontact\n*   Een oprechte glimlach\n*   Een open houding\n\nBij Sanadome groeten we elke gast die we tegenkomen, ook in de gang.',
+                                    html: 'Bij Sanadome geloven we dat een eerste indruk allesbepalend is. Een oprechte glimlach en oogcontact zijn de basis.',
                                     style: 'paragraph'
+                                }
+                            },
+                            {
+                                id: 'b2',
+                                type: 'image',
+                                content: {
+                                    url: 'https://images.unsplash.com/photo-1556761175-5973dc0f32e7?auto=format&fit=crop&w=800&q=80',
+                                    caption: 'Een warme begroeting aan de receptie.'
                                 }
                             }
                         ],
@@ -295,10 +301,10 @@ export const MOCK_ACADEMY_COURSES: AcademyCourse[] = [
                         title: 'Kledij & Uiterlijk',
                         blocks: [
                             {
-                                id: 'b2',
+                                id: 'b3',
                                 type: 'video',
                                 content: {
-                                    url: 'https://www.youtube.com/embed/dQw4w9WgXcQ',
+                                    url: 'https://www.youtube.com/embed/dQw4w9WgXcQ', // Placeholder
                                     source: 'youtube'
                                 }
                             }

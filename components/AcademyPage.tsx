@@ -5,7 +5,7 @@ import {
     Plus, Edit3, Trash2, Save, X, MoreVertical, BookOpen, Clock, 
     Award, BarChart3, Users, Filter, Search, ArrowLeft, GraduationCap,
     Download, PieChart, FileCheck, AlertCircle, Type, Image as ImageIcon,
-    Video, HelpCircle, GripVertical, ArrowUp, ArrowDown, Eye, Layers
+    Video, HelpCircle, GripVertical, ArrowUp, ArrowDown, Eye, Layers, Settings, Shield, User
 } from 'lucide-react';
 import { Employee, AcademyCourse, AcademyProgress, AcademyModule, AcademyLesson, LearningBlock } from '../types';
 import { api } from '../utils/api';
@@ -31,6 +31,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
     const [activeCourse, setActiveCourse] = useState<AcademyCourse | null>(null);
     const [selectedModuleId, setSelectedModuleId] = useState<string | null>(null);
     const [selectedLessonId, setSelectedLessonId] = useState<string | null>(null);
+    const [quizAnswers, setQuizAnswers] = useState<Record<string, string>>({}); // Store local quiz answers
 
     // Builder State
     const [editingCourse, setEditingCourse] = useState<AcademyCourse | null>(null);
@@ -65,19 +66,79 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
         setActiveCourse(course);
         
         const progress = userProgress.find(p => p.courseId === course.id);
-        if (progress && progress.status === 'In Progress') {
-             if (course.modules.length > 0 && course.modules[0].lessons.length > 0) {
-                 setSelectedModuleId(course.modules[0].id);
-                 setSelectedLessonId(course.modules[0].lessons[0].id);
-             }
-        } else {
-             if (course.modules.length > 0 && course.modules[0].lessons.length > 0) {
-                 setSelectedModuleId(course.modules[0].id);
-                 setSelectedLessonId(course.modules[0].lessons[0].id);
-             }
+        
+        // Find first lesson or resume
+        let initialModuleId = course.modules[0]?.id;
+        let initialLessonId = course.modules[0]?.lessons[0]?.id;
+
+        if (progress && progress.status === 'In Progress' && progress.completedLessonIds.length > 0) {
+             // Logic to find next uncompleted lesson could go here
+             // For now, default to start to keep it simple, or last accessed
         }
         
+        if (initialModuleId && initialLessonId) {
+            setSelectedModuleId(initialModuleId);
+            setSelectedLessonId(initialLessonId);
+        }
+        
+        // Start tracking if not started
+        if (!progress) {
+            const newProgress: AcademyProgress = {
+                id: crypto.randomUUID(),
+                employeeId: currentUser.id,
+                courseId: course.id,
+                status: 'In Progress',
+                progressPercentage: 0,
+                completedLessonIds: [],
+                quizScores: {},
+                startDate: new Date().toLocaleDateString('nl-NL')
+            };
+            api.saveAcademyProgress(newProgress);
+            setUserProgress([...userProgress, newProgress]);
+        }
+
         setView('player');
+    };
+
+    const handleCompleteLesson = async (moduleId: string, lessonId: string) => {
+        if (!activeCourse) return;
+        
+        // Find current progress object
+        const currentProgress = userProgress.find(p => p.courseId === activeCourse.id);
+        if (!currentProgress) return; // Should exist by now
+
+        // Check if already completed
+        if (currentProgress.completedLessonIds.includes(lessonId)) {
+            handlePlayerNext();
+            return;
+        }
+
+        // Calculate new progress
+        const totalLessons = activeCourse.modules.reduce((acc, m) => acc + m.lessons.length, 0);
+        const newCompletedIds = [...currentProgress.completedLessonIds, lessonId];
+        const newPercentage = Math.round((newCompletedIds.length / totalLessons) * 100);
+        
+        const updatedProgress: AcademyProgress = {
+            ...currentProgress,
+            completedLessonIds: newCompletedIds,
+            progressPercentage: newPercentage,
+            status: newPercentage === 100 ? 'Completed' : 'In Progress',
+            completedDate: newPercentage === 100 ? new Date().toLocaleDateString('nl-NL') : undefined
+        };
+
+        // Optimistic update
+        setUserProgress(prev => prev.map(p => p.id === updatedProgress.id ? updatedProgress : p));
+        setAllProgress(prev => prev.map(p => p.id === updatedProgress.id ? updatedProgress : p));
+        
+        // Persist
+        await api.saveAcademyProgress(updatedProgress);
+
+        if (newPercentage === 100) {
+            onShowToast(`Cursus voltooid! Gefeliciteerd!`);
+            handleFinishCourse();
+        } else {
+            handlePlayerNext();
+        }
     };
 
     const handlePlayerNext = () => {
@@ -106,7 +167,10 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
             setSelectedLessonId(nextLessonId);
             window.scrollTo({ top: 0, behavior: 'smooth' });
         } else {
-            handleFinishCourse();
+            // End of course logic handled in completion
+            if (userProgress.find(p => p.courseId === activeCourse.id)?.status === 'Completed') {
+                setView('dashboard');
+            }
         }
     };
 
@@ -139,29 +203,6 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
     };
 
     const handleFinishCourse = async () => {
-        if(!activeCourse) return;
-        
-        const existingProgress = userProgress.find(p => p.courseId === activeCourse.id && p.employeeId === currentUser.id);
-
-        const progress: AcademyProgress = {
-            id: existingProgress ? existingProgress.id : crypto.randomUUID(), 
-            employeeId: currentUser.id,
-            courseId: activeCourse.id,
-            status: 'Completed',
-            progressPercentage: 100,
-            completedLessonIds: [], 
-            quizScores: {},
-            startDate: existingProgress ? existingProgress.startDate : new Date().toLocaleDateString('nl-NL'),
-            completedDate: new Date().toLocaleDateString('nl-NL')
-        };
-
-        await api.saveAcademyProgress(progress);
-        
-        const updatedUserProgress = [...userProgress.filter(p => p.courseId !== progress.courseId), progress];
-        setUserProgress(updatedUserProgress);
-        setAllProgress(prev => [...prev.filter(p => p.id !== progress.id), progress]);
-        
-        onShowToast(`Gefeliciteerd! Je hebt ${activeCourse.title} afgerond.`);
         setView('dashboard');
     };
 
@@ -259,7 +300,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
 
         let content = {};
         if (type === 'text') content = { html: 'Start hier met typen...', style: 'paragraph' };
-        if (type === 'image') content = { url: 'https://via.placeholder.com/800x400', caption: '' };
+        if (type === 'image') content = { url: 'https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?auto=format&fit=crop&w=800&q=80', caption: '' };
         if (type === 'video') content = { url: '', source: 'youtube' };
         if (type === 'quiz') content = { question: 'Nieuwe vraag?', type: 'single', options: [{id: '1', text: 'Optie A', isCorrect: true}, {id: '2', text: 'Optie B', isCorrect: false}] };
 
@@ -542,7 +583,8 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                 return (
                     <div className={`prose prose-slate max-w-none ${block.content.style === 'h1' ? 'text-2xl font-bold text-slate-900' : 'text-slate-700'}`}>
                         {block.content.style === 'alert' ? (
-                            <div className="bg-amber-50 border-l-4 border-amber-500 p-4 text-amber-900 rounded-r-lg my-4">
+                            <div className="bg-amber-50 border-l-4 border-amber-500 p-4 text-amber-900 rounded-r-lg my-4 flex items-start gap-3">
+                                <AlertCircle size={20} className="shrink-0 mt-0.5"/>
                                 <div dangerouslySetInnerHTML={{ __html: block.content.html }}></div>
                             </div>
                         ) : (
@@ -565,17 +607,39 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                 );
             case 'quiz':
                 return (
-                    <div className="my-8 bg-slate-50 border border-slate-200 rounded-xl p-6">
-                        <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                    <div className="my-8 bg-indigo-50 border border-indigo-100 rounded-xl p-6">
+                        <h4 className="font-bold text-indigo-900 mb-4 flex items-center gap-2">
                             <HelpCircle size={20} className="text-indigo-600"/> Quiz: {block.content.question}
                         </h4>
                         <div className="space-y-2">
-                            {block.content.options.map((opt: any) => (
-                                <label key={opt.id} className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-lg cursor-pointer hover:border-indigo-300 transition-colors">
-                                    <input type="radio" name={`quiz-${block.id}`} className="w-4 h-4 text-indigo-600 focus:ring-indigo-500" />
-                                    <span className="text-sm font-medium text-slate-700">{opt.text}</span>
-                                </label>
-                            ))}
+                            {block.content.options.map((opt: any) => {
+                                const isSelected = quizAnswers[block.id] === opt.id;
+                                const showResult = !!quizAnswers[block.id];
+                                const isCorrect = opt.isCorrect;
+                                
+                                let styleClass = "border-slate-200 hover:border-indigo-300";
+                                if (showResult) {
+                                    if (isCorrect) styleClass = "bg-green-100 border-green-300 text-green-800";
+                                    else if (isSelected && !isCorrect) styleClass = "bg-red-100 border-red-300 text-red-800";
+                                    else styleClass = "opacity-50 border-slate-200";
+                                } else if (isSelected) {
+                                    styleClass = "border-indigo-500 bg-indigo-50 text-indigo-900";
+                                }
+
+                                return (
+                                    <label key={opt.id} className={`flex items-center gap-3 p-3 bg-white border rounded-lg cursor-pointer transition-colors ${styleClass}`}>
+                                        <input 
+                                            type="radio" 
+                                            name={`quiz-${block.id}`} 
+                                            className="w-4 h-4 text-indigo-600 focus:ring-indigo-500" 
+                                            disabled={showResult}
+                                            onChange={() => setQuizAnswers(prev => ({ ...prev, [block.id]: opt.id }))}
+                                        />
+                                        <span className="text-sm font-medium">{opt.text}</span>
+                                        {showResult && isCorrect && <CheckCircle2 size={16} className="text-green-600 ml-auto"/>}
+                                    </label>
+                                );
+                            })}
                         </div>
                     </div>
                 );
@@ -592,8 +656,12 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
 
         if (!lesson) return <div>Les niet gevonden</div>;
 
+        // Check if current lesson is completed
+        const prog = userProgress.find(p => p.courseId === activeCourse.id);
+        const isCompleted = prog?.completedLessonIds.includes(lesson.id);
+
         return (
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col h-full bg-white">
                 <div className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 flex-shrink-0">
                     <button onClick={() => setView('dashboard')} className="text-slate-500 hover:text-slate-800 flex items-center gap-2 font-bold text-sm">
                         <ArrowLeft size={18} /> Terug naar Dashboard
@@ -611,19 +679,23 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                                     {mod.title}
                                 </div>
                                 <div>
-                                    {mod.lessons.map(les => (
-                                        <button
-                                            key={les.id}
-                                            onClick={() => { setSelectedModuleId(mod.id); setSelectedLessonId(les.id); }}
-                                            className={`w-full text-left px-6 py-3 text-sm font-medium border-l-4 transition-colors ${
-                                                selectedLessonId === les.id 
-                                                ? 'bg-white border-indigo-600 text-indigo-700' 
-                                                : 'border-transparent text-slate-600 hover:bg-white hover:text-slate-900'
-                                            }`}
-                                        >
-                                            {les.title}
-                                        </button>
-                                    ))}
+                                    {mod.lessons.map(les => {
+                                        const isDone = prog?.completedLessonIds.includes(les.id);
+                                        return (
+                                            <button
+                                                key={les.id}
+                                                onClick={() => { setSelectedModuleId(mod.id); setSelectedLessonId(les.id); }}
+                                                className={`w-full text-left px-6 py-3 text-sm font-medium border-l-4 transition-colors flex justify-between items-center ${
+                                                    selectedLessonId === les.id 
+                                                    ? 'bg-white border-indigo-600 text-indigo-700' 
+                                                    : 'border-transparent text-slate-600 hover:bg-white hover:text-slate-900'
+                                                }`}
+                                            >
+                                                <span>{les.title}</span>
+                                                {isDone && <CheckCircle2 size={14} className="text-green-500"/>}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         ))}
@@ -632,9 +704,12 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                     {/* Content Area */}
                     <div className="flex-1 overflow-y-auto p-8 bg-white">
                         <div className="max-w-3xl mx-auto">
-                            <h1 className="text-3xl font-bold text-slate-900 mb-6">{lesson.title}</h1>
+                            <div className="flex items-center justify-between mb-6">
+                                <h1 className="text-3xl font-bold text-slate-900">{lesson.title}</h1>
+                                {isCompleted && <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide">Voltooid</span>}
+                            </div>
                             
-                            <div className="space-y-4">
+                            <div className="space-y-6">
                                 {lesson.blocks.map(block => (
                                     <div key={block.id}>
                                         {renderBlock(block)}
@@ -645,12 +720,20 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                                 )}
                             </div>
 
-                            <div className="mt-12 pt-8 border-t border-slate-100 flex justify-between">
+                            <div className="mt-12 pt-8 border-t border-slate-100 flex justify-between items-center">
                                 <button onClick={handlePlayerPrev} className="px-6 py-3 border border-slate-200 rounded-xl font-bold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2">
                                     <ChevronLeft size={18} /> Vorige
                                 </button>
-                                <button onClick={handlePlayerNext} className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 transition-colors flex items-center gap-2 shadow-lg shadow-indigo-200">
-                                    Volgende <ChevronRight size={18} />
+                                
+                                <button 
+                                    onClick={() => handleCompleteLesson(selectedModuleId!, lesson.id)} 
+                                    className={`px-8 py-3 rounded-xl font-bold transition-colors flex items-center gap-2 shadow-lg ${
+                                        isCompleted 
+                                        ? 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                                        : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-indigo-200'
+                                    }`}
+                                >
+                                    {isCompleted ? 'Volgende Les' : 'Afronden & Verder'} <ChevronRight size={18} />
                                 </button>
                             </div>
                         </div>
