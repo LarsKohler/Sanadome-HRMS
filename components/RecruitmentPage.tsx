@@ -4,7 +4,7 @@ import {
     UserPlus, Search, Plus, Calendar, MessageSquare, ChevronRight, BarChart3, 
     LayoutDashboard, Clock, FileText, CheckCircle2, X, MoreHorizontal, 
     Trash2, Check, ArrowRight, Target, Users, Phone, Mail, Linkedin, MapPin, 
-    Download, Split, Archive, Star, PenTool, Upload, ThumbsUp, ThumbsDown, Ban, AlertCircle
+    Download, Split, Archive, Star, PenTool, Upload, ThumbsUp, ThumbsDown, Ban, AlertCircle, CalendarClock, Edit3
 } from 'lucide-react';
 import { Employee, Applicant, Vacancy, ApplicantStage, RecruitmentTimelineEvent, Notification, ViewState, CandidateScorecard, Interview } from '../types';
 import { MOCK_VACANCIES } from '../utils/mockData';
@@ -49,6 +49,10 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
     const [newInterview, setNewInterview] = useState<Partial<Interview>>({
         date: '', time: '', location: 'Sanadome Meeting Room', interviewers: [currentUser.id]
     });
+
+    // Reschedule State
+    const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
+    const [rescheduleTarget, setRescheduleTarget] = useState<Interview | null>(null);
 
     // Scorecard State
     const [isScorecardModalOpen, setIsScorecardModalOpen] = useState(false);
@@ -240,6 +244,64 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
         setIsScheduleModalOpen(false);
         setNewInterview({ date: '', time: '', location: 'Sanadome Meeting Room', interviewers: [currentUser.id] });
         onShowToast("Interview ingepland en uitnodigingen verstuurd.");
+    };
+
+    // --- RESCHEDULE LOGIC ---
+    const openRescheduleModal = (interview: Interview) => {
+        setRescheduleTarget(interview);
+        setIsRescheduleModalOpen(true);
+    };
+
+    const handleRescheduleConfirm = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedApplicant || !rescheduleTarget) return;
+
+        const oldDate = selectedApplicant.interviews.find(i => i.id === rescheduleTarget.id)?.date;
+        const oldTime = selectedApplicant.interviews.find(i => i.id === rescheduleTarget.id)?.time;
+
+        const updatedInterviews = selectedApplicant.interviews.map(int => 
+            int.id === rescheduleTarget.id ? rescheduleTarget : int
+        );
+
+        const event: RecruitmentTimelineEvent = {
+            id: Math.random().toString(36).substr(2, 9),
+            type: 'StatusChange',
+            author: currentUser.name,
+            date: new Date().toLocaleDateString('nl-NL'),
+            content: `Interview verplaatst van ${oldDate} ${oldTime} naar ${rescheduleTarget.date} ${rescheduleTarget.time}`
+        };
+
+        const updated = {
+            ...selectedApplicant,
+            interviews: updatedInterviews,
+            timeline: [event, ...selectedApplicant.timeline]
+        };
+
+        await updateApplicant(updated);
+        
+        // Notify
+        if (onAddNotification && employees) {
+            rescheduleTarget.interviewers.forEach(interviewerId => {
+                if (interviewerId !== currentUser.id) { 
+                    onAddNotification({
+                        id: crypto.randomUUID(),
+                        recipientId: interviewerId,
+                        senderName: currentUser.name,
+                        type: 'Recruitment',
+                        title: '📅 Gesprek Verplaatst',
+                        message: `Het gesprek met ${selectedApplicant.firstName} is verplaatst naar ${new Date(rescheduleTarget.date).toLocaleDateString()} om ${rescheduleTarget.time}.`,
+                        date: 'Zojuist',
+                        read: false,
+                        targetView: ViewState.RECRUITMENT,
+                        isPinned: true
+                    });
+                }
+            });
+        }
+
+        setIsRescheduleModalOpen(false);
+        setRescheduleTarget(null);
+        onShowToast("Gesprek succesvol verplaatst.");
     };
 
     const handleCancelInterview = async (interviewId: string) => {
@@ -774,13 +836,22 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                                                         return (
                                                             <div key={int.id} className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col h-full relative group">
                                                                 {int.status === 'Scheduled' && isAllowedToSchedule && (
-                                                                    <button 
-                                                                        onClick={() => handleCancelInterview(int.id)}
-                                                                        className="absolute top-4 right-4 text-slate-300 hover:text-red-500 p-1 hover:bg-red-50 rounded-full transition-all opacity-0 group-hover:opacity-100"
-                                                                        title="Gesprek annuleren"
-                                                                    >
-                                                                        <X size={16}/>
-                                                                    </button>
+                                                                    <div className="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                        <button 
+                                                                            onClick={() => openRescheduleModal(int)}
+                                                                            className="text-slate-300 hover:text-blue-500 p-1.5 hover:bg-blue-50 rounded-full transition-all"
+                                                                            title="Verplaatsen"
+                                                                        >
+                                                                            <CalendarClock size={16}/>
+                                                                        </button>
+                                                                        <button 
+                                                                            onClick={() => handleCancelInterview(int.id)}
+                                                                            className="text-slate-300 hover:text-red-500 p-1.5 hover:bg-red-50 rounded-full transition-all"
+                                                                            title="Annuleren"
+                                                                        >
+                                                                            <X size={16}/>
+                                                                        </button>
+                                                                    </div>
                                                                 )}
                                                                 <div className="flex justify-between items-start mb-4">
                                                                     <div className="flex items-center gap-2">
@@ -923,6 +994,53 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                     </div>
                     <button type="submit" className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg">Inplannen</button>
                 </form>
+            </Modal>
+
+            {/* RESCHEDULE MODAL */}
+            <Modal isOpen={isRescheduleModalOpen} onClose={() => { setIsRescheduleModalOpen(false); setRescheduleTarget(null); }} title="Gesprek Verplaatsen">
+                {rescheduleTarget && (
+                    <form onSubmit={handleRescheduleConfirm} className="space-y-4">
+                        <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl text-sm text-blue-800 mb-4 flex items-start gap-2">
+                            <CalendarClock className="shrink-0 mt-0.5" size={16} />
+                            <p>Je wijzigt het gesprek gepland op <strong>{new Date(rescheduleTarget.date).toLocaleDateString()}</strong> om <strong>{rescheduleTarget.time}</strong>.</p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Nieuwe Datum</label>
+                                <input 
+                                    type="date" 
+                                    className="w-full p-3 border rounded-xl" 
+                                    required 
+                                    value={rescheduleTarget.date}
+                                    onChange={e => setRescheduleTarget({...rescheduleTarget, date: e.target.value})}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Nieuwe Tijd</label>
+                                <input 
+                                    type="time" 
+                                    className="w-full p-3 border rounded-xl" 
+                                    required 
+                                    value={rescheduleTarget.time}
+                                    onChange={e => setRescheduleTarget({...rescheduleTarget, time: e.target.value})}
+                                />
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Locatie</label>
+                            <input 
+                                type="text" 
+                                className="w-full p-3 border rounded-xl" 
+                                value={rescheduleTarget.location}
+                                onChange={e => setRescheduleTarget({...rescheduleTarget, location: e.target.value})}
+                            />
+                        </div>
+                        <button type="submit" className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-slate-800">
+                            Opslaan & Verplaatsen
+                        </button>
+                    </form>
+                )}
             </Modal>
 
             {/* SCORECARD MODAL */}
