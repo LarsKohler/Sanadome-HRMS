@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Play, CheckCircle2, ChevronRight, ChevronLeft, Layout, 
     Plus, Edit3, Trash2, Save, X, MoreVertical, BookOpen, Clock, 
-    Award, BarChart3, Users, Filter, Search, ArrowLeft
+    Award, BarChart3, Users, Filter, Search, ArrowLeft, GraduationCap
 } from 'lucide-react';
 import { Employee, AcademyCourse, AcademyProgress, AcademyModule, AcademyLesson, LearningBlock } from '../types';
 import { api } from '../utils/api';
@@ -29,6 +29,10 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
 
     // Builder State
     const [editingCourse, setEditingCourse] = useState<AcademyCourse | null>(null);
+
+    // Catalog State
+    const [catalogSearch, setCatalogSearch] = useState('');
+    const [catalogCategory, setCatalogCategory] = useState('All');
 
     const isManager = hasPermission(currentUser, 'MANAGE_ACADEMY');
 
@@ -230,38 +234,58 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                 {courses.map(course => {
                     const prog = userProgress.find(p => p.courseId === course.id);
                     return (
-                        <div key={course.id} className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-start mb-4">
-                                <span className="bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-xs font-bold uppercase">{course.category}</span>
-                                {prog?.status === 'Completed' && <CheckCircle2 className="text-green-500" size={20} />}
+                        <div key={course.id} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all flex flex-col overflow-hidden">
+                            {/* Course Image */}
+                            <div className="h-48 w-full bg-slate-100 relative overflow-hidden">
+                                {course.coverImage ? (
+                                    <img src={course.coverImage} alt={course.title} className="w-full h-full object-cover" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                        <BookOpen size={48} />
+                                    </div>
+                                )}
+                                {prog?.status === 'Completed' && (
+                                    <div className="absolute top-3 right-3 bg-green-500 text-white rounded-full p-1 shadow-md">
+                                        <CheckCircle2 size={16} />
+                                    </div>
+                                )}
                             </div>
-                            <h3 className="font-bold text-slate-900 text-lg mb-2">{course.title}</h3>
-                            <p className="text-sm text-slate-500 mb-4 line-clamp-2">{course.description}</p>
-                            
-                            {prog ? (
-                                <div className="mt-auto">
-                                    <div className="flex justify-between text-xs font-bold text-slate-500 mb-1">
-                                        <span>Voortgang</span>
-                                        <span>{prog.progressPercentage}%</span>
+
+                            <div className="p-6 flex-1 flex flex-col">
+                                <div className="flex justify-between items-start mb-2">
+                                    <span className="bg-indigo-50 text-indigo-700 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">{course.category}</span>
+                                    <div className="flex items-center gap-1 text-xs font-bold text-amber-500">
+                                        <Award size={12} /> {course.xpPoints} XP
                                     </div>
-                                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-4">
-                                        <div className="h-full bg-indigo-500" style={{width: `${prog.progressPercentage}%`}}></div>
+                                </div>
+                                <h3 className="font-bold text-slate-900 text-lg mb-2">{course.title}</h3>
+                                <p className="text-sm text-slate-500 mb-4 line-clamp-2">{course.description}</p>
+                                
+                                {prog ? (
+                                    <div className="mt-auto">
+                                        <div className="flex justify-between text-xs font-bold text-slate-500 mb-1">
+                                            <span>Voortgang</span>
+                                            <span>{prog.progressPercentage}%</span>
+                                        </div>
+                                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden mb-4">
+                                            <div className="h-full bg-indigo-500" style={{width: `${prog.progressPercentage}%`}}></div>
+                                        </div>
+                                        <button 
+                                            onClick={() => handleStartCourse(course)}
+                                            className="w-full py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 transition-colors"
+                                        >
+                                            {prog.status === 'Completed' ? 'Opnieuw Bekijken' : 'Verder Gaan'}
+                                        </button>
                                     </div>
+                                ) : (
                                     <button 
                                         onClick={() => handleStartCourse(course)}
-                                        className="w-full py-2 bg-indigo-600 text-white rounded-lg font-bold text-sm hover:bg-indigo-700 transition-colors"
+                                        className="w-full mt-auto py-2 border-2 border-indigo-600 text-indigo-600 rounded-lg font-bold text-sm hover:bg-indigo-50 transition-colors"
                                     >
-                                        {prog.status === 'Completed' ? 'Opnieuw Bekijken' : 'Verder Gaan'}
+                                        Starten
                                     </button>
-                                </div>
-                            ) : (
-                                <button 
-                                    onClick={() => handleStartCourse(course)}
-                                    className="w-full mt-4 py-2 border-2 border-indigo-600 text-indigo-600 rounded-lg font-bold text-sm hover:bg-indigo-50 transition-colors"
-                                >
-                                    Starten
-                                </button>
-                            )}
+                                )}
+                            </div>
                         </div>
                     );
                 })}
@@ -293,6 +317,107 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
             )}
         </div>
     );
+
+    const renderCatalog = () => {
+        const filteredCourses = courses.filter(c => {
+            const matchSearch = c.title.toLowerCase().includes(catalogSearch.toLowerCase()) || 
+                                c.description.toLowerCase().includes(catalogSearch.toLowerCase());
+            const matchCat = catalogCategory === 'All' || c.category === catalogCategory;
+            return matchSearch && matchCat;
+        });
+
+        const categories = ['All', ...new Set(courses.map(c => c.category))];
+
+        return (
+            <div className="p-8">
+                <div className="mb-8">
+                    <h2 className="text-2xl font-bold text-slate-900 mb-2">Catalogus</h2>
+                    <p className="text-slate-500">Ontdek nieuwe trainingen en ontwikkel jezelf.</p>
+                </div>
+
+                {/* Filters */}
+                <div className="flex flex-col md:flex-row gap-4 mb-8">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18}/>
+                        <input 
+                            type="text"
+                            className="w-full pl-10 pr-4 py-2.5 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            placeholder="Zoek een cursus..."
+                            value={catalogSearch}
+                            onChange={(e) => setCatalogSearch(e.target.value)}
+                        />
+                    </div>
+                    <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+                        {categories.map(cat => (
+                            <button
+                                key={cat}
+                                onClick={() => setCatalogCategory(cat)}
+                                className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap border transition-all ${
+                                    catalogCategory === cat 
+                                    ? 'bg-slate-900 text-white border-slate-900' 
+                                    : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                                }`}
+                            >
+                                {cat}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {filteredCourses.map(course => {
+                        const prog = userProgress.find(p => p.courseId === course.id);
+                        return (
+                            <div key={course.id} className="bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-lg transition-all flex flex-col overflow-hidden group">
+                                <div className="h-48 w-full bg-slate-100 relative overflow-hidden">
+                                    {course.coverImage ? (
+                                        <img src={course.coverImage} alt={course.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-slate-300 bg-slate-50">
+                                            <GraduationCap size={48} />
+                                        </div>
+                                    )}
+                                    <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
+                                    <div className="absolute bottom-4 left-4 text-white">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 backdrop-blur-md px-2 py-1 rounded">{course.level}</span>
+                                    </div>
+                                </div>
+
+                                <div className="p-6 flex-1 flex flex-col">
+                                    <h3 className="font-bold text-slate-900 text-lg mb-2 line-clamp-1">{course.title}</h3>
+                                    <p className="text-sm text-slate-500 mb-4 line-clamp-2">{course.description}</p>
+                                    
+                                    <div className="flex items-center gap-4 text-xs text-slate-400 font-medium mb-4">
+                                        <span className="flex items-center gap-1"><Clock size={12}/> {course.modules.length} modules</span>
+                                        <span className="flex items-center gap-1"><Award size={12}/> {course.xpPoints} XP</span>
+                                    </div>
+
+                                    <button 
+                                        onClick={() => handleStartCourse(course)}
+                                        className={`w-full mt-auto py-2.5 rounded-lg font-bold text-sm transition-colors ${
+                                            prog 
+                                            ? 'bg-green-50 text-green-700 hover:bg-green-100'
+                                            : 'bg-slate-900 text-white hover:bg-slate-800'
+                                        }`}
+                                    >
+                                        {prog ? (prog.status === 'Completed' ? 'Opnieuw Bekijken' : 'Verder Gaan') : 'Start Cursus'}
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                    {filteredCourses.length === 0 && (
+                        <div className="col-span-full py-20 text-center bg-white rounded-xl border border-dashed border-slate-200">
+                            <Search className="mx-auto text-slate-300 mb-4" size={48}/>
+                            <h3 className="text-lg font-bold text-slate-900">Geen cursussen gevonden</h3>
+                            <p className="text-slate-500">Probeer een andere zoekterm of categorie.</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        );
+    };
 
     const renderPlayer = () => {
         if (!activeCourse || !selectedModuleId || !selectedLessonId) return null;
@@ -408,6 +533,16 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
                                 />
                             </div>
                             <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Omslagafbeelding URL</label>
+                                <input 
+                                    type="text" 
+                                    className="w-full p-2 border border-slate-200 rounded-lg text-sm"
+                                    placeholder="https://..."
+                                    value={editingCourse.coverImage || ''}
+                                    onChange={e => setEditingCourse({...editingCourse, coverImage: e.target.value})}
+                                />
+                            </div>
+                            <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Beschrijving</label>
                                 <textarea 
                                     className="w-full p-2 border border-slate-200 rounded-lg text-sm"
@@ -490,10 +625,11 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, onShowToast, onE
             />
             <main className="flex-1 overflow-y-auto">
                 {view === 'dashboard' && renderDashboard()}
+                {view === 'catalog' && renderCatalog()}
                 {view === 'player' && renderPlayer()}
                 {view === 'builder' && renderBuilder()}
                 {/* Fallback for other views */}
-                {(view === 'catalog' || view === 'certificates' || view.startsWith('manage')) && (
+                {(view === 'certificates' || view.startsWith('manage')) && (
                     <div className="p-10 text-center text-slate-400">
                         <h2 className="text-xl font-bold mb-2">Work in Progress</h2>
                         <p>Deze module is nog in ontwikkeling.</p>
