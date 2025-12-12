@@ -7,14 +7,14 @@ import {
     Download, PieChart, FileCheck, AlertCircle, Type, Image as ImageIcon,
     Video, HelpCircle, GripVertical, ArrowUp, ArrowDown, Eye, Layers, Settings, Shield, User,
     Map, Target, Zap, Timer, MousePointer2, ArrowRight as ArrowIcon,
-    Bold, Italic, List, Heading1, Link as LinkIcon, Upload, Calendar, Medal, Star, Heart, Trophy, Rocket, Crown, ThumbsUp, Lightbulb, Flame
+    Bold, Italic, List, Heading1, Link as LinkIcon, Upload, Calendar, Medal, Star, Heart, Trophy, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Award as CertificateIcon, Check
 } from 'lucide-react';
 import { Employee, AcademyCourse, AcademyProgress, AcademyModule, AcademyLesson, LearningBlock, BlockType, HotspotItem, BadgeIconKey, BadgeColor } from '../types';
 import { api } from '../utils/api';
 import AcademySidebar from './AcademySidebar';
 import { Modal } from './Modal';
 import { hasPermission } from '../utils/permissions';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart as RePieChart, Pie, Cell, Legend } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart as RePieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid } from 'recharts';
 
 interface AcademyPageProps {
     currentUser: Employee;
@@ -110,6 +110,9 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
     // Catalog State
     const [catalogSearch, setCatalogSearch] = useState('');
     const [catalogCategory, setCatalogCategory] = useState('All');
+
+    // Students Manager State
+    const [studentSearch, setStudentSearch] = useState('');
 
     // Upload Refs
     const courseCoverInputRef = useRef<HTMLInputElement>(null);
@@ -1495,18 +1498,241 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
     };
 
     const renderManageStudents = () => {
-        // ... existing implementation or placeholder
-        return <div className="p-8">Studenten Beheer (Placeholder)</div>;
+        // Filter and Calculate Stats
+        const studentStats = employees.filter(e => 
+            e.name.toLowerCase().includes(studentSearch.toLowerCase()) || 
+            e.departments.some(d => d.toLowerCase().includes(studentSearch.toLowerCase()))
+        ).map(emp => {
+            const empProgress = allProgress.filter(p => p.employeeId === emp.id);
+            const started = empProgress.length;
+            const completed = empProgress.filter(p => p.status === 'Completed').length;
+            const totalScore = empProgress.reduce((acc, curr) => acc + (curr.finalScore || 0), 0);
+            const avgScore = completed > 0 ? Math.round(totalScore / completed) : 0;
+            const lastActive = empProgress.sort((a,b) => new Date(b.startDate || '').getTime() - new Date(a.startDate || '').getTime())[0]?.startDate || '-';
+
+            return { ...emp, started, completed, avgScore, lastActive };
+        });
+
+        return (
+            <div className="p-8 max-w-[2400px] mx-auto animate-in fade-in">
+                <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                    <div>
+                        <h2 className="text-2xl font-bold text-slate-900">Studenten Voortgang</h2>
+                        <p className="text-slate-500">Detailoverzicht van alle medewerkers.</p>
+                    </div>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                        <input 
+                            type="text" 
+                            placeholder="Zoek student..." 
+                            className="pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-sm w-64 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            value={studentSearch}
+                            onChange={(e) => setStudentSearch(e.target.value)}
+                        />
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <table className="w-full text-left">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                            <tr>
+                                <th className="px-6 py-4">Medewerker</th>
+                                <th className="px-6 py-4">Afdeling</th>
+                                <th className="px-6 py-4 text-center">Gestart</th>
+                                <th className="px-6 py-4 text-center">Voltooid</th>
+                                <th className="px-6 py-4 text-center">Gem. Score</th>
+                                <th className="px-6 py-4 text-right">Laatst Actief</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {studentStats.map(student => (
+                                <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center gap-3">
+                                            <img src={student.avatar} className="w-8 h-8 rounded-full border border-slate-100" alt="avatar"/>
+                                            <div>
+                                                <div className="font-bold text-slate-900 text-sm">{student.name}</div>
+                                                <div className="text-xs text-slate-500">{student.role}</div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td className="px-6 py-4 text-sm text-slate-600">{student.departments.join(', ')}</td>
+                                    <td className="px-6 py-4 text-center font-bold text-slate-700">{student.started}</td>
+                                    <td className="px-6 py-4 text-center">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-bold ${student.completed > 0 ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-500'}`}>
+                                            {student.completed}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-center text-sm font-medium text-slate-700">
+                                        {student.avgScore > 0 ? `${student.avgScore}%` : '-'}
+                                    </td>
+                                    <td className="px-6 py-4 text-right text-xs text-slate-500 font-mono">
+                                        {student.lastActive}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        );
     };
 
     const renderAnalytics = () => {
-        // ... existing implementation or placeholder
-        return <div className="p-8">Analytics (Placeholder)</div>;
+        // 1. Course Popularity
+        const coursePopularity = courses.map(c => ({
+            name: c.title,
+            count: allProgress.filter(p => p.courseId === c.id).length
+        })).sort((a,b) => b.count - a.count).slice(0, 5);
+
+        // 2. Status Distribution
+        const statusDist = [
+            { name: 'Niet Gestart', value: employees.length * courses.length - allProgress.length, color: '#e2e8f0' },
+            { name: 'Bezig', value: allProgress.filter(p => p.status === 'In Progress').length, color: '#6366f1' },
+            { name: 'Voltooid', value: allProgress.filter(p => p.status === 'Completed').length, color: '#22c55e' }
+        ];
+
+        // 3. Department Performance
+        const deptPerformance = Array.from(new Set(employees.flatMap(e => e.departments))).map(dept => {
+            const deptEmployees = employees.filter(e => e.departments.includes(dept));
+            const empIds = deptEmployees.map(e => e.id);
+            const deptProgress = allProgress.filter(p => empIds.includes(p.employeeId) && p.status === 'Completed');
+            
+            const totalScore = deptProgress.reduce((acc, curr) => acc + (curr.finalScore || 0), 0);
+            const avg = deptProgress.length > 0 ? Math.round(totalScore / deptProgress.length) : 0;
+            
+            return { name: dept, score: avg };
+        });
+
+        // KPIs
+        const totalEnrollments = allProgress.length;
+        const completionRate = totalEnrollments > 0 
+            ? Math.round((allProgress.filter(p => p.status === 'Completed').length / totalEnrollments) * 100) 
+            : 0;
+        const totalBadges = allProgress.filter(p => p.isBadgeEarned).length;
+
+        return (
+            <div className="p-8 max-w-[2400px] mx-auto animate-in fade-in">
+                <div className="mb-8">
+                    <h2 className="text-2xl font-bold text-slate-900">Academy Rapportages</h2>
+                    <p className="text-slate-500">Inzicht in leerprestaties en betrokkenheid.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Inschrijvingen</div>
+                        <div className="text-3xl font-bold text-slate-900">{totalEnrollments}</div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Voltooiingsgraad</div>
+                        <div className="text-3xl font-bold text-green-600">{completionRate}%</div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Badges Uitgereikt</div>
+                        <div className="text-3xl font-bold text-amber-500">{totalBadges}</div>
+                    </div>
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Actieve Studenten</div>
+                        <div className="text-3xl font-bold text-indigo-600">{new Set(allProgress.map(p => p.employeeId)).size}</div>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-80">
+                        <h3 className="font-bold text-slate-900 mb-4">Populaire Cursussen</h3>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart layout="vertical" data={coursePopularity}>
+                                <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#f1f5f9"/>
+                                <XAxis type="number" hide/>
+                                <YAxis dataKey="name" type="category" width={150} tick={{fontSize: 11}} interval={0}/>
+                                <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '8px', border:'none', boxShadow:'0 4px 6px -1px rgba(0,0,0,0.1)'}}/>
+                                <Bar dataKey="count" fill="#6366f1" radius={[0, 4, 4, 0]} barSize={20} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-80 flex flex-col">
+                        <h3 className="font-bold text-slate-900 mb-4">Status Verdeling</h3>
+                        <div className="flex-1 flex items-center justify-center">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <RePieChart>
+                                    <Pie data={statusDist} innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
+                                        {statusDist.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip />
+                                    <Legend verticalAlign="bottom" height={36}/>
+                                </RePieChart>
+                            </ResponsiveContainer>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-96">
+                    <h3 className="font-bold text-slate-900 mb-6">Gemiddelde Score per Afdeling</h3>
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={deptPerformance}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
+                            <XAxis dataKey="name" tick={{fontSize: 12}} axisLine={false} tickLine={false} />
+                            <YAxis domain={[0, 100]} tick={{fontSize: 12}} axisLine={false} tickLine={false} />
+                            <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '8px', border:'none', boxShadow:'0 4px 6px -1px rgba(0,0,0,0.1)'}}/>
+                            <Bar dataKey="score" fill="#0d9488" radius={[4, 4, 0, 0]} barSize={40} />
+                        </BarChart>
+                    </ResponsiveContainer>
+                </div>
+            </div>
+        );
     };
 
-    const renderCertificates = () => {
-        // ... existing implementation or placeholder
-        return <div className="p-8">Certificaten (Placeholder)</div>;
+    const renderCompletedCourses = () => {
+        const completed = userProgress.filter(p => p.status === 'Completed').sort((a,b) => new Date(b.completedDate || '').getTime() - new Date(a.completedDate || '').getTime());
+
+        return (
+            <div className="p-8 max-w-7xl mx-auto animate-in fade-in">
+                <div className="mb-8">
+                    <h2 className="text-2xl font-bold text-slate-900">Afgeronde Trainingen</h2>
+                    <p className="text-slate-500">Overzicht van je behaalde certificaten en scores.</p>
+                </div>
+
+                {completed.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-4">
+                        {completed.map(p => {
+                            const course = courses.find(c => c.id === p.courseId);
+                            if (!course) return null;
+                            
+                            return (
+                                <div key={p.id} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row items-center gap-6 group hover:shadow-md transition-shadow">
+                                    <div className="w-16 h-16 bg-green-50 text-green-600 rounded-2xl flex items-center justify-center flex-shrink-0">
+                                        <CertificateIcon size={32} />
+                                    </div>
+                                    <div className="flex-1 text-center md:text-left">
+                                        <h3 className="font-bold text-slate-900 text-lg">{course.title}</h3>
+                                        <p className="text-sm text-slate-500">Afgerond op: {p.completedDate}</p>
+                                    </div>
+                                    <div className="flex items-center gap-8">
+                                        <div className="text-center">
+                                            <div className="text-xs font-bold text-slate-400 uppercase">Score</div>
+                                            <div className="text-xl font-bold text-slate-900">{p.finalScore || 100}%</div>
+                                        </div>
+                                        <button className="px-6 py-2.5 border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50 hover:text-slate-900 transition-colors flex items-center gap-2">
+                                            <Download size={18}/> Certificaat
+                                        </button>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                ) : (
+                    <div className="text-center py-20 bg-white rounded-2xl border border-dashed border-slate-200">
+                        <CertificateIcon size={48} className="mx-auto text-slate-300 mb-4" />
+                        <h3 className="font-bold text-slate-900">Nog geen trainingen afgerond</h3>
+                        <p className="text-slate-500 mt-2">Ga naar de catalogus om te beginnen.</p>
+                        <button onClick={() => setView('catalog')} className="mt-6 px-6 py-2 bg-indigo-600 text-white rounded-xl font-bold shadow-sm hover:bg-indigo-700">Naar Catalogus</button>
+                    </div>
+                )}
+            </div>
+        );
     };
 
     const renderDashboard = () => {
@@ -1703,7 +1929,7 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                 {view === 'catalog' && renderCatalog()}
                 {view === 'player' && renderPlayer()}
                 {view === 'builder' && renderBuilder()}
-                {view === 'certificates' && renderCertificates()}
+                {view === 'certificates' && renderCompletedCourses()}
                 {view === 'manage-courses' && renderManageCourses()}
                 {view === 'manage-students' && renderManageStudents()}
                 {view === 'manage-analytics' && renderAnalytics()}
