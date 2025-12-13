@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar, Sparkles, Edit2, MessageSquare, Send, FolderOpen, Save, MapPin, Hash } from 'lucide-react';
+import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar, Sparkles, Edit2, MessageSquare, Send, FolderOpen, Save, MapPin, Hash, Globe } from 'lucide-react';
 import { Debtor, DebtorStatus, Employee, DebtorNote } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
@@ -31,9 +31,11 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       addressNumber: '',
       addressZip: '',
       addressCity: '',
+      addressCountry: 'Nederland',
       amount: 0,
       status: 'New' as DebtorStatus
   });
+  const [isAddressParseError, setIsAddressParseError] = useState(false);
   const [newDetailNote, setNewDetailNote] = useState('');
   
   // Status Modal State (Bulk)
@@ -243,7 +245,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                       lastName,
                       email, 
                       phone,
-                      address,
+                      address, // Initially raw string or enriched string
                       amount: balance,
                       status: 'New',
                       statusDate: new Date().toISOString(),
@@ -411,43 +413,89 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
 
   const handleOpenDetail = (debtor: Debtor) => {
       setDetailDebtor(debtor);
+      setIsAddressParseError(false); // Reset error
       
-      // PARSE ADDRESS LOGIC
       let street = '';
       let number = '';
       let zip = '';
       let city = '';
+      let country = 'Nederland';
       
       const addr = debtor.address || '';
       
-      // Regex pattern to find Zipcode (4 digits, space, 2 letters) as pivot
-      const zipMatch = addr.match(/(\d{4}\s?[a-zA-Z]{2})/);
-      
-      if (zipMatch) {
-          // Everything before the zip is street + number (usually)
-          const part1 = addr.substring(0, zipMatch.index).trim().replace(/,$/, ''); 
-          
-          // Everything including and after the zip
-          const part2 = addr.substring(zipMatch.index).trim();
-          
-          zip = zipMatch[0].replace(/\s/g, '').toUpperCase();
-          // Format zip as 1234 AB
-          if (zip.length === 6) zip = `${zip.slice(0,4)} ${zip.slice(4)}`;
-          
-          city = part2.replace(zipMatch[0], '').replace(/^[,\s]+/, '').trim();
-          
-          // Split Street and Number from part1
-          // Look for digits at the end of the string
-          const numberMatch = part1.match(/(\d+[\w-]*)$/);
+      // PARSE ADDRESS LOGIC - Improved for standard format "Street Nr, Zip City, Country"
+      const commaParts = addr.split(',').map(s => s.trim());
+
+      if (commaParts.length >= 3) {
+          // Format: Street Nr, Zip City, Country
+          country = commaParts.pop() || 'Nederland';
+          const partZipCity = commaParts.pop() || '';
+          const partStreetNr = commaParts.join(', '); // Join rest back in case of extra commas
+
+          // Parse Street/Nr
+          const numberMatch = partStreetNr.match(/(\d+[\w-]*)$/);
           if (numberMatch) {
               number = numberMatch[0];
-              street = part1.substring(0, numberMatch.index).trim();
+              street = partStreetNr.substring(0, numberMatch.index).trim();
           } else {
-              street = part1;
+              street = partStreetNr;
+          }
+
+          // Parse Zip/City
+          const zipMatch = partZipCity.match(/^(\d{4}\s?[a-zA-Z]{2})\s+(.*)$/);
+          if (zipMatch) {
+              zip = zipMatch[1];
+              city = zipMatch[2];
+          } else {
+              city = partZipCity; // Fallback
+          }
+
+      } else if (commaParts.length === 2) {
+          // Format: Street Nr, Zip City (Implies NL)
+          const partZipCity = commaParts[1];
+          const partStreetNr = commaParts[0];
+
+          // Parse Street/Nr
+          const numberMatch = partStreetNr.match(/(\d+[\w-]*)$/);
+          if (numberMatch) {
+              number = numberMatch[0];
+              street = partStreetNr.substring(0, numberMatch.index).trim();
+          } else {
+              street = partStreetNr;
+          }
+
+          // Parse Zip/City
+          // Dutch Zip Regex
+          const zipMatch = partZipCity.match(/(\d{4}\s?[a-zA-Z]{2})/);
+          if (zipMatch) {
+              zip = zipMatch[0];
+              city = partZipCity.replace(zip, '').trim();
+          } else {
+              city = partZipCity;
           }
       } else {
-          // Fallback: put everything in street
-          street = addr;
+          // Fallback: Try regex parsing on raw string if no commas found (e.g. from raw import)
+          const zipMatch = addr.match(/(\d{4}\s?[a-zA-Z]{2})/);
+          if (zipMatch) {
+              const part1 = addr.substring(0, zipMatch.index).trim(); // Street + Nr
+              const part2 = addr.substring(zipMatch.index).trim(); // Zip + City + Country?
+              
+              const numberMatch = part1.match(/(\d+[\w-]*)$/);
+              if (numberMatch) {
+                  number = numberMatch[0];
+                  street = part1.substring(0, numberMatch.index).trim();
+              } else {
+                  street = part1;
+              }
+
+              const zipLen = zipMatch[0].length;
+              zip = zipMatch[0];
+              city = part2.substring(zipLen).trim();
+          } else {
+              // Failed to parse strictly
+              street = addr;
+              setIsAddressParseError(true);
+          }
       }
 
       setDetailForm({
@@ -457,6 +505,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           addressNumber: number,
           addressZip: zip,
           addressCity: city,
+          addressCountry: country,
           amount: debtor.amount,
           status: debtor.status
       });
@@ -466,8 +515,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const handleSaveDetails = async () => {
       if (!detailDebtor) return;
 
-      // RECOMBINE ADDRESS
-      const fullAddress = `${detailForm.addressStreet} ${detailForm.addressNumber}, ${detailForm.addressZip} ${detailForm.addressCity}`.trim().replace(/^,/, '').replace(/,$/, '');
+      // RECOMBINE ADDRESS: Standardize format "Street Nr, Zip City, Country"
+      const fullAddress = `${detailForm.addressStreet} ${detailForm.addressNumber}, ${detailForm.addressZip} ${detailForm.addressCity}, ${detailForm.addressCountry}`.trim().replace(/^,/, '').replace(/,$/, '');
 
       const updatedDebtor: Debtor = {
           ...detailDebtor,
@@ -548,15 +597,26 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       const currentDate = new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
       const amountFormatted = wikTarget.amount.toLocaleString('nl-NL', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-      let streetLine = wikTarget.address || '';
-      let cityLine = '';
-      
-      const addressMatch = streetLine.match(/^(.*?)\s+(\d{4}\s?[a-zA-Z]{2}\s+.*)$/) || 
-                           streetLine.match(/^(.*?)\s+(\d{4}\s+.*)$/); 
+      // Robust Address Splitting for Letter
+      const addrString = wikTarget.address || '';
+      let line1 = ''; // Street + Nr
+      let line2 = ''; // Zip + City
+      let line3 = ''; // Country
 
-      if (addressMatch) {
-          streetLine = addressMatch[1];
-          cityLine = addressMatch[2];
+      const parts = addrString.split(',').map(s => s.trim());
+      if (parts.length >= 3) {
+          line1 = parts[0];
+          line2 = parts[1];
+          line3 = parts[2];
+      } else if (parts.length === 2) {
+          line1 = parts[0];
+          line2 = parts[1];
+          // If 2 parts, usually Country is implicit (NL), but if present in string it might be there.
+          // Assuming standardized save: "Street Nr, Zip City, Country" -> 3 parts.
+          // If unsaved legacy: try best guess
+      } else {
+          // Fallback for raw legacy data
+          line1 = addrString; // Just put everything on line 1 if parsing fails
       }
 
       const letterContent = `
@@ -584,8 +644,9 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
             <div class="header">
                 <div class="recipient">
                     <strong>${wikTarget.firstName} ${wikTarget.lastName}</strong><br>
-                    ${streetLine}<br>
-                    ${cityLine || '&nbsp;'}
+                    ${line1}<br>
+                    ${line2}<br>
+                    ${line3 ? line3.toUpperCase() : ''}
                 </div>
                 <div class="sender">
                     <span class="sender-bold">Sanadome Hotel & Spa</span><br>
@@ -1111,7 +1172,12 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
 
                           <div>
                               <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Adresgegevens (Brief Indeling)</label>
-                              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3 relative">
+                                  {isAddressParseError && (
+                                      <div className="absolute top-2 right-2 text-orange-500 animate-pulse" title="Adres kon niet automatisch gesplitst worden. Controleer a.u.b.">
+                                          <AlertTriangle size={18} />
+                                      </div>
+                                  )}
                                   <div className="flex gap-3">
                                       <div className="flex-1">
                                           <input 
@@ -1145,6 +1211,17 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                                               value={detailForm.addressCity}
                                               onChange={(e) => setDetailForm({...detailForm, addressCity: e.target.value})}
                                               placeholder="Plaats"
+                                          />
+                                      </div>
+                                  </div>
+                                  <div>
+                                      <div className="relative">
+                                          <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
+                                          <input 
+                                              className="w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                              value={detailForm.addressCountry}
+                                              onChange={(e) => setDetailForm({...detailForm, addressCountry: e.target.value})}
+                                              placeholder="Land"
                                           />
                                       </div>
                                   </div>
