@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar, Sparkles, Edit2, MessageSquare, Send, FolderOpen, Save, MapPin, Hash } from 'lucide-react';
 import { Debtor, DebtorStatus, Employee, DebtorNote } from '../types';
@@ -27,7 +26,11 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const [detailForm, setDetailForm] = useState({
       email: '',
       phone: '',
-      address: '',
+      // Address split fields
+      addressStreet: '',
+      addressNumber: '',
+      addressZip: '',
+      addressCity: '',
       amount: 0,
       status: 'New' as DebtorStatus
   });
@@ -408,10 +411,52 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
 
   const handleOpenDetail = (debtor: Debtor) => {
       setDetailDebtor(debtor);
+      
+      // PARSE ADDRESS LOGIC
+      let street = '';
+      let number = '';
+      let zip = '';
+      let city = '';
+      
+      const addr = debtor.address || '';
+      
+      // Regex pattern to find Zipcode (4 digits, space, 2 letters) as pivot
+      const zipMatch = addr.match(/(\d{4}\s?[a-zA-Z]{2})/);
+      
+      if (zipMatch) {
+          // Everything before the zip is street + number (usually)
+          const part1 = addr.substring(0, zipMatch.index).trim().replace(/,$/, ''); 
+          
+          // Everything including and after the zip
+          const part2 = addr.substring(zipMatch.index).trim();
+          
+          zip = zipMatch[0].replace(/\s/g, '').toUpperCase();
+          // Format zip as 1234 AB
+          if (zip.length === 6) zip = `${zip.slice(0,4)} ${zip.slice(4)}`;
+          
+          city = part2.replace(zipMatch[0], '').replace(/^[,\s]+/, '').trim();
+          
+          // Split Street and Number from part1
+          // Look for digits at the end of the string
+          const numberMatch = part1.match(/(\d+[\w-]*)$/);
+          if (numberMatch) {
+              number = numberMatch[0];
+              street = part1.substring(0, numberMatch.index).trim();
+          } else {
+              street = part1;
+          }
+      } else {
+          // Fallback: put everything in street
+          street = addr;
+      }
+
       setDetailForm({
           email: debtor.email || '',
           phone: debtor.phone || '',
-          address: debtor.address || '',
+          addressStreet: street,
+          addressNumber: number,
+          addressZip: zip,
+          addressCity: city,
           amount: debtor.amount,
           status: debtor.status
       });
@@ -421,11 +466,14 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const handleSaveDetails = async () => {
       if (!detailDebtor) return;
 
+      // RECOMBINE ADDRESS
+      const fullAddress = `${detailForm.addressStreet} ${detailForm.addressNumber}, ${detailForm.addressZip} ${detailForm.addressCity}`.trim().replace(/^,/, '').replace(/,$/, '');
+
       const updatedDebtor: Debtor = {
           ...detailDebtor,
           email: detailForm.email,
           phone: detailForm.phone,
-          address: detailForm.address,
+          address: fullAddress,
           amount: detailForm.amount,
           status: detailForm.status,
           statusDate: detailForm.status !== detailDebtor.status ? new Date().toISOString() : detailDebtor.statusDate
@@ -1062,16 +1110,44 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                           </div>
 
                           <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Adresgegevens</label>
-                              <div className="relative">
-                                  <MapPin className="absolute left-3 top-3 text-slate-400" size={16}/>
-                                  <textarea 
-                                      className="w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none resize-none"
-                                      rows={3}
-                                      value={detailForm.address}
-                                      onChange={(e) => setDetailForm({...detailForm, address: e.target.value})}
-                                      placeholder="Straat, Huisnummer, Postcode, Plaats..."
-                                  />
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Adresgegevens (Brief Indeling)</label>
+                              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
+                                  <div className="flex gap-3">
+                                      <div className="flex-1">
+                                          <input 
+                                              className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                              value={detailForm.addressStreet}
+                                              onChange={(e) => setDetailForm({...detailForm, addressStreet: e.target.value})}
+                                              placeholder="Straatnaam"
+                                          />
+                                      </div>
+                                      <div className="w-24">
+                                          <input 
+                                              className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                              value={detailForm.addressNumber}
+                                              onChange={(e) => setDetailForm({...detailForm, addressNumber: e.target.value})}
+                                              placeholder="Nr"
+                                          />
+                                      </div>
+                                  </div>
+                                  <div className="flex gap-3">
+                                      <div className="w-32">
+                                          <input 
+                                              className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                              value={detailForm.addressZip}
+                                              onChange={(e) => setDetailForm({...detailForm, addressZip: e.target.value})}
+                                              placeholder="Postcode"
+                                          />
+                                      </div>
+                                      <div className="flex-1">
+                                          <input 
+                                              className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                              value={detailForm.addressCity}
+                                              onChange={(e) => setDetailForm({...detailForm, addressCity: e.target.value})}
+                                              placeholder="Plaats"
+                                          />
+                                      </div>
+                                  </div>
                               </div>
                           </div>
 
