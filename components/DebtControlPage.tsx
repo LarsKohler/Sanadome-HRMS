@@ -1,7 +1,7 @@
 
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar, Sparkles, Edit2, MessageSquare, Send } from 'lucide-react';
+import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar, Sparkles, Edit2, MessageSquare, Send, FolderOpen, Save, MapPin, Hash } from 'lucide-react';
 import { Debtor, DebtorStatus, Employee, DebtorNote } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
@@ -22,18 +22,20 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   // Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Contact Edit State
-  const [editingDebtor, setEditingDebtor] = useState<Debtor | null>(null);
-  const [contactForm, setContactForm] = useState({ email: '', phone: '' });
+  // --- NEW: COMPREHENSIVE DETAIL MODAL STATE ---
+  const [detailDebtor, setDetailDebtor] = useState<Debtor | null>(null);
+  const [detailForm, setDetailForm] = useState({
+      email: '',
+      phone: '',
+      address: '',
+      amount: 0,
+      status: 'New' as DebtorStatus
+  });
+  const [newDetailNote, setNewDetailNote] = useState('');
   
-  // Status Modal State
+  // Status Modal State (Bulk)
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
-  const [statusTargetIds, setStatusTargetIds] = useState<string[]>([]); // Which IDs are we changing?
-
-  // Notes Modal State
-  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
-  const [selectedDebtorForNotes, setSelectedDebtorForNotes] = useState<Debtor | null>(null);
-  const [newNoteContent, setNewNoteContent] = useState('');
+  const [statusTargetIds, setStatusTargetIds] = useState<string[]>([]); 
 
   // Custom Confirm Modal State
   const [confirmModalState, setConfirmModalState] = useState<{
@@ -54,7 +56,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const [wikTarget, setWikTarget] = useState<Debtor | null>(null);
   const [wikDateInput, setWikDateInput] = useState('');
 
-  // Date Edit State
+  // Date Edit State (Quick Action)
   const [dateEditTarget, setDateEditTarget] = useState<Debtor | null>(null);
   const [newDateValue, setNewDateValue] = useState('');
 
@@ -64,7 +66,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   // Helper to check 2 week rule
   const isActionRequired = (debtor: Debtor) => {
       if (debtor.status === 'Paid' || debtor.status === 'Blacklist' || debtor.status === 'New') return false;
-      if (!debtor.statusDate) return false; // Should generally allow new ones time
+      if (!debtor.statusDate) return false; 
 
       const statusDate = new Date(debtor.statusDate);
       const now = new Date();
@@ -95,7 +97,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           if (a.status === 'Blacklist' && b.status !== 'Blacklist') return -1;
           if (b.status === 'Blacklist' && a.status !== 'Blacklist') return 1;
 
-          // 3. Status Progression (Final Notice higher than Reminder)
+          // 3. Status Progression 
           const statusWeight = { 'Final Notice': 3, '2nd Reminder': 2, '1st Reminder': 1, 'New': 0, 'Paid': -1 };
           const wA = statusWeight[a.status as keyof typeof statusWeight] || 0;
           const wB = statusWeight[b.status as keyof typeof statusWeight] || 0;
@@ -108,15 +110,10 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
 
   useEffect(() => {
     loadDebtors();
-    
-    // Subscribe to realtime changes
     const unsubscribe = api.subscribeToDebtors((updatedDebtors) => {
         setDebtors(sortDebtors(updatedDebtors));
     });
-
-    return () => {
-        unsubscribe();
-    };
+    return () => { unsubscribe(); };
   }, []);
 
   const loadDebtors = async () => {
@@ -134,20 +131,15 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   // --- ADDRESS ENRICHMENT LOGIC ---
   const enrichAddress = async (zipcode: string, houseNumber: string): Promise<{ street: string, city: string } | null> => {
       try {
-          // Using PDOK Locatieserver (Free Dutch Government API)
           const cleanZip = zipcode.replace(/\s/g, '');
           const cleanNumber = houseNumber.trim();
-          
           const response = await fetch(`https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?q=${cleanZip}+${encodeURIComponent(cleanNumber)}&rows=1`);
           const data = await response.json();
           
           if (data.response && data.response.docs && data.response.docs.length > 0) {
               const doc = data.response.docs[0];
               if (doc.straatnaam && doc.woonplaatsnaam) {
-                  return {
-                      street: doc.straatnaam,
-                      city: doc.woonplaatsnaam
-                  };
+                  return { street: doc.straatnaam, city: doc.woonplaatsnaam };
               }
           }
           return null;
@@ -168,11 +160,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
         try {
             const bstr = evt.target?.result;
             const wb = XLSX.read(bstr, { type: 'binary' });
-            
             let ws = wb.Sheets['Reservations'];
-            if (!ws) {
-                ws = wb.Sheets[wb.SheetNames[0]];
-            }
+            if (!ws) ws = wb.Sheets[wb.SheetNames[0]];
 
             const data = XLSX.utils.sheet_to_json(ws, { header: 'A', defval: '' }) as any[];
             await processImportedData(data);
@@ -190,15 +179,12 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           let newCount = 0;
           let skippedCount = 0;
           let enrichedCount = 0;
-          
-          // Create a set of existing reservation numbers for fast lookup
           const existingNumbers = new Set(debtors.map(d => d.reservationNumber));
           const newDebtorsList: Debtor[] = [];
 
           for (let i = 1; i < data.length; i++) {
               const row = data[i];
               const balanceStr = row['AO'];
-              
               let balance = 0;
               if (typeof balanceStr === 'number') balance = balanceStr;
               else if (typeof balanceStr === 'string') balance = parseFloat(balanceStr.replace(',', '.'));
@@ -207,7 +193,6 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                   const reservationNumber = String(row['A'] || '').trim();
                   if (!reservationNumber) continue; 
 
-                  // DUPLICATE CHECK: If already exists, skip it.
                   if (existingNumbers.has(reservationNumber)) {
                       skippedCount++;
                       continue;
@@ -221,10 +206,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                   let address = String(row['G'] || '').trim();
                   let isEnriched = false;
 
-                  // --- ADDRESS ENRICHMENT CHECK ---
                   let zipToEnrich = '';
                   let numberToEnrich = '';
-
                   const matchZipFirst = address.match(/^(\d{4}\s?[a-zA-Z]{2})\s*[,]?\s*(\d+[\w-]*)/);
                   const matchZipLast = address.match(/(\d+[\w-]*)\s*[,]?\s*(\d{4}\s?[a-zA-Z]{2})\s*$/);
 
@@ -241,9 +224,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                       if (enriched) {
                           const cleanZip = zipToEnrich.replace(/\s/g, '');
                           const formattedZip = `${cleanZip.slice(0,4)} ${cleanZip.slice(4).toUpperCase()}`;
-                          
                           const newAddress = `${enriched.street} ${numberToEnrich}, ${formattedZip} ${enriched.city}`;
-                          
                           if (address !== newAddress) {
                               address = newAddress;
                               isEnriched = true;
@@ -267,14 +248,12 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                       importedAt: new Date().toLocaleDateString('nl-NL'),
                       isEnriched: isEnriched
                   };
-                  
                   newDebtorsList.push(newDebtor);
                   newCount++;
                   existingNumbers.add(reservationNumber);
               }
           }
 
-          // Combine existing with new
           const finalDebtorsList = [...debtors, ...newDebtorsList];
           await api.saveDebtors(finalDebtorsList);
           setDebtors(sortDebtors(finalDebtorsList));
@@ -309,18 +288,12 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       });
 
       switch (activeTab) {
-          case 'ACTION':
-              return list.filter(d => isActionRequired(d));
-          case 'NEW':
-              return list.filter(d => d.status === 'New');
-          case 'ONGOING':
-              return list.filter(d => d.status === '1st Reminder' || d.status === '2nd Reminder');
-          case 'URGENT':
-              return list.filter(d => d.status === 'Final Notice' || d.status === 'Blacklist');
-          case 'DONE':
-              return list.filter(d => d.status === 'Paid');
-          default:
-              return list;
+          case 'ACTION': return list.filter(d => isActionRequired(d));
+          case 'NEW': return list.filter(d => d.status === 'New');
+          case 'ONGOING': return list.filter(d => d.status === '1st Reminder' || d.status === '2nd Reminder');
+          case 'URGENT': return list.filter(d => d.status === 'Final Notice' || d.status === 'Blacklist');
+          case 'DONE': return list.filter(d => d.status === 'Paid');
+          default: return list;
       }
   }, [debtors, searchTerm, activeTab]);
 
@@ -334,11 +307,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
 
   const toggleSelectOne = (id: string) => {
       const newSet = new Set(selectedIds);
-      if (newSet.has(id)) {
-          newSet.delete(id);
-      } else {
-          newSet.add(id);
-      }
+      if (newSet.has(id)) newSet.delete(id);
+      else newSet.add(id);
       setSelectedIds(newSet);
   };
 
@@ -346,7 +316,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       setConfirmModalState(prev => ({ ...prev, isOpen: false }));
   };
 
-  // --- BULK ACTIONS ---
+  // --- ACTIONS ---
   const handleBulkDelete = () => {
       const count = selectedIds.size;
       if (count === 0) return;
@@ -354,19 +324,17 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       setConfirmModalState({
           isOpen: true,
           title: 'Dossiers verwijderen',
-          message: `Weet je zeker dat je ${count} geselecteerde dossier(s) wilt verwijderen? Dit kan niet ongedaan worden gemaakt.`,
+          message: `Weet je zeker dat je ${count} geselecteerde dossier(s) wilt verwijderen?`,
           type: 'danger',
           onConfirm: async () => {
               const idsToDelete = Array.from(selectedIds) as string[];
               const previousDebtors = [...debtors];
               const updatedList = debtors.filter(d => !selectedIds.has(d.id));
-              setDebtors(updatedList); // Optimistic
+              setDebtors(updatedList); 
               setSelectedIds(new Set()); 
-    
               const success = await api.deleteDebtors(idsToDelete);
-              if (success) {
-                  onShowToast(`${count} dossiers verwijderd.`);
-              } else {
+              if (success) onShowToast(`${count} dossiers verwijderd.`);
+              else {
                   setDebtors(previousDebtors);
                   onShowToast("Fout bij verwijderen.");
               }
@@ -381,7 +349,6 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       setIsStatusModalOpen(true);
   };
 
-  // --- INDIVIDUAL ACTIONS ---
   const handleDeleteDebtor = (id: string) => {
       setConfirmModalState({
           isOpen: true,
@@ -392,14 +359,14 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
               const previousDebtors = [...debtors];
               const updatedList = debtors.filter(d => d.id !== id);
               setDebtors(updatedList);
-              
               const success = await api.deleteDebtor(id);
-              if (success) {
-                  onShowToast("Dossier verwijderd");
-              } else {
+              if (success) onShowToast("Dossier verwijderd");
+              else {
                   setDebtors(previousDebtors);
                   onShowToast("Fout bij verwijderen.");
               }
+              // Also close detail modal if it was open for this user
+              if (detailDebtor?.id === id) setDetailDebtor(null);
               closeConfirmModal();
           }
       });
@@ -412,8 +379,6 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
 
   const applyStatusChange = (newStatus: DebtorStatus) => {
       if (statusTargetIds.length === 0) return;
-
-      // Close Status Selection Modal first
       setIsStatusModalOpen(false);
 
       setConfirmModalState({
@@ -428,7 +393,6 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                   }
                   return d;
               });
-        
               setDebtors(sortDebtors(updatedList));
               await api.saveDebtors(updatedList);
               
@@ -440,39 +404,68 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       });
   };
 
-  // --- NOTES LOGIC ---
-  const handleOpenNotes = (debtor: Debtor) => {
-      setSelectedDebtorForNotes(debtor);
-      setNewNoteContent('');
-      setIsNotesModalOpen(true);
+  // --- NEW: COMPREHENSIVE DETAIL MODAL LOGIC ---
+
+  const handleOpenDetail = (debtor: Debtor) => {
+      setDetailDebtor(debtor);
+      setDetailForm({
+          email: debtor.email || '',
+          phone: debtor.phone || '',
+          address: debtor.address || '',
+          amount: debtor.amount,
+          status: debtor.status
+      });
+      setNewDetailNote('');
   };
 
-  const handleSaveNote = async () => {
-      if (!selectedDebtorForNotes || !newNoteContent.trim()) return;
+  const handleSaveDetails = async () => {
+      if (!detailDebtor) return;
+
+      const updatedDebtor: Debtor = {
+          ...detailDebtor,
+          email: detailForm.email,
+          phone: detailForm.phone,
+          address: detailForm.address,
+          amount: detailForm.amount,
+          status: detailForm.status,
+          statusDate: detailForm.status !== detailDebtor.status ? new Date().toISOString() : detailDebtor.statusDate
+      };
+
+      const updatedList = debtors.map(d => d.id === updatedDebtor.id ? updatedDebtor : d);
+      
+      setDebtors(sortDebtors(updatedList));
+      setDetailDebtor(updatedDebtor); // Update view state
+      await api.saveDebtors(updatedList);
+      
+      onShowToast("Dossier gegevens opgeslagen.");
+  };
+
+  const handleAddNoteInDetail = async () => {
+      if (!detailDebtor || !newDetailNote.trim()) return;
 
       const newNote: DebtorNote = {
           id: Math.random().toString(36).substr(2, 9),
-          content: newNoteContent,
+          content: newDetailNote,
           date: new Date().toISOString(),
           author: currentUser.name
       };
 
       const updatedDebtor = {
-          ...selectedDebtorForNotes,
-          notes: [...(selectedDebtorForNotes.notes || []), newNote]
+          ...detailDebtor,
+          notes: [...(detailDebtor.notes || []), newNote]
       };
 
       // Optimistic update
       const updatedList = debtors.map(d => d.id === updatedDebtor.id ? updatedDebtor : d);
       setDebtors(sortDebtors(updatedList));
-      setSelectedDebtorForNotes(updatedDebtor);
+      setDetailDebtor(updatedDebtor);
+      setNewDetailNote('');
       
-      setNewNoteContent('');
       await api.saveDebtors(updatedList);
       onShowToast("Notitie toegevoegd");
   };
 
-  // --- DATE EDITING LOGIC ---
+  // --- DATE EDIT (Quick Action) ---
   const openDateEdit = (debtor: Debtor) => {
       setDateEditTarget(debtor);
       const current = debtor.statusDate ? new Date(debtor.statusDate) : new Date();
@@ -482,56 +475,16 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const handleDateSave = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!dateEditTarget || !newDateValue) return;
-
       const updatedList = debtors.map(d => {
           if (d.id === dateEditTarget.id) {
               return { ...d, statusDate: new Date(newDateValue).toISOString() };
           }
           return d;
       });
-
       setDebtors(sortDebtors(updatedList));
       await api.saveDebtors(updatedList);
       setDateEditTarget(null);
       onShowToast("Datum succesvol aangepast");
-  };
-
-  // --- Contact Editing ---
-  const openEditContact = (debtor: Debtor) => {
-      setEditingDebtor(debtor);
-      setContactForm({ 
-          email: debtor.email === 'N.v.t.' ? '' : (debtor.email || ''), 
-          phone: debtor.phone === 'N.v.t.' ? '' : (debtor.phone || '') 
-      });
-  };
-
-  const saveContact = async (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!editingDebtor) return;
-
-      const updatedList = debtors.map(d => d.id === editingDebtor.id ? {
-          ...d,
-          email: contactForm.email,
-          phone: contactForm.phone
-      } : d);
-
-      setDebtors(updatedList);
-      await api.saveDebtors(updatedList);
-      setEditingDebtor(null);
-      onShowToast("Contactgegevens bijgewerkt");
-  };
-
-  const markContactUnavailable = async () => {
-      if (!editingDebtor) return;
-      const updatedList = debtors.map(d => d.id === editingDebtor.id ? {
-          ...d,
-          email: d.email || 'N.v.t.',
-          phone: d.phone || 'N.v.t.'
-      } : d);
-      setDebtors(updatedList);
-      await api.saveDebtors(updatedList);
-      setEditingDebtor(null);
-      onShowToast("Gemarkeerd als niet beschikbaar");
   };
 
   // --- WIK LETTER GENERATION ---
@@ -603,17 +556,11 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
 
             <div class="content">
                 <p>Beste ${wikTarget.lastName},</p>
-                
                 <p>Hierbij herinneren wij u aan de openstaande factuur met reserveringsnummer <strong>${wikTarget.reservationNumber}</strong> van <strong>${formattedDateInput}</strong> met een bedrag van <strong>€${amountFormatted}</strong>.</p>
-                
                 <p>Helaas hebben wij, ondanks meerdere herinneringen, tot op heden nog geen betaling van u mogen ontvangen. Wij verzoeken u vriendelijk het verschuldigde bedrag binnen 14 dagen over te maken naar ons rekeningnummer <strong>NL52 RABO 0181 6526 68</strong>, ten name van Sanadome Hotel & Spa Nijmegen, onder vermelding van het reserveringsnummer.</p>
-                
                 <p>Wij wijzen u erop dat wij bij uitblijven van tijdige betaling genoodzaakt zijn de vordering over te dragen aan een externe incassopartij. In dat geval worden incassokosten en wettelijke rente in rekening gebracht, conform de geldende wettelijke regelingen.</p>
-                
                 <p>Mocht u inmiddels wel betaald hebben, dan kunt u deze aanmaning als niet verzonden beschouwen.</p>
-                
                 <p>Indien u vragen, of opmerkingen met betrekking tot deze factuur heeft, kunt u ten allertijden contact opnemen met ons via de contactgegevens onderstaand deze brief.</p>
-                
                 <p>Wij vertrouwen erop dat u de betaling alsnog tijdig zult voldoen en hopen hiermee verdere incassomaatregelen te voorkomen.</p>
             </div>
 
@@ -635,8 +582,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
               printWindow.close();
           }, 250);
       }
-      
-      setWikTarget(null); // Close modal
+      setWikTarget(null);
   };
 
   const totalDebt = debtors.filter(d => d.status !== 'Paid').reduce((acc, curr) => acc + curr.amount, 0);
@@ -870,12 +816,6 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                                               {debtor.address || <span className="italic text-slate-400">Adres onbekend</span>}
                                           </span>
                                       </div>
-                                      <button 
-                                        onClick={(e) => { e.stopPropagation(); openEditContact(debtor); }} 
-                                        className="text-[10px] font-bold text-teal-600 hover:underline flex items-center gap-1 pt-1 opacity-0 group-hover:opacity-100 transition-opacity"
-                                      >
-                                          <Edit2 size={10}/> Wijzigen
-                                      </button>
                                   </div>
                               </td>
 
@@ -922,11 +862,11 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                               <td className="px-6 py-5 text-right align-top" onClick={(e) => e.stopPropagation()}>
                                   <div className="flex justify-end gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all translate-x-4 lg:group-hover:translate-x-0">
                                       <button 
-                                        onClick={() => handleOpenNotes(debtor)}
+                                        onClick={() => handleOpenDetail(debtor)}
                                         className={`p-2.5 bg-white border border-slate-200 hover:text-blue-600 hover:border-blue-200 rounded-xl shadow-sm transition-all relative ${hasNotes ? 'text-blue-500' : 'text-slate-500'}`}
-                                        title="Notities"
+                                        title="Open Dossier & Notities"
                                       >
-                                          <MessageSquare size={16} />
+                                          <FolderOpen size={16} />
                                           {hasNotes && <div className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full border border-white"></div>}
                                       </button>
                                       <button 
@@ -1046,103 +986,175 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           </div>
       </Modal>
 
-      {/* Notes Modal */}
-      <Modal
-        isOpen={isNotesModalOpen}
-        onClose={() => setIsNotesModalOpen(false)}
-        title="Dossier Notities"
-      >
-          {selectedDebtorForNotes && (
-              <div className="flex flex-col h-[500px]">
-                  <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                      <h4 className="font-bold text-slate-900">{selectedDebtorForNotes.firstName} {selectedDebtorForNotes.lastName}</h4>
-                      <p className="text-xs text-slate-500 font-mono mt-1">#{selectedDebtorForNotes.reservationNumber}</p>
+      {/* COMPREHENSIVE DETAIL MODAL */}
+      {detailDebtor && (
+      <div className={`fixed inset-0 z-[100] flex justify-end transition-opacity duration-300`}>
+          <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm transition-opacity" onClick={() => setDetailDebtor(null)}></div>
+          <div className="relative w-full max-w-5xl bg-white h-full shadow-2xl flex flex-col transform transition-transform duration-300 ease-in-out animate-in slide-in-from-right">
+              {/* Header */}
+              <div className="px-8 py-6 border-b border-slate-100 bg-white sticky top-0 z-10 flex justify-between items-center">
+                  <div>
+                      <h2 className="text-2xl font-bold text-slate-900">{detailDebtor.firstName} {detailDebtor.lastName}</h2>
+                      <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
+                          <span className="font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-600">#{detailDebtor.reservationNumber}</span>
+                          <span>•</span>
+                          <span>Laatst gewijzigd: {new Date(detailDebtor.lastUpdated).toLocaleDateString()}</span>
+                      </div>
                   </div>
+                  <button onClick={() => setDetailDebtor(null)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors">
+                      <X size={24} />
+                  </button>
+              </div>
 
-                  <div className="flex-1 overflow-y-auto space-y-4 px-1 custom-scrollbar mb-4">
-                      {selectedDebtorForNotes.notes && selectedDebtorForNotes.notes.length > 0 ? (
-                          selectedDebtorForNotes.notes.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(note => (
-                              <div key={note.id} className="flex flex-col bg-white border border-slate-100 p-3 rounded-xl shadow-sm">
-                                  <div className="flex justify-between items-start mb-2">
-                                      <span className="text-xs font-bold text-slate-800">{note.author}</span>
-                                      <span className="text-[10px] text-slate-400">{new Date(note.date).toLocaleString('nl-NL')}</span>
-                                  </div>
-                                  <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">{note.content}</p>
+              <div className="flex-1 overflow-hidden flex flex-col md:flex-row bg-slate-50/50">
+                  {/* LEFT COLUMN: DETAILS & EDIT */}
+                  <div className="w-full md:w-1/2 p-8 overflow-y-auto border-r border-slate-200 bg-white">
+                      <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
+                          <Edit2 size={18} className="text-teal-600"/> Dossier Gegevens
+                      </h3>
+                      
+                      <div className="space-y-6">
+                          {/* Status Select */}
+                          <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Status</label>
+                              <div className="relative">
+                                  <select 
+                                      className="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold bg-slate-50 appearance-none focus:ring-2 focus:ring-teal-500 outline-none"
+                                      value={detailForm.status}
+                                      onChange={(e) => setDetailForm({...detailForm, status: e.target.value as DebtorStatus})}
+                                  >
+                                      <option value="New">Nieuw</option>
+                                      <option value="1st Reminder">1e Herinnering</option>
+                                      <option value="2nd Reminder">2e Herinnering</option>
+                                      <option value="Final Notice">Aanmaning</option>
+                                      <option value="Paid">Betaald</option>
+                                      <option value="Blacklist">Blacklist</option>
+                                  </select>
+                                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16}/>
                               </div>
-                          ))
-                      ) : (
-                          <div className="text-center py-10 text-slate-400 italic text-sm">
-                              Nog geen notities toegevoegd.
                           </div>
-                      )}
+
+                          <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">E-mailadres</label>
+                                  <div className="relative">
+                                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
+                                      <input 
+                                          className="w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                          value={detailForm.email}
+                                          onChange={(e) => setDetailForm({...detailForm, email: e.target.value})}
+                                          placeholder="Email..."
+                                      />
+                                  </div>
+                              </div>
+                              <div>
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Telefoon</label>
+                                  <div className="relative">
+                                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
+                                      <input 
+                                          className="w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                          value={detailForm.phone}
+                                          onChange={(e) => setDetailForm({...detailForm, phone: e.target.value})}
+                                          placeholder="Tel..."
+                                      />
+                                  </div>
+                              </div>
+                          </div>
+
+                          <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Adresgegevens</label>
+                              <div className="relative">
+                                  <MapPin className="absolute left-3 top-3 text-slate-400" size={16}/>
+                                  <textarea 
+                                      className="w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none resize-none"
+                                      rows={3}
+                                      value={detailForm.address}
+                                      onChange={(e) => setDetailForm({...detailForm, address: e.target.value})}
+                                      placeholder="Straat, Huisnummer, Postcode, Plaats..."
+                                  />
+                              </div>
+                          </div>
+
+                          <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Openstaand Bedrag</label>
+                              <div className="relative">
+                                  <Euro className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
+                                  <input 
+                                      type="number"
+                                      step="0.01"
+                                      className="w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-teal-500 outline-none"
+                                      value={detailForm.amount}
+                                      onChange={(e) => setDetailForm({...detailForm, amount: parseFloat(e.target.value)})}
+                                  />
+                              </div>
+                          </div>
+
+                          <div className="pt-4 border-t border-slate-100">
+                              <button 
+                                onClick={handleSaveDetails}
+                                className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
+                              >
+                                  <Save size={18}/> Wijzigingen Opslaan
+                              </button>
+                          </div>
+                      </div>
                   </div>
 
-                  <div className="mt-auto border-t border-slate-100 pt-4">
-                      <div className="flex gap-2">
+                  {/* RIGHT COLUMN: NOTES TIMELINE */}
+                  <div className="w-full md:w-1/2 p-8 overflow-y-auto flex flex-col h-full">
+                      <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
+                          <MessageSquare size={18} className="text-blue-600"/> Historie & Notities
+                      </h3>
+
+                      <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6 mb-6">
+                          {detailDebtor.notes && detailDebtor.notes.length > 0 ? (
+                              // Timeline
+                              <div className="relative border-l-2 border-slate-200 ml-3 space-y-6">
+                                  {detailDebtor.notes.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(note => (
+                                      <div key={note.id} className="relative pl-6">
+                                          <div className="absolute -left-[9px] top-0 w-4 h-4 bg-white border-2 border-blue-500 rounded-full"></div>
+                                          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                              <div className="flex justify-between items-start mb-2">
+                                                  <span className="text-xs font-bold text-slate-800">{note.author}</span>
+                                                  <span className="text-[10px] text-slate-400">{new Date(note.date).toLocaleString('nl-NL')}</span>
+                                              </div>
+                                              <p className="text-sm text-slate-600 whitespace-pre-wrap">{note.content}</p>
+                                          </div>
+                                      </div>
+                                  ))}
+                              </div>
+                          ) : (
+                              <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-200">
+                                  <p className="text-slate-400 text-sm italic">Nog geen notities in dit dossier.</p>
+                              </div>
+                          )}
+                      </div>
+
+                      <div className="mt-auto bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                           <textarea 
-                              className="flex-1 p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                              rows={2}
+                              className="w-full border-none focus:ring-0 text-sm resize-none p-0 mb-2"
+                              rows={3}
                               placeholder="Schrijf een nieuwe notitie..."
-                              value={newNoteContent}
-                              onChange={(e) => setNewNoteContent(e.target.value)}
+                              value={newDetailNote}
+                              onChange={(e) => setNewDetailNote(e.target.value)}
                           />
-                          <button 
-                              onClick={handleSaveNote}
-                              disabled={!newNoteContent.trim()}
-                              className="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                          >
-                              <Send size={18}/>
-                          </button>
+                          <div className="flex justify-end pt-2 border-t border-slate-50">
+                              <button 
+                                  onClick={handleAddNoteInDetail}
+                                  disabled={!newDetailNote.trim()}
+                                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+                              >
+                                  <Send size={14}/> Toevoegen
+                              </button>
+                          </div>
                       </div>
                   </div>
               </div>
-          )}
-      </Modal>
+          </div>
+      </div>
+      )}
 
-      {/* Contact Edit Modal */}
-      <Modal
-        isOpen={!!editingDebtor}
-        onClose={() => setEditingDebtor(null)}
-        title="Contactgegevens Bewerken"
-      >
-          <form onSubmit={saveContact} className="space-y-5">
-              <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">E-mailadres</label>
-                  <input 
-                    type="email" 
-                    value={contactForm.email} 
-                    onChange={(e) => setContactForm({...contactForm, email: e.target.value})}
-                    className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-colors"
-                    placeholder="naam@email.com"
-                  />
-              </div>
-              <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Telefoonnummer</label>
-                  <input 
-                    type="text" 
-                    value={contactForm.phone} 
-                    onChange={(e) => setContactForm({...contactForm, phone: e.target.value})}
-                    className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-slate-50 focus:bg-white transition-colors"
-                    placeholder="+31 6..."
-                  />
-              </div>
-              
-              <div className="flex flex-col gap-3 pt-2">
-                  <button type="submit" className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors shadow-lg">
-                      Opslaan
-                  </button>
-                  <button 
-                    type="button" 
-                    onClick={markContactUnavailable}
-                    className="w-full py-3 bg-white border border-slate-200 text-slate-500 font-bold rounded-xl hover:bg-slate-50 transition-colors"
-                  >
-                      Markeren als niet beschikbaar
-                  </button>
-              </div>
-          </form>
-      </Modal>
-
-      {/* Date Edit Modal */}
+      {/* Date Edit Modal (Quick Action) */}
       <Modal
         isOpen={!!dateEditTarget}
         onClose={() => setDateEditTarget(null)}
