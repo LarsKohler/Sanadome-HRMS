@@ -211,10 +211,6 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
       setImageUrl(post.image || '');
       setIsPinned(post.isPinned || false);
       setIsCreateModalOpen(true);
-      // Close reader view to prevent stale data
-      // (Optional: keep reader open and update it, but simple to close)
-      // Actually, let's keep reader open but we need to update state manually or rely on parent re-render.
-      // Since `selectedPost` is local state, we will close it or update it after save.
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -335,14 +331,10 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
     }, 0);
   };
 
-  // --- CONTENT VIEW: LIST or DETAIL (Within Page) ---
-
-  if (selectedPost) {
-      // --- READER VIEW ---
-      const isRead = selectedPost.readBy?.includes(currentUser.id) || false;
-      const canRead = selectedPost.isPinned && !isRead;
-
-      return (
+  return (
+    <>
+      {selectedPost ? (
+          // --- READER VIEW ---
           <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in slide-in-from-bottom-2 duration-300">
               {/* Navigation Header */}
               <div className="flex items-center justify-between mb-6">
@@ -424,7 +416,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                       </article>
 
                       {/* Read Confirmation Footer */}
-                      {canRead ? (
+                      {selectedPost.isPinned && !selectedPost.readBy?.includes(currentUser.id) ? (
                           <div className="mt-12 pt-8 border-t border-slate-100 flex flex-col items-center justify-center text-center bg-slate-50 rounded-2xl p-8 border border-slate-200">
                               <h4 className="font-bold text-slate-900 mb-2">Heb je dit bericht gelezen?</h4>
                               <p className="text-slate-500 text-sm mb-4">Dit is een belangrijk bericht. Bevestig a.u.b. dat je het hebt gelezen.</p>
@@ -435,7 +427,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                                   <CheckCircle2 size={18}/> Ik heb dit gelezen
                               </button>
                           </div>
-                      ) : isRead && selectedPost.isPinned ? (
+                      ) : selectedPost.readBy?.includes(currentUser.id) && selectedPost.isPinned ? (
                           <div className="mt-12 pt-6 border-t border-slate-100 flex items-center justify-center">
                               <div className="flex items-center gap-2 text-green-600 font-bold bg-green-50 px-6 py-3 rounded-xl border border-green-100">
                                   <CheckCircle2 size={18}/> Gelezen op {new Date().toLocaleDateString('nl-NL')}
@@ -445,67 +437,66 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                   </div>
               </div>
           </div>
-      );
-  }
-
-  // --- LIST VIEW ---
-  return (
-    <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
-      
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-        <div>
-            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Nieuws & Updates</h1>
-            <p className="text-slate-500 mt-2 text-lg">Blijf op de hoogte van de laatste ontwikkelingen binnen Sanadome.</p>
-        </div>
-        
-        {canPost && (
-          <button 
-            onClick={handleOpenCreate}
-            className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all w-full md:w-auto justify-center"
-          >
-            <Send size={18} />
-            Nieuw Artikel
-          </button>
-        )}
-      </div>
-
-      {/* Hero Section */}
-      {heroPost && (
-          <HeroPost 
-            post={heroPost} 
-            onClick={() => setSelectedPost(heroPost)} 
-            isRead={heroPost.readBy?.includes(currentUser.id) || false}
-          />
-      )}
-
-      {/* Content Grid */}
-      {gridPosts.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {gridPosts.map(post => (
-                  <NewsCard 
-                    key={post.id} 
-                    post={post} 
-                    onClick={() => setSelectedPost(post)}
-                    isRead={post.readBy?.includes(currentUser.id) || false}
-                  />
-              ))}
-          </div>
       ) : (
-          !heroPost && (
-            <div className="text-center py-24 bg-white rounded-3xl border border-slate-200 border-dashed max-w-2xl mx-auto">
-                <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-50 text-slate-300 mb-6">
-                    <Layout size={40} />
-                </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">Nog geen nieuws</h3>
-                <p className="text-slate-500">Er zijn nog geen nieuwsberichten geplaatst in de organisatie.</p>
-                {canPost && (
-                    <button onClick={handleOpenCreate} className="mt-6 text-teal-600 font-bold hover:underline">
-                        Plaats het eerste bericht
-                    </button>
-                )}
+          // --- LIST VIEW ---
+          <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
+            
+            {/* Header */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+              <div>
+                  <h1 className="text-3xl font-bold tracking-tight text-slate-900">Nieuws & Updates</h1>
+                  <p className="text-slate-500 mt-2 text-lg">Blijf op de hoogte van de laatste ontwikkelingen binnen Sanadome.</p>
+              </div>
+              
+              {canPost && (
+                <button 
+                  onClick={handleOpenCreate}
+                  className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all w-full md:w-auto justify-center"
+                >
+                  <Send size={18} />
+                  Nieuw Artikel
+                </button>
+              )}
             </div>
-          )
+
+            {/* Hero Section */}
+            {heroPost && (
+                <HeroPost 
+                  post={heroPost} 
+                  onClick={() => setSelectedPost(heroPost)} 
+                  isRead={heroPost.readBy?.includes(currentUser.id) || false}
+                />
+            )}
+
+            {/* Content Grid */}
+            {gridPosts.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {gridPosts.map(post => (
+                        <NewsCard 
+                          key={post.id} 
+                          post={post} 
+                          onClick={() => setSelectedPost(post)}
+                          isRead={post.readBy?.includes(currentUser.id) || false}
+                        />
+                    ))}
+                </div>
+            ) : (
+                !heroPost && (
+                  <div className="text-center py-24 bg-white rounded-3xl border border-slate-200 border-dashed max-w-2xl mx-auto">
+                      <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-50 text-slate-300 mb-6">
+                          <Layout size={40} />
+                      </div>
+                      <h3 className="text-xl font-bold text-slate-900 mb-2">Nog geen nieuws</h3>
+                      <p className="text-slate-500">Er zijn nog geen nieuwsberichten geplaatst in de organisatie.</p>
+                      {canPost && (
+                          <button onClick={handleOpenCreate} className="mt-6 text-teal-600 font-bold hover:underline">
+                              Plaats het eerste bericht
+                          </button>
+                      )}
+                  </div>
+                )
+            )}
+          </div>
       )}
 
       {/* CREATE / EDIT MODAL */}
@@ -651,8 +642,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
             </div>
          </div>
       </Modal>
-
-    </div>
+    </>
   );
 };
 
