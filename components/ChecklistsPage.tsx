@@ -121,7 +121,8 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
             required: type !== 'header',
             isCritical: false,
             explanationRequiredOn: type === 'yes_no' ? 'no' : null,
-            options: (type === 'select' || type === 'multi_select') ? ['Optie 1', 'Optie 2'] : undefined,
+            // Initialize yes_no with default labels in options if type is yes_no
+            options: (type === 'select' || type === 'multi_select') ? ['Optie 1', 'Optie 2'] : (type === 'yes_no' ? ['Ja', 'Nee'] : undefined),
             explanationLabel: 'Toelichting',
             includeTime: false
         };
@@ -253,8 +254,11 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
             if (!isMandatory) return false;
             
             const val = activeSubmission.responses[i.id];
+            
             if (i.type === 'multi_select') return !val || val.length === 0;
-            return !val; // Standard truthy check covers bool, string, etc.
+            
+            // Allow false as a valid answer for yes/no questions (explicitly checked for undefined/null)
+            return val === undefined || val === null || val === ''; 
         });
         
         if (missing.length > 0) {
@@ -394,6 +398,12 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
                                                 <span className="text-xs text-slate-400">{item.includeTime ? 'DD-MM-JJJJ uu:mm' : 'DD-MM-JJJJ'}</span>
                                             </div>
                                         )}
+                                        {item.type === 'yes_no' && (
+                                            <div className="ml-10 flex gap-2 opacity-70 pointer-events-none">
+                                                <div className="px-3 py-1.5 border rounded-lg bg-white text-xs font-bold text-slate-500">{item.options?.[0] || 'Ja'}</div>
+                                                <div className="px-3 py-1.5 border rounded-lg bg-white text-xs font-bold text-slate-500">{item.options?.[1] || 'Nee'}</div>
+                                            </div>
+                                        )}
                                         
                                         {item.type !== 'header' && (
                                             <input 
@@ -472,29 +482,59 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
                                         )}
 
                                         {item.type === 'yes_no' && (
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Uitleg nodig bij:</label>
-                                                    <select 
-                                                        className="w-full border border-slate-300 rounded p-2 text-sm"
-                                                        value={item.explanationRequiredOn || ''}
-                                                        onChange={e => updateTemplateItem(item.id, { explanationRequiredOn: e.target.value as any || null })}
-                                                    >
-                                                        <option value="">Nooit</option>
-                                                        <option value="yes">Ja</option>
-                                                        <option value="no">Nee</option>
-                                                    </select>
+                                            <>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Label Optie 1 (Positief)</label>
+                                                        <input 
+                                                            className="w-full border border-slate-300 rounded p-2 text-sm"
+                                                            value={item.options?.[0] || ''}
+                                                            placeholder="Standaard: Ja"
+                                                            onChange={e => {
+                                                                const newOpts = [...(item.options || ['Ja', 'Nee'])];
+                                                                newOpts[0] = e.target.value;
+                                                                updateTemplateItem(item.id, { options: newOpts });
+                                                            }}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Label Optie 2 (Negatief)</label>
+                                                        <input 
+                                                            className="w-full border border-slate-300 rounded p-2 text-sm"
+                                                            value={item.options?.[1] || ''}
+                                                            placeholder="Standaard: Nee"
+                                                            onChange={e => {
+                                                                const newOpts = [...(item.options || ['Ja', 'Nee'])];
+                                                                newOpts[1] = e.target.value;
+                                                                updateTemplateItem(item.id, { options: newOpts });
+                                                            }}
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Vraagstelling bij toelichting</label>
-                                                    <input 
-                                                        className="w-full border border-slate-300 rounded p-2 text-sm"
-                                                        value={item.explanationLabel || ''}
-                                                        onChange={e => updateTemplateItem(item.id, { explanationLabel: e.target.value })}
-                                                        placeholder="Bv. Waarom is dit niet in orde?"
-                                                    />
+                                                <div className="grid grid-cols-2 gap-4 pt-2 border-t border-slate-200">
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Uitleg nodig bij:</label>
+                                                        <select 
+                                                            className="w-full border border-slate-300 rounded p-2 text-sm"
+                                                            value={item.explanationRequiredOn || ''}
+                                                            onChange={e => updateTemplateItem(item.id, { explanationRequiredOn: e.target.value as any || null })}
+                                                        >
+                                                            <option value="">Nooit</option>
+                                                            <option value="yes">Keuze 1 ({item.options?.[0] || 'Ja'})</option>
+                                                            <option value="no">Keuze 2 ({item.options?.[1] || 'Nee'})</option>
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Vraagstelling bij toelichting</label>
+                                                        <input 
+                                                            className="w-full border border-slate-300 rounded p-2 text-sm"
+                                                            value={item.explanationLabel || ''}
+                                                            onChange={e => updateTemplateItem(item.id, { explanationLabel: e.target.value })}
+                                                            placeholder="Bv. Waarom is dit niet in orde?"
+                                                        />
+                                                    </div>
                                                 </div>
-                                            </div>
+                                            </>
                                         )}
                                     </div>
                                 )}
@@ -581,9 +621,14 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
         const template = activeSubmission.templateSnapshot || templates.find(t => t.id === activeSubmission.templateId);
         if (!template) return <div>Template niet gevonden</div>;
 
-        // Calculate progress
+        // Calculate progress - allow false as completed for yes/no questions
         const totalItems = template.items.filter(i => i.type !== 'header').length;
-        const completedItems = template.items.filter(i => i.type !== 'header' && activeSubmission.responses[i.id]).length;
+        const completedItems = template.items.filter(i => {
+            if (i.type === 'header') return false;
+            const val = activeSubmission.responses[i.id];
+            return val !== undefined && val !== null && val !== '';
+        }).length;
+        
         const progress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
 
         return (
@@ -645,8 +690,14 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
                                 const isExplanationNeeded = item.type === 'yes_no' && item.explanationRequiredOn && 
                                                             ((item.explanationRequiredOn === 'yes' && val === true) || (item.explanationRequiredOn === 'no' && val === false));
 
+                                // Custom Labels for Yes/No
+                                const labelTrue = item.options?.[0] || 'Ja';
+                                const labelFalse = item.options?.[1] || 'Nee';
+
+                                const isFilled = val !== undefined && val !== null && val !== '';
+
                                 return (
-                                    <div key={item.id} className={`space-y-3 p-5 rounded-2xl transition-all border-2 ${item.isCritical && !val ? 'bg-red-50/50 border-red-100' : 'bg-white border-transparent hover:border-slate-100 hover:shadow-sm'}`}>
+                                    <div key={item.id} className={`space-y-3 p-5 rounded-2xl transition-all border-2 ${item.isCritical && !isFilled ? 'bg-red-50/50 border-red-100' : 'bg-white border-transparent hover:border-slate-100 hover:shadow-sm'}`}>
                                         <div className="flex justify-between items-start gap-4">
                                             <div className="flex-1">
                                                 <label className="font-bold text-slate-900 text-base block mb-1">
@@ -700,13 +751,13 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
                                                             onClick={() => handleResponseChange(item.id, true)}
                                                             className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-center gap-2 ${val === true ? 'border-teal-500 bg-teal-50 text-teal-700 shadow-sm' : 'border-slate-200 text-slate-500 hover:border-slate-300 bg-white'}`}
                                                         >
-                                                            Ja
+                                                            {labelTrue}
                                                         </button>
                                                         <button 
                                                             onClick={() => handleResponseChange(item.id, false)}
                                                             className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-center gap-2 ${val === false ? 'border-amber-500 bg-amber-50 text-amber-700 shadow-sm' : 'border-slate-200 text-slate-500 hover:border-slate-300 bg-white'}`}
                                                         >
-                                                            Nee
+                                                            {labelFalse}
                                                         </button>
                                                     </div>
                                                     
@@ -1044,6 +1095,9 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
                                 if (item.type === 'header') return <h4 key={item.id} className="font-bold text-slate-800 border-b pb-1 mt-4">{item.text}</h4>;
                                 
                                 const val = viewingSubmission.responses[item.id];
+                                const labelTrue = item.options?.[0] || 'Ja';
+                                const labelFalse = item.options?.[1] || 'Nee';
+
                                 return (
                                     <div key={item.id} className="bg-white p-3 border border-slate-200 rounded-lg">
                                         <div className="flex justify-between items-start mb-1">
@@ -1054,7 +1108,9 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
                                             {item.type === 'checkbox' && (val ? <span className="text-green-600 font-bold flex items-center gap-1"><Check size={14}/> Gedaan</span> : <span className="text-red-400">Niet gedaan</span>)}
                                             {item.type === 'yes_no' && (
                                                 <div className="space-y-1">
-                                                    <span className={`font-bold ${val ? 'text-green-600' : 'text-amber-600'}`}>{val ? 'Ja' : 'Nee'}</span>
+                                                    <span className={`font-bold ${val === true ? 'text-green-600' : 'text-amber-600'}`}>
+                                                        {val === true ? labelTrue : (val === false ? labelFalse : '-')}
+                                                    </span>
                                                     {viewingSubmission.responses[`${item.id}_expl`] && (
                                                         <div className="text-xs text-slate-500 bg-slate-50 p-2 rounded italic">"{viewingSubmission.responses[`${item.id}_expl`]}"</div>
                                                     )}
