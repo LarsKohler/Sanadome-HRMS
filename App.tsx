@@ -23,6 +23,7 @@ import BikeRentalPage from './components/BikeRentalPage';
 import BadgeManager from './components/BadgeManager';
 import AcademyPage from './components/AcademyPage'; 
 import CompensationPage from './components/CompensationPage';
+import ChecklistsPage from './components/ChecklistsPage'; // Added
 import UpdateNotifier from './components/UpdateNotifier';
 import { api, isLive } from './utils/api';
 import { isModuleEnabled } from './utils/permissions';
@@ -349,6 +350,8 @@ function App() {
               return <BikeRentalPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           case ViewState.COMPENSATION:
               return <CompensationPage currentUser={currentUser!} onShowToast={handleShowToast} />;
+          case ViewState.CHECKLISTS: // Added
+              return <ChecklistsPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           default:
               return <div className="p-10">Pagina niet gevonden of in ontwikkeling.</div>;
       }

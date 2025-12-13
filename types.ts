@@ -36,6 +36,7 @@ export enum ViewState {
   DIRECTORY = 'DIRECTORY',
   BIKE_RENTAL = 'BIKE_RENTAL',
   COMPENSATION = 'COMPENSATION',
+  CHECKLISTS = 'CHECKLISTS', // Added
   ONBOARDING = 'ONBOARDING',
   EVALUATIONS = 'EVALUATIONS',
   RECRUITMENT = 'RECRUITMENT',
@@ -70,7 +71,8 @@ export type Permission =
   | 'MANAGE_ACADEMY'
   | 'MANAGE_COMPENSATION'
   | 'DELETE_COMPENSATION'
-  | 'MANAGE_TICKETS';
+  | 'MANAGE_TICKETS'
+  | 'MANAGE_CHECKLISTS'; // Added
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   VIEW_REPORTS: 'Rapportages Inzien',
@@ -94,7 +96,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   MANAGE_ACADEMY: 'Academy Beheren',
   MANAGE_COMPENSATION: 'Compensaties Beheren',
   DELETE_COMPENSATION: 'Compensaties Verwijderen',
-  MANAGE_TICKETS: 'Tickets Beheren'
+  MANAGE_TICKETS: 'Tickets Beheren',
+  MANAGE_CHECKLISTS: 'Checklists Beheren' // Added
 };
 
 export interface GlobalSettings {
@@ -121,6 +124,7 @@ export interface Notification {
   isPinned?: boolean;
 }
 
+// ... existing interfaces ...
 export interface EmployeeNote {
   id: string;
   title: string;
@@ -208,6 +212,7 @@ export interface BadgeDefinition {
   createdAt: string;
 }
 
+// ... Academy types ...
 export type BlockType = 'text' | 'image' | 'video' | 'quiz' | 'hotspot' | 'time-capsule';
 
 export interface HotspotItem {
@@ -277,6 +282,7 @@ export interface AcademyProgress {
   timeCapsuleAnswers?: Record<string, { before?: string; after?: string }>;
 }
 
+// ... Onboarding types ...
 export interface OnboardingHistoryEntry {
   id: string;
   templateTitle: string;
@@ -316,6 +322,7 @@ export interface Employee {
   mentor?: string;
 }
 
+// ... Recruitment types ...
 export type ApplicantStage = 'New' | 'Screening' | 'Interview 1' | 'Interview 2' | 'Offer' | 'Hired' | 'Rejected';
 
 export interface RecruitmentTimelineEvent {
@@ -566,4 +573,53 @@ export interface CompensationLog {
   givenBy: string;
   givenById: string;
   date: string;
+}
+
+// CHECKLIST TYPES
+export type ChecklistItemType = 
+  | 'checkbox' 
+  | 'text' 
+  | 'yes_no' 
+  | 'header' 
+  | 'multi_select' // NEW
+  | 'select' // NEW
+  | 'date' // NEW
+  | 'file' // NEW
+  | 'rating' // NEW
+  | 'signature'; // NEW
+
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  type: ChecklistItemType;
+  required?: boolean;
+  isCritical?: boolean;
+  description?: string; // NEW: Small instruction text
+  explanationRequiredOn?: 'yes' | 'no' | null;
+  explanationLabel?: string; // NEW: Custom question for explanation
+  options?: string[]; // NEW: For select/multi_select
+}
+
+export interface ChecklistTemplate {
+  id: string;
+  title: string;
+  description: string;
+  category?: string;
+  targetRoles?: string[];
+  items: ChecklistItem[];
+  createdBy: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface ChecklistSubmission {
+  id: string;
+  templateId: string;
+  templateSnapshot?: ChecklistTemplate;
+  submittedBy: string;
+  submittedById: string;
+  status: 'Draft' | 'Completed';
+  responses: Record<string, any>;
+  startedAt: string;
+  completedAt?: string;
 }

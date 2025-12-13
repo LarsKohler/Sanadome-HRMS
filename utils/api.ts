@@ -1,7 +1,7 @@
 
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, Ticket } from '../types';
+import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, Ticket, ChecklistTemplate, ChecklistSubmission } from '../types';
 import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_EVALUATION_TEMPLATES, MOCK_BIKE_SETTINGS, MOCK_BIKE_RESERVATIONS, MOCK_ACADEMY_COURSES, MOCK_ACADEMY_PROGRESS, MOCK_TICKETS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
@@ -45,6 +45,107 @@ export const api = {
           await supabase.from('global_settings').upsert({ id: 'main', modules: settings.modules, updated_at: new Date().toISOString() });
       } else {
           localStorage.setItem('hrms_global_settings', JSON.stringify(settings));
+      }
+  },
+
+  // --- CHECKLISTS ---
+  getChecklistTemplates: async (): Promise<ChecklistTemplate[]> => {
+      if (isLive && supabase) {
+          try {
+              const { data, error } = await supabase.from('checklist_templates').select('*');
+              if (!error && data) {
+                  return data.map((d: any) => ({
+                      id: d.id,
+                      title: d.title,
+                      description: d.description,
+                      items: d.items,
+                      createdBy: d.created_by,
+                      isActive: d.is_active,
+                      createdAt: d.created_at
+                  }));
+              }
+              return [];
+          } catch (e) {
+              return [];
+          }
+      }
+      const local = localStorage.getItem('hrms_checklist_templates');
+      return local ? JSON.parse(local) : [];
+  },
+
+  saveChecklistTemplate: async (template: ChecklistTemplate) => {
+      if (isLive && supabase) {
+          await supabase.from('checklist_templates').upsert({
+              id: template.id,
+              title: template.title,
+              description: template.description,
+              items: template.items,
+              created_by: template.createdBy,
+              is_active: template.isActive
+          });
+      } else {
+          const current = await api.getChecklistTemplates();
+          const index = current.findIndex(t => t.id === template.id);
+          if (index >= 0) current[index] = template;
+          else current.push(template);
+          localStorage.setItem('hrms_checklist_templates', JSON.stringify(current));
+      }
+  },
+
+  deleteChecklistTemplate: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('checklist_templates').delete().eq('id', id);
+      } else {
+          const current = await api.getChecklistTemplates();
+          localStorage.setItem('hrms_checklist_templates', JSON.stringify(current.filter(t => t.id !== id)));
+      }
+  },
+
+  getChecklistSubmissions: async (): Promise<ChecklistSubmission[]> => {
+      if (isLive && supabase) {
+          try {
+              const { data, error } = await supabase.from('checklist_submissions').select('*');
+              if (!error && data) {
+                  return data.map((d: any) => ({
+                      id: d.id,
+                      templateId: d.template_id,
+                      templateSnapshot: d.template_snapshot,
+                      submittedBy: d.submitted_by,
+                      submittedById: d.submitted_by_id,
+                      status: d.status,
+                      responses: d.responses,
+                      startedAt: d.started_at,
+                      completedAt: d.completed_at
+                  }));
+              }
+              return [];
+          } catch (e) {
+              return [];
+          }
+      }
+      const local = localStorage.getItem('hrms_checklist_submissions');
+      return local ? JSON.parse(local) : [];
+  },
+
+  saveChecklistSubmission: async (submission: ChecklistSubmission) => {
+      if (isLive && supabase) {
+          await supabase.from('checklist_submissions').upsert({
+              id: submission.id,
+              template_id: submission.templateId,
+              template_snapshot: submission.templateSnapshot,
+              submitted_by: submission.submittedBy,
+              submitted_by_id: submission.submittedById,
+              status: submission.status,
+              responses: submission.responses,
+              started_at: submission.startedAt,
+              completed_at: submission.completedAt
+          });
+      } else {
+          const current = await api.getChecklistSubmissions();
+          const index = current.findIndex(s => s.id === submission.id);
+          if (index >= 0) current[index] = submission;
+          else current.push(submission);
+          localStorage.setItem('hrms_checklist_submissions', JSON.stringify(current));
       }
   },
 
