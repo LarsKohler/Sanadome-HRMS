@@ -189,9 +189,29 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
                 startedAt: new Date().toISOString()
             };
             setActiveSubmission(newSubmission);
-            api.saveChecklistSubmission(newSubmission); // Init save
+            // Immediately add to local state to reflect "Verder met concept" if user goes back
+            setSubmissions(prev => [...prev, newSubmission]);
+            api.saveChecklistSubmission(newSubmission); 
         }
         setView('player');
+    };
+
+    const handleExitPlayer = async () => {
+        if (activeSubmission) {
+            // Ensure latest state is synced to main list before exiting
+            await api.saveChecklistSubmission(activeSubmission);
+            setSubmissions(prev => {
+                const idx = prev.findIndex(s => s.id === activeSubmission.id);
+                if (idx >= 0) {
+                    const newArr = [...prev];
+                    newArr[idx] = activeSubmission;
+                    return newArr;
+                }
+                return [...prev, activeSubmission];
+            });
+        }
+        setActiveSubmission(null);
+        setView('list');
     };
 
     const handleResponseChange = (itemId: string, value: any) => {
@@ -279,7 +299,7 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
 
         await api.saveChecklistSubmission(completedSubmission);
         
-        // Update list
+        // Update list and CLEAR active submission so "Draft" logic doesn't pick it up
         setSubmissions(prev => {
             const idx = prev.findIndex(s => s.id === completedSubmission.id);
             if (idx >= 0) {
@@ -290,6 +310,7 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
             return [...prev, completedSubmission];
         });
 
+        setActiveSubmission(null);
         setView('list');
         onShowToast("Checklist afgerond en opgeslagen!");
     };
@@ -636,7 +657,7 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
                 {/* Header Card */}
                 <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4 sticky top-0 z-30 bg-slate-50/90 backdrop-blur py-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200/50">
                     <div className="flex items-center gap-4">
-                        <button onClick={() => setView('list')} className="text-slate-500 hover:text-slate-900 font-bold text-sm flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
+                        <button onClick={handleExitPlayer} className="text-slate-500 hover:text-slate-900 font-bold text-sm flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
                             <ArrowLeft size={18}/> Terug
                         </button>
                         <h2 className="text-xl font-bold text-slate-900 hidden md:block">{template.title}</h2>
