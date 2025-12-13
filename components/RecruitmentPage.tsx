@@ -225,12 +225,12 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
             interview.interviewers.forEach(interviewerId => {
                 if (interviewerId !== currentUser.id) { 
                     onAddNotification({
-                        id: crypto.randomUUID(),
+                        id: Math.random().toString(36).substr(2, 9),
                         recipientId: interviewerId,
                         senderName: currentUser.name,
                         type: 'Recruitment',
                         title: '📅 Sollicitatiegesprek Ingepland',
-                        message: `Je bent ingepland voor een gesprek met ${selectedApplicant.firstName} ${selectedApplicant.lastName} op ${new Date(interview.date).toLocaleDateString()} om ${interview.time}.`,
+                        message: `Je bent ingepland voor een gesprek met ${selectedApplicant.firstName} ${selectedApplicant.lastName} op ${new Date(interview.date).toLocaleDateString('nl-NL')} om ${interview.time}.`,
                         date: 'Zojuist',
                         read: false,
                         targetView: ViewState.RECRUITMENT,
@@ -283,12 +283,12 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
             rescheduleTarget.interviewers.forEach(interviewerId => {
                 if (interviewerId !== currentUser.id) { 
                     onAddNotification({
-                        id: crypto.randomUUID(),
+                        id: Math.random().toString(36).substr(2, 9),
                         recipientId: interviewerId,
                         senderName: currentUser.name,
                         type: 'Recruitment',
                         title: '📅 Gesprek Verplaatst',
-                        message: `Het gesprek met ${selectedApplicant.firstName} is verplaatst naar ${new Date(rescheduleTarget.date).toLocaleDateString()} om ${rescheduleTarget.time}.`,
+                        message: `Het gesprek met ${selectedApplicant.firstName} is verplaatst naar ${new Date(rescheduleTarget.date).toLocaleDateString('nl-NL')} om ${rescheduleTarget.time}.`,
                         date: 'Zojuist',
                         read: false,
                         targetView: ViewState.RECRUITMENT,
@@ -305,6 +305,8 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
 
     const handleCancelInterview = async (interviewId: string) => {
         if (!selectedApplicant) return;
+
+        const interviewToCancel = selectedApplicant.interviews.find(i => i.id === interviewId);
 
         if (confirm("Weet je zeker dat je dit gesprek wilt annuleren?")) {
             const updatedInterviews = selectedApplicant.interviews.map(int => 
@@ -326,6 +328,26 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
             };
 
             await updateApplicant(updated);
+
+            // Notify Interviewers of cancellation
+            if (onAddNotification && interviewToCancel && interviewToCancel.interviewers) {
+                interviewToCancel.interviewers.forEach(interviewerId => {
+                    if (interviewerId !== currentUser.id) {
+                        onAddNotification({
+                            id: Math.random().toString(36).substr(2, 9),
+                            recipientId: interviewerId,
+                            senderName: currentUser.name,
+                            type: 'Recruitment',
+                            title: '❌ Gesprek Geannuleerd',
+                            message: `Het gesprek met ${selectedApplicant.firstName} ${selectedApplicant.lastName} op ${new Date(interviewToCancel.date).toLocaleDateString('nl-NL')} is geannuleerd.`,
+                            date: 'Zojuist',
+                            read: false,
+                            targetView: ViewState.RECRUITMENT
+                        });
+                    }
+                });
+            }
+
             onShowToast("Gesprek geannuleerd.");
         }
     };
