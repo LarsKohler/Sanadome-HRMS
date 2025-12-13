@@ -130,7 +130,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
         if (!newCandidate.firstName || !newCandidate.lastName || !newCandidate.email) return;
 
         const applicant: Applicant = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             vacancyId: newCandidate.vacancyId || 'v1',
             firstName: newCandidate.firstName,
             lastName: newCandidate.lastName,
@@ -141,7 +141,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
             resumeUrl: newCandidate.resumeUrl,
             motivationUrl: newCandidate.motivationUrl,
             timeline: [
-                { id: Math.random().toString(36).substr(2, 9), type: 'StatusChange', author: 'System', date: new Date().toLocaleDateString('nl-NL'), content: 'Kandidaat aangemaakt' }
+                { id: crypto.randomUUID(), type: 'StatusChange', author: 'System', date: new Date().toLocaleDateString('nl-NL'), content: 'Kandidaat aangemaakt' }
             ],
             scorecards: [],
             interviews: []
@@ -173,7 +173,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
         if (!selectedApplicant || !newNote.trim()) return;
         
         const event: RecruitmentTimelineEvent = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             type: 'Note',
             author: currentUser.name,
             date: new Date().toLocaleDateString('nl-NL'),
@@ -194,17 +194,22 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
         e.preventDefault();
         if (!selectedApplicant || !newInterview.date || !newInterview.time) return;
 
+        // Ensure we have a valid list of interviewers (default to current user if empty)
+        const interviewersList = newInterview.interviewers && newInterview.interviewers.length > 0 
+            ? newInterview.interviewers 
+            : [currentUser.id];
+
         const interview: Interview = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             date: newInterview.date,
             time: newInterview.time,
             location: newInterview.location || 'Sanadome',
-            interviewers: newInterview.interviewers || [],
+            interviewers: interviewersList,
             status: 'Scheduled'
         };
 
         const event: RecruitmentTimelineEvent = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             type: 'Interview',
             author: currentUser.name,
             date: new Date().toLocaleDateString('nl-NL'),
@@ -223,9 +228,10 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
         // Notify Interviewers
         if (onAddNotification && interview.interviewers) {
             interview.interviewers.forEach(interviewerId => {
+                // Don't notify self
                 if (interviewerId !== currentUser.id) { 
-                    onAddNotification({
-                        id: Math.random().toString(36).substr(2, 9),
+                    const notification: Notification = {
+                        id: crypto.randomUUID(),
                         recipientId: interviewerId,
                         senderName: currentUser.name,
                         type: 'Recruitment',
@@ -235,7 +241,8 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                         read: false,
                         targetView: ViewState.RECRUITMENT,
                         isPinned: true
-                    });
+                    };
+                    onAddNotification(notification);
                 }
             });
         }
@@ -263,7 +270,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
         );
 
         const event: RecruitmentTimelineEvent = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             type: 'StatusChange',
             author: currentUser.name,
             date: new Date().toLocaleDateString('nl-NL'),
@@ -278,12 +285,12 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
 
         await updateApplicant(updated);
         
-        // Notify
+        // Notify Interviewers of change
         if (onAddNotification && rescheduleTarget.interviewers) {
             rescheduleTarget.interviewers.forEach(interviewerId => {
                 if (interviewerId !== currentUser.id) { 
                     onAddNotification({
-                        id: Math.random().toString(36).substr(2, 9),
+                        id: crypto.randomUUID(),
                         recipientId: interviewerId,
                         senderName: currentUser.name,
                         type: 'Recruitment',
@@ -314,7 +321,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
             );
 
             const event: RecruitmentTimelineEvent = {
-                id: Math.random().toString(36).substr(2, 9),
+                id: crypto.randomUUID(),
                 type: 'StatusChange',
                 author: currentUser.name,
                 date: new Date().toLocaleDateString('nl-NL'),
@@ -334,7 +341,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
                 interviewToCancel.interviewers.forEach(interviewerId => {
                     if (interviewerId !== currentUser.id) {
                         onAddNotification({
-                            id: Math.random().toString(36).substr(2, 9),
+                            id: crypto.randomUUID(),
                             recipientId: interviewerId,
                             senderName: currentUser.name,
                             type: 'Recruitment',
@@ -362,7 +369,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
         if (!selectedApplicant || !scorecardInterviewId) return;
 
         const scorecard: CandidateScorecard = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             interviewId: scorecardInterviewId,
             interviewer: currentUser.name,
             date: new Date().toLocaleDateString('nl-NL'),
@@ -372,7 +379,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
         };
 
         const event: RecruitmentTimelineEvent = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             type: 'Scorecard',
             author: currentUser.name,
             date: new Date().toLocaleDateString('nl-NL'),
@@ -423,7 +430,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
         if (!selectedApplicant || !rejectionReason.trim()) return;
 
         const event: RecruitmentTimelineEvent = {
-            id: Math.random().toString(36).substr(2, 9),
+            id: crypto.randomUUID(),
             type: 'StatusChange',
             author: currentUser.name,
             date: new Date().toLocaleDateString('nl-NL'),
