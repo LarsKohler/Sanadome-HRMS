@@ -452,6 +452,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
 
       } else if (commaParts.length === 2) {
           // Format: Street Nr, Zip City (Implies NL)
+          country = 'Nederland'; // EXPLICIT DEFAULT FOR 2 PARTS
           const partZipCity = commaParts[1];
           const partStreetNr = commaParts[0];
 
@@ -465,7 +466,6 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           }
 
           // Parse Zip/City
-          // Dutch Zip Regex
           const zipMatch = partZipCity.match(/(\d{4}\s?[a-zA-Z]{2})/);
           if (zipMatch) {
               zip = zipMatch[0];
@@ -491,6 +491,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
               const zipLen = zipMatch[0].length;
               zip = zipMatch[0];
               city = part2.substring(zipLen).trim();
+              country = 'Nederland'; // Fallback default
           } else {
               // Failed to parse strictly
               street = addr;
@@ -611,9 +612,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       } else if (parts.length === 2) {
           line1 = parts[0];
           line2 = parts[1];
-          // If 2 parts, usually Country is implicit (NL), but if present in string it might be there.
-          // Assuming standardized save: "Street Nr, Zip City, Country" -> 3 parts.
-          // If unsaved legacy: try best guess
+          // Default logic if missing in string but we want to be safe, though usually save enforces it
+          // If the user hasn't saved yet, this might happen. 
       } else {
           // Fallback for raw legacy data
           line1 = addrString; // Just put everything on line 1 if parsing fails
@@ -645,8 +645,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                 <div class="recipient">
                     <strong>${wikTarget.firstName} ${wikTarget.lastName}</strong><br>
                     ${line1}<br>
-                    ${line2}<br>
-                    ${line3 ? line3.toUpperCase() : ''}
+                    ${line2}
+                    ${line3 ? `<br>${line3.toUpperCase()}` : ''}
                 </div>
                 <div class="sender">
                     <span class="sender-bold">Sanadome Hotel & Spa</span><br>
