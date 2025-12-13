@@ -581,12 +581,12 @@ export type ChecklistItemType =
   | 'text' 
   | 'yes_no' 
   | 'header' 
-  | 'multi_select' // NEW
-  | 'select' // NEW
-  | 'date' // NEW
-  | 'file' // NEW
-  | 'rating' // NEW
-  | 'signature'; // NEW
+  | 'multi_select' 
+  | 'select' 
+  | 'date' 
+  | 'file' 
+  | 'rating' 
+  | 'signature'; 
 
 export interface ChecklistItem {
   id: string;
@@ -594,10 +594,11 @@ export interface ChecklistItem {
   type: ChecklistItemType;
   required?: boolean;
   isCritical?: boolean;
-  description?: string; // NEW: Small instruction text
+  description?: string; 
   explanationRequiredOn?: 'yes' | 'no' | null;
-  explanationLabel?: string; // NEW: Custom question for explanation
-  options?: string[]; // NEW: For select/multi_select
+  explanationLabel?: string; 
+  options?: string[]; 
+  includeTime?: boolean; // NEW: Should the date field include time?
 }
 
 export interface ChecklistTemplate {

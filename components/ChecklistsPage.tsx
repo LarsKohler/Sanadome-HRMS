@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
     ListTodo, Plus, Trash2, Edit2, Save, X, CheckSquare, 
-    Type, ToggleLeft, ArrowLeft, History, PlayCircle, Eye, AlertTriangle, Check, ChevronRight, Layout, GripVertical, ArrowUp, ArrowDown, Filter, Shield, Calendar, Image as ImageIcon, Star, List, PenTool, Upload, ChevronDown, MoreHorizontal, Settings
+    Type, ToggleLeft, ArrowLeft, History, PlayCircle, Eye, AlertTriangle, Check, ChevronRight, Layout, GripVertical, ArrowUp, ArrowDown, Filter, Shield, Calendar, Image as ImageIcon, Star, List, PenTool, Upload, ChevronDown, MoreHorizontal, Settings, Clock, FileText, Info
 } from 'lucide-react';
 import { Employee, ChecklistTemplate, ChecklistItem, ChecklistSubmission, ChecklistItemType } from '../types';
 import { api } from '../utils/api';
@@ -121,14 +122,15 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
             isCritical: false,
             explanationRequiredOn: type === 'yes_no' ? 'no' : null,
             options: (type === 'select' || type === 'multi_select') ? ['Optie 1', 'Optie 2'] : undefined,
-            explanationLabel: 'Toelichting'
+            explanationLabel: 'Toelichting',
+            includeTime: false
         };
         setEditingTemplate(prev => ({
             ...prev,
             items: [...(prev.items || []), newItem]
         }));
         // Auto expand new item for editing if complex
-        if (['select', 'multi_select', 'yes_no'].includes(type)) {
+        if (['select', 'multi_select', 'yes_no', 'date'].includes(type)) {
             setExpandedItemId(newItem.id);
         }
     };
@@ -290,6 +292,21 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
 
     // --- RENDERERS ---
 
+    const renderItemIcon = (type: ChecklistItemType) => {
+        switch(type) {
+            case 'date': return <Calendar size={16} className="text-blue-500" />;
+            case 'file': return <ImageIcon size={16} className="text-purple-500" />;
+            case 'rating': return <Star size={16} className="text-yellow-500" />;
+            case 'signature': return <PenTool size={16} className="text-teal-500" />;
+            case 'select': return <ChevronDown size={16} className="text-slate-500" />;
+            case 'multi_select': return <List size={16} className="text-slate-500" />;
+            case 'yes_no': return <ToggleLeft size={16} className="text-indigo-500" />;
+            case 'checkbox': return <CheckSquare size={16} className="text-green-500" />;
+            case 'header': return <Type size={16} className="text-slate-800" />;
+            default: return <Type size={16} className="text-slate-400" />;
+        }
+    };
+
     const renderBuilder = () => (
         <div className="max-w-7xl mx-auto p-6 animate-in fade-in h-full flex flex-col">
             <div className="flex justify-between items-center mb-6 flex-shrink-0">
@@ -330,7 +347,10 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
                     </div>
 
                     <div className="flex-1 overflow-y-auto p-6 space-y-3 bg-slate-50/50">
-                        {editingTemplate.items?.map((item, idx) => (
+                        {editingTemplate.items?.map((item, idx) => {
+                            const hasSettings = ['select', 'multi_select', 'yes_no', 'date'].includes(item.type);
+                            
+                            return (
                             <div key={item.id} className={`p-4 rounded-xl border shadow-sm flex flex-col gap-3 group transition-all ${item.type === 'header' ? 'bg-slate-100 border-slate-200' : 'bg-white border-slate-200 hover:border-teal-300'}`}>
                                 <div className="flex gap-4 items-start">
                                     <div className="flex flex-col gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -339,16 +359,45 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
                                     </div>
                                     
                                     <div className="flex-1 space-y-2">
-                                        <input 
-                                            className={`w-full bg-transparent border-none p-0 focus:ring-0 ${item.type === 'header' ? 'text-lg font-bold text-slate-800 placeholder:text-slate-400' : 'font-medium text-slate-900 placeholder:text-slate-300'}`}
-                                            value={item.text}
-                                            onChange={e => updateTemplateItem(item.id, { text: e.target.value })}
-                                            placeholder={item.type === 'header' ? 'Sectie Titel' : 'Vraag stelling...'}
-                                        />
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-1.5 bg-slate-50 rounded-lg border border-slate-100">
+                                                {renderItemIcon(item.type)}
+                                            </div>
+                                            <input 
+                                                className={`flex-1 bg-transparent border-none p-0 focus:ring-0 ${item.type === 'header' ? 'text-lg font-bold text-slate-800 placeholder:text-slate-400' : 'font-medium text-slate-900 placeholder:text-slate-300'}`}
+                                                value={item.text}
+                                                onChange={e => updateTemplateItem(item.id, { text: e.target.value })}
+                                                placeholder={item.type === 'header' ? 'Sectie Titel' : 'Vraag stelling...'}
+                                            />
+                                        </div>
+                                        
+                                        {/* Visual Preview for specific types */}
+                                        {item.type === 'rating' && (
+                                            <div className="flex gap-1 pl-10 opacity-50 pointer-events-none">
+                                                {[1,2,3,4,5].map(i => <Star key={i} size={16} className="text-slate-300"/>)}
+                                            </div>
+                                        )}
+                                        {item.type === 'signature' && (
+                                            <div className="h-16 border-2 border-dashed border-slate-200 rounded-lg ml-10 flex items-center justify-center text-xs text-slate-300 pointer-events-none bg-slate-50/50">
+                                                Handtekening vak
+                                            </div>
+                                        )}
+                                        {item.type === 'file' && (
+                                            <div className="h-16 border-2 border-dashed border-slate-200 rounded-lg ml-10 flex flex-col items-center justify-center text-xs text-slate-300 pointer-events-none bg-slate-50/50">
+                                                <ImageIcon size={16} className="mb-1"/>
+                                                Foto upload vak
+                                            </div>
+                                        )}
+                                        {item.type === 'date' && (
+                                            <div className="ml-10 flex items-center gap-2 p-2 border border-slate-200 rounded-lg bg-white w-40 opacity-70 pointer-events-none">
+                                                {item.includeTime ? <Clock size={14} className="text-slate-400"/> : <Calendar size={14} className="text-slate-400"/>}
+                                                <span className="text-xs text-slate-400">{item.includeTime ? 'DD-MM-JJJJ uu:mm' : 'DD-MM-JJJJ'}</span>
+                                            </div>
+                                        )}
                                         
                                         {item.type !== 'header' && (
                                             <input 
-                                                className="w-full bg-transparent text-xs text-slate-500 border-none p-0 focus:ring-0 placeholder:text-slate-300"
+                                                className="w-full bg-transparent text-xs text-slate-500 border-none p-0 focus:ring-0 placeholder:text-slate-300 pl-10"
                                                 value={item.description || ''}
                                                 onChange={e => updateTemplateItem(item.id, { description: e.target.value })}
                                                 placeholder="Voeg hier een beschrijving of instructie toe..."
@@ -356,7 +405,7 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
                                         )}
                                         
                                         {item.type !== 'header' && (
-                                            <div className="flex flex-wrap gap-4 pt-2 border-t border-slate-50 items-center">
+                                            <div className="flex flex-wrap gap-4 pt-2 border-t border-slate-50 items-center pl-10">
                                                 <label className="flex items-center gap-2 cursor-pointer bg-slate-50 px-2 py-1 rounded-lg hover:bg-slate-100 transition-colors">
                                                     <input 
                                                         type="checkbox" 
@@ -377,24 +426,25 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
                                                     <span className="text-xs font-bold text-red-600 flex items-center gap-1"><AlertTriangle size={10}/> Kritiek Punt</span>
                                                 </label>
                                                 
-                                                <button 
-                                                    onClick={() => setExpandedItemId(expandedItemId === item.id ? null : item.id)}
-                                                    className="ml-auto text-xs font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1"
-                                                >
-                                                    <Settings size={12}/> Opties {expandedItemId === item.id ? <ArrowUp size={10}/> : <ArrowDown size={10}/>}
-                                                </button>
+                                                {hasSettings && (
+                                                    <button 
+                                                        onClick={() => setExpandedItemId(expandedItemId === item.id ? null : item.id)}
+                                                        className="ml-auto text-xs font-bold text-slate-400 hover:text-slate-600 flex items-center gap-1 bg-white border border-slate-200 px-2 py-1 rounded shadow-sm"
+                                                    >
+                                                        <Settings size={12}/> Opties {expandedItemId === item.id ? <ArrowUp size={10}/> : <ArrowDown size={10}/>}
+                                                    </button>
+                                                )}
                                             </div>
                                         )}
                                     </div>
                                     <div className="flex flex-col items-end gap-2">
-                                        <span className="text-[10px] font-mono text-slate-400 uppercase bg-slate-50 px-1.5 py-0.5 rounded">{item.type}</span>
                                         <button onClick={() => removeTemplateItem(item.id)} className="text-slate-300 hover:text-red-500 p-1 rounded hover:bg-red-50 transition-colors"><Trash2 size={16}/></button>
                                     </div>
                                 </div>
 
                                 {/* Expanded Settings Area */}
-                                {expandedItemId === item.id && item.type !== 'header' && (
-                                    <div className="mt-2 p-4 bg-slate-50 rounded-lg border border-slate-100 animate-in slide-in-from-top-1 text-sm space-y-4">
+                                {expandedItemId === item.id && item.type !== 'header' && hasSettings && (
+                                    <div className="mt-2 p-4 bg-slate-50 rounded-lg border border-slate-100 animate-in slide-in-from-top-1 text-sm space-y-4 ml-10">
                                         {(item.type === 'select' || item.type === 'multi_select') && (
                                             <div>
                                                 <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Opties (gescheiden door komma)</label>
@@ -404,6 +454,20 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
                                                     onChange={e => updateTemplateItem(item.id, { options: e.target.value.split(',').map(s=>s.trim()) })}
                                                     placeholder="Optie 1, Optie 2, Optie 3"
                                                 />
+                                            </div>
+                                        )}
+
+                                        {item.type === 'date' && (
+                                            <div>
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input 
+                                                        type="checkbox"
+                                                        checked={item.includeTime || false}
+                                                        onChange={e => updateTemplateItem(item.id, { includeTime: e.target.checked })}
+                                                        className="rounded text-teal-600 focus:ring-teal-500 border-slate-300"
+                                                    />
+                                                    <span className="text-sm font-medium text-slate-700">Tijdstip ook noteren?</span>
+                                                </label>
                                             </div>
                                         )}
 
@@ -435,7 +499,7 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
                                     </div>
                                 )}
                             </div>
-                        ))}
+                        )})}
                         {editingTemplate.items?.length === 0 && (
                             <div className="text-center py-20 text-slate-400 italic text-sm border-2 border-dashed border-slate-200 rounded-xl">
                                 Nog geen vragen toegevoegd. Klik op de knoppen hierboven om te beginnen.
@@ -523,236 +587,267 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
         const progress = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
 
         return (
-            <div className="max-w-3xl mx-auto animate-in fade-in pb-20">
+            <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 min-h-[calc(100vh-80px)]">
                 {/* Header Card */}
-                <div className="flex items-center justify-between mb-6 sticky top-4 z-20 bg-slate-50/90 backdrop-blur py-2">
-                    <button onClick={() => setView('list')} className="text-slate-500 hover:text-slate-900 font-bold text-sm flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm">
-                        <ArrowLeft size={18}/> Terug
-                    </button>
-                    {isSaving && <span className="text-xs text-slate-400 flex items-center gap-1 bg-white px-3 py-1 rounded-full border border-slate-100 shadow-sm"><History size={12}/> Opslaan...</span>}
-                </div>
-
-                <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden mb-8">
-                    <div className="bg-slate-50 p-8 border-b border-slate-100">
-                        <div className="flex justify-between items-start mb-4">
-                            <span className="bg-white text-slate-600 px-3 py-1 rounded-full text-xs font-bold border border-slate-200 shadow-sm">{template.category || 'Algemeen'}</span>
-                            <div className="text-right">
-                                <div className="text-2xl font-bold text-slate-900">{progress}%</div>
-                                <div className="text-xs text-slate-400 font-bold uppercase">Voltooid</div>
-                            </div>
-                        </div>
-                        <h1 className="text-3xl font-bold text-slate-900 mb-2">{template.title}</h1>
-                        <p className="text-slate-500">{template.description}</p>
-                        
-                        {/* Progress Bar */}
-                        <div className="h-2 w-full bg-slate-200 rounded-full mt-6 overflow-hidden">
-                            <div className="h-full bg-teal-500 transition-all duration-500" style={{width: `${progress}%`}}></div>
-                        </div>
+                <div className="flex flex-col md:flex-row items-center justify-between mb-8 gap-4 sticky top-0 z-30 bg-slate-50/90 backdrop-blur py-4 -mx-4 px-4 md:-mx-8 md:px-8 border-b border-slate-200/50">
+                    <div className="flex items-center gap-4">
+                        <button onClick={() => setView('list')} className="text-slate-500 hover:text-slate-900 font-bold text-sm flex items-center gap-2 bg-white px-4 py-2 rounded-xl border border-slate-200 shadow-sm transition-all hover:shadow-md">
+                            <ArrowLeft size={18}/> Terug
+                        </button>
+                        <h2 className="text-xl font-bold text-slate-900 hidden md:block">{template.title}</h2>
                     </div>
-
-                    <div className="p-8 space-y-8">
-                        {template.items.map(item => {
-                            if (item.type === 'header') {
-                                return <h3 key={item.id} className="text-lg font-bold text-slate-800 border-b border-slate-100 pb-2 mt-8 pt-4 flex items-center gap-2"><Layout size={18} className="text-slate-400"/> {item.text}</h3>;
-                            }
-
-                            const val = activeSubmission.responses[item.id];
-                            
-                            // Handling Yes/No Logic with Explanation
-                            const isExplanationNeeded = item.type === 'yes_no' && item.explanationRequiredOn && 
-                                                        ((item.explanationRequiredOn === 'yes' && val === true) || (item.explanationRequiredOn === 'no' && val === false));
-
-                            return (
-                                <div key={item.id} className={`space-y-3 p-4 rounded-xl transition-colors ${item.isCritical && !val ? 'bg-red-50 border border-red-100' : 'hover:bg-slate-50 border border-transparent'}`}>
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <label className="font-medium text-slate-900 block">
-                                                {item.text} 
-                                                {item.required && <span className="text-red-500 ml-1">*</span>}
-                                            </label>
-                                            {item.description && <p className="text-xs text-slate-500 mt-1">{item.description}</p>}
-                                        </div>
-                                        {item.isCritical && (
-                                            <div className="group relative">
-                                                <span className="text-[10px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded flex items-center gap-1 cursor-help">
-                                                    <AlertTriangle size={10}/> Kritiek
-                                                </span>
-                                                <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block w-48 bg-slate-800 text-white text-xs p-2 rounded shadow-lg z-10">
-                                                    Dit punt is essentieel voor de veiligheid of kwaliteit en moet correct worden ingevuld.
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {item.type === 'text' && (
-                                        <input 
-                                            className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white"
-                                            value={val || ''}
-                                            onChange={e => handleResponseChange(item.id, e.target.value)}
-                                            placeholder="Antwoord..."
-                                        />
-                                    )}
-
-                                    {item.type === 'checkbox' && (
-                                        <label className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all ${val ? 'bg-teal-50 border-teal-200' : 'bg-white border-slate-200 hover:border-slate-300'}`}>
-                                            <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${val ? 'bg-teal-500 border-teal-500 text-white' : 'bg-white border-slate-300'}`}>
-                                                {val && <Check size={14} strokeWidth={3}/>}
-                                            </div>
-                                            <input 
-                                                type="checkbox" 
-                                                className="hidden"
-                                                checked={!!val}
-                                                onChange={e => handleResponseChange(item.id, e.target.checked)}
-                                            />
-                                            <span className={`text-sm font-bold ${val ? 'text-teal-900' : 'text-slate-600'}`}>Gedaan / Akkoord</span>
-                                        </label>
-                                    )}
-
-                                    {item.type === 'yes_no' && (
-                                        <div className="space-y-3">
-                                            <div className="flex gap-3">
-                                                <button 
-                                                    onClick={() => handleResponseChange(item.id, true)}
-                                                    className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-center gap-2 ${val === true ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-slate-200 text-slate-500 hover:border-slate-300 bg-white'}`}
-                                                >
-                                                    Ja
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleResponseChange(item.id, false)}
-                                                    className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-center gap-2 ${val === false ? 'border-amber-500 bg-amber-50 text-amber-700' : 'border-slate-200 text-slate-500 hover:border-slate-300 bg-white'}`}
-                                                >
-                                                    Nee
-                                                </button>
-                                            </div>
-                                            
-                                            {isExplanationNeeded && (
-                                                <div className="animate-in slide-in-from-top-2 fade-in bg-amber-50 p-4 rounded-xl border border-amber-100">
-                                                    <label className="text-xs font-bold text-amber-800 uppercase mb-2 flex items-center gap-1"><AlertTriangle size={12}/> {item.explanationLabel || 'Toelichting vereist'}</label>
-                                                    <textarea 
-                                                        className="w-full p-3 text-sm border border-amber-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-400"
-                                                        rows={2}
-                                                        placeholder="Typ hier..."
-                                                        value={activeSubmission.responses[`${item.id}_expl`] || ''}
-                                                        onChange={e => handleResponseChange(`${item.id}_expl`, e.target.value)}
-                                                    />
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {item.type === 'select' && (
-                                        <select 
-                                            className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white"
-                                            value={val || ''}
-                                            onChange={e => handleResponseChange(item.id, e.target.value)}
-                                        >
-                                            <option value="">Selecteer een optie...</option>
-                                            {item.options?.map(opt => (
-                                                <option key={opt} value={opt}>{opt}</option>
-                                            ))}
-                                        </select>
-                                    )}
-
-                                    {item.type === 'multi_select' && (
-                                        <div className="space-y-2">
-                                            {item.options?.map(opt => {
-                                                const selected = (val || []).includes(opt);
-                                                return (
-                                                    <label key={opt} className={`flex items-center gap-3 p-3 border rounded-xl cursor-pointer transition-all ${selected ? 'bg-teal-50 border-teal-200' : 'bg-white border-slate-200 hover:border-slate-300'}`}>
-                                                        <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${selected ? 'bg-teal-500 border-teal-500 text-white' : 'bg-white border-slate-300'}`}>
-                                                            {selected && <Check size={14} strokeWidth={3}/>}
-                                                        </div>
-                                                        <input 
-                                                            type="checkbox" 
-                                                            className="hidden"
-                                                            checked={selected}
-                                                            onChange={(e) => {
-                                                                const current = val || [];
-                                                                const newVal = e.target.checked ? [...current, opt] : current.filter((x: string) => x !== opt);
-                                                                handleResponseChange(item.id, newVal);
-                                                            }}
-                                                        />
-                                                        <span className="text-sm text-slate-700">{opt}</span>
-                                                    </label>
-                                                );
-                                            })}
-                                        </div>
-                                    )}
-
-                                    {item.type === 'rating' && (
-                                        <div className="flex gap-2">
-                                            {[1, 2, 3, 4, 5].map(star => (
-                                                <button
-                                                    key={star}
-                                                    onClick={() => handleResponseChange(item.id, star)}
-                                                    className={`p-2 rounded-lg transition-colors ${val >= star ? 'text-yellow-400' : 'text-slate-200 hover:text-yellow-200'}`}
-                                                >
-                                                    <Star size={24} fill="currentColor"/>
-                                                </button>
-                                            ))}
-                                        </div>
-                                    )}
-
-                                    {item.type === 'date' && (
-                                        <input 
-                                            type="datetime-local"
-                                            className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none bg-white"
-                                            value={val || ''}
-                                            onChange={e => handleResponseChange(item.id, e.target.value)}
-                                        />
-                                    )}
-
-                                    {item.type === 'file' && (
-                                        <div className="border-2 border-dashed border-slate-200 rounded-xl p-4 text-center hover:bg-slate-50 transition-colors relative">
-                                            <input 
-                                                type="file" 
-                                                ref={el => fileInputRefs.current[item.id] = el}
-                                                className="hidden"
-                                                accept="image/*"
-                                                onChange={(e) => e.target.files && e.target.files[0] && handleFileUpload(item.id, e.target.files[0])}
-                                            />
-                                            {val ? (
-                                                <div className="relative group">
-                                                    <img src={val} className="h-32 mx-auto rounded-lg shadow-sm object-cover" />
-                                                    <button onClick={() => handleResponseChange(item.id, null)} className="absolute top-2 right-2 bg-white/90 p-1 rounded text-red-50 opacity-0 group-hover:opacity-100 transition-opacity"><X size={16}/></button>
-                                                </div>
-                                            ) : (
-                                                <div className="cursor-pointer" onClick={() => !isUploading && fileInputRefs.current[item.id]?.click()}>
-                                                    <ImageIcon size={24} className="mx-auto text-slate-300 mb-2"/>
-                                                    <p className="text-xs text-slate-500 font-bold">{isUploading ? 'Uploaden...' : 'Klik om foto te uploaden'}</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-
-                                    {item.type === 'signature' && (
-                                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 text-center">
-                                            {val ? (
-                                                <div className="text-teal-700 font-bold text-sm bg-teal-50 p-2 rounded border border-teal-100 flex items-center justify-center gap-2">
-                                                    <Check size={16}/> {val}
-                                                </div>
-                                            ) : (
-                                                <button 
-                                                    onClick={() => handleSign(item.id)}
-                                                    className="w-full py-3 bg-white border-2 border-dashed border-slate-300 text-slate-500 rounded-lg hover:border-teal-400 hover:text-teal-600 font-bold text-sm transition-all"
-                                                >
-                                                    <PenTool size={16} className="inline mr-2"/> Klik om digitaal te ondertekenen
-                                                </button>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    <div className="p-8 bg-slate-50 border-t border-slate-200 flex justify-end sticky bottom-0 z-10 backdrop-blur-md bg-opacity-90">
+                    
+                    <div className="flex items-center gap-4">
+                        {isSaving && <span className="text-xs text-slate-400 flex items-center gap-1 bg-white px-3 py-1 rounded-full border border-slate-100 shadow-sm animate-pulse"><History size={12}/> Opslaan...</span>}
                         <button 
                             onClick={handleCompleteChecklist}
-                            className="bg-slate-900 text-white px-8 py-4 rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-all hover:scale-105 flex items-center gap-2"
+                            className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-all hover:scale-105 flex items-center gap-2 text-sm"
                         >
-                            <Check size={20}/> Afronden
+                            <Check size={18}/> Afronden
                         </button>
+                    </div>
+                </div>
+
+                <div className="max-w-4xl mx-auto">
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden mb-8">
+                        <div className="bg-slate-50 p-8 border-b border-slate-100">
+                            <div className="flex justify-between items-start mb-4">
+                                <span className="bg-white text-slate-600 px-3 py-1 rounded-full text-xs font-bold border border-slate-200 shadow-sm">{template.category || 'Algemeen'}</span>
+                                <div className="text-right">
+                                    <div className="text-2xl font-bold text-slate-900">{progress}%</div>
+                                    <div className="text-xs text-slate-400 font-bold uppercase">Voltooid</div>
+                                </div>
+                            </div>
+                            <h1 className="text-3xl font-bold text-slate-900 mb-2">{template.title}</h1>
+                            <p className="text-slate-500">{template.description}</p>
+                            
+                            {/* Progress Bar */}
+                            <div className="h-3 w-full bg-slate-200 rounded-full mt-6 overflow-hidden">
+                                <div className="h-full bg-teal-500 transition-all duration-500 ease-out" style={{width: `${progress}%`}}></div>
+                            </div>
+                        </div>
+
+                        <div className="p-8 space-y-8">
+                            {template.items.map(item => {
+                                if (item.type === 'header') {
+                                    return (
+                                        <div key={item.id} className="mt-8 pt-4 border-t border-slate-100 first:mt-0 first:border-0 first:pt-0">
+                                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                                <Layout size={18} className="text-teal-600"/> {item.text}
+                                            </h3>
+                                        </div>
+                                    );
+                                }
+
+                                const val = activeSubmission.responses[item.id];
+                                
+                                // Handling Yes/No Logic with Explanation
+                                const isExplanationNeeded = item.type === 'yes_no' && item.explanationRequiredOn && 
+                                                            ((item.explanationRequiredOn === 'yes' && val === true) || (item.explanationRequiredOn === 'no' && val === false));
+
+                                return (
+                                    <div key={item.id} className={`space-y-3 p-5 rounded-2xl transition-all border-2 ${item.isCritical && !val ? 'bg-red-50/50 border-red-100' : 'bg-white border-transparent hover:border-slate-100 hover:shadow-sm'}`}>
+                                        <div className="flex justify-between items-start gap-4">
+                                            <div className="flex-1">
+                                                <label className="font-bold text-slate-900 text-base block mb-1">
+                                                    {item.text} 
+                                                    {item.required && <span className="text-red-500 ml-1">*</span>}
+                                                </label>
+                                                {item.description && <p className="text-sm text-slate-500">{item.description}</p>}
+                                            </div>
+                                            {item.isCritical && (
+                                                <div className="group relative">
+                                                    <span className="text-[10px] font-bold text-red-600 bg-red-100 px-2 py-1 rounded-full flex items-center gap-1 cursor-help border border-red-200">
+                                                        <AlertTriangle size={12}/> Kritiek
+                                                    </span>
+                                                    <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block w-56 bg-slate-800 text-white text-xs p-3 rounded-xl shadow-xl z-10 leading-relaxed">
+                                                        Dit punt is essentieel voor de veiligheid of kwaliteit en moet correct worden ingevuld.
+                                                        <div className="absolute -bottom-1 right-4 w-2 h-2 bg-slate-800 rotate-45"></div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+
+                                        <div className="pt-2">
+                                            {item.type === 'text' && (
+                                                <input 
+                                                    className="w-full p-4 border-2 border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-teal-500/20 focus:border-teal-500 outline-none bg-slate-50/50 focus:bg-white transition-all font-medium"
+                                                    value={val || ''}
+                                                    onChange={e => handleResponseChange(item.id, e.target.value)}
+                                                    placeholder="Uw antwoord..."
+                                                />
+                                            )}
+
+                                            {item.type === 'checkbox' && (
+                                                <label className={`flex items-center gap-4 p-4 border-2 rounded-xl cursor-pointer transition-all ${val ? 'bg-teal-50 border-teal-500 shadow-sm' : 'bg-slate-50 border-slate-200 hover:border-slate-300'}`}>
+                                                    <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${val ? 'bg-teal-500 border-teal-500 text-white' : 'bg-white border-slate-300'}`}>
+                                                        {val && <Check size={16} strokeWidth={4}/>}
+                                                    </div>
+                                                    <input 
+                                                        type="checkbox" 
+                                                        className="hidden"
+                                                        checked={!!val}
+                                                        onChange={e => handleResponseChange(item.id, e.target.checked)}
+                                                    />
+                                                    <span className={`text-sm font-bold ${val ? 'text-teal-900' : 'text-slate-600'}`}>Gedaan / Akkoord</span>
+                                                </label>
+                                            )}
+
+                                            {item.type === 'yes_no' && (
+                                                <div className="space-y-3">
+                                                    <div className="flex gap-3">
+                                                        <button 
+                                                            onClick={() => handleResponseChange(item.id, true)}
+                                                            className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-center gap-2 ${val === true ? 'border-teal-500 bg-teal-50 text-teal-700 shadow-sm' : 'border-slate-200 text-slate-500 hover:border-slate-300 bg-white'}`}
+                                                        >
+                                                            Ja
+                                                        </button>
+                                                        <button 
+                                                            onClick={() => handleResponseChange(item.id, false)}
+                                                            className={`flex-1 py-3 rounded-xl font-bold text-sm border-2 transition-all flex items-center justify-center gap-2 ${val === false ? 'border-amber-500 bg-amber-50 text-amber-700 shadow-sm' : 'border-slate-200 text-slate-500 hover:border-slate-300 bg-white'}`}
+                                                        >
+                                                            Nee
+                                                        </button>
+                                                    </div>
+                                                    
+                                                    {isExplanationNeeded && (
+                                                        <div className="animate-in slide-in-from-top-2 fade-in bg-amber-50 p-4 rounded-xl border border-amber-100">
+                                                            <label className="text-xs font-bold text-amber-800 uppercase mb-2 flex items-center gap-1"><Info size={12}/> {item.explanationLabel || 'Toelichting vereist'}</label>
+                                                            <textarea 
+                                                                className="w-full p-3 text-sm border border-amber-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-amber-400 min-h-[80px]"
+                                                                rows={2}
+                                                                placeholder="Typ hier uw toelichting..."
+                                                                value={activeSubmission.responses[`${item.id}_expl`] || ''}
+                                                                onChange={e => handleResponseChange(`${item.id}_expl`, e.target.value)}
+                                                            />
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {item.type === 'select' && (
+                                                <div className="relative">
+                                                    <select 
+                                                        className="w-full p-4 border-2 border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-teal-500/20 focus:border-teal-500 outline-none bg-white appearance-none font-medium text-slate-700 cursor-pointer"
+                                                        value={val || ''}
+                                                        onChange={e => handleResponseChange(item.id, e.target.value)}
+                                                    >
+                                                        <option value="">Selecteer een optie...</option>
+                                                        {item.options?.map(opt => (
+                                                            <option key={opt} value={opt}>{opt}</option>
+                                                        ))}
+                                                    </select>
+                                                    <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18}/>
+                                                </div>
+                                            )}
+
+                                            {item.type === 'multi_select' && (
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                    {item.options?.map(opt => {
+                                                        const selected = (val || []).includes(opt);
+                                                        return (
+                                                            <label key={opt} className={`flex items-center gap-3 p-3 border-2 rounded-xl cursor-pointer transition-all ${selected ? 'bg-teal-50 border-teal-500 shadow-sm' : 'bg-white border-slate-200 hover:border-slate-300'}`}>
+                                                                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${selected ? 'bg-teal-500 border-teal-500 text-white' : 'bg-white border-slate-300'}`}>
+                                                                    {selected && <Check size={12} strokeWidth={4}/>}
+                                                                </div>
+                                                                <input 
+                                                                    type="checkbox" 
+                                                                    className="hidden"
+                                                                    checked={selected}
+                                                                    onChange={(e) => {
+                                                                        const current = val || [];
+                                                                        const newVal = e.target.checked ? [...current, opt] : current.filter((x: string) => x !== opt);
+                                                                        handleResponseChange(item.id, newVal);
+                                                                    }}
+                                                                />
+                                                                <span className="text-sm font-medium text-slate-700">{opt}</span>
+                                                            </label>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
+
+                                            {item.type === 'rating' && (
+                                                <div className="flex gap-2">
+                                                    {[1, 2, 3, 4, 5].map(star => (
+                                                        <button
+                                                            key={star}
+                                                            onClick={() => handleResponseChange(item.id, star)}
+                                                            className={`p-3 rounded-xl transition-all border-2 ${val >= star ? 'bg-yellow-50 border-yellow-400 text-yellow-500' : 'bg-white border-slate-200 text-slate-200 hover:border-yellow-200 hover:text-yellow-200'}`}
+                                                        >
+                                                            <Star size={28} fill="currentColor"/>
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            {item.type === 'date' && (
+                                                <div className="relative">
+                                                    <input 
+                                                        type={item.includeTime ? "datetime-local" : "date"}
+                                                        className="w-full p-4 pl-12 border-2 border-slate-200 rounded-xl text-sm focus:ring-4 focus:ring-teal-500/20 focus:border-teal-500 outline-none bg-white font-medium text-slate-700"
+                                                        value={val || ''}
+                                                        onChange={e => handleResponseChange(item.id, e.target.value)}
+                                                    />
+                                                    <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                                                        {item.includeTime ? <Clock size={20}/> : <Calendar size={20}/>}
+                                                    </div>
+                                                </div>
+                                            )}
+
+                                            {item.type === 'file' && (
+                                                <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:bg-slate-50 transition-all relative hover:border-teal-400 group">
+                                                    <input 
+                                                        type="file" 
+                                                        ref={el => fileInputRefs.current[item.id] = el}
+                                                        className="hidden"
+                                                        accept="image/*"
+                                                        onChange={(e) => e.target.files && e.target.files[0] && handleFileUpload(item.id, e.target.files[0])}
+                                                    />
+                                                    {val ? (
+                                                        <div className="relative group/preview inline-block">
+                                                            <img src={val} className="h-48 mx-auto rounded-lg shadow-md object-cover border border-slate-200" />
+                                                            <button onClick={() => handleResponseChange(item.id, null)} className="absolute -top-2 -right-2 bg-white text-red-500 p-1.5 rounded-full shadow-md border border-slate-100 hover:bg-red-50 transition-colors">
+                                                                <X size={16}/>
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="cursor-pointer py-4" onClick={() => !isUploading && fileInputRefs.current[item.id]?.click()}>
+                                                            <div className="w-12 h-12 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-teal-50 group-hover:text-teal-600 transition-colors">
+                                                                <ImageIcon size={24}/>
+                                                            </div>
+                                                            <p className="text-sm font-bold text-slate-600 mb-1">{isUploading ? 'Uploaden...' : 'Klik om foto te maken/uploaden'}</p>
+                                                            <p className="text-xs text-slate-400">JPG, PNG</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+
+                                            {item.type === 'signature' && (
+                                                <div className="bg-slate-50 rounded-xl p-1 border-2 border-slate-200 text-center">
+                                                    {val ? (
+                                                        <div className="bg-white p-4 rounded-lg">
+                                                            <div className="text-teal-700 font-bold text-sm bg-teal-50 p-3 rounded-lg border border-teal-100 flex items-center justify-center gap-2 mb-2">
+                                                                <Check size={18} strokeWidth={3}/> Ondertekend
+                                                            </div>
+                                                            <p className="text-xs text-slate-500 font-mono">{val}</p>
+                                                        </div>
+                                                    ) : (
+                                                        <button 
+                                                            onClick={() => handleSign(item.id)}
+                                                            className="w-full py-6 bg-white border-2 border-dashed border-slate-300 text-slate-500 rounded-lg hover:border-teal-400 hover:text-teal-600 hover:bg-teal-50 font-bold text-sm transition-all flex flex-col items-center gap-2 group"
+                                                        >
+                                                            <PenTool size={24} className="text-slate-300 group-hover:text-teal-500 transition-colors"/>
+                                                            <span>Klik om digitaal te ondertekenen</span>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
                     </div>
                 </div>
             </div>
