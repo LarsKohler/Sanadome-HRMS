@@ -1,4 +1,5 @@
 
+
 export interface SubTask {
     id: string;
     title: string;
@@ -159,6 +160,7 @@ export interface NewsPost {
   likes: number;
   likedBy: string[];
   image?: string;
+  isPinned?: boolean; // Added
 }
 
 export type EvaluationStatus = 'Planned' | 'EmployeeInput' | 'ManagerInput' | 'Review' | 'Signed' | 'Archived';
