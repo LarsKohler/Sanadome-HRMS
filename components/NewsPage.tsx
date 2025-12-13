@@ -153,6 +153,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
   const [isPinned, setIsPinned] = useState(false);
   
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false); // Track delete state
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -161,13 +162,14 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
   const canPost = hasPermission(currentUser, 'CREATE_NEWS');
   const canDelete = hasPermission(currentUser, 'DELETE_NEWS');
 
-  // Sorting: Pinned first, then by date (assuming id generation implies order or we sort by date string if formatted sortable, but simpler: new entries top)
+  // Sorting: Pinned first, then by date desc (assuming order is somewhat chronological or id-based)
   const sortedNews = useMemo(() => {
       // Create a copy to sort
       return [...newsItems].sort((a, b) => {
           if (a.isPinned && !b.isPinned) return -1;
           if (!a.isPinned && b.isPinned) return 1;
-          // Fallback to ID/Order if needed, assuming array order is chronological desc
+          // Fallback to insertion order (reversed via sort or simply assumed)
+          // Simple string date sort attempt (nl format might be tricky, so rely on array order mostly)
           return 0; 
       });
   }, [newsItems]);
@@ -252,7 +254,6 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
         setIsCreateModalOpen(false);
     } catch (error) {
         console.error("Save failed", error);
-        // Toast is handled by parent usually, but could add local error state here
     } finally {
         setIsSaving(false);
     }
@@ -260,9 +261,16 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
 
   const handleConfirmDelete = async () => {
       if (confirmDeleteId && onDeleteNews) {
-          await onDeleteNews(confirmDeleteId);
-          if (selectedPost?.id === confirmDeleteId) setSelectedPost(null);
-          setConfirmDeleteId(null);
+          setIsDeleting(true);
+          try {
+              await onDeleteNews(confirmDeleteId);
+              if (selectedPost?.id === confirmDeleteId) setSelectedPost(null);
+              setConfirmDeleteId(null);
+          } catch(e) {
+              console.error("Delete failed", e);
+          } finally {
+              setIsDeleting(false);
+          }
       }
   };
 
@@ -270,14 +278,14 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
     // Simple markdown-ish parser for display
     return text.split('\n').map((line, i) => {
       if (line.trim().startsWith('- ')) {
-        return <li key={i} className="ml-6 list-disc text-slate-700 mb-2 pl-2">{parseInline(line.substring(2))}</li>;
+        return <li key={i} className="ml-6 list-disc text-slate-700 mb-2 pl-2 font-sans">{parseInline(line.substring(2))}</li>;
       }
       if (line.trim().startsWith('## ')) {
-          return <h3 key={i} className="text-xl font-bold text-slate-900 mt-6 mb-3">{parseInline(line.substring(3))}</h3>;
+          return <h3 key={i} className="text-xl font-bold font-serif text-slate-900 mt-6 mb-3">{parseInline(line.substring(3))}</h3>;
       }
       if (line.trim() === '') return <div key={i} className="h-4"></div>;
       
-      return <p key={i} className="mb-4 leading-relaxed text-lg text-slate-700">{parseInline(line)}</p>;
+      return <p key={i} className="mb-4 leading-relaxed text-lg text-slate-700 font-sans">{parseInline(line)}</p>;
     });
   };
 
@@ -384,7 +392,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
         onClose={() => setIsCreateModalOpen(false)}
         title={editingId ? "Artikel Bewerken" : "Nieuw Artikel"}
       >
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-6 font-sans">
           <div className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Titel</label>
@@ -561,7 +569,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                       </div>
 
                       {/* Content */}
-                      <article className="prose prose-slate prose-lg max-w-none text-slate-700 leading-loose">
+                      <article className="prose prose-slate prose-lg max-w-none text-slate-700 leading-loose font-sans">
                          {renderFormattedText(selectedPost.content)}
                       </article>
                   </div>
@@ -601,8 +609,20 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                 <p className="text-sm font-medium">Weet je zeker dat je dit nieuwsbericht wilt verwijderen? Dit kan niet ongedaan worden gemaakt.</p>
             </div>
             <div className="flex justify-end gap-3 pt-2">
-               <button onClick={() => setConfirmDeleteId(null)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors">Annuleren</button>
-               <button onClick={handleConfirmDelete} className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold text-sm shadow-sm hover:bg-red-700 transition-colors">Verwijderen</button>
+               <button 
+                 onClick={() => setConfirmDeleteId(null)} 
+                 disabled={isDeleting}
+                 className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors"
+               >
+                 Annuleren
+               </button>
+               <button 
+                 onClick={handleConfirmDelete}
+                 disabled={isDeleting} 
+                 className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold text-sm shadow-sm hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+               >
+                 {isDeleting ? 'Bezig...' : 'Verwijderen'}
+               </button>
             </div>
          </div>
       </Modal>

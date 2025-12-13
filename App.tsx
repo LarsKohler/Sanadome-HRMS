@@ -151,6 +151,40 @@ function App() {
       setEmployees(prev => prev.filter(e => e.id !== id));
   };
 
+  // --- NEWS HANDLERS ---
+  const handleAddNews = async (post: NewsPost) => {
+      setNewsItems(prev => [post, ...prev]);
+      try {
+          await api.saveNewsPost(post);
+          handleShowToast("Nieuwsbericht gepubliceerd.");
+      } catch (e) {
+          console.error("Error adding news", e);
+          handleShowToast("Fout bij publiceren.");
+      }
+  };
+
+  const handleUpdateNews = async (post: NewsPost) => {
+      setNewsItems(prev => prev.map(n => n.id === post.id ? post : n));
+      try {
+          await api.updateNewsPost(post);
+          handleShowToast("Nieuwsbericht bijgewerkt.");
+      } catch (e) {
+          console.error("Error updating news", e);
+          handleShowToast("Fout bij bijwerken.");
+      }
+  };
+
+  const handleDeleteNews = async (id: string) => {
+      setNewsItems(prev => prev.filter(n => n.id !== id));
+      try {
+          await api.deleteNewsPost(id);
+          handleShowToast("Nieuwsbericht verwijderd.");
+      } catch (e) {
+          console.error("Error deleting news", e);
+          handleShowToast("Fout bij verwijderen.");
+      }
+  };
+
   const handleAddNotification = (notification: Notification) => {
       setNotifications(prev => [notification, ...prev]);
       api.saveNotification(notification);
@@ -267,16 +301,19 @@ function App() {
               return <NewsPage 
                   currentUser={currentUser!}
                   newsItems={newsItems}
-                  onAddNews={(post) => api.saveNewsPost(post)}
-                  onUpdateNews={(post) => api.updateNewsPost(post)}
-                  onDeleteNews={(id) => api.deleteNewsPost(id)}
+                  onAddNews={handleAddNews}
+                  onUpdateNews={handleUpdateNews}
+                  onDeleteNews={handleDeleteNews}
                   onLikeNews={(postId, userId) => {
                       const post = newsItems.find(n => n.id === postId);
                       if (post) {
                           const likes = post.likedBy.includes(userId) 
                               ? post.likedBy.filter(id => id !== userId) 
                               : [...post.likedBy, userId];
+                          // Optimistic local update not strictly needed for likes as they are minor interaction
                           api.updateNewsPost({ ...post, likedBy: likes, likes: likes.length });
+                          // Also update local state for snappiness
+                          setNewsItems(prev => prev.map(n => n.id === postId ? { ...n, likedBy: likes, likes: likes.length } : n));
                       }
                   }}
               />;
