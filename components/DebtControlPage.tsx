@@ -602,7 +602,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       const addrString = wikTarget.address || '';
       let line1 = ''; // Street + Nr
       let line2 = ''; // Zip + City
-      let line3 = ''; // Country
+      let line3 = 'NEDERLAND'; // Default to Nederland
 
       const parts = addrString.split(',').map(s => s.trim());
       if (parts.length >= 3) {
@@ -612,8 +612,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       } else if (parts.length === 2) {
           line1 = parts[0];
           line2 = parts[1];
-          // Default logic if missing in string but we want to be safe, though usually save enforces it
-          // If the user hasn't saved yet, this might happen. 
+          // line3 remains default NEDERLAND to ensure it's on the letter automatically
       } else {
           // Fallback for raw legacy data
           line1 = addrString; // Just put everything on line 1 if parsing fails
@@ -645,8 +644,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                 <div class="recipient">
                     <strong>${wikTarget.firstName} ${wikTarget.lastName}</strong><br>
                     ${line1}<br>
-                    ${line2}
-                    ${line3 ? `<br>${line3.toUpperCase()}` : ''}
+                    ${line2}<br>
+                    <span style="font-weight: bold;">${line3.toUpperCase()}</span>
                 </div>
                 <div class="sender">
                     <span class="sender-bold">Sanadome Hotel & Spa</span><br>
