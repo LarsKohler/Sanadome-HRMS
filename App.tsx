@@ -1,6 +1,7 @@
 
+
 import React, { useState, useEffect } from 'react';
-import { Employee, ViewState, Notification, NewsPost, GlobalSettings, Applicant } from './types';
+import { Employee, ViewState, NewsPost, GlobalSettings, Applicant } from './types';
 import Sidebar from './components/Sidebar';
 import TopNav from './components/TopNav';
 import EmployeeDirectory from './components/EmployeeDirectory';
@@ -38,7 +39,6 @@ function App() {
   });
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.HOME);
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [newsItems, setNewsItems] = useState<NewsPost[]>([]);
   const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -56,13 +56,11 @@ function App() {
     const loadData = async () => {
       const emps = await api.getEmployees();
       const news = await api.getNews();
-      const notifs = await api.getNotifications();
       const apps = await api.getApplicants(); 
       const settings = await api.getGlobalSettings(); 
       
       setEmployees(emps);
       setNewsItems(news);
-      setNotifications(notifs);
       setApplicants(apps);
       setGlobalSettings(settings);
     };
@@ -73,7 +71,6 @@ function App() {
         const unsubscribe = api.subscribe(
             setEmployees,
             setNewsItems,
-            setNotifications,
             setApplicants 
         );
         return () => { unsubscribe(); };
@@ -203,22 +200,6 @@ function App() {
       }
   };
 
-  // Ensure notification is saved to backend
-  const handleAddNotification = (notification: Notification) => {
-      setNotifications(prev => [notification, ...prev]);
-      api.saveNotification(notification);
-  };
-
-  const handleRemoveNotification = (id: string) => {
-      api.deleteNotification(id);
-      setNotifications(prev => prev.filter(n => n.id !== id));
-  };
-
-  const handleClearAllNotifications = () => {
-      notifications.filter(n => n.recipientId === currentUser?.id).forEach(n => api.deleteNotification(n.id));
-      setNotifications(prev => prev.filter(n => n.recipientId !== currentUser?.id));
-  };
-
   const handleUpdateGlobalSettings = (newSettings: GlobalSettings) => {
       setGlobalSettings(newSettings);
       api.saveGlobalSettings(newSettings);
@@ -277,7 +258,6 @@ function App() {
                   applicants={applicants} 
                   onUpdateEmployee={handleUpdateEmployee}
                   onChangeView={setCurrentView}
-                  onAddNotification={handleAddNotification}
                   onShowToast={handleShowToast}
                   onNext={() => {}} onPrevious={() => {}}
                   managers={employees.filter(e => e.role === 'Manager')}
@@ -300,7 +280,6 @@ function App() {
                   applicants={applicants}
                   onUpdateEmployee={handleUpdateEmployee}
                   onChangeView={setCurrentView}
-                  onAddNotification={handleAddNotification}
                   onShowToast={handleShowToast}
                   onNext={() => {}} onPrevious={() => {}}
                   onBack={() => setCurrentView(ViewState.DIRECTORY)}
@@ -311,7 +290,6 @@ function App() {
                   employees={employees}
                   currentUser={currentUser!}
                   onUpdateEmployee={handleUpdateEmployee}
-                  onAddNotification={handleAddNotification}
                   onShowToast={handleShowToast}
                   selectedEmployeeId={selectedProfileId}
                   onSelectEmployee={setSelectedProfileId}
@@ -330,7 +308,6 @@ function App() {
                   employees={employees}
                   currentUser={currentUser!}
                   onUpdateEmployee={handleUpdateEmployee}
-                  onAddNotification={handleAddNotification}
                   onShowToast={handleShowToast}
               />;
           case ViewState.REPORTS:
@@ -357,7 +334,6 @@ function App() {
                   currentUser={currentUser!}
                   employees={employees}
                   onUpdateEmployee={handleUpdateEmployee}
-                  onAddNotification={handleAddNotification}
                   onShowToast={handleShowToast}
               />;
           case ViewState.RECRUITMENT:
@@ -366,7 +342,6 @@ function App() {
                   employees={employees} 
                   applicants={applicants}
                   onShowToast={handleShowToast}
-                  onAddNotification={handleAddNotification}
                   onHireCandidate={async (applicant) => {
                       const newId = crypto.randomUUID();
                       const newEmployee: Employee = {
@@ -417,15 +392,6 @@ function App() {
         <TopNav 
           user={currentUser!} 
           onLogout={handleLogout}
-          notifications={notifications.filter(n => n.recipientId === currentUser?.id)}
-          onNotificationClick={(n) => {
-              if (!n.read) api.markNotificationRead(n.id, notifications);
-              if (n.targetView) setCurrentView(n.targetView);
-          }}
-          onMarkAllRead={() => api.markAllNotificationsRead(currentUser!.id, notifications)}
-          onMarkSingleRead={(id) => api.markNotificationRead(id, notifications)}
-          onRemoveNotification={handleRemoveNotification}
-          onClearAllNotifications={handleClearAllNotifications}
           onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
           onNavigate={setCurrentView}
           isLive={isLive}

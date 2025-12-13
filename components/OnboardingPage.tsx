@@ -1,7 +1,8 @@
 
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Search, CheckCircle2, User, ChevronDown, MessageSquare, Save, PlayCircle, Eye, EyeOff, Calendar, Clock, Trophy, Check, ArrowRight, Circle, Settings, Plus, Trash2, Edit2, Copy, Archive, XCircle, History, FileText, BarChart3, Quote, ListChecks, X, PieChart, CheckSquare } from 'lucide-react';
-import { Employee, OnboardingTask, Notification, ViewState, OnboardingWeekData, OnboardingTemplate, OnboardingHistoryEntry, SubTask } from '../types';
+import { Employee, OnboardingTask, ViewState, OnboardingWeekData, OnboardingTemplate, OnboardingHistoryEntry, SubTask } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
 
@@ -9,7 +10,6 @@ interface OnboardingPageProps {
   employees: Employee[];
   currentUser: Employee;
   onUpdateEmployee: (employee: Employee) => void;
-  onAddNotification: (notification: Notification) => void;
   onShowToast: (message: string) => void;
 }
 
@@ -94,7 +94,6 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
   employees,
   currentUser,
   onUpdateEmployee,
-  onAddNotification,
   onShowToast
 }) => {
   const isManager = currentUser.role === 'Manager';
@@ -235,24 +234,6 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
     const updatedEmployee = { ...selectedEmployee, onboardingTasks: updatedTasks };
     onUpdateEmployee(updatedEmployee);
-
-    if (score === 100) {
-        if (selectedEmployee.id !== currentUser.id) {
-             const taskTitle = selectedEmployee.onboardingTasks.find(t => t.id === taskId)?.title;
-             const notification: Notification = {
-                id: Math.random().toString(36).substr(2, 9),
-                recipientId: selectedEmployee.id,
-                senderName: currentUser.name,
-                type: 'Onboarding',
-                title: 'Taak afgerond',
-                message: `${currentUser.name} heeft "${taskTitle}" afgevinkt.`,
-                date: 'Zojuist',
-                read: false,
-                targetView: ViewState.ONBOARDING
-             };
-             onAddNotification(notification);
-        }
-    }
   };
 
   const handleToggleSubtask = (taskId: string, subtaskId: string) => {
@@ -1039,7 +1020,7 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                                                                     disabled={!canEdit}
                                                                                     className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center transition-colors flex-shrink-0 ${
                                                                                         subtask.completed 
-                                                                                            ? 'bg-teal-500 border-teal-500 text-white' 
+                                                                                            ? 'bg-teal-50 border-teal-500 text-white' 
                                                                                             : `bg-white border-slate-300 ${canEdit ? 'hover:border-teal-400' : 'opacity-50 cursor-not-allowed'}`
                                                                                     }`}
                                                                                 >
@@ -1201,136 +1182,126 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                       </div>
                                   </div>
                                   <div className="space-y-3">
-                                      {weekTasks.map(task => (
-                                          <div key={task.id} className="bg-white p-3 rounded-lg border border-slate-200 space-y-2">
-                                              <div className="flex justify-between items-start gap-2">
-                                                  <input 
-                                                    className="font-bold text-sm w-full border-none p-0 focus:ring-0 text-slate-900 placeholder:text-slate-300"
-                                                    placeholder="Taak titel (Druk op Enter voor nieuwe taak)"
-                                                    value={task.title}
-                                                    onChange={(e) => updateTemplateTask(task.id, 'title', e.target.value)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter') {
-                                                            e.preventDefault();
-                                                            addTaskToTemplate(week);
-                                                        }
-                                                    }}
-                                                  />
-                                                  <div className="flex items-center gap-1">
-                                                      <button 
-                                                        onClick={() => updateTemplateTask(task.id, 'isSimpleCheck', !task.isSimpleCheck)}
-                                                        className="text-slate-400 hover:text-teal-600 p-1"
-                                                        title={task.isSimpleCheck ? "Wissel naar Score Cirkel" : "Wissel naar Simpele Check"}
-                                                      >
-                                                          {task.isSimpleCheck ? <CheckSquare size={16}/> : <PieChart size={16}/>}
+                                      {weekTasks.map((task) => (
+                                          <div key={task.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-2">
+                                              <div className="flex justify-between items-start">
+                                                  <div className="flex-1">
+                                                      <input 
+                                                          className="font-bold text-sm text-slate-800 w-full focus:outline-none placeholder:text-slate-400"
+                                                          value={task.title}
+                                                          onChange={(e) => updateTemplateTask(task.id, 'title', e.target.value)}
+                                                          placeholder="Taak titel..."
+                                                      />
+                                                      <input 
+                                                          className="text-xs text-slate-500 w-full focus:outline-none mt-1 placeholder:text-slate-300"
+                                                          value={task.description}
+                                                          onChange={(e) => updateTemplateTask(task.id, 'description', e.target.value)}
+                                                          placeholder="Beschrijving..."
+                                                      />
+                                                  </div>
+                                                  <button onClick={() => removeTaskFromTemplate(task.id)} className="text-slate-300 hover:text-red-500"><Trash2 size={14}/></button>
+                                              </div>
+                                              
+                                              <div className="flex items-center gap-2 pt-2 border-t border-slate-50">
+                                                  <select 
+                                                      className="text-xs bg-slate-50 border border-slate-200 rounded px-1 py-0.5 text-slate-600 focus:outline-none"
+                                                      value={task.category}
+                                                      onChange={(e) => updateTemplateTask(task.id, 'category', e.target.value)}
+                                                  >
+                                                      {availableCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                                                  </select>
+                                                  <label className="flex items-center gap-1 cursor-pointer text-xs text-slate-500">
+                                                      <input 
+                                                          type="checkbox" 
+                                                          checked={task.isSimpleCheck} 
+                                                          onChange={(e) => updateTemplateTask(task.id, 'isSimpleCheck', e.target.checked)}
+                                                          className="rounded text-teal-600 focus:ring-teal-500 w-3 h-3"
+                                                      />
+                                                      Simpel
+                                                  </label>
+                                                  <div className="ml-auto flex gap-1">
+                                                      <button onClick={() => addSubtaskToTemplateTask(task.id)} className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded hover:bg-slate-200 text-slate-500 flex items-center gap-1">
+                                                          <Plus size={10}/> Sub
                                                       </button>
-                                                      <button onClick={() => removeTaskFromTemplate(task.id)} className="text-slate-300 hover:text-red-500 ml-1"><Trash2 size={14}/></button>
                                                   </div>
                                               </div>
-                                              <div className="flex gap-2">
-                                                  <input 
-                                                    className="text-xs bg-slate-50 border-none rounded px-2 py-1 w-1/3 text-slate-600"
-                                                    placeholder="Categorie"
-                                                    list="category-suggestions" 
-                                                    value={task.category}
-                                                    onChange={(e) => updateTemplateTask(task.id, 'category', e.target.value)}
-                                                  />
 
-                                                  <input 
-                                                    className="text-xs bg-slate-50 border-none rounded px-2 py-1 w-2/3 text-slate-600"
-                                                    placeholder="Omschrijving"
-                                                    value={task.description}
-                                                    onChange={(e) => updateTemplateTask(task.id, 'description', e.target.value)}
-                                                  />
-                                              </div>
-
-                                              {/* Subtasks in Template Editor */}
-                                              <div className="mt-2 pl-2 border-l-2 border-slate-100">
-                                                  {task.subtasks && task.subtasks.length > 0 && (
-                                                      <div className="space-y-2 mb-2">
-                                                          {task.subtasks.map(st => (
-                                                              <div key={st.id} className="flex flex-col gap-1 bg-slate-50 p-2 rounded">
-                                                                  <div className="flex items-center gap-2">
-                                                                      <div className="w-1 h-1 bg-slate-300 rounded-full"></div>
-                                                                      <input 
-                                                                          className="text-xs font-bold border-b border-transparent focus:border-slate-300 focus:outline-none w-full bg-transparent text-slate-700"
-                                                                          value={st.title}
-                                                                          onChange={(e) => updateSubtaskTitle(task.id, st.id, e.target.value)}
-                                                                          placeholder="Subtaak titel..."
-                                                                      />
-                                                                      <button 
-                                                                          onClick={() => removeSubtaskFromTemplateTask(task.id, st.id)}
-                                                                          className="text-slate-300 hover:text-red-400"
-                                                                      >
-                                                                          <X size={12}/>
-                                                                      </button>
-                                                                  </div>
-                                                                  <input 
-                                                                      className="text-[10px] border-b border-transparent focus:border-slate-300 focus:outline-none w-full bg-transparent text-slate-500 pl-3"
-                                                                      value={st.description}
-                                                                      onChange={(e) => updateSubtaskDescription(task.id, st.id, e.target.value)}
-                                                                      placeholder="Beschrijving (optioneel)..."
-                                                                  />
-                                                              </div>
-                                                          ))}
-                                                      </div>
-                                                  )}
-                                                  <button 
-                                                      onClick={() => addSubtaskToTemplateTask(task.id)}
-                                                      className="text-[10px] text-teal-600 font-bold hover:underline flex items-center gap-1"
-                                                  >
-                                                      <Plus size={10}/> Subtaak
-                                                  </button>
-                                              </div>
+                                              {/* Subtasks */}
+                                              {task.subtasks && task.subtasks.length > 0 && (
+                                                  <div className="pl-2 border-l-2 border-slate-100 space-y-1 mt-1">
+                                                      {task.subtasks.map((st) => (
+                                                          <div key={st.id} className="flex gap-2 items-center">
+                                                              <input 
+                                                                  className="text-xs w-full bg-slate-50 border-none p-1 rounded"
+                                                                  value={st.title}
+                                                                  onChange={(e) => updateSubtaskTitle(task.id, st.id, e.target.value)}
+                                                              />
+                                                              <button onClick={() => removeSubtaskFromTemplateTask(task.id, st.id)} className="text-slate-300 hover:text-red-400"><X size={12}/></button>
+                                                          </div>
+                                                      ))}
+                                                  </div>
+                                              )}
                                           </div>
                                       ))}
-                                      {weekTasks.length === 0 && <p className="text-xs text-slate-400 italic">Geen taken in deze week.</p>}
+                                      {weekTasks.length === 0 && <div className="text-center text-xs text-slate-400 italic py-2">Geen taken in deze week.</div>}
                                   </div>
                               </div>
                           );
                       })}
                       
-                      <button 
-                        onClick={handleAddWeek}
-                        className="w-full py-3 border-2 border-dashed border-slate-300 text-slate-500 rounded-xl font-bold hover:bg-slate-50 hover:text-slate-700 flex items-center justify-center gap-2"
-                      >
-                          <Plus size={18} /> Week Toevoegen
+                      <button onClick={handleAddWeek} className="w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold text-sm hover:border-teal-500 hover:text-teal-600 flex items-center justify-center gap-2">
+                          <Plus size={16}/> Week Toevoegen
                       </button>
                   </div>
 
-                  <button onClick={handleSaveTemplate} className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold">Opslaan</button>
+                  <div className="pt-6 border-t border-slate-100 flex justify-end gap-3 sticky bottom-0 bg-white pb-2">
+                      <button onClick={handleSaveTemplate} className="px-6 py-2 bg-slate-900 text-white rounded-xl font-bold text-sm shadow-md hover:bg-slate-800 transition-colors flex items-center gap-2">
+                          <Save size={16}/> Template Opslaan
+                      </button>
+                  </div>
               </div>
           ) : (
               <div className="space-y-4">
-                  {templates.map(t => (
-                      <div key={t.id} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-200">
+                  {templates.map(template => (
+                      <div key={template.id} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center group">
                           <div>
-                              <div className="font-bold text-slate-900">{t.title}</div>
-                              <div className="text-xs text-slate-500">{t.tasks.length} taken • {t.weekCount || 4} weken • {t.role || 'Geen rol'}</div>
+                              <h4 className="font-bold text-slate-900">{template.title}</h4>
+                              <p className="text-xs text-slate-500">{template.description}</p>
+                              <div className="text-[10px] text-slate-400 mt-1">{template.tasks.length} taken • {template.weekCount || 4} weken</div>
                           </div>
-                          <div className="flex gap-2">
-                              <button onClick={() => { setEditingTemplate(t); setIsEditingTemplate(true); }} className="p-2 bg-white border border-slate-200 rounded-lg hover:text-teal-600"><Edit2 size={16}/></button>
-                              <button onClick={() => handleDeleteTemplate(t.id)} className="p-2 bg-white border border-slate-200 rounded-lg hover:text-red-600"><Trash2 size={16}/></button>
+                          <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button 
+                                  onClick={() => { setEditingTemplate(JSON.parse(JSON.stringify(template))); setIsEditingTemplate(true); }}
+                                  className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-teal-600 hover:border-teal-200"
+                              >
+                                  <Edit2 size={16}/>
+                              </button>
+                              <button 
+                                  onClick={() => handleDeleteTemplate(template.id)}
+                                  className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-red-600 hover:border-red-200"
+                              >
+                                  <Trash2 size={16}/>
+                              </button>
                           </div>
                       </div>
                   ))}
-                  <button 
-                    onClick={handleCreateTemplate}
-                    className="w-full py-3 border-2 border-dashed border-slate-300 text-slate-500 rounded-xl font-bold hover:bg-slate-50 hover:text-slate-700 flex items-center justify-center gap-2"
-                  >
-                      <Plus size={18} /> Nieuw Template
+                  {templates.length === 0 && (
+                      <div className="text-center p-4 text-slate-400 italic">Nog geen templates.</div>
+                  )}
+                  <button onClick={handleCreateTemplate} className="w-full py-3 bg-teal-50 text-teal-700 font-bold text-sm rounded-xl border border-teal-100 hover:bg-teal-100 transition-colors flex items-center justify-center gap-2">
+                      <Plus size={16}/> Nieuw Template Aanmaken
                   </button>
               </div>
           )}
       </Modal>
 
-      {/* History Report Modal */}
-      <Modal 
-        isOpen={!!viewingHistoryEntry} 
-        onClose={() => setViewingHistoryEntry(null)} 
-        title="Traject Rapportage"
+      {/* History Detail Modal */}
+      <Modal
+        isOpen={!!viewingHistoryEntry}
+        onClose={() => setViewingHistoryEntry(null)}
+        title={viewingHistoryEntry?.templateTitle || 'Geschiedenis Detail'}
       >
-         {viewingHistoryEntry && renderHistoryReport(viewingHistoryEntry)}
+          {viewingHistoryEntry && renderHistoryReport(viewingHistoryEntry)}
       </Modal>
 
     </div>

@@ -111,20 +111,6 @@ export interface GlobalSettings {
   }>;
 }
 
-export interface Notification {
-  id: string;
-  recipientId: string;
-  senderName: string;
-  type: 'Note' | 'Document' | 'Badge' | 'Onboarding' | 'Recruitment' | 'Evaluation' | 'System';
-  title: string;
-  message: string;
-  date: string;
-  read: boolean;
-  targetView?: ViewState;
-  targetEmployeeId?: string;
-  isPinned?: boolean;
-}
-
 export interface EmployeeNote {
   id: string;
   title: string;
@@ -619,4 +605,18 @@ export interface ChecklistSubmission {
   responses: Record<string, any>;
   startedAt: string;
   completedAt?: string;
+}
+
+export interface Notification {
+  id: string;
+  recipientId: string;
+  senderName: string;
+  type: string;
+  title: string;
+  message: string;
+  date: string;
+  read: boolean;
+  targetView: ViewState;
+  targetEmployeeId?: string;
+  isPinned?: boolean;
 }

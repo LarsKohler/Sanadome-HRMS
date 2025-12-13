@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Briefcase, MapPin, 
@@ -7,7 +8,7 @@ import {
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
   TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy, Lock, Pencil, Medal, Calendar as CalendarIcon
 } from 'lucide-react';
-import { Employee, EmployeeNote, EmployeeDocument, Notification, ViewState, NewsPost, EvaluationCycle, BadgeIconKey, BadgeColor, AssignedBadge, AcademyCourse, AcademyProgress, Applicant } from '../types';
+import { Employee, EmployeeNote, EmployeeDocument, ViewState, NewsPost, EvaluationCycle, BadgeIconKey, BadgeColor, AssignedBadge, AcademyCourse, AcademyProgress, Applicant } from '../types';
 import { Modal } from './Modal';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { api } from '../utils/api';
@@ -50,7 +51,6 @@ interface EmployeeProfileProps {
   onPrevious: () => void;
   onChangeView: (view: ViewState) => void;
   onUpdateEmployee: (updatedEmployee: Employee) => void;
-  onAddNotification: (notification: Notification) => void;
   onShowToast: (message: string) => void;
   onBack?: () => void; // Function to go back to directory or home
   managers: Employee[];
@@ -79,7 +79,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   onPrevious,
   onChangeView,
   onUpdateEmployee,
-  onAddNotification,
   onShowToast,
   onBack,
   managers,

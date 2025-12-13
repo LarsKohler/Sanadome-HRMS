@@ -1,11 +1,12 @@
 
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Search, FileText, Upload, Plus, File, Download, StickyNote, 
   User, Calendar, Clock, MoreVertical, Filter, 
   Pencil, Trash2, MoreHorizontal, Eye, EyeOff, ChevronDown, Check, FolderOpen, TrendingUp, AlertCircle
 } from 'lucide-react';
-import { Employee, EmployeeNote, EmployeeDocument, Notification, ViewState } from '../types';
+import { Employee, EmployeeNote, EmployeeDocument, ViewState } from '../types';
 import { Modal } from './Modal';
 import { api } from '../utils/api';
 import { hasPermission } from '../utils/permissions';
@@ -14,7 +15,6 @@ interface DocumentsPageProps {
   employees: Employee[];
   currentUser: Employee;
   onUpdateEmployee: (employee: Employee) => void;
-  onAddNotification: (notification: Notification) => void;
   onShowToast: (message: string) => void;
   selectedEmployeeId: string | null;
   onSelectEmployee: (id: string) => void;
@@ -24,7 +24,6 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
   employees, 
   currentUser, 
   onUpdateEmployee, 
-  onAddNotification,
   onShowToast,
   selectedEmployeeId,
   onSelectEmployee
@@ -142,22 +141,6 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
     setIsNoteModalOpen(false);
 
     onShowToast('Notitie succesvol opgeslagen.');
-
-    if (selectedEmployee.id !== currentUser.id && noteVisible) {
-         const notification: Notification = {
-           id: Math.random().toString(36).substr(2, 9),
-           recipientId: selectedEmployee.id,
-           senderName: currentUser.name,
-           type: 'Note',
-           title: 'Nieuwe notitie',
-           message: `Er is een nieuwe notitie toegevoegd aan uw dossier: "${noteTitle}"`,
-           date: 'Zojuist',
-           read: false,
-           targetView: ViewState.DOCUMENTS,
-           targetEmployeeId: selectedEmployee.id
-         };
-         onAddNotification(notification);
-    }
   };
 
   const handleOpenEditNote = (note: EmployeeNote) => {
@@ -238,22 +221,6 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
             onUpdateEmployee(updatedEmployee);
             setIsUploadModalOpen(false);
             onShowToast('Document succesvol geüpload.');
-
-            if (selectedEmployee.id !== currentUser.id) {
-                const notification: Notification = {
-                  id: Math.random().toString(36).substr(2, 9),
-                  recipientId: selectedEmployee.id,
-                  senderName: currentUser.name,
-                  type: 'Document',
-                  title: 'Nieuw document',
-                  message: `Nieuw document toegevoegd: "${newDoc.name}"`,
-                  date: 'Zojuist',
-                  read: false,
-                  targetView: ViewState.DOCUMENTS,
-                  targetEmployeeId: selectedEmployee.id
-                };
-                onAddNotification(notification);
-             }
         } else {
             onShowToast('Upload mislukt.');
         }

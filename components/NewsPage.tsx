@@ -1,11 +1,12 @@
 
+
 import React, { useState, useRef, useMemo } from 'react';
 import { 
     Send, Image as ImageIcon, X, 
     Bold, Italic, List, Edit2, Trash2, ArrowRight, ArrowLeft,
     Pin, AlertCircle, Clock, Layout, CheckCircle2, Calendar
 } from 'lucide-react';
-import { Employee, NewsPost, Notification, ViewState } from '../types';
+import { Employee, NewsPost, ViewState } from '../types';
 import { Modal } from './Modal';
 import { api } from '../utils/api';
 import { hasPermission } from '../utils/permissions';
@@ -252,30 +253,6 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
               isPinned
             };
             await onAddNews(newPost);
-
-            // BROADCAST NOTIFICATION IF PINNED
-            if (isPinned) {
-                // We need to fetch all employees to notify them
-                const allEmployees = await api.getEmployees();
-                for (const employee of allEmployees) {
-                    // Don't notify self
-                    if (employee.id !== currentUser.id) {
-                        const notification: Notification = {
-                            id: crypto.randomUUID(),
-                            recipientId: employee.id,
-                            senderName: currentUser.name,
-                            type: 'System',
-                            title: `Nieuws: ${title}`,
-                            message: shortDescription,
-                            date: 'Zojuist',
-                            read: false,
-                            targetView: ViewState.NEWS,
-                            isPinned: true
-                        };
-                        await api.saveNotification(notification);
-                    }
-                }
-            }
         }
         setIsCreateModalOpen(false);
     } catch (error) {
@@ -612,7 +589,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                         className="w-5 h-5 rounded text-teal-600 focus:ring-teal-500 border-slate-300"
                     />
                     <label htmlFor="isPinned" className="text-sm font-bold text-slate-700 cursor-pointer select-none">
-                        Belangrijk / Vastzetten & Iedereen Notificeren
+                        Belangrijk / Vastzetten
                     </label>
                 </div>
               </div>

@@ -1,17 +1,12 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
-import { Search, Bell, Plus, ChevronDown, Lock, LogOut, CheckCircle2, Pin, Menu, Cloud, Database, Shield, User, Briefcase, Ticket, X, Trash2 } from 'lucide-react';
-import { Employee, Notification, ViewState } from '../types';
+import { Search, Plus, ChevronDown, Lock, LogOut, CheckCircle2, Menu, Cloud, Database, Shield, User, Briefcase, Ticket, X, Trash2 } from 'lucide-react';
+import { Employee, ViewState } from '../types';
 
 interface TopNavProps {
   user?: Employee;
   onLogout: () => void;
-  notifications: Notification[];
-  onNotificationClick: (notification: Notification) => void;
-  onMarkAllRead: () => void;
-  onMarkSingleRead: (id: string) => void;
-  onRemoveNotification?: (id: string) => void; 
-  onClearAllNotifications?: () => void; // New Prop
   onToggleMobileMenu: () => void;
   onNavigate: (view: ViewState) => void;
   isLive: boolean;
@@ -21,38 +16,11 @@ interface TopNavProps {
 const TopNav: React.FC<TopNavProps> = ({ 
   user, 
   onLogout, 
-  notifications, 
-  onNotificationClick,
-  onMarkAllRead,
-  onMarkSingleRead,
-  onRemoveNotification,
-  onClearAllNotifications,
   onToggleMobileMenu,
   onNavigate,
   isLive,
   onOpenFeedbackModal
 }) => {
-  const [isNotifOpen, setIsNotifOpen] = useState(false);
-  const notifRef = useRef<HTMLDivElement>(null);
-
-  const unreadCount = notifications.filter(n => !n.read).length;
-  
-  const sortedNotifications = [...notifications].sort((a, b) => {
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      return 0;
-  });
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
-        setIsNotifOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   return (
     <header className="h-16 lg:h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 lg:px-8 sticky top-0 z-40 transition-all duration-300 print:hidden">
       <div className="flex items-center gap-4">
@@ -68,120 +36,6 @@ const TopNav: React.FC<TopNavProps> = ({
       <div className="flex items-center gap-2 lg:gap-5">
         
         <div className="flex items-center gap-1 lg:gap-3">
-          
-          {/* Notification Bell */}
-          <div className="relative" ref={notifRef}>
-            <button 
-              onClick={() => setIsNotifOpen(!isNotifOpen)}
-              className={`p-2 rounded-full hover:bg-slate-50 relative transition-colors ${isNotifOpen ? 'text-teal-600 bg-teal-50' : 'text-slate-400'}`}
-            >
-              <Bell size={22} />
-              {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 block h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white"></span>
-              )}
-            </button>
-
-            {/* Notification Dropdown */}
-            {isNotifOpen && (
-              <div className="absolute right-0 top-14 w-80 md:w-96 bg-white rounded-2xl shadow-xl border border-slate-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                <div className="px-5 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 backdrop-blur-sm">
-                  <h3 className="font-bold text-slate-900">Notificaties</h3>
-                  <div className="flex gap-2">
-                      {unreadCount > 0 && (
-                        <button 
-                          onClick={onMarkAllRead}
-                          className="text-xs text-teal-600 hover:text-teal-700 font-bold"
-                        >
-                          Lees alles
-                        </button>
-                      )}
-                      {onClearAllNotifications && notifications.length > 0 && (
-                          <button 
-                            onClick={onClearAllNotifications}
-                            className="text-slate-400 hover:text-red-500 transition-colors p-1"
-                            title="Wis alle notificaties"
-                          >
-                              <Trash2 size={14} />
-                          </button>
-                      )}
-                  </div>
-                </div>
-                <div className="max-h-[400px] overflow-y-auto custom-scrollbar">
-                  {notifications.length === 0 ? (
-                    <div className="px-4 py-10 text-center text-slate-400 text-sm">
-                      <Bell size={32} className="mx-auto mb-3 opacity-20" />
-                      Geen nieuwe meldingen
-                    </div>
-                  ) : (
-                    <ul className="divide-y divide-slate-50">
-                      {sortedNotifications.map((notif) => (
-                        <li 
-                          key={notif.id} 
-                          onClick={() => {
-                            onNotificationClick(notif);
-                            setIsNotifOpen(false);
-                          }}
-                          className={`px-5 py-4 hover:bg-slate-50 cursor-pointer transition-colors relative group 
-                            ${notif.isPinned ? 'bg-amber-50/40' : !notif.read ? 'bg-teal-50/20' : ''}
-                          `}
-                        >
-                          <div className="flex gap-4">
-                            <div className="flex-shrink-0 mt-1">
-                                {notif.isPinned ? (
-                                    <div className="w-8 h-8 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center shadow-sm border border-amber-200">
-                                        <Pin size={14} className="fill-current" />
-                                    </div>
-                                ) : (
-                                    <div className={`w-2.5 h-2.5 mt-2 rounded-full ${!notif.read ? 'bg-teal-500 shadow-sm shadow-teal-200' : 'bg-slate-200'}`}></div>
-                                )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex justify-between items-start">
-                                <p className={`text-sm truncate ${!notif.read || notif.isPinned ? 'font-bold text-slate-900' : 'font-medium text-slate-700'}`}>
-                                  {notif.title}
-                                </p>
-                                {onRemoveNotification && (
-                                    <button 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            onRemoveNotification(notif.id);
-                                        }}
-                                        className="text-slate-300 hover:text-slate-500 p-1 -mr-2 -mt-1 rounded-full hover:bg-slate-100 transition-colors"
-                                    >
-                                        <X size={14} />
-                                    </button>
-                                )}
-                              </div>
-                              <p className="text-xs text-slate-500 mt-1 line-clamp-2 pr-2 leading-relaxed font-medium">
-                                {notif.message}
-                              </p>
-                              <div className="flex justify-between items-center mt-3">
-                                <p className="text-[10px] text-slate-400 font-bold tracking-wide uppercase">
-                                  {notif.date} • {notif.senderName}
-                                </p>
-                                {!notif.read && !notif.isPinned && (
-                                  <button 
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onMarkSingleRead(notif.id);
-                                    }}
-                                    className="flex items-center gap-1 text-[10px] font-bold text-teal-600 hover:text-teal-800 hover:bg-teal-50 px-2 py-1 rounded transition-colors"
-                                  >
-                                    <CheckCircle2 size={12} />
-                                    Gelezen
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
           
           {/* User Menu */}
           <div className="relative group h-16 flex items-center lg:ml-2">
