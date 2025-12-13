@@ -221,7 +221,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
         await updateApplicant(updated);
         
         // Notify Interviewers
-        if (onAddNotification && employees) {
+        if (onAddNotification && interview.interviewers) {
             interview.interviewers.forEach(interviewerId => {
                 if (interviewerId !== currentUser.id) { 
                     onAddNotification({
@@ -279,7 +279,7 @@ const RecruitmentPage: React.FC<RecruitmentPageProps> = ({ currentUser, employee
         await updateApplicant(updated);
         
         // Notify
-        if (onAddNotification && employees) {
+        if (onAddNotification && rescheduleTarget.interviewers) {
             rescheduleTarget.interviewers.forEach(interviewerId => {
                 if (interviewerId !== currentUser.id) { 
                     onAddNotification({

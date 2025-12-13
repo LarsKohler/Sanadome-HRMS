@@ -203,6 +203,7 @@ function App() {
       }
   };
 
+  // Ensure notification is saved to backend
   const handleAddNotification = (notification: Notification) => {
       setNotifications(prev => [notification, ...prev]);
       api.saveNotification(notification);

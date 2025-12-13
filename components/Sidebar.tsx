@@ -42,7 +42,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
         { icon: Newspaper, label: 'Nieuws', id: ViewState.NEWS },
         { icon: GraduationCap, label: 'Academy', id: ViewState.ACADEMY },
         { icon: BookOpen, label: 'Kennisbank', id: ViewState.KNOWLEDGE_BASE },
-        { icon: CheckSquare, label: 'Taken', id: 'tasks', badge: 2 },
         { icon: Users, label: 'Collega\'s', id: ViewState.DIRECTORY },
       ]
     },
