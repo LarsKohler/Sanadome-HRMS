@@ -1,7 +1,8 @@
 
+
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar, Sparkles, Edit2 } from 'lucide-react';
-import { Debtor, DebtorStatus, Employee } from '../types';
+import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar, Sparkles, Edit2, MessageSquare, Send } from 'lucide-react';
+import { Debtor, DebtorStatus, Employee, DebtorNote } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
 import * as XLSX from 'xlsx';
@@ -28,6 +29,11 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   // Status Modal State
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [statusTargetIds, setStatusTargetIds] = useState<string[]>([]); // Which IDs are we changing?
+
+  // Notes Modal State
+  const [isNotesModalOpen, setIsNotesModalOpen] = useState(false);
+  const [selectedDebtorForNotes, setSelectedDebtorForNotes] = useState<Debtor | null>(null);
+  const [newNoteContent, setNewNoteContent] = useState('');
 
   // Custom Confirm Modal State
   const [confirmModalState, setConfirmModalState] = useState<{
@@ -434,6 +440,38 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       });
   };
 
+  // --- NOTES LOGIC ---
+  const handleOpenNotes = (debtor: Debtor) => {
+      setSelectedDebtorForNotes(debtor);
+      setNewNoteContent('');
+      setIsNotesModalOpen(true);
+  };
+
+  const handleSaveNote = async () => {
+      if (!selectedDebtorForNotes || !newNoteContent.trim()) return;
+
+      const newNote: DebtorNote = {
+          id: Math.random().toString(36).substr(2, 9),
+          content: newNoteContent,
+          date: new Date().toISOString(),
+          author: currentUser.name
+      };
+
+      const updatedDebtor = {
+          ...selectedDebtorForNotes,
+          notes: [...(selectedDebtorForNotes.notes || []), newNote]
+      };
+
+      // Optimistic update
+      const updatedList = debtors.map(d => d.id === updatedDebtor.id ? updatedDebtor : d);
+      setDebtors(sortDebtors(updatedList));
+      setSelectedDebtorForNotes(updatedDebtor);
+      
+      setNewNoteContent('');
+      await api.saveDebtors(updatedList);
+      onShowToast("Notitie toegevoegd");
+  };
+
   // --- DATE EDITING LOGIC ---
   const openDateEdit = (debtor: Debtor) => {
       setDateEditTarget(debtor);
@@ -771,6 +809,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                           const needsAction = isActionRequired(debtor);
                           const daysOverdue = getDaysOverdue(debtor);
                           const isSelected = selectedIds.has(debtor.id);
+                          const hasNotes = debtor.notes && debtor.notes.length > 0;
 
                           return (
                           <tr 
@@ -882,6 +921,14 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                               {/* Actions */}
                               <td className="px-6 py-5 text-right align-top" onClick={(e) => e.stopPropagation()}>
                                   <div className="flex justify-end gap-2 opacity-100 lg:opacity-0 lg:group-hover:opacity-100 transition-all translate-x-4 lg:group-hover:translate-x-0">
+                                      <button 
+                                        onClick={() => handleOpenNotes(debtor)}
+                                        className={`p-2.5 bg-white border border-slate-200 hover:text-blue-600 hover:border-blue-200 rounded-xl shadow-sm transition-all relative ${hasNotes ? 'text-blue-500' : 'text-slate-500'}`}
+                                        title="Notities"
+                                      >
+                                          <MessageSquare size={16} />
+                                          {hasNotes && <div className="absolute top-1 right-1 w-2 h-2 bg-blue-500 rounded-full border border-white"></div>}
+                                      </button>
                                       <button 
                                         onClick={() => openWikModal(debtor)}
                                         className="p-2.5 bg-white border border-slate-200 text-slate-500 hover:text-teal-600 hover:border-teal-200 rounded-xl shadow-sm transition-all"
@@ -997,6 +1044,59 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                   />
               </div>
           </div>
+      </Modal>
+
+      {/* Notes Modal */}
+      <Modal
+        isOpen={isNotesModalOpen}
+        onClose={() => setIsNotesModalOpen(false)}
+        title="Dossier Notities"
+      >
+          {selectedDebtorForNotes && (
+              <div className="flex flex-col h-[500px]">
+                  <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                      <h4 className="font-bold text-slate-900">{selectedDebtorForNotes.firstName} {selectedDebtorForNotes.lastName}</h4>
+                      <p className="text-xs text-slate-500 font-mono mt-1">#{selectedDebtorForNotes.reservationNumber}</p>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto space-y-4 px-1 custom-scrollbar mb-4">
+                      {selectedDebtorForNotes.notes && selectedDebtorForNotes.notes.length > 0 ? (
+                          selectedDebtorForNotes.notes.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(note => (
+                              <div key={note.id} className="flex flex-col bg-white border border-slate-100 p-3 rounded-xl shadow-sm">
+                                  <div className="flex justify-between items-start mb-2">
+                                      <span className="text-xs font-bold text-slate-800">{note.author}</span>
+                                      <span className="text-[10px] text-slate-400">{new Date(note.date).toLocaleString('nl-NL')}</span>
+                                  </div>
+                                  <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">{note.content}</p>
+                              </div>
+                          ))
+                      ) : (
+                          <div className="text-center py-10 text-slate-400 italic text-sm">
+                              Nog geen notities toegevoegd.
+                          </div>
+                      )}
+                  </div>
+
+                  <div className="mt-auto border-t border-slate-100 pt-4">
+                      <div className="flex gap-2">
+                          <textarea 
+                              className="flex-1 p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                              rows={2}
+                              placeholder="Schrijf een nieuwe notitie..."
+                              value={newNoteContent}
+                              onChange={(e) => setNewNoteContent(e.target.value)}
+                          />
+                          <button 
+                              onClick={handleSaveNote}
+                              disabled={!newNoteContent.trim()}
+                              className="bg-blue-600 text-white p-3 rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                              <Send size={18}/>
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          )}
       </Modal>
 
       {/* Contact Edit Modal */}

@@ -481,6 +481,13 @@ export interface BikeReservation {
 
 export type DebtorStatus = 'New' | '1st Reminder' | '2nd Reminder' | 'Final Notice' | 'Paid' | 'Blacklist';
 
+export interface DebtorNote {
+  id: string;
+  content: string;
+  date: string;
+  author: string;
+}
+
 export interface Debtor {
   id: string;
   reservationNumber: string;
@@ -495,6 +502,7 @@ export interface Debtor {
   lastUpdated: string;
   importedAt: string;
   isEnriched?: boolean;
+  notes?: DebtorNote[];
 }
 
 export type SurveyQuestionType = 'Rating' | 'Scale10' | 'YesNo' | 'Text' | 'Choice';
