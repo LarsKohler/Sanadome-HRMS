@@ -3,7 +3,7 @@ import React, { useState, useRef, useMemo } from 'react';
 import { 
     Send, Image as ImageIcon, X, 
     Bold, Italic, List, Edit2, Trash2, ArrowRight, ArrowLeft,
-    Pin, AlertCircle, Clock, Layout, CheckCircle2
+    Pin, AlertCircle, Clock, Layout, CheckCircle2, Calendar
 } from 'lucide-react';
 import { Employee, NewsPost } from '../types';
 import { Modal } from './Modal';
@@ -25,57 +25,57 @@ const HeroPost: React.FC<{ post: NewsPost, onClick: () => void, isRead: boolean 
     return (
         <div 
             onClick={onClick}
-            className="relative w-full h-[400px] md:h-[500px] rounded-3xl overflow-hidden cursor-pointer group shadow-xl mb-8"
+            className="relative w-full h-[400px] md:h-[450px] rounded-2xl overflow-hidden cursor-pointer group shadow-md mb-8 border border-slate-200"
         >
-            <div className="absolute inset-0">
+            <div className="absolute inset-0 bg-slate-900">
                 {post.image ? (
                     <img 
                         src={post.image} 
                         alt={post.title} 
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105 opacity-80 group-hover:opacity-60"
                     />
                 ) : (
                     <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
                         <Layout size={64} className="text-slate-700 opacity-20" />
                     </div>
                 )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent"></div>
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-slate-900/40 to-transparent"></div>
             </div>
 
-            <div className="absolute bottom-0 left-0 w-full p-8 md:p-12 text-white">
-                <div className="flex items-center gap-3 mb-4 animate-in slide-in-from-bottom-4 fade-in duration-700 delay-100">
-                    <span className="bg-teal-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider flex items-center gap-1 shadow-lg shadow-teal-500/20">
-                        {post.isPinned && <Pin size={10} fill="currentColor" />}
+            <div className="absolute bottom-0 left-0 w-full p-8 md:p-10 text-white">
+                <div className="flex items-center gap-3 mb-3 animate-in slide-in-from-bottom-4 fade-in duration-700 delay-100">
+                    <span className="bg-teal-500 text-white text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wider flex items-center gap-1 shadow-sm">
+                        {post.isPinned && <Pin size={12} fill="currentColor" />}
                         Uitgelicht
                     </span>
-                    <span className="text-white/70 text-sm font-medium flex items-center gap-2">
-                        <Clock size={14}/> {post.date}
+                    <span className="text-slate-300 text-xs font-bold flex items-center gap-1.5 bg-black/20 backdrop-blur-sm px-2 py-1 rounded-md">
+                        <Calendar size={12}/> {post.date}
                     </span>
                     {post.isPinned && !isRead && (
-                        <span className="bg-rose-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider animate-pulse">
+                        <span className="bg-rose-500 text-white text-xs font-bold px-2.5 py-1 rounded-md uppercase tracking-wider animate-pulse shadow-sm">
                             Lezen Vereist
                         </span>
                     )}
                 </div>
                 
-                <h1 className="font-serif text-3xl md:text-5xl font-bold leading-tight mb-4 max-w-4xl animate-in slide-in-from-bottom-4 fade-in duration-700 delay-200">
+                <h2 className="text-3xl md:text-4xl font-bold leading-tight mb-3 max-w-4xl text-white shadow-sm">
                     {post.title}
-                </h1>
+                </h2>
                 
-                <p className="text-lg text-gray-200 line-clamp-2 max-w-2xl mb-6 animate-in slide-in-from-bottom-4 fade-in duration-700 delay-300">
+                <p className="text-base md:text-lg text-slate-200 line-clamp-2 max-w-2xl mb-6 font-medium">
                     {post.shortDescription}
                 </p>
 
-                <div className="flex items-center gap-4 animate-in slide-in-from-bottom-4 fade-in duration-700 delay-400">
+                <div className="flex items-center gap-4">
                     <div className="flex items-center gap-3">
-                        <img src={post.authorAvatar} className="w-10 h-10 rounded-full border-2 border-white/20" alt={post.authorName} />
+                        <img src={post.authorAvatar} className="w-8 h-8 rounded-full border border-white/20" alt={post.authorName} />
                         <div className="text-sm">
-                            <p className="font-bold">{post.authorName}</p>
-                            <p className="text-white/60 text-xs">{post.authorRole}</p>
+                            <p className="font-bold text-white">{post.authorName}</p>
+                            <p className="text-slate-300 text-xs">{post.authorRole}</p>
                         </div>
                     </div>
-                    <button className="ml-auto md:ml-6 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white px-6 py-3 rounded-xl font-bold text-sm transition-all flex items-center gap-2 group-hover:bg-white group-hover:text-slate-900">
-                        Lees Artikel <ArrowRight size={16}/>
+                    <button className="ml-auto bg-white/10 hover:bg-white/20 backdrop-blur-md text-white px-5 py-2.5 rounded-xl font-bold text-sm transition-all flex items-center gap-2 border border-white/10">
+                        Lees verder <ArrowRight size={16}/>
                     </button>
                 </div>
             </div>
@@ -87,9 +87,9 @@ const NewsCard: React.FC<{ post: NewsPost, onClick: () => void, isRead: boolean 
     return (
         <div 
             onClick={onClick}
-            className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-xl hover:border-slate-300 transition-all duration-300 flex flex-col h-full cursor-pointer group overflow-hidden"
+            className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:border-slate-300 transition-all duration-300 flex flex-col h-full cursor-pointer group overflow-hidden"
         >
-            <div className="relative h-56 w-full overflow-hidden bg-slate-100">
+            <div className="relative h-48 w-full overflow-hidden bg-slate-100">
                 {post.image ? (
                     <img 
                         src={post.image} 
@@ -97,43 +97,43 @@ const NewsCard: React.FC<{ post: NewsPost, onClick: () => void, isRead: boolean 
                         className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" 
                     />
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-300">
-                        <ImageIcon size={48} className="opacity-20" />
+                    <div className="w-full h-full flex items-center justify-center text-slate-300 bg-slate-50">
+                        <ImageIcon size={40} className="opacity-20" />
                     </div>
                 )}
-                {post.isPinned && (
-                    <div className="absolute top-3 left-3 flex gap-2">
-                        <div className="bg-white/90 backdrop-blur-sm text-slate-900 px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm flex items-center gap-1">
-                            <Pin size={12} fill="currentColor" /> Vastgezet
+                <div className="absolute top-3 left-3 flex gap-2">
+                    {post.isPinned && (
+                        <div className="bg-white/90 backdrop-blur-sm text-slate-900 px-2 py-1 rounded-md text-[10px] font-bold shadow-sm flex items-center gap-1 uppercase tracking-wide">
+                            <Pin size={10} fill="currentColor" /> Vastgezet
                         </div>
-                        {!isRead && (
-                            <div className="bg-rose-500 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm">
-                                !
-                            </div>
-                        )}
-                    </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    )}
+                    {post.isPinned && !isRead && (
+                        <div className="bg-rose-500 text-white px-2 py-1 rounded-md text-[10px] font-bold shadow-sm uppercase tracking-wide">
+                            Nieuw
+                        </div>
+                    )}
+                </div>
             </div>
 
-            <div className="p-6 flex flex-col flex-1">
-                <div className="flex items-center gap-2 text-xs text-slate-400 font-bold uppercase tracking-wider mb-3">
-                    <Clock size={12} /> {post.date}
+            <div className="p-5 flex flex-col flex-1">
+                <div className="flex items-center gap-2 text-xs text-slate-400 font-bold uppercase tracking-wider mb-2">
+                    <Calendar size={12} /> {post.date}
                 </div>
                 
-                <h3 className="font-serif text-xl font-bold text-slate-900 mb-3 leading-snug group-hover:text-teal-700 transition-colors">
+                <h3 className="text-lg font-bold text-slate-900 mb-2 leading-snug group-hover:text-teal-600 transition-colors">
                     {post.title}
                 </h3>
                 
-                <p className="text-slate-600 text-sm leading-relaxed mb-6 flex-1 line-clamp-3">
+                <p className="text-slate-500 text-sm leading-relaxed mb-4 flex-1 line-clamp-3">
                    {post.shortDescription}
                 </p>
 
-                <div className="flex items-center justify-between pt-4 border-t border-slate-100 mt-auto">
-                    <div className="flex items-center gap-2">
-                        <img src={post.authorAvatar} alt={post.authorName} className="w-6 h-6 rounded-full object-cover" />
-                        <span className="text-xs font-bold text-slate-700">{post.authorName}</span>
+                <div className="flex items-center pt-4 border-t border-slate-50 mt-auto">
+                    <img src={post.authorAvatar} alt={post.authorName} className="w-6 h-6 rounded-full object-cover border border-slate-100" />
+                    <div className="ml-2">
+                        <p className="text-xs font-bold text-slate-700">{post.authorName}</p>
                     </div>
+                    <ArrowRight size={16} className="ml-auto text-slate-300 group-hover:text-teal-600 transition-colors" />
                 </div>
             </div>
         </div>
@@ -169,7 +169,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
       return [...newsItems].sort((a, b) => {
           if (a.isPinned && !b.isPinned) return -1;
           if (!a.isPinned && b.isPinned) return 1;
-          return 0; 
+          return 0; // Keep existing order otherwise
       });
   }, [newsItems]);
 
@@ -211,7 +211,10 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
       setImageUrl(post.image || '');
       setIsPinned(post.isPinned || false);
       setIsCreateModalOpen(true);
-      if(selectedPost?.id === post.id) setSelectedPost(null);
+      // Close reader view to prevent stale data
+      // (Optional: keep reader open and update it, but simple to close)
+      // Actually, let's keep reader open but we need to update state manually or rely on parent re-render.
+      // Since `selectedPost` is local state, we will close it or update it after save.
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -232,6 +235,12 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                 isPinned
             };
             await onUpdateNews(updatedPost);
+            
+            // If we are currently reading this post, update the view
+            if (selectedPost?.id === editingId) {
+                setSelectedPost(updatedPost);
+            }
+
         } else {
             const newPost: NewsPost = {
               id: crypto.randomUUID(), 
@@ -274,14 +283,14 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
   const renderFormattedText = (text: string) => {
     return text.split('\n').map((line, i) => {
       if (line.trim().startsWith('- ')) {
-        return <li key={i} className="ml-6 list-disc text-slate-700 mb-2 pl-2 font-sans">{parseInline(line.substring(2))}</li>;
+        return <li key={i} className="ml-6 list-disc text-slate-700 mb-2 pl-2">{parseInline(line.substring(2))}</li>;
       }
       if (line.trim().startsWith('## ')) {
-          return <h3 key={i} className="text-xl font-bold font-serif text-slate-900 mt-6 mb-3">{parseInline(line.substring(3))}</h3>;
+          return <h3 key={i} className="text-xl font-bold text-slate-900 mt-6 mb-3">{parseInline(line.substring(3))}</h3>;
       }
       if (line.trim() === '') return <div key={i} className="h-4"></div>;
       
-      return <p key={i} className="mb-4 leading-relaxed text-lg text-slate-700 font-sans">{parseInline(line)}</p>;
+      return <p key={i} className="mb-4 leading-relaxed text-base text-slate-700">{parseInline(line)}</p>;
     });
   };
 
@@ -326,31 +335,34 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
     }, 0);
   };
 
-  // --- FULL SCREEN READER VIEW ---
+  // --- CONTENT VIEW: LIST or DETAIL (Within Page) ---
+
   if (selectedPost) {
+      // --- READER VIEW ---
       const isRead = selectedPost.readBy?.includes(currentUser.id) || false;
       const canRead = selectedPost.isPinned && !isRead;
 
       return (
-          <div className="fixed inset-0 z-50 bg-white overflow-y-auto animate-in slide-in-from-bottom-4 duration-500">
-              {/* Sticky Header */}
-              <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-100 px-4 md:px-8 h-16 flex items-center justify-between">
+          <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in slide-in-from-bottom-2 duration-300">
+              {/* Navigation Header */}
+              <div className="flex items-center justify-between mb-6">
                   <button 
                     onClick={() => setSelectedPost(null)}
-                    className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold text-sm bg-slate-50 px-4 py-2 rounded-xl transition-colors"
+                    className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold text-sm bg-white border border-slate-200 px-4 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-md"
                   >
-                      <ArrowLeft size={18}/> Terug
+                      <ArrowLeft size={18}/> Terug naar overzicht
                   </button>
+                  
+                  {/* Admin Actions */}
                   <div className="flex gap-2">
-                        {/* Admin Actions */}
                         {(canPost && (selectedPost.authorName === currentUser.name || canDelete)) && (
                             <>
-                                <button onClick={() => handleOpenEdit(selectedPost)} className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors">
-                                    <Edit2 size={20}/>
+                                <button onClick={() => handleOpenEdit(selectedPost)} className="p-2.5 bg-white border border-slate-200 text-slate-500 hover:text-teal-600 hover:border-teal-200 rounded-xl transition-all shadow-sm">
+                                    <Edit2 size={18}/>
                                 </button>
                                 {canDelete && (
-                                    <button onClick={() => setConfirmDeleteId(selectedPost.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                                        <Trash2 size={20}/>
+                                    <button onClick={() => setConfirmDeleteId(selectedPost.id)} className="p-2.5 bg-white border border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-200 rounded-xl transition-all shadow-sm">
+                                        <Trash2 size={18}/>
                                     </button>
                                 )}
                             </>
@@ -358,79 +370,99 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                   </div>
               </div>
 
-              {/* Cover Image */}
-              <div className="h-[40vh] md:h-[50vh] w-full relative">
-                   {selectedPost.image ? (
-                       <img src={selectedPost.image} alt={selectedPost.title} className="w-full h-full object-cover" />
-                   ) : (
-                       <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
-                           <Layout size={64} className="text-white/20"/>
-                       </div>
-                   )}
-                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
-                   <div className="absolute bottom-0 left-0 w-full p-8 md:p-12 text-center">
-                        <div className="inline-flex items-center gap-3 mb-4 justify-center">
-                            <span className="bg-white/20 backdrop-blur px-3 py-1 rounded-full text-white text-sm font-bold">{selectedPost.date}</span>
-                            {selectedPost.isPinned && <span className="flex items-center gap-1 text-teal-300 font-bold text-sm"><Pin size={14} fill="currentColor"/> Vastgezet</span>}
-                        </div>
-                        <h1 className="font-serif text-3xl md:text-6xl font-bold text-white leading-tight drop-shadow-lg max-w-4xl mx-auto">
-                            {selectedPost.title}
-                        </h1>
-                   </div>
-              </div>
-
-              {/* Content Body */}
-              <div className="max-w-3xl mx-auto px-6 py-12">
-                  <div className="flex items-center justify-center gap-4 mb-12 border-b border-slate-100 pb-8">
-                        <img src={selectedPost.authorAvatar} className="w-12 h-12 rounded-full border-2 border-slate-100" alt="Author"/>
-                        <div className="text-left">
-                            <div className="font-bold text-slate-900 text-lg">{selectedPost.authorName}</div>
-                            <div className="text-slate-500 text-sm">{selectedPost.authorRole}</div>
-                        </div>
-                  </div>
-
-                  <article className="prose prose-slate prose-lg max-w-none text-slate-700 leading-loose font-sans">
-                        {renderFormattedText(selectedPost.content)}
-                  </article>
-              </div>
-
-              {/* Action Footer (Sticky Bottom) */}
-              <div className="sticky bottom-0 bg-white border-t border-slate-200 p-4 md:p-6 shadow-2xl flex justify-center">
-                  {canRead ? (
-                      <button 
-                        onClick={() => onMarkRead(selectedPost.id)}
-                        className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg hover:bg-slate-800 transition-all flex items-center gap-2 transform hover:-translate-y-1"
-                      >
-                          <CheckCircle2 size={18}/> Ik heb dit bericht gelezen
-                      </button>
-                  ) : isRead && selectedPost.isPinned ? (
-                      <div className="flex items-center gap-2 text-green-600 font-bold bg-green-50 px-6 py-3 rounded-xl border border-green-100">
-                          <CheckCircle2 size={18}/> Gelezen
-                      </div>
-                  ) : (
-                      <div className="text-slate-400 text-sm italic">
-                          Bedankt voor het lezen.
+              <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden max-w-5xl mx-auto">
+                  {/* Article Header Image */}
+                  {selectedPost.image && (
+                      <div className="h-[300px] md:h-[400px] w-full relative">
+                           <img src={selectedPost.image} alt={selectedPost.title} className="w-full h-full object-cover" />
+                           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                           <div className="absolute bottom-6 left-6 md:bottom-10 md:left-10 text-white">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <span className="bg-white/20 backdrop-blur-md px-3 py-1 rounded-md text-xs font-bold border border-white/10">
+                                        {selectedPost.date}
+                                    </span>
+                                    {selectedPost.isPinned && (
+                                        <span className="bg-teal-500/90 px-3 py-1 rounded-md text-xs font-bold flex items-center gap-1 shadow-sm">
+                                            <Pin size={12} fill="currentColor"/> Uitgelicht
+                                        </span>
+                                    )}
+                                </div>
+                           </div>
                       </div>
                   )}
+
+                  <div className="p-8 md:p-12">
+                      {/* Title & Author */}
+                      {!selectedPost.image && (
+                          <div className="flex items-center gap-3 mb-4">
+                                <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-md text-xs font-bold border border-slate-200">
+                                    {selectedPost.date}
+                                </span>
+                                {selectedPost.isPinned && (
+                                    <span className="bg-teal-50 text-teal-700 px-3 py-1 rounded-md text-xs font-bold flex items-center gap-1 border border-teal-100">
+                                        <Pin size={12} fill="currentColor"/> Uitgelicht
+                                    </span>
+                                )}
+                          </div>
+                      )}
+                      
+                      <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6 leading-tight">
+                          {selectedPost.title}
+                      </h1>
+
+                      <div className="flex items-center gap-4 mb-10 border-b border-slate-100 pb-8">
+                            <img src={selectedPost.authorAvatar} className="w-12 h-12 rounded-full border border-slate-100" alt="Author"/>
+                            <div>
+                                <div className="font-bold text-slate-900 text-base">{selectedPost.authorName}</div>
+                                <div className="text-slate-500 text-xs">{selectedPost.authorRole}</div>
+                            </div>
+                      </div>
+
+                      {/* Content */}
+                      <article className="prose prose-slate prose-lg max-w-none text-slate-700 leading-loose">
+                            {renderFormattedText(selectedPost.content)}
+                      </article>
+
+                      {/* Read Confirmation Footer */}
+                      {canRead ? (
+                          <div className="mt-12 pt-8 border-t border-slate-100 flex flex-col items-center justify-center text-center bg-slate-50 rounded-2xl p-8 border border-slate-200">
+                              <h4 className="font-bold text-slate-900 mb-2">Heb je dit bericht gelezen?</h4>
+                              <p className="text-slate-500 text-sm mb-4">Dit is een belangrijk bericht. Bevestig a.u.b. dat je het hebt gelezen.</p>
+                              <button 
+                                onClick={() => onMarkRead(selectedPost.id)}
+                                className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg hover:bg-slate-800 transition-all flex items-center gap-2 transform hover:-translate-y-1"
+                              >
+                                  <CheckCircle2 size={18}/> Ik heb dit gelezen
+                              </button>
+                          </div>
+                      ) : isRead && selectedPost.isPinned ? (
+                          <div className="mt-12 pt-6 border-t border-slate-100 flex items-center justify-center">
+                              <div className="flex items-center gap-2 text-green-600 font-bold bg-green-50 px-6 py-3 rounded-xl border border-green-100">
+                                  <CheckCircle2 size={18}/> Gelezen op {new Date().toLocaleDateString('nl-NL')}
+                              </div>
+                          </div>
+                      ) : null}
+                  </div>
               </div>
           </div>
       );
   }
 
+  // --- LIST VIEW ---
   return (
     <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
       
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 font-serif">Nieuws & Updates</h1>
+            <h1 className="text-3xl font-bold tracking-tight text-slate-900">Nieuws & Updates</h1>
             <p className="text-slate-500 mt-2 text-lg">Blijf op de hoogte van de laatste ontwikkelingen binnen Sanadome.</p>
         </div>
         
         {canPost && (
           <button 
             onClick={handleOpenCreate}
-            className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all w-full md:w-auto justify-center"
+            className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all w-full md:w-auto justify-center"
           >
             <Send size={18} />
             Nieuw Artikel
@@ -491,7 +523,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-serif"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
                   placeholder="Een pakkende kop..."
                 />
               </div>
