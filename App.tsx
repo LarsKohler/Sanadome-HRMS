@@ -23,7 +23,7 @@ import BikeRentalPage from './components/BikeRentalPage';
 import BadgeManager from './components/BadgeManager';
 import AcademyPage from './components/AcademyPage'; 
 import CompensationPage from './components/CompensationPage';
-import ChecklistsPage from './components/ChecklistsPage'; // Added
+import ChecklistsPage from './components/ChecklistsPage';
 import UpdateNotifier from './components/UpdateNotifier';
 import { api, isLive } from './utils/api';
 import { isModuleEnabled } from './utils/permissions';
@@ -40,7 +40,7 @@ function App() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [newsItems, setNewsItems] = useState<NewsPost[]>([]);
-  const [applicants, setApplicants] = useState<Applicant[]>([]); // GLOBAL STATE
+  const [applicants, setApplicants] = useState<Applicant[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [globalSettings, setGlobalSettings] = useState<GlobalSettings | null>(null);
   
@@ -57,7 +57,7 @@ function App() {
       const emps = await api.getEmployees();
       const news = await api.getNews();
       const notifs = await api.getNotifications();
-      const apps = await api.getApplicants(); // Fetch Applicants
+      const apps = await api.getApplicants(); 
       const settings = await api.getGlobalSettings(); 
       
       setEmployees(emps);
@@ -74,7 +74,7 @@ function App() {
             setEmployees,
             setNewsItems,
             setNotifications,
-            setApplicants // Add callback
+            setApplicants 
         );
         return () => { unsubscribe(); };
     }
@@ -185,6 +185,24 @@ function App() {
       }
   };
 
+  const handleMarkNewsRead = async (postId: string) => {
+      if (!currentUser) return;
+      
+      const post = newsItems.find(n => n.id === postId);
+      if (!post) return;
+
+      const updatedReadBy = [...(post.readBy || []), currentUser.id];
+      const updatedPost = { ...post, readBy: updatedReadBy };
+
+      setNewsItems(prev => prev.map(n => n.id === postId ? updatedPost : n));
+      
+      try {
+          await api.updateNewsPost(updatedPost);
+      } catch (e) {
+          console.error("Error marking news as read", e);
+      }
+  };
+
   const handleAddNotification = (notification: Notification) => {
       setNotifications(prev => [notification, ...prev]);
       api.saveNotification(notification);
@@ -255,7 +273,7 @@ function App() {
               return <EmployeeProfile 
                   employee={currentUser!} 
                   currentUser={currentUser!}
-                  applicants={applicants} // Pass applicants
+                  applicants={applicants} 
                   onUpdateEmployee={handleUpdateEmployee}
                   onChangeView={setCurrentView}
                   onAddNotification={handleAddNotification}
@@ -278,7 +296,7 @@ function App() {
               return <EmployeeProfile 
                   employee={targetProfile}
                   currentUser={currentUser!}
-                  applicants={applicants} // Pass applicants
+                  applicants={applicants}
                   onUpdateEmployee={handleUpdateEmployee}
                   onChangeView={setCurrentView}
                   onAddNotification={handleAddNotification}
@@ -304,18 +322,7 @@ function App() {
                   onAddNews={handleAddNews}
                   onUpdateNews={handleUpdateNews}
                   onDeleteNews={handleDeleteNews}
-                  onLikeNews={(postId, userId) => {
-                      const post = newsItems.find(n => n.id === postId);
-                      if (post) {
-                          const likes = post.likedBy.includes(userId) 
-                              ? post.likedBy.filter(id => id !== userId) 
-                              : [...post.likedBy, userId];
-                          // Optimistic local update not strictly needed for likes as they are minor interaction
-                          api.updateNewsPost({ ...post, likedBy: likes, likes: likes.length });
-                          // Also update local state for snappiness
-                          setNewsItems(prev => prev.map(n => n.id === postId ? { ...n, likedBy: likes, likes: likes.length } : n));
-                      }
-                  }}
+                  onMarkRead={handleMarkNewsRead}
               />;
           case ViewState.ONBOARDING:
               return <OnboardingPage 
@@ -356,9 +363,9 @@ function App() {
               return <RecruitmentPage 
                   currentUser={currentUser!}
                   employees={employees} 
-                  applicants={applicants} // Pass applicants prop
+                  applicants={applicants}
                   onShowToast={handleShowToast}
-                  onAddNotification={handleAddNotification} // Pass notification handler
+                  onAddNotification={handleAddNotification}
                   onHireCandidate={async (applicant) => {
                       const newId = crypto.randomUUID();
                       const newEmployee: Employee = {
@@ -387,7 +394,7 @@ function App() {
               return <BikeRentalPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           case ViewState.COMPENSATION:
               return <CompensationPage currentUser={currentUser!} onShowToast={handleShowToast} />;
-          case ViewState.CHECKLISTS: // Added
+          case ViewState.CHECKLISTS: 
               return <ChecklistsPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           default:
               return <div className="p-10">Pagina niet gevonden of in ontwikkeling.</div>;

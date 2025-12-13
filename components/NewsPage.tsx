@@ -1,9 +1,9 @@
 
 import React, { useState, useRef, useMemo } from 'react';
 import { 
-    Heart, MessageSquare, Share2, Send, Image as ImageIcon, X, User, 
-    Bold, Italic, List, ChevronRight, Edit2, Trash2, ArrowRight,
-    Pin, AlertCircle, CheckCircle2, Clock, Eye, Layout
+    Send, Image as ImageIcon, X, 
+    Bold, Italic, List, Edit2, Trash2, ArrowRight, ArrowLeft,
+    Pin, AlertCircle, Clock, Layout, CheckCircle2
 } from 'lucide-react';
 import { Employee, NewsPost } from '../types';
 import { Modal } from './Modal';
@@ -16,12 +16,12 @@ interface NewsPageProps {
   onAddNews: (post: NewsPost) => Promise<void> | void;
   onUpdateNews?: (post: NewsPost) => Promise<void> | void; 
   onDeleteNews?: (id: string) => Promise<void> | void;     
-  onLikeNews: (postId: string, userId: string) => void;
+  onMarkRead: (postId: string) => void;
 }
 
 // --- SUBCOMPONENTS ---
 
-const HeroPost: React.FC<{ post: NewsPost, onClick: () => void }> = ({ post, onClick }) => {
+const HeroPost: React.FC<{ post: NewsPost, onClick: () => void, isRead: boolean }> = ({ post, onClick, isRead }) => {
     return (
         <div 
             onClick={onClick}
@@ -51,6 +51,11 @@ const HeroPost: React.FC<{ post: NewsPost, onClick: () => void }> = ({ post, onC
                     <span className="text-white/70 text-sm font-medium flex items-center gap-2">
                         <Clock size={14}/> {post.date}
                     </span>
+                    {post.isPinned && !isRead && (
+                        <span className="bg-rose-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider animate-pulse">
+                            Lezen Vereist
+                        </span>
+                    )}
                 </div>
                 
                 <h1 className="font-serif text-3xl md:text-5xl font-bold leading-tight mb-4 max-w-4xl animate-in slide-in-from-bottom-4 fade-in duration-700 delay-200">
@@ -78,9 +83,7 @@ const HeroPost: React.FC<{ post: NewsPost, onClick: () => void }> = ({ post, onC
     );
 };
 
-const NewsCard: React.FC<{ post: NewsPost, onClick: () => void, currentUser: Employee, onLike: () => void }> = ({ post, onClick, currentUser, onLike }) => {
-    const isLiked = post.likedBy.includes(currentUser.id);
-
+const NewsCard: React.FC<{ post: NewsPost, onClick: () => void, isRead: boolean }> = ({ post, onClick, isRead }) => {
     return (
         <div 
             onClick={onClick}
@@ -99,8 +102,15 @@ const NewsCard: React.FC<{ post: NewsPost, onClick: () => void, currentUser: Emp
                     </div>
                 )}
                 {post.isPinned && (
-                    <div className="absolute top-3 left-3 bg-white/90 backdrop-blur-sm text-slate-900 px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm flex items-center gap-1">
-                        <Pin size={12} fill="currentColor" /> Vastgezet
+                    <div className="absolute top-3 left-3 flex gap-2">
+                        <div className="bg-white/90 backdrop-blur-sm text-slate-900 px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm flex items-center gap-1">
+                            <Pin size={12} fill="currentColor" /> Vastgezet
+                        </div>
+                        {!isRead && (
+                            <div className="bg-rose-500 text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm">
+                                !
+                            </div>
+                        )}
                     </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
@@ -124,25 +134,17 @@ const NewsCard: React.FC<{ post: NewsPost, onClick: () => void, currentUser: Emp
                         <img src={post.authorAvatar} alt={post.authorName} className="w-6 h-6 rounded-full object-cover" />
                         <span className="text-xs font-bold text-slate-700">{post.authorName}</span>
                     </div>
-                    
-                    <button 
-                        onClick={(e) => { e.stopPropagation(); onLike(); }}
-                        className={`flex items-center gap-1.5 text-xs font-bold transition-colors px-3 py-1.5 rounded-full ${isLiked ? 'text-rose-500 bg-rose-50' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}
-                    >
-                        <Heart size={14} className={isLiked ? 'fill-current' : ''} />
-                        <span>{post.likes}</span>
-                    </button>
                 </div>
             </div>
         </div>
     );
 };
 
-const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, onUpdateNews, onDeleteNews, onLikeNews }) => {
+const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, onUpdateNews, onDeleteNews, onMarkRead }) => {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<NewsPost | null>(null);
   const [isUploading, setIsUploading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false); // Track save state
+  const [isSaving, setIsSaving] = useState(false); 
   
   // Form State
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -153,7 +155,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
   const [isPinned, setIsPinned] = useState(false);
   
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false); // Track delete state
+  const [isDeleting, setIsDeleting] = useState(false); 
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -162,14 +164,11 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
   const canPost = hasPermission(currentUser, 'CREATE_NEWS');
   const canDelete = hasPermission(currentUser, 'DELETE_NEWS');
 
-  // Sorting: Pinned first, then by date desc (assuming order is somewhat chronological or id-based)
+  // Sorting
   const sortedNews = useMemo(() => {
-      // Create a copy to sort
       return [...newsItems].sort((a, b) => {
           if (a.isPinned && !b.isPinned) return -1;
           if (!a.isPinned && b.isPinned) return 1;
-          // Fallback to insertion order (reversed via sort or simply assumed)
-          // Simple string date sort attempt (nl format might be tricky, so rely on array order mostly)
           return 0; 
       });
   }, [newsItems]);
@@ -212,7 +211,6 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
       setImageUrl(post.image || '');
       setIsPinned(post.isPinned || false);
       setIsCreateModalOpen(true);
-      // If editing from reader view, close reader
       if(selectedPost?.id === post.id) setSelectedPost(null);
   };
 
@@ -236,7 +234,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
             await onUpdateNews(updatedPost);
         } else {
             const newPost: NewsPost = {
-              id: crypto.randomUUID(), // Ensure distinct ID
+              id: crypto.randomUUID(), 
               authorName: currentUser.name,
               authorAvatar: currentUser.avatar,
               authorRole: currentUser.role,
@@ -245,8 +243,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
               shortDescription,
               content,
               image: imageUrl || undefined,
-              likes: 0,
-              likedBy: [],
+              readBy: [],
               isPinned
             };
             await onAddNews(newPost);
@@ -275,7 +272,6 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
   };
 
   const renderFormattedText = (text: string) => {
-    // Simple markdown-ish parser for display
     return text.split('\n').map((line, i) => {
       if (line.trim().startsWith('- ')) {
         return <li key={i} className="ml-6 list-disc text-slate-700 mb-2 pl-2 font-sans">{parseInline(line.substring(2))}</li>;
@@ -330,6 +326,97 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
     }, 0);
   };
 
+  // --- FULL SCREEN READER VIEW ---
+  if (selectedPost) {
+      const isRead = selectedPost.readBy?.includes(currentUser.id) || false;
+      const canRead = selectedPost.isPinned && !isRead;
+
+      return (
+          <div className="fixed inset-0 z-50 bg-white overflow-y-auto animate-in slide-in-from-bottom-4 duration-500">
+              {/* Sticky Header */}
+              <div className="sticky top-0 z-20 bg-white/90 backdrop-blur-md border-b border-slate-100 px-4 md:px-8 h-16 flex items-center justify-between">
+                  <button 
+                    onClick={() => setSelectedPost(null)}
+                    className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold text-sm bg-slate-50 px-4 py-2 rounded-xl transition-colors"
+                  >
+                      <ArrowLeft size={18}/> Terug
+                  </button>
+                  <div className="flex gap-2">
+                        {/* Admin Actions */}
+                        {(canPost && (selectedPost.authorName === currentUser.name || canDelete)) && (
+                            <>
+                                <button onClick={() => handleOpenEdit(selectedPost)} className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors">
+                                    <Edit2 size={20}/>
+                                </button>
+                                {canDelete && (
+                                    <button onClick={() => setConfirmDeleteId(selectedPost.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                                        <Trash2 size={20}/>
+                                    </button>
+                                )}
+                            </>
+                        )}
+                  </div>
+              </div>
+
+              {/* Cover Image */}
+              <div className="h-[40vh] md:h-[50vh] w-full relative">
+                   {selectedPost.image ? (
+                       <img src={selectedPost.image} alt={selectedPost.title} className="w-full h-full object-cover" />
+                   ) : (
+                       <div className="w-full h-full bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
+                           <Layout size={64} className="text-white/20"/>
+                       </div>
+                   )}
+                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent"></div>
+                   <div className="absolute bottom-0 left-0 w-full p-8 md:p-12 text-center">
+                        <div className="inline-flex items-center gap-3 mb-4 justify-center">
+                            <span className="bg-white/20 backdrop-blur px-3 py-1 rounded-full text-white text-sm font-bold">{selectedPost.date}</span>
+                            {selectedPost.isPinned && <span className="flex items-center gap-1 text-teal-300 font-bold text-sm"><Pin size={14} fill="currentColor"/> Vastgezet</span>}
+                        </div>
+                        <h1 className="font-serif text-3xl md:text-6xl font-bold text-white leading-tight drop-shadow-lg max-w-4xl mx-auto">
+                            {selectedPost.title}
+                        </h1>
+                   </div>
+              </div>
+
+              {/* Content Body */}
+              <div className="max-w-3xl mx-auto px-6 py-12">
+                  <div className="flex items-center justify-center gap-4 mb-12 border-b border-slate-100 pb-8">
+                        <img src={selectedPost.authorAvatar} className="w-12 h-12 rounded-full border-2 border-slate-100" alt="Author"/>
+                        <div className="text-left">
+                            <div className="font-bold text-slate-900 text-lg">{selectedPost.authorName}</div>
+                            <div className="text-slate-500 text-sm">{selectedPost.authorRole}</div>
+                        </div>
+                  </div>
+
+                  <article className="prose prose-slate prose-lg max-w-none text-slate-700 leading-loose font-sans">
+                        {renderFormattedText(selectedPost.content)}
+                  </article>
+              </div>
+
+              {/* Action Footer (Sticky Bottom) */}
+              <div className="sticky bottom-0 bg-white border-t border-slate-200 p-4 md:p-6 shadow-2xl flex justify-center">
+                  {canRead ? (
+                      <button 
+                        onClick={() => onMarkRead(selectedPost.id)}
+                        className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg hover:bg-slate-800 transition-all flex items-center gap-2 transform hover:-translate-y-1"
+                      >
+                          <CheckCircle2 size={18}/> Ik heb dit bericht gelezen
+                      </button>
+                  ) : isRead && selectedPost.isPinned ? (
+                      <div className="flex items-center gap-2 text-green-600 font-bold bg-green-50 px-6 py-3 rounded-xl border border-green-100">
+                          <CheckCircle2 size={18}/> Gelezen
+                      </div>
+                  ) : (
+                      <div className="text-slate-400 text-sm italic">
+                          Bedankt voor het lezen.
+                      </div>
+                  )}
+              </div>
+          </div>
+      );
+  }
+
   return (
     <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
       
@@ -353,7 +440,11 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
 
       {/* Hero Section */}
       {heroPost && (
-          <HeroPost post={heroPost} onClick={() => setSelectedPost(heroPost)} />
+          <HeroPost 
+            post={heroPost} 
+            onClick={() => setSelectedPost(heroPost)} 
+            isRead={heroPost.readBy?.includes(currentUser.id) || false}
+          />
       )}
 
       {/* Content Grid */}
@@ -363,9 +454,8 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                   <NewsCard 
                     key={post.id} 
                     post={post} 
-                    currentUser={currentUser} 
                     onClick={() => setSelectedPost(post)}
-                    onLike={() => onLikeNews(post.id, currentUser.id)}
+                    isRead={post.readBy?.includes(currentUser.id) || false}
                   />
               ))}
           </div>
@@ -499,103 +589,6 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
           </div>
         </form>
       </Modal>
-
-      {/* READ MODAL (Full Screen Overlay) */}
-      {selectedPost && (
-         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4 md:p-8 animate-in fade-in duration-300">
-            <div 
-              className="bg-white rounded-3xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col h-full md:h-auto md:max-h-[90vh] animate-in zoom-in-95 duration-300 relative"
-              onClick={(e) => e.stopPropagation()}
-            >
-               {/* Cover Image */}
-               <div className="h-64 md:h-80 w-full relative flex-shrink-0 bg-slate-900">
-                   {selectedPost.image ? (
-                       <img src={selectedPost.image} alt={selectedPost.title} className="w-full h-full object-cover opacity-90" />
-                   ) : (
-                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-slate-800 to-slate-900">
-                           <Layout size={64} className="text-white/20"/>
-                       </div>
-                   )}
-                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
-                   
-                   {/* Close Button */}
-                   <button 
-                      onClick={() => setSelectedPost(null)}
-                      className="absolute top-6 right-6 p-2 bg-white/20 hover:bg-white/40 text-white rounded-full transition-colors backdrop-blur-md"
-                   >
-                     <X size={24} />
-                   </button>
-
-                   {/* Title Overlay */}
-                   <div className="absolute bottom-0 left-0 w-full p-8 md:p-10 text-white">
-                        <div className="flex items-center gap-3 mb-3 text-sm font-bold opacity-90">
-                            <span className="bg-white/20 backdrop-blur px-2 py-0.5 rounded text-white">{selectedPost.date}</span>
-                            {selectedPost.isPinned && <span className="flex items-center gap-1 text-teal-300"><Pin size={12} fill="currentColor"/> Vastgezet</span>}
-                        </div>
-                        <h1 className="font-serif text-3xl md:text-5xl font-bold leading-tight shadow-sm max-w-3xl">
-                            {selectedPost.title}
-                        </h1>
-                   </div>
-               </div>
-
-               {/* Article Body */}
-               <div className="flex-1 overflow-y-auto bg-white">
-                  <div className="p-8 md:p-12 max-w-3xl mx-auto">
-                      
-                      {/* Author Info */}
-                      <div className="flex items-center justify-between mb-10 pb-8 border-b border-slate-100">
-                          <div className="flex items-center gap-4">
-                              <img src={selectedPost.authorAvatar} className="w-12 h-12 rounded-full border-2 border-slate-100" alt="Author"/>
-                              <div>
-                                  <div className="font-bold text-slate-900 text-lg">{selectedPost.authorName}</div>
-                                  <div className="text-slate-500 text-sm">{selectedPost.authorRole}</div>
-                              </div>
-                          </div>
-                          <div className="flex gap-2">
-                              {/* Admin Actions */}
-                              {(canPost && (selectedPost.authorName === currentUser.name || canDelete)) && (
-                                  <div className="flex gap-2">
-                                      <button onClick={() => handleOpenEdit(selectedPost)} className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors">
-                                          <Edit2 size={20}/>
-                                      </button>
-                                      {canDelete && (
-                                          <button onClick={() => setConfirmDeleteId(selectedPost.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-                                              <Trash2 size={20}/>
-                                          </button>
-                                      )}
-                                  </div>
-                              )}
-                          </div>
-                      </div>
-
-                      {/* Content */}
-                      <article className="prose prose-slate prose-lg max-w-none text-slate-700 leading-loose font-sans">
-                         {renderFormattedText(selectedPost.content)}
-                      </article>
-                  </div>
-               </div>
-
-               {/* Footer / Interaction */}
-               <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-between items-center flex-shrink-0">
-                  <div className="flex gap-4">
-                      <button 
-                        onClick={() => onLikeNews(selectedPost.id, currentUser.id)}
-                        className={`flex items-center gap-2 px-6 py-3 rounded-xl transition-all font-bold text-sm shadow-sm ${selectedPost.likedBy.includes(currentUser.id) ? 'bg-rose-50 text-rose-600 border border-rose-200' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-100'}`}
-                      >
-                         <Heart size={20} className={selectedPost.likedBy.includes(currentUser.id) ? 'fill-current' : ''}/>
-                         {selectedPost.likes} {selectedPost.likes === 1 ? 'Like' : 'Likes'}
-                      </button>
-                      <button className="flex items-center gap-2 px-6 py-3 rounded-xl transition-all font-bold text-sm bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 shadow-sm">
-                         <MessageSquare size={20}/> Reageer
-                      </button>
-                  </div>
-                  <button className="p-3 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-colors">
-                    <Share2 size={20} />
-                  </button>
-               </div>
-            </div>
-         </div>
-      )}
 
       {/* DELETE CONFIRMATION MODAL */}
       <Modal 

@@ -37,7 +37,7 @@ export enum ViewState {
   DIRECTORY = 'DIRECTORY',
   BIKE_RENTAL = 'BIKE_RENTAL',
   COMPENSATION = 'COMPENSATION',
-  CHECKLISTS = 'CHECKLISTS', // Added
+  CHECKLISTS = 'CHECKLISTS',
   ONBOARDING = 'ONBOARDING',
   EVALUATIONS = 'EVALUATIONS',
   RECRUITMENT = 'RECRUITMENT',
@@ -73,7 +73,7 @@ export type Permission =
   | 'MANAGE_COMPENSATION'
   | 'DELETE_COMPENSATION'
   | 'MANAGE_TICKETS'
-  | 'MANAGE_CHECKLISTS'; // Added
+  | 'MANAGE_CHECKLISTS';
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   VIEW_REPORTS: 'Rapportages Inzien',
@@ -98,7 +98,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   MANAGE_COMPENSATION: 'Compensaties Beheren',
   DELETE_COMPENSATION: 'Compensaties Verwijderen',
   MANAGE_TICKETS: 'Tickets Beheren',
-  MANAGE_CHECKLISTS: 'Checklists Beheren' // Added
+  MANAGE_CHECKLISTS: 'Checklists Beheren'
 };
 
 export interface GlobalSettings {
@@ -125,7 +125,6 @@ export interface Notification {
   isPinned?: boolean;
 }
 
-// ... existing interfaces ...
 export interface EmployeeNote {
   id: string;
   title: string;
@@ -157,10 +156,9 @@ export interface NewsPost {
   authorRole: string;
   authorAvatar: string;
   date: string;
-  likes: number;
-  likedBy: string[];
   image?: string;
-  isPinned?: boolean; // Added
+  isPinned?: boolean;
+  readBy: string[]; // Changed from likes/likedBy
 }
 
 export type EvaluationStatus = 'Planned' | 'EmployeeInput' | 'ManagerInput' | 'Review' | 'Signed' | 'Archived';
@@ -214,7 +212,6 @@ export interface BadgeDefinition {
   createdAt: string;
 }
 
-// ... Academy types ...
 export type BlockType = 'text' | 'image' | 'video' | 'quiz' | 'hotspot' | 'time-capsule';
 
 export interface HotspotItem {
@@ -284,7 +281,6 @@ export interface AcademyProgress {
   timeCapsuleAnswers?: Record<string, { before?: string; after?: string }>;
 }
 
-// ... Onboarding types ...
 export interface OnboardingHistoryEntry {
   id: string;
   templateTitle: string;
@@ -324,7 +320,6 @@ export interface Employee {
   mentor?: string;
 }
 
-// ... Recruitment types ...
 export type ApplicantStage = 'New' | 'Screening' | 'Interview 1' | 'Interview 2' | 'Offer' | 'Hired' | 'Rejected';
 
 export interface RecruitmentTimelineEvent {
@@ -577,7 +572,6 @@ export interface CompensationLog {
   date: string;
 }
 
-// CHECKLIST TYPES
 export type ChecklistItemType = 
   | 'checkbox' 
   | 'text' 
@@ -600,7 +594,7 @@ export interface ChecklistItem {
   explanationRequiredOn?: 'yes' | 'no' | null;
   explanationLabel?: string; 
   options?: string[]; 
-  includeTime?: boolean; // NEW: Should the date field include time?
+  includeTime?: boolean;
 }
 
 export interface ChecklistTemplate {

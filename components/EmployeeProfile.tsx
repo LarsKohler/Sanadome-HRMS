@@ -582,7 +582,13 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                       <h3 className="font-bold text-slate-900 text-sm uppercase tracking-wider flex items-center gap-2">
                                           <Newspaper size={16} className="text-teal-600" /> Nieuws
                                       </h3>
-                                      <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">Nieuw</span>
+                                      {latestNews.isPinned && !latestNews.readBy?.includes(currentUser.id) ? (
+                                          <span className="text-[10px] font-bold text-white bg-rose-500 px-2 py-0.5 rounded-full animate-pulse">Te Lezen</span>
+                                      ) : latestNews.readBy?.includes(currentUser.id) ? (
+                                          <span className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full flex items-center gap-1"><CheckCircle size={10}/> Gelezen</span>
+                                      ) : (
+                                          <span className="text-[10px] font-bold text-teal-600 bg-teal-50 px-2 py-0.5 rounded-full">Nieuw</span>
+                                      )}
                                   </div>
                                   
                                   {latestNews.image && (
