@@ -16,6 +16,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
     documents: [],
     notes: [],
     onboardingStatus: 'Completed',
+    onboardingTasks: [],
     customPermissions: [],
     evaluations: []
   },
@@ -33,6 +34,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
     documents: [],
     notes: [],
     onboardingStatus: 'Completed',
+    onboardingTasks: [],
     evaluations: []
   }
 ];

@@ -376,6 +376,18 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
       onShowToast(status === 'Completed' ? 'Traject succesvol afgerond en gearchiveerd.' : 'Traject stopgezet en gearchiveerd.');
   };
 
+  const handleDeleteHistoryEntry = (entryId: string, e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!confirm("Weet je zeker dat je dit gearchiveerde traject wilt verwijderen? Dit kan niet ongedaan worden gemaakt.")) return;
+
+      const updatedHistory = (selectedEmployee.onboardingHistory || []).filter(h => h.id !== entryId);
+      const updatedEmployee = { ...selectedEmployee, onboardingHistory: updatedHistory };
+      
+      onUpdateEmployee(updatedEmployee);
+      api.saveEmployee(updatedEmployee);
+      onShowToast("Traject uit geschiedenis verwijderd.");
+  };
+
   const handleSaveTemplate = () => {
       if (editingTemplate) {
           if (!editingTemplate.title) return alert("Titel is verplicht");
@@ -896,9 +908,22 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                                  <div className="text-xs font-bold text-slate-400 uppercase">Score</div>
                                                  <div className="font-bold text-teal-600">{entry.finalScore}%</div>
                                              </div>
-                                             <button className="text-slate-400 group-hover:text-teal-600 transition-colors">
-                                                 <Eye size={20} />
-                                             </button>
+                                             <div className="flex gap-2">
+                                                 <button 
+                                                    className="text-slate-400 hover:text-teal-600 transition-colors p-2"
+                                                    onClick={(e) => { e.stopPropagation(); setViewingHistoryEntry(entry); }}
+                                                 >
+                                                     <Eye size={20} />
+                                                 </button>
+                                                 {canEdit && (
+                                                     <button 
+                                                        className="text-slate-400 hover:text-red-600 transition-colors p-2"
+                                                        onClick={(e) => handleDeleteHistoryEntry(entry.id, e)}
+                                                     >
+                                                         <Trash2 size={20} />
+                                                     </button>
+                                                 )}
+                                             </div>
                                          </div>
                                      </div>
                                  ))}
