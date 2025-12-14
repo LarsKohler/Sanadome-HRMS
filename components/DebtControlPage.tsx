@@ -82,9 +82,9 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const fileInputRef = useRef<HTMLInputElement>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
-  // Helper to check 2 week rule
+  // Helper to check 2 week rule -> CHANGED TO 7 DAYS
   const isActionRequired = (debtor: Debtor) => {
-      if (debtor.status === 'Paid' || debtor.status === 'Correction' || debtor.status === 'Blacklist' || debtor.status === 'Cashlist' || debtor.status === 'New') return false;
+      if (debtor.status === 'Paid' || debtor.status === 'Correction' || debtor.status === 'Cashlist' || debtor.status === 'New') return false;
       if (!debtor.statusDate) return false; 
 
       const statusDate = new Date(debtor.statusDate);
@@ -92,7 +92,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       const diffTime = Math.abs(now.getTime() - statusDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
-      return diffDays > 14;
+      // CHANGED: 14 days -> 7 days
+      return diffDays > 7;
   };
 
   const getDaysOverdue = (debtor: Debtor) => {
@@ -120,9 +121,9 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           if (aAction && !bAction) return -1;
           if (!aAction && bAction) return 1;
 
-          // 2. Blacklist/Cashlist (Keep urgent matters high)
-          const isBadA = a.status === 'Blacklist' || a.status === 'Cashlist';
-          const isBadB = b.status === 'Blacklist' || b.status === 'Cashlist';
+          // 2. Cashlist (Keep urgent matters high) - Removed Blacklist
+          const isBadA = a.status === 'Cashlist';
+          const isBadB = b.status === 'Cashlist';
           if (isBadA && !isBadB) return -1;
           if (isBadB && !isBadA) return 1;
 
@@ -325,7 +326,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           case 'ACTION': return list.filter(d => isActionRequired(d));
           case 'NEW': return list.filter(d => d.status === 'New');
           case 'ONGOING': return list.filter(d => d.status === '1st Reminder' || d.status === '2nd Reminder');
-          case 'URGENT': return list.filter(d => d.status === 'Final Notice' || d.status === 'Blacklist' || d.status === 'Cashlist');
+          case 'URGENT': return list.filter(d => d.status === 'Final Notice' || d.status === 'Cashlist'); // Removed Blacklist
           case 'DONE': return list.filter(d => d.status === 'Paid' || d.status === 'Correction');
           default: return list;
       }
@@ -981,7 +982,6 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           case 'Final Notice': return `${base} bg-red-100/50 text-red-700 border-red-200 hover:bg-red-100`;
           case 'Paid': return `${base} bg-green-100/50 text-green-700 border-green-200 hover:bg-green-100`;
           case 'Correction': return `${base} bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300`;
-          case 'Blacklist': return `${base} bg-slate-800 text-white border-slate-700 hover:bg-slate-700`;
           case 'Cashlist': return `${base} bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200`;
           default: return `${base} bg-slate-100 text-slate-600 border-slate-200`;
       }
@@ -1065,7 +1065,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                       <h3 className="font-bold text-slate-500 text-xs uppercase tracking-wider">Actie Vereist</h3>
                   </div>
                   <div className="text-3xl xl:text-4xl font-bold text-amber-600">{actionRequiredCount}</div>
-                  <p className="text-xs text-slate-400 mt-1 font-medium">Dossiers &gt; 14 dagen stil</p>
+                  <p className="text-xs text-slate-400 mt-1 font-medium">Dossiers &gt; 7 dagen stil</p>
               </div>
           </div>
 
@@ -1134,7 +1134,6 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                   <option value="Paid">Betaald</option>
                   <option value="Correction">Correctie</option>
                   <option value="Cashlist">Cashlist</option>
-                  <option value="Blacklist">Blacklist</option>
               </select>
           </div>
 
@@ -1251,7 +1250,6 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                                           <span className="flex items-center gap-1.5 truncate">
                                             {debtor.status === 'Paid' && <CheckCircle2 size={12} />}
                                             {debtor.status === 'Correction' && <CheckCircle2 size={12} />}
-                                            {debtor.status === 'Blacklist' && <AlertCircle size={12} />}
                                             {debtor.status}
                                           </span>
                                           <ChevronDown size={12} className="opacity-50"/>
@@ -1430,14 +1428,14 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                       <StatusOptionCard 
                         status="2nd Reminder" 
                         label="2e Herinnering" 
-                        description="Tweede waarschuwing (+14 dagen)."
+                        description="Tweede waarschuwing (+7 dagen)."
                         colorClass="bg-orange-50/50 border-orange-200 text-orange-700 hover:border-orange-400"
                         onClick={() => handleStatusSelect('2nd Reminder')}
                       />
                       <StatusOptionCard 
                         status="Final Notice" 
                         label="Aanmaning" 
-                        description="Laatste waarschuwing voor blacklist."
+                        description="Laatste waarschuwing."
                         colorClass="bg-red-50/50 border-red-200 text-red-700 hover:border-red-400"
                         onClick={() => handleStatusSelect('Final Notice')}
                       />
@@ -1461,13 +1459,6 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                         description="Alleen vooraf betalen."
                         colorClass="bg-purple-50/50 border-purple-200 text-purple-800 hover:border-purple-400"
                         onClick={() => handleStatusSelect('Cashlist')}
-                      />
-                      <StatusOptionCard 
-                        status="Blacklist" 
-                        label="Blacklist" 
-                        description="Geen toegang meer tot hotel."
-                        colorClass="bg-slate-800 border-slate-700 text-white hover:bg-slate-700"
-                        onClick={() => handleStatusSelect('Blacklist')}
                       />
                   </div>
               )}
@@ -1556,7 +1547,6 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                                       <option value="Paid">Betaald</option>
                                       <option value="Correction">Correctie</option>
                                       <option value="Cashlist">Cashlist</option>
-                                      <option value="Blacklist">Blacklist</option>
                                   </select>
                                   <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16}/>
                               </div>
@@ -1810,7 +1800,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                   <AlertTriangle className="flex-shrink-0 mt-0.5" size={18} />
                   <div>
                       <p className="font-bold mb-1">Let op:</p>
-                      <p>Door de datum handmatig aan te passen naar meer dan 14 dagen geleden, wordt automatisch de 'Actie Vereist' markering geactiveerd.</p>
+                      <p>Door de datum handmatig aan te passen naar meer dan 7 dagen geleden, wordt automatisch de 'Actie Vereist' markering geactiveerd.</p>
                   </div>
               </div>
               

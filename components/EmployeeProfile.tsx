@@ -194,7 +194,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
               try {
                   const debtors = await api.getDebtors();
                   const urgent = debtors.filter(d => {
-                      if (d.status === 'Paid' || d.status === 'Blacklist' || d.status === 'New') return false;
+                      if (d.status === 'Paid' || d.status === 'Cashlist' || d.status === 'New') return false;
                       if (!d.statusDate) return false;
                       const statusDate = new Date(d.statusDate);
                       const diffTime = Math.abs(new Date().getTime() - statusDate.getTime());

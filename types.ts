@@ -500,7 +500,7 @@ export interface BikeReservation {
   createdBy: string;
 }
 
-export type DebtorStatus = 'New' | '1st Reminder' | '2nd Reminder' | 'Final Notice' | 'Paid' | 'Blacklist' | 'Correction' | 'Cashlist';
+export type DebtorStatus = 'New' | '1st Reminder' | '2nd Reminder' | 'Final Notice' | 'Paid' | 'Correction' | 'Cashlist';
 
 export interface DebtorNote {
   id: string;
