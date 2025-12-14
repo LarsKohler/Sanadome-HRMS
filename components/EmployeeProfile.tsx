@@ -74,16 +74,17 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
 }) => {
   // ... (Existing State & Effects) ...
   const [activeTab, setActiveTab] = useState('Overzicht');
-  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   
   // NEW: HR Dossier States
   const [isSickModalOpen, setIsSickModalOpen] = useState(false);
   const [isLateModalOpen, setIsLateModalOpen] = useState(false);
   const [isWarningModalOpen, setIsWarningModalOpen] = useState(false);
+  const [isRecoveryModalOpen, setIsRecoveryModalOpen] = useState(false); // NEW for Recovery
   
   const [sickForm, setSickForm] = useState({ duration: '', tasksHandedOver: false, type: 'Kort' as 'Kort'|'Lang'|'Frequent', notes: '' });
   const [lateForm, setLateForm] = useState({ minutes: 0, reason: '', date: new Date().toISOString().split('T')[0] });
   const [warningForm, setWarningForm] = useState({ title: '', description: '', severity: 'Low' as 'Low'|'Medium'|'High' });
+  const [recoveryDate, setRecoveryDate] = useState(new Date().toISOString().split('T')[0]); // NEW
 
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
@@ -289,6 +290,41 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       setIsSickModalOpen(false);
       setSickForm({ duration: '', tasksHandedOver: false, type: 'Kort', notes: '' });
       onShowToast("Ziekmelding geregistreerd.");
+  };
+
+  const handleReportRecovery = async (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      // Find the active sick entry
+      const activeSickEntry = employee.dossier?.find(e => e.type === 'Sick' && !e.endDate);
+      
+      if (activeSickEntry) {
+          // 1. Update the sick entry with end date
+          const formattedRecoveryDate = new Date(recoveryDate).toLocaleDateString('nl-NL');
+          
+          const updatedDossier = (employee.dossier || []).map(entry => {
+              if (entry.id === activeSickEntry.id) {
+                  return { ...entry, endDate: formattedRecoveryDate };
+              }
+              return entry;
+          });
+
+          // 2. Add a explicit recovery log for the timeline
+          const recoveryEntry: DossierEntry = {
+              id: Math.random().toString(36).substr(2, 9),
+              type: 'Recovery',
+              date: formattedRecoveryDate,
+              title: 'Hersteld gemeld',
+              description: `Medewerker is weer beter gemeld. Ziekteperiode afgesloten.`,
+              loggedBy: currentUser.name
+          };
+
+          const finalDossier = [recoveryEntry, ...updatedDossier];
+          
+          onUpdateEmployee({ ...employee, dossier: finalDossier });
+          setIsRecoveryModalOpen(false);
+          onShowToast("Medewerker beter gemeld.");
+      }
   };
 
   const handleAddLateness = async (e: React.FormEvent) => {
@@ -752,8 +788,9 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                           <span className="text-sm text-slate-500 mb-1">meldingen</span>
                       </div>
                       {activeCase ? (
-                          <div className="mt-4 bg-red-50 text-red-700 text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-2 border border-red-100">
-                              <AlertCircle size={14}/> Huidig Ziek: Sinds {activeCase.date}
+                          <div className="mt-4 bg-red-50 text-red-700 text-xs font-bold px-3 py-2 rounded-lg flex items-center justify-between border border-red-100">
+                              <span className="flex items-center gap-2"><AlertCircle size={14}/> Ziek sinds {activeCase.date}</span>
+                              <button onClick={() => setIsRecoveryModalOpen(true)} className="bg-white border border-red-200 px-2 py-1 rounded text-[10px] uppercase hover:bg-red-50 text-red-600">Herstelmelden</button>
                           </div>
                       ) : (
                           <div className="mt-4 text-xs text-green-600 font-bold flex items-center gap-1">
@@ -814,12 +851,14 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                           entry.type === 'Sick' ? 'bg-red-100 text-red-600' : 
                                           entry.type === 'Late' ? 'bg-amber-100 text-amber-600' :
                                           entry.type === 'Warning' ? 'bg-slate-900 text-white' : 
+                                          entry.type === 'Recovery' ? 'bg-green-100 text-green-600' :
                                           'bg-blue-100 text-blue-600'
                                       }`}>
                                           {entry.type === 'Sick' && <Thermometer size={18}/>}
                                           {entry.type === 'Late' && <Clock size={18}/>}
                                           {entry.type === 'Warning' && <AlertTriangle size={18}/>}
                                           {entry.type === 'OfficialNote' && <FileText size={18}/>}
+                                          {entry.type === 'Recovery' && <CheckCircle2 size={18}/>}
                                       </div>
                                       <div className="ml-16 w-full">
                                           <div className="flex justify-between items-start mb-1">
@@ -841,6 +880,11 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                               {entry.meta?.nextActionDate && (
                                                   <div className="mt-2 text-xs font-bold text-teal-600 flex items-center gap-1">
                                                       <CalendarIcon size={12}/> Opvolging: {entry.meta.nextActionDate}
+                                                  </div>
+                                              )}
+                                              {entry.endDate && (
+                                                  <div className="mt-2 text-xs font-bold text-green-600 flex items-center gap-1">
+                                                      <CheckCircle2 size={12}/> Hersteld op: {entry.endDate}
                                                   </div>
                                               )}
                                           </div>
@@ -1277,6 +1321,29 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
 
               <button type="submit" className="w-full py-3 bg-red-600 text-white font-bold rounded-xl shadow-lg hover:bg-red-700 transition-colors">
                   Ziekmelding Registreren
+              </button>
+          </form>
+      </Modal>
+
+      {/* RECOVERY MODAL */}
+      <Modal isOpen={isRecoveryModalOpen} onClose={() => setIsRecoveryModalOpen(false)} title="Herstel Melden">
+          <form onSubmit={handleReportRecovery} className="space-y-6">
+              <div className="bg-green-50 p-4 border border-green-100 rounded-xl text-sm text-green-800 mb-4">
+                  <p>Meld de medewerker beter. De ziekmelding wordt hiermee afgesloten.</p>
+              </div>
+              
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Hersteldatum</label>
+                  <input 
+                      type="date"
+                      className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-green-500 outline-none"
+                      value={recoveryDate}
+                      onChange={e => setRecoveryDate(e.target.value)}
+                  />
+              </div>
+
+              <button type="submit" className="w-full py-3 bg-green-600 text-white font-bold rounded-xl shadow-lg hover:bg-green-700 transition-colors">
+                  Herstel Bevestigen
               </button>
           </form>
       </Modal>

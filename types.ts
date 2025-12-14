@@ -46,7 +46,8 @@ export enum ViewState {
   REPORTS = 'REPORTS',
   SYSTEM_STATUS = 'SYSTEM_STATUS',
   SETTINGS = 'SETTINGS',
-  PROFILE = 'PROFILE'
+  PROFILE = 'PROFILE',
+  HR_DOSSIER = 'HR_DOSSIER'
 }
 
 export type Permission = 

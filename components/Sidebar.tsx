@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
   UserPlus, FileText, PieChart, 
-  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Medal, BookOpen, Truck, ChevronDown, ChevronRight, Bike, GraduationCap, Scale, ListTodo
+  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Medal, BookOpen, Truck, ChevronDown, ChevronRight, Bike, GraduationCap, Scale, ListTodo, FolderOpen
 } from 'lucide-react';
 import { ViewState, Employee, Permission, GlobalSettings } from '../types';
 import { hasPermission, isModuleEnabled } from '../utils/permissions';
@@ -56,6 +56,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
     {
       label: 'HR & Team',
       items: [
+        { icon: FolderOpen, label: 'HR Dossier', id: ViewState.HR_DOSSIER, permission: 'MANAGE_EMPLOYEES' },
         { icon: UserCheck, label: 'Onboarding', id: ViewState.ONBOARDING },
         { icon: ClipboardCheck, label: 'Performance', id: ViewState.EVALUATIONS, permission: 'MANAGE_EVALUATIONS' },
         { icon: UserPlus, label: 'Recruitment', id: ViewState.RECRUITMENT, permission: 'MANAGE_RECRUITMENT' },

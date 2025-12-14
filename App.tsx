@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { Employee, ViewState, NewsPost, GlobalSettings, Applicant } from './types';
 import Sidebar from './components/Sidebar';
@@ -25,6 +24,7 @@ import BadgeManager from './components/BadgeManager';
 import AcademyPage from './components/AcademyPage'; 
 import CompensationPage from './components/CompensationPage';
 import ChecklistsPage from './components/ChecklistsPage';
+import HRDossierPage from './components/HRDossierPage'; // NEW
 import UpdateNotifier from './components/UpdateNotifier';
 import { api, isLive } from './utils/api';
 import { isModuleEnabled } from './utils/permissions';
@@ -284,6 +284,13 @@ function App() {
                   onNext={() => {}} onPrevious={() => {}}
                   onBack={() => setCurrentView(ViewState.DIRECTORY)}
                   managers={employees.filter(e => e.role === 'Manager')}
+              />;
+          case ViewState.HR_DOSSIER:
+              return <HRDossierPage 
+                  employees={employees}
+                  currentUser={currentUser!}
+                  onUpdateEmployee={handleUpdateEmployee}
+                  onShowToast={handleShowToast}
               />;
           case ViewState.DOCUMENTS:
               return <DocumentsPage 
