@@ -35,6 +35,7 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
     const [noteForm, setNoteForm] = useState({ title: '', content: '', date: new Date().toISOString().split('T')[0] });
     const [sickForm, setSickForm] = useState({ type: 'Kort', tasksHandedOver: false });
     const [warningForm, setWarningForm] = useState({ severity: 'Low' });
+    const [lateForm, setLateForm] = useState({ scheduledTime: '', actualTime: '' });
 
     // File Upload Ref
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -58,6 +59,7 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
         setNoteForm({ title: '', content: '', date: new Date().toISOString().split('T')[0] });
         setSickForm({ type: 'Kort', tasksHandedOver: false });
         setWarningForm({ severity: 'Low' });
+        setLateForm({ scheduledTime: '', actualTime: '' });
         setEditingEntryId(null);
         setEditingSource(null);
     };
@@ -85,6 +87,12 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                     severity: existingEntry.meta.severity || 'Low'
                 });
             }
+            if (type === 'Late' && existingEntry.meta) {
+                setLateForm({
+                    scheduledTime: existingEntry.meta.scheduledTime || '',
+                    actualTime: existingEntry.meta.actualTime || ''
+                });
+            }
         } else {
             resetForms();
             // Pre-fill generic titles
@@ -92,10 +100,20 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
             if (type === 'Sick') title = 'Ziekmelding';
             else if (type === 'Warning') title = 'Officiële Waarschuwing';
             else if (type === 'Compliment') title = 'Compliment';
+            else if (type === 'Late') title = 'Te Laat';
             
             setNoteForm(prev => ({ ...prev, title }));
         }
         setIsActionModalOpen(true);
+    };
+
+    const calculateLateMinutes = () => {
+        if (!lateForm.scheduledTime || !lateForm.actualTime) return 0;
+        const [h1, m1] = lateForm.scheduledTime.split(':').map(Number);
+        const [h2, m2] = lateForm.actualTime.split(':').map(Number);
+        const schedMinutes = h1 * 60 + m1;
+        const actualMinutes = h2 * 60 + m2;
+        return Math.max(0, actualMinutes - schedMinutes);
     };
 
     const handleSaveEntry = (e: React.FormEvent) => {
@@ -123,14 +141,33 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
             }
 
         } else {
+            // Build Meta Data
+            let meta: any = undefined;
+            if (actionType === 'Warning') {
+                meta = { severity: warningForm.severity };
+            } else if (actionType === 'Late') {
+                meta = {
+                    scheduledTime: lateForm.scheduledTime,
+                    actualTime: lateForm.actualTime,
+                    minutesLate: calculateLateMinutes()
+                };
+            }
+
+            // Generate dynamic title for Late if using default
+            let finalTitle = noteForm.title;
+            if (actionType === 'Late' && (noteForm.title === 'Te Laat' || !noteForm.title)) {
+                const mins = calculateLateMinutes();
+                finalTitle = `Te Laat (${mins} min)`;
+            }
+
             const dossierData: DossierEntry = {
                 id: editingEntryId || crypto.randomUUID(),
                 type: actionType as DossierEntryType,
                 date: formattedDate,
-                title: noteForm.title || (actionType === 'Sick' ? 'Ziekmelding' : actionType === 'Warning' ? 'Officiële Waarschuwing' : actionType === 'Compliment' ? 'Compliment' : 'Notitie'),
+                title: finalTitle || (actionType === 'Sick' ? 'Ziekmelding' : actionType === 'Warning' ? 'Officiële Waarschuwing' : actionType === 'Compliment' ? 'Compliment' : 'Notitie'),
                 description: noteForm.content,
                 loggedBy: currentUser.name,
-                meta: actionType === 'Warning' ? { severity: warningForm.severity as any } : undefined
+                meta: meta
             };
 
             // Preserve endDate if editing existing sick entry
@@ -419,7 +456,7 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
 
                                     {/* Meta Data Display */}
                                     {item.meta && (
-                                        <div className="mt-3 pt-3 border-t border-slate-50 flex gap-4 text-xs text-slate-500">
+                                        <div className="mt-3 pt-3 border-t border-slate-50 flex gap-4 text-xs text-slate-500 flex-wrap">
                                             {item.meta.severity && (
                                                 <span className="flex items-center gap-1">
                                                     <ShieldAlert size={12} className={item.meta.severity === 'High' ? 'text-red-500' : 'text-amber-500'}/> 
@@ -429,6 +466,11 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                                             {item.meta.sickType && (
                                                 <span className="flex items-center gap-1">
                                                     <Thermometer size={12}/> Type: {item.meta.sickType}
+                                                </span>
+                                            )}
+                                            {item.meta.minutesLate > 0 && (
+                                                <span className="flex items-center gap-1 font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded">
+                                                    <Clock size={12}/> {item.meta.scheduledTime} → {item.meta.actualTime} ({item.meta.minutesLate} min)
                                                 </span>
                                             )}
                                         </div>
@@ -626,6 +668,32 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                     {/* Dynamic Fields */}
                     {/* Removed Sick specific fields (Type & Tasks) as requested */}
 
+                    {actionType === 'Late' && (
+                        <div className="grid grid-cols-2 gap-4 bg-amber-50 p-4 rounded-xl border border-amber-100">
+                            <div>
+                                <label className="block text-xs font-bold text-amber-800 uppercase mb-2">Rooster Tijd</label>
+                                <input 
+                                    type="time" 
+                                    className="w-full p-3 bg-white border border-amber-200 rounded-xl text-sm"
+                                    value={lateForm.scheduledTime}
+                                    onChange={e => setLateForm({...lateForm, scheduledTime: e.target.value})}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-amber-800 uppercase mb-2">Aankomst Tijd</label>
+                                <input 
+                                    type="time" 
+                                    className="w-full p-3 bg-white border border-amber-200 rounded-xl text-sm"
+                                    value={lateForm.actualTime}
+                                    onChange={e => setLateForm({...lateForm, actualTime: e.target.value})}
+                                />
+                            </div>
+                            <div className="col-span-2 text-right">
+                                <span className="text-xs font-bold text-amber-700">Totaal te laat: {calculateLateMinutes()} minuten</span>
+                            </div>
+                        </div>
+                    )}
+
                     {actionType === 'Warning' && (
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Ernst</label>
@@ -649,9 +717,9 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Onderwerp / Titel</label>
                             <input 
                                 type="text"
-                                required
+                                required={actionType !== 'Late'} // Title optional for Late (auto-generated)
                                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                                placeholder={actionType === 'Warning' ? 'Reden van waarschuwing' : actionType === 'Compliment' ? 'Waarvoor is dit compliment?' : 'Korte titel'}
+                                placeholder={actionType === 'Warning' ? 'Reden van waarschuwing' : actionType === 'Compliment' ? 'Waarvoor is dit compliment?' : actionType === 'Late' ? 'Te Laat (Automatisch ingevuld)' : 'Korte titel'}
                                 value={noteForm.title}
                                 onChange={e => setNoteForm({...noteForm, title: e.target.value})}
                             />
@@ -663,7 +731,7 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                             {actionType === 'Note' ? 'Inhoud Notitie' : 'Toelichting / Verslag'}
                         </label>
                         <textarea 
-                            required
+                            required={actionType !== 'Late'} // Optional description for Late
                             rows={4}
                             className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
                             placeholder="Typ hier de details..."
