@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar, Sparkles, Edit2, MessageSquare, Send, FolderOpen, Save, MapPin, Hash, Globe, Ban, FileCheck, Languages } from 'lucide-react';
+import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar, Sparkles, Edit2, MessageSquare, Send, FolderOpen, Save, MapPin, Hash, Globe, Ban, FileCheck, Languages, Plus } from 'lucide-react';
 import { Debtor, DebtorStatus, Employee, DebtorNote } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
@@ -18,12 +18,17 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'ALL' | 'ACTION' | 'NEW' | 'ONGOING' | 'URGENT' | 'DONE'>('ALL');
   
+  // NEW: Specific Status Filter
+  const [statusFilter, setStatusFilter] = useState<DebtorStatus | 'All'>('All');
+
   // Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // --- NEW: COMPREHENSIVE DETAIL MODAL STATE ---
   const [detailDebtor, setDetailDebtor] = useState<Debtor | null>(null);
+  const [isCreating, setIsCreating] = useState(false); // Track if we are creating a new debtor
   const [detailForm, setDetailForm] = useState({
+      reservationNumber: '', // Added for create mode
       firstName: '',
       lastName: '',
       email: '',
@@ -311,6 +316,11 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           );
       });
 
+      // Apply Status Filter (New)
+      if (statusFilter !== 'All') {
+          list = list.filter(d => d.status === statusFilter);
+      }
+
       switch (activeTab) {
           case 'ACTION': return list.filter(d => isActionRequired(d));
           case 'NEW': return list.filter(d => d.status === 'New');
@@ -319,7 +329,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           case 'DONE': return list.filter(d => d.status === 'Paid' || d.status === 'Correction');
           default: return list;
       }
-  }, [debtors, searchTerm, activeTab]);
+  }, [debtors, searchTerm, activeTab, statusFilter]);
 
   const toggleSelectAll = () => {
       if (selectedIds.size === filteredDebtors.length) {
@@ -586,11 +596,13 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
 
   const handleOpenDetail = (debtor: Debtor) => {
       setDetailDebtor(debtor);
+      setIsCreating(false);
       setIsAddressParseError(false);
       
       const parsed = parseAddress(debtor.address || '');
 
       setDetailForm({
+          reservationNumber: debtor.reservationNumber,
           firstName: debtor.firstName || '',
           lastName: debtor.lastName || '',
           email: debtor.email || '',
@@ -608,6 +620,45 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       setNewDetailNote('');
   };
 
+  const handleOpenCreate = () => {
+      // Create a dummy debtor to satisfy the type requirement for detailDebtor state
+      // but flag isCreating as true to handle save logic differently
+      const dummyDebtor: Debtor = {
+          id: 'new',
+          reservationNumber: '',
+          firstName: '',
+          lastName: '',
+          address: '',
+          amount: 0,
+          status: 'New',
+          statusDate: new Date().toISOString(),
+          lastUpdated: new Date().toISOString(),
+          importedAt: new Date().toLocaleDateString('nl-NL')
+      };
+      
+      setDetailDebtor(dummyDebtor);
+      setIsCreating(true);
+      setIsAddressParseError(false);
+
+      setDetailForm({
+          reservationNumber: '',
+          firstName: '',
+          lastName: '',
+          email: '',
+          phone: '',
+          addressStreet: '',
+          addressNumber: '',
+          addressZip: '',
+          addressCity: '',
+          addressCountry: 'Nederland',
+          amount: 0,
+          status: 'New',
+          cashlistReason: '',
+          correctionReason: ''
+      });
+      setNewDetailNote('');
+  };
+
   const handleSaveDetails = async () => {
       if (!detailDebtor) return;
 
@@ -620,52 +671,97 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           return;
       }
 
+      // Basic Validation for new records
+      if (isCreating) {
+          if (!detailForm.reservationNumber) return onShowToast("Reserveringsnummer is verplicht.");
+          if (!detailForm.lastName) return onShowToast("Achternaam is verplicht.");
+          if (!detailForm.amount) return onShowToast("Bedrag is verplicht.");
+      }
+
       // RECOMBINE ADDRESS: Standardize format "Street Nr, Zip City, Country"
       const fullAddress = `${detailForm.addressStreet} ${detailForm.addressNumber}, ${detailForm.addressZip} ${detailForm.addressCity}, ${detailForm.addressCountry}`.trim().replace(/^,/, '').replace(/,$/, '');
 
-      // Create update note if status changed
-      const currentNotes = [...(detailDebtor.notes || [])];
-      if (detailForm.status !== detailDebtor.status) {
-          let reasonText = '';
-          if (detailForm.status === 'Cashlist') reasonText = detailForm.cashlistReason;
-          if (detailForm.status === 'Correction') reasonText = detailForm.correctionReason;
-          
-          const noteContent = `Status gewijzigd van '${detailDebtor.status}' naar '${detailForm.status}'.${reasonText ? ` Reden: ${reasonText}` : ''}`;
-          
-          currentNotes.push({
+      if (isCreating) {
+          // CREATE NEW
+          const newDebtor: Debtor = {
               id: Math.random().toString(36).substr(2, 9),
-              content: noteContent,
-              date: new Date().toISOString(),
-              author: currentUser.name
-          });
+              reservationNumber: detailForm.reservationNumber,
+              firstName: detailForm.firstName,
+              lastName: detailForm.lastName,
+              email: detailForm.email,
+              phone: detailForm.phone,
+              address: fullAddress,
+              amount: detailForm.amount,
+              status: detailForm.status,
+              statusDate: new Date().toISOString(),
+              lastUpdated: new Date().toISOString(),
+              importedAt: new Date().toLocaleDateString('nl-NL'),
+              isEnriched: false,
+              cashlistReason: detailForm.status === 'Cashlist' ? detailForm.cashlistReason : undefined,
+              correctionReason: detailForm.status === 'Correction' ? detailForm.correctionReason : undefined,
+              notes: newDetailNote.trim() ? [{
+                  id: Math.random().toString(36).substr(2, 9),
+                  content: newDetailNote,
+                  date: new Date().toISOString(),
+                  author: currentUser.name
+              }] : []
+          };
+
+          const updatedList = [newDebtor, ...debtors];
+          setDebtors(sortDebtors(updatedList));
+          await api.saveDebtors(updatedList);
+          
+          setDetailDebtor(null); // Close modal
+          setIsCreating(false);
+          onShowToast("Nieuw dossier aangemaakt.");
+
+      } else {
+          // UPDATE EXISTING
+          // Create update note if status changed
+          const currentNotes = [...(detailDebtor.notes || [])];
+          if (detailForm.status !== detailDebtor.status) {
+              let reasonText = '';
+              if (detailForm.status === 'Cashlist') reasonText = detailForm.cashlistReason;
+              if (detailForm.status === 'Correction') reasonText = detailForm.correctionReason;
+              
+              const noteContent = `Status gewijzigd van '${detailDebtor.status}' naar '${detailForm.status}'.${reasonText ? ` Reden: ${reasonText}` : ''}`;
+              
+              currentNotes.push({
+                  id: Math.random().toString(36).substr(2, 9),
+                  content: noteContent,
+                  date: new Date().toISOString(),
+                  author: currentUser.name
+              });
+          }
+
+          const updatedDebtor: Debtor = {
+              ...detailDebtor,
+              reservationNumber: detailForm.reservationNumber, // Allow update
+              firstName: detailForm.firstName,
+              lastName: detailForm.lastName,
+              email: detailForm.email,
+              phone: detailForm.phone,
+              address: fullAddress,
+              amount: detailForm.amount,
+              status: detailForm.status,
+              statusDate: detailForm.status !== detailDebtor.status ? new Date().toISOString() : detailDebtor.statusDate,
+              cashlistReason: detailForm.status === 'Cashlist' ? detailForm.cashlistReason : detailDebtor.cashlistReason,
+              correctionReason: detailForm.status === 'Correction' ? detailForm.correctionReason : detailDebtor.correctionReason,
+              notes: currentNotes
+          };
+
+          const updatedList = debtors.map(d => d.id === updatedDebtor.id ? updatedDebtor : d);
+          
+          setDebtors(sortDebtors(updatedList));
+          setDetailDebtor(updatedDebtor); // Update view state
+          await api.saveDebtors(updatedList);
+          
+          onShowToast("Dossier gegevens opgeslagen.");
       }
-
-      const updatedDebtor: Debtor = {
-          ...detailDebtor,
-          firstName: detailForm.firstName,
-          lastName: detailForm.lastName,
-          email: detailForm.email,
-          phone: detailForm.phone,
-          address: fullAddress,
-          amount: detailForm.amount,
-          status: detailForm.status,
-          statusDate: detailForm.status !== detailDebtor.status ? new Date().toISOString() : detailDebtor.statusDate,
-          cashlistReason: detailForm.status === 'Cashlist' ? detailForm.cashlistReason : detailDebtor.cashlistReason,
-          correctionReason: detailForm.status === 'Correction' ? detailForm.correctionReason : detailDebtor.correctionReason,
-          notes: currentNotes
-      };
-
-      const updatedList = debtors.map(d => d.id === updatedDebtor.id ? updatedDebtor : d);
-      
-      setDebtors(sortDebtors(updatedList));
-      setDetailDebtor(updatedDebtor); // Update view state
-      await api.saveDebtors(updatedList);
-      
-      onShowToast("Dossier gegevens opgeslagen.");
   };
 
   const handleAddNoteInDetail = async () => {
-      if (!detailDebtor || !newDetailNote.trim()) return;
+      if (!detailDebtor || !newDetailNote.trim() || isCreating) return; // Note adding handled in create save
 
       const newNote: DebtorNote = {
           id: Math.random().toString(36).substr(2, 9),
@@ -922,6 +1018,12 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
         </div>
         
         <div className="flex gap-3">
+             <button 
+                onClick={handleOpenCreate}
+                className="flex items-center gap-2 px-6 py-3.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all hover:shadow-md"
+             >
+                <Plus size={20}/> Nieuw Dossier
+             </button>
              <input 
                 type="file" 
                 ref={fileInputRef}
@@ -1004,9 +1106,9 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           ))}
       </div>
 
-      {/* Search Toolbar */}
-      <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm mb-6 flex items-center gap-4">
-          <div className="relative flex-1">
+      {/* Search & Filter Toolbar */}
+      <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-sm mb-6 flex flex-col md:flex-row items-center gap-4">
+          <div className="relative flex-1 w-full">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input 
                 type="text" 
@@ -1016,6 +1118,26 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
           </div>
+          
+          <div className="flex items-center gap-3 w-full md:w-auto px-2">
+              <Filter size={18} className="text-slate-400 hidden md:block" />
+              <select 
+                  className="w-full md:w-48 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500 cursor-pointer"
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value as DebtorStatus | 'All')}
+              >
+                  <option value="All">Alle Statussen</option>
+                  <option value="New">Nieuw</option>
+                  <option value="1st Reminder">1e Herinnering</option>
+                  <option value="2nd Reminder">2e Herinnering</option>
+                  <option value="Final Notice">Aanmaning</option>
+                  <option value="Paid">Betaald</option>
+                  <option value="Correction">Correctie</option>
+                  <option value="Cashlist">Cashlist</option>
+                  <option value="Blacklist">Blacklist</option>
+              </select>
+          </div>
+
           <div className="h-8 w-px bg-slate-100 mx-2 hidden md:block"></div>
           <div className="hidden md:flex items-center gap-4 pr-4 text-xs font-bold text-slate-400 uppercase tracking-wider">
               <span>{filteredDebtors.length} Resultaten</span>
@@ -1360,12 +1482,16 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
               {/* Header */}
               <div className="px-8 py-6 border-b border-slate-100 bg-white sticky top-0 z-10 flex justify-between items-center">
                   <div>
-                      <h2 className="text-2xl font-bold text-slate-900">{detailForm.firstName} {detailForm.lastName}</h2>
-                      <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
-                          <span className="font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-600">#{detailDebtor.reservationNumber}</span>
-                          <span>•</span>
-                          <span>Laatst gewijzigd: {new Date(detailDebtor.lastUpdated).toLocaleDateString()}</span>
-                      </div>
+                      <h2 className="text-2xl font-bold text-slate-900">
+                          {isCreating ? 'Nieuw Dossier' : `${detailForm.firstName} ${detailForm.lastName}`}
+                      </h2>
+                      {!isCreating && (
+                          <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
+                              <span className="font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-600">#{detailDebtor.reservationNumber}</span>
+                              <span>•</span>
+                              <span>Laatst gewijzigd: {new Date(detailDebtor.lastUpdated).toLocaleDateString()}</span>
+                          </div>
+                      )}
                   </div>
                   <button onClick={() => setDetailDebtor(null)} className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition-colors">
                       <X size={24} />
@@ -1380,6 +1506,20 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                       </h3>
                       
                       <div className="space-y-6">
+                          {/* Reservation Number (Editable if creating) */}
+                          <div>
+                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Reserveringsnummer</label>
+                              <div className="relative">
+                                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
+                                  <input 
+                                      className="w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none font-mono"
+                                      value={detailForm.reservationNumber}
+                                      onChange={(e) => setDetailForm({...detailForm, reservationNumber: e.target.value})}
+                                      placeholder="1234567"
+                                  />
+                              </div>
+                          </div>
+
                           {/* Name Editing */}
                           <div className="grid grid-cols-2 gap-4">
                               <div>
@@ -1485,7 +1625,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                               <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Adresgegevens (Brief Indeling)</label>
                               
                               {/* Address Warning */}
-                              {(isAddressIncomplete(detailDebtor) || isAddressParseError) && (
+                              {(!isCreating && (isAddressIncomplete(detailDebtor) || isAddressParseError)) && (
                                   <div className="bg-orange-50 border border-orange-100 p-3 rounded-xl flex justify-between items-start mb-2 animate-in fade-in">
                                       <div className="flex gap-2">
                                           <AlertTriangle className="text-orange-500 mt-0.5" size={16}/>
@@ -1570,67 +1710,90 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                               </div>
                           </div>
 
+                          {isCreating && (
+                              <div>
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Eerste Notitie (Optioneel)</label>
+                                  <textarea 
+                                      className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                      rows={3}
+                                      placeholder="Plaats direct een opmerking bij dit dossier..."
+                                      value={newDetailNote}
+                                      onChange={(e) => setNewDetailNote(e.target.value)}
+                                  />
+                              </div>
+                          )}
+
                           <div className="pt-4 border-t border-slate-100">
                               <button 
                                 onClick={handleSaveDetails}
                                 disabled={(detailForm.status === 'Cashlist' && !detailForm.cashlistReason.trim()) || (detailForm.status === 'Correction' && !detailForm.correctionReason.trim())}
                                 className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                  <Save size={18}/> Wijzigingen Opslaan
+                                  <Save size={18}/> {isCreating ? 'Dossier Aanmaken' : 'Wijzigingen Opslaan'}
                               </button>
                           </div>
                       </div>
                   </div>
 
                   {/* RIGHT COLUMN: NOTES TIMELINE */}
-                  <div className="w-full md:w-1/2 p-8 overflow-y-auto flex flex-col h-full">
-                      <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
-                          <MessageSquare size={18} className="text-blue-600"/> Historie & Notities
-                      </h3>
+                  {!isCreating && (
+                      <div className="w-full md:w-1/2 p-8 overflow-y-auto flex flex-col h-full">
+                          <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
+                              <MessageSquare size={18} className="text-blue-600"/> Historie & Notities
+                          </h3>
 
-                      <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6 mb-6">
-                          {detailDebtor.notes && detailDebtor.notes.length > 0 ? (
-                              // Timeline
-                              <div className="relative border-l-2 border-slate-200 ml-3 space-y-6">
-                                  {detailDebtor.notes.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(note => (
-                                      <div key={note.id} className="relative pl-6">
-                                          <div className="absolute -left-[9px] top-0 w-4 h-4 bg-white border-2 border-blue-500 rounded-full"></div>
-                                          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                                              <div className="flex justify-between items-start mb-2">
-                                                  <span className="text-xs font-bold text-slate-800">{note.author}</span>
-                                                  <span className="text-[10px] text-slate-400">{new Date(note.date).toLocaleString('nl-NL')}</span>
+                          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6 mb-6">
+                              {detailDebtor.notes && detailDebtor.notes.length > 0 ? (
+                                  // Timeline
+                                  <div className="relative border-l-2 border-slate-200 ml-3 space-y-6">
+                                      {detailDebtor.notes.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map(note => (
+                                          <div key={note.id} className="relative pl-6">
+                                              <div className="absolute -left-[9px] top-0 w-4 h-4 bg-white border-2 border-blue-500 rounded-full"></div>
+                                              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                                                  <div className="flex justify-between items-start mb-2">
+                                                      <span className="text-xs font-bold text-slate-800">{note.author}</span>
+                                                      <span className="text-[10px] text-slate-400">{new Date(note.date).toLocaleString('nl-NL')}</span>
+                                                  </div>
+                                                  <p className="text-sm text-slate-600 whitespace-pre-wrap">{note.content}</p>
                                               </div>
-                                              <p className="text-sm text-slate-600 whitespace-pre-wrap">{note.content}</p>
                                           </div>
-                                      </div>
-                                  ))}
-                              </div>
-                          ) : (
-                              <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-200">
-                                  <p className="text-slate-400 text-sm italic">Nog geen notities in dit dossier.</p>
-                              </div>
-                          )}
-                      </div>
+                                      ))}
+                                  </div>
+                              ) : (
+                                  <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-200">
+                                      <p className="text-slate-400 text-sm italic">Nog geen notities in dit dossier.</p>
+                                  </div>
+                              )}
+                          </div>
 
-                      <div className="mt-auto bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-                          <textarea 
-                              className="w-full border-none focus:ring-0 text-sm resize-none p-0 mb-2"
-                              rows={3}
-                              placeholder="Schrijf een nieuwe notitie..."
-                              value={newDetailNote}
-                              onChange={(e) => setNewDetailNote(e.target.value)}
-                          />
-                          <div className="flex justify-end pt-2 border-t border-slate-50">
-                              <button 
-                                  onClick={handleAddNoteInDetail}
-                                  disabled={!newDetailNote.trim()}
-                                  className="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2"
-                              >
-                                  <Send size={14}/> Toevoegen
-                              </button>
+                          <div className="mt-auto bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+                              <textarea 
+                                  className="w-full border-none focus:ring-0 text-sm resize-none p-0 mb-2"
+                                  rows={3}
+                                  placeholder="Schrijf een nieuwe notitie..."
+                                  value={newDetailNote}
+                                  onChange={(e) => setNewDetailNote(e.target.value)}
+                              />
+                              <div className="flex justify-end pt-2 border-t border-slate-50">
+                                  <button 
+                                      onClick={handleAddNoteInDetail}
+                                      disabled={!newDetailNote.trim()}
+                                      className="bg-blue-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+                                  >
+                                      <Send size={14}/> Toevoegen
+                                  </button>
+                              </div>
                           </div>
                       </div>
-                  </div>
+                  )}
+                  {isCreating && (
+                      <div className="w-full md:w-1/2 p-8 flex items-center justify-center bg-slate-50">
+                          <div className="text-center text-slate-400">
+                              <FileCheck size={64} className="mx-auto mb-4 opacity-20"/>
+                              <p>Vul de gegevens links in om een nieuw dossier te starten.</p>
+                          </div>
+                      </div>
+                  )}
               </div>
           </div>
       </div>
