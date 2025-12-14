@@ -130,8 +130,7 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                 title: noteForm.title || (actionType === 'Sick' ? 'Ziekmelding' : actionType === 'Warning' ? 'Officiële Waarschuwing' : actionType === 'Compliment' ? 'Compliment' : 'Notitie'),
                 description: noteForm.content,
                 loggedBy: currentUser.name,
-                meta: actionType === 'Sick' ? { sickType: sickForm.type as any, tasksHandedOver: sickForm.tasksHandedOver } :
-                      actionType === 'Warning' ? { severity: warningForm.severity as any } : undefined
+                meta: actionType === 'Warning' ? { severity: warningForm.severity as any } : undefined
             };
 
             // Preserve endDate if editing existing sick entry
@@ -625,33 +624,7 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                     </div>
 
                     {/* Dynamic Fields */}
-                    {actionType === 'Sick' && (
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Type Verzuim</label>
-                                <select 
-                                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                                    value={sickForm.type}
-                                    onChange={e => setSickForm({...sickForm, type: e.target.value})}
-                                >
-                                    <option value="Kort">Kort</option>
-                                    <option value="Lang">Lang</option>
-                                    <option value="Frequent">Frequent</option>
-                                </select>
-                            </div>
-                            <div className="flex items-center pt-6">
-                                <label className="flex items-center gap-2 cursor-pointer">
-                                    <input 
-                                        type="checkbox"
-                                        checked={sickForm.tasksHandedOver}
-                                        onChange={e => setSickForm({...sickForm, tasksHandedOver: e.target.checked})}
-                                        className="rounded text-indigo-600 focus:ring-indigo-500"
-                                    />
-                                    <span className="text-sm font-medium text-slate-700">Taken overgedragen?</span>
-                                </label>
-                            </div>
-                        </div>
-                    )}
+                    {/* Removed Sick specific fields (Type & Tasks) as requested */}
 
                     {actionType === 'Warning' && (
                         <div>
