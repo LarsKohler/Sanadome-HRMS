@@ -60,7 +60,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
         { icon: UserCheck, label: 'Onboarding', id: ViewState.ONBOARDING },
         { icon: ClipboardCheck, label: 'Performance', id: ViewState.EVALUATIONS, permission: 'MANAGE_EVALUATIONS' },
         { icon: UserPlus, label: 'Recruitment', id: ViewState.RECRUITMENT, permission: 'MANAGE_RECRUITMENT' },
-        { icon: FileText, label: 'Documenten', id: ViewState.DOCUMENTS }, 
+        // Documents removed and merged into HR Dossier
       ]
     },
     {

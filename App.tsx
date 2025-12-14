@@ -6,7 +6,6 @@ import TopNav from './components/TopNav';
 import EmployeeDirectory from './components/EmployeeDirectory';
 import EmployeeProfile from './components/EmployeeProfile';
 import ReportsDashboard from './components/ReportsDashboard';
-import DocumentsPage from './components/DocumentsPage';
 import NewsPage from './components/NewsPage';
 import OnboardingPage from './components/OnboardingPage';
 import Login from './components/Login';
@@ -292,15 +291,7 @@ function App() {
                   onUpdateEmployee={handleUpdateEmployee}
                   onShowToast={handleShowToast}
               />;
-          case ViewState.DOCUMENTS:
-              return <DocumentsPage 
-                  employees={employees}
-                  currentUser={currentUser!}
-                  onUpdateEmployee={handleUpdateEmployee}
-                  onShowToast={handleShowToast}
-                  selectedEmployeeId={selectedProfileId}
-                  onSelectEmployee={setSelectedProfileId}
-              />;
+          // ViewState.DOCUMENTS removed
           case ViewState.NEWS:
               return <NewsPage 
                   currentUser={currentUser!}

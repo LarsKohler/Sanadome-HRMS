@@ -1,14 +1,15 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { 
     X, User, Calendar, Phone, Mail, MapPin, 
     Briefcase, Clock, AlertTriangle, Thermometer, 
     FileText, Plus, CheckCircle2, MessageSquare, 
     Trash2, ShieldAlert, History, Paperclip, 
-    ChevronDown, Save
+    ChevronDown, Save, Edit2, Upload, Download, ArrowUpRight, Eye
 } from 'lucide-react';
-import { Employee, DossierEntry, EmployeeNote, DossierEntryType } from '../types';
+import { Employee, DossierEntry, EmployeeNote, DossierEntryType, EmployeeDocument } from '../types';
 import { Modal } from './Modal';
+import { api } from '../utils/api';
 
 interface HRDossierDetailProps {
     employee: Employee;
@@ -19,54 +20,144 @@ interface HRDossierDetailProps {
 }
 
 const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser, onUpdate, onClose, onShowToast }) => {
-    const [activeTab, setActiveTab] = useState<'timeline' | 'info' | 'files'>('timeline');
+    const [activeTab, setActiveTab] = useState<'timeline' | 'files'>('timeline');
     
     // Modal States
     const [isActionModalOpen, setIsActionModalOpen] = useState(false);
     const [actionType, setActionType] = useState<DossierEntryType | 'Note'>('Note');
+    const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+    const [editingSource, setEditingSource] = useState<'dossier' | 'note' | null>(null);
     
     // Form States
     const [noteForm, setNoteForm] = useState({ title: '', content: '', date: new Date().toISOString().split('T')[0] });
     const [sickForm, setSickForm] = useState({ type: 'Kort', tasksHandedOver: false });
     const [warningForm, setWarningForm] = useState({ severity: 'Low' });
 
+    // File Upload Ref
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // --- STATISTICS ---
+    const stats = useMemo(() => {
+        const dossier = employee.dossier || [];
+        const sickCount = dossier.filter(e => e.type === 'Sick').length;
+        const activeSick = dossier.find(e => e.type === 'Sick' && !e.endDate);
+        const lateCount = dossier.filter(e => e.type === 'Late').length;
+        const warningCount = dossier.filter(e => e.type === 'Warning').length;
+        const notesCount = employee.notes ? employee.notes.length : 0;
+
+        return { sickCount, activeSick, lateCount, warningCount, notesCount };
+    }, [employee]);
+
     // --- ACTIONS ---
+
+    const resetForms = () => {
+        setNoteForm({ title: '', content: '', date: new Date().toISOString().split('T')[0] });
+        setSickForm({ type: 'Kort', tasksHandedOver: false });
+        setWarningForm({ severity: 'Low' });
+        setEditingEntryId(null);
+        setEditingSource(null);
+    };
+
+    const openActionModal = (type: DossierEntryType | 'Note', existingEntry: any = null, source: 'dossier' | 'note' | null = null) => {
+        setActionType(type);
+        setEditingEntryId(existingEntry ? existingEntry.id : null);
+        setEditingSource(source);
+
+        if (existingEntry) {
+            setNoteForm({
+                title: existingEntry.title || existingEntry.type,
+                content: existingEntry.description || existingEntry.content,
+                date: existingEntry.date.split('-').reverse().join('-') // Convert DD-MM-YYYY back to YYYY-MM-DD for input
+            });
+            
+            if (type === 'Sick' && existingEntry.meta) {
+                setSickForm({
+                    type: existingEntry.meta.sickType || 'Kort',
+                    tasksHandedOver: existingEntry.meta.tasksHandedOver || false
+                });
+            }
+            if (type === 'Warning' && existingEntry.meta) {
+                setWarningForm({
+                    severity: existingEntry.meta.severity || 'Low'
+                });
+            }
+        } else {
+            resetForms();
+            // Pre-fill generic titles
+            setNoteForm(prev => ({ 
+                ...prev, 
+                title: type === 'Sick' ? 'Ziekmelding' : type === 'Warning' ? 'Officiële Waarschuwing' : '' 
+            }));
+        }
+        setIsActionModalOpen(true);
+    };
 
     const handleSaveEntry = (e: React.FormEvent) => {
         e.preventDefault();
         
         let updatedEmployee = { ...employee };
+        const formattedDate = new Date(noteForm.date).toLocaleDateString('nl-NL');
 
         if (actionType === 'Note') {
-            const newNote: EmployeeNote = {
-                id: crypto.randomUUID(),
+            const noteData: EmployeeNote = {
+                id: editingEntryId || crypto.randomUUID(),
                 title: noteForm.title || 'Interne Notitie',
                 category: 'General',
                 content: noteForm.content,
-                date: new Date(noteForm.date).toLocaleDateString('nl-NL'),
+                date: formattedDate,
                 author: currentUser.name,
-                visibleToEmployee: false, // HR Notes are private by default in this view
+                visibleToEmployee: false,
                 impact: 'Neutral'
             };
-            updatedEmployee.notes = [newNote, ...(updatedEmployee.notes || [])];
+
+            if (editingEntryId) {
+                updatedEmployee.notes = (updatedEmployee.notes || []).map(n => n.id === editingEntryId ? { ...n, ...noteData } : n);
+            } else {
+                updatedEmployee.notes = [noteData, ...(updatedEmployee.notes || [])];
+            }
+
         } else {
-            const newEntry: DossierEntry = {
-                id: crypto.randomUUID(),
+            const dossierData: DossierEntry = {
+                id: editingEntryId || crypto.randomUUID(),
                 type: actionType as DossierEntryType,
-                date: new Date(noteForm.date).toLocaleDateString('nl-NL'),
+                date: formattedDate,
                 title: noteForm.title || (actionType === 'Sick' ? 'Ziekmelding' : actionType === 'Warning' ? 'Officiële Waarschuwing' : 'Notitie'),
                 description: noteForm.content,
                 loggedBy: currentUser.name,
                 meta: actionType === 'Sick' ? { sickType: sickForm.type as any, tasksHandedOver: sickForm.tasksHandedOver } :
                       actionType === 'Warning' ? { severity: warningForm.severity as any } : undefined
             };
-            updatedEmployee.dossier = [newEntry, ...(updatedEmployee.dossier || [])];
+
+            // Preserve endDate if editing existing sick entry
+            if (editingEntryId && actionType === 'Sick') {
+                const existing = employee.dossier?.find(e => e.id === editingEntryId);
+                if (existing?.endDate) dossierData.endDate = existing.endDate;
+            }
+
+            if (editingEntryId) {
+                updatedEmployee.dossier = (updatedEmployee.dossier || []).map(d => d.id === editingEntryId ? { ...d, ...dossierData } : d);
+            } else {
+                updatedEmployee.dossier = [dossierData, ...(updatedEmployee.dossier || [])];
+            }
         }
 
         onUpdate(updatedEmployee);
-        onShowToast("Item toegevoegd aan dossier.");
+        onShowToast(editingEntryId ? "Item bijgewerkt." : "Item toegevoegd aan dossier.");
         setIsActionModalOpen(false);
         resetForms();
+    };
+
+    const handleDeleteEntry = (id: string, source: 'dossier' | 'note') => {
+        if (!confirm("Weet je zeker dat je dit item wilt verwijderen?")) return;
+
+        let updatedEmployee = { ...employee };
+        if (source === 'dossier') {
+            updatedEmployee.dossier = (updatedEmployee.dossier || []).filter(e => e.id !== id);
+        } else {
+            updatedEmployee.notes = (updatedEmployee.notes || []).filter(n => n.id !== id);
+        }
+        onUpdate(updatedEmployee);
+        onShowToast("Item verwijderd.");
     };
 
     const handleResolveSick = (entryId: string) => {
@@ -77,7 +168,6 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
             return entry;
         });
         
-        // Add recovery entry
         const recoveryEntry: DossierEntry = {
             id: crypto.randomUUID(),
             type: 'Recovery',
@@ -91,16 +181,38 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
         onShowToast("Ziekteperiode afgesloten.");
     };
 
-    const resetForms = () => {
-        setNoteForm({ title: '', content: '', date: new Date().toISOString().split('T')[0] });
-        setSickForm({ type: 'Kort', tasksHandedOver: false });
-        setWarningForm({ severity: 'Low' });
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        onShowToast("Bestand uploaden...");
+        try {
+            const url = await api.uploadFile(file);
+            if (url) {
+                const newDoc: EmployeeDocument = {
+                    id: crypto.randomUUID(),
+                    name: file.name,
+                    type: file.type.split('/')[1]?.toUpperCase() || 'FILE',
+                    category: 'Dossier',
+                    date: new Date().toLocaleDateString('nl-NL'),
+                    size: (file.size / 1024).toFixed(0) + ' KB',
+                    uploadedBy: currentUser.name
+                };
+                const updatedEmployee = { ...employee, documents: [newDoc, ...(employee.documents || [])] };
+                onUpdate(updatedEmployee);
+                onShowToast("Document toegevoegd aan dossier.");
+            }
+        } catch (error) {
+            console.error(error);
+            onShowToast("Upload mislukt.");
+        }
     };
 
-    const openActionModal = (type: DossierEntryType | 'Note') => {
-        setActionType(type);
-        setNoteForm(prev => ({ ...prev, title: type === 'Sick' ? 'Ziekmelding' : type === 'Warning' ? 'Officiële Waarschuwing' : '' }));
-        setIsActionModalOpen(true);
+    const handleDeleteDocument = (docId: string) => {
+        if (!confirm("Document verwijderen?")) return;
+        const updatedDocs = (employee.documents || []).filter(d => d.id !== docId);
+        onUpdate({ ...employee, documents: updatedDocs });
+        onShowToast("Document verwijderd.");
     };
 
     // --- RENDERERS ---
@@ -112,79 +224,139 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
             ...(employee.notes || []).map(n => ({ ...n, source: 'note', sortDate: new Date(n.date.split('-').reverse().join('-')), type: 'Note', description: n.content, loggedBy: n.author }))
         ].sort((a,b) => b.sortDate.getTime() - a.sortDate.getTime());
 
-        if (allItems.length === 0) return <div className="p-8 text-center text-slate-400 italic">Nog geen dossier items.</div>;
-
         return (
-            <div className="space-y-6">
-                {allItems.map((item: any) => (
-                    <div key={item.id} className="relative pl-8 group">
-                        {/* Connector Line */}
-                        <div className="absolute left-3.5 top-8 bottom-[-24px] w-0.5 bg-slate-200 group-last:hidden"></div>
-                        
-                        {/* Icon */}
-                        <div className={`absolute left-0 top-0 w-8 h-8 rounded-full border-2 flex items-center justify-center z-10 ${
-                            item.type === 'Sick' ? 'bg-red-50 border-red-200 text-red-600' :
-                            item.type === 'Warning' ? 'bg-slate-900 border-slate-700 text-white' :
-                            item.type === 'Recovery' ? 'bg-green-50 border-green-200 text-green-600' :
-                            'bg-white border-slate-200 text-slate-400'
-                        }`}>
-                            {item.type === 'Sick' && <Thermometer size={14} />}
-                            {item.type === 'Warning' && <AlertTriangle size={14} />}
-                            {item.type === 'Recovery' && <CheckCircle2 size={14} />}
-                            {item.type === 'Note' && <MessageSquare size={14} />}
-                            {item.type === 'Late' && <Clock size={14} />}
+            <div className="space-y-8">
+                {/* STATS DASHBOARD */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 bg-red-50 text-red-600 rounded-lg"><Thermometer size={18}/></div>
+                            <span className="text-xs font-bold text-slate-400 uppercase">Ziek</span>
                         </div>
-
-                        {/* Content Card */}
-                        <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
-                            <div className="flex justify-between items-start mb-2">
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="font-bold text-slate-900">{item.title}</span>
-                                        {item.type === 'Sick' && !item.endDate && (
-                                            <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">Actief</span>
-                                        )}
-                                        {item.source === 'note' && (
-                                            <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full">Notitie</span>
-                                        )}
-                                    </div>
-                                    <div className="text-xs text-slate-500 mt-0.5">
-                                        {item.date} • Door: {item.loggedBy || item.author}
-                                    </div>
-                                </div>
-                                {item.type === 'Sick' && !item.endDate && (
-                                    <button 
-                                        onClick={() => handleResolveSick(item.id)}
-                                        className="text-xs bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg font-bold hover:bg-green-100 transition-colors"
-                                    >
-                                        Beter Melden
-                                    </button>
-                                )}
-                            </div>
-                            
-                            <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
-                                {item.description || item.content}
-                            </p>
-
-                            {/* Meta Data Display */}
-                            {item.meta && (
-                                <div className="mt-3 pt-3 border-t border-slate-50 flex gap-4 text-xs text-slate-500">
-                                    {item.meta.severity && (
-                                        <span className="flex items-center gap-1">
-                                            <ShieldAlert size={12} className={item.meta.severity === 'High' ? 'text-red-500' : 'text-amber-500'}/> 
-                                            Ernst: {item.meta.severity}
-                                        </span>
-                                    )}
-                                    {item.meta.sickType && (
-                                        <span className="flex items-center gap-1">
-                                            <Thermometer size={12}/> Type: {item.meta.sickType}
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-                        </div>
+                        <div className="text-2xl font-bold text-slate-900">{stats.sickCount}x</div>
+                        {stats.activeSick && <span className="text-[10px] text-red-600 font-bold flex items-center gap-1 mt-1"><span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span> Nu Actief</span>}
                     </div>
-                ))}
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 bg-amber-50 text-amber-600 rounded-lg"><Clock size={18}/></div>
+                            <span className="text-xs font-bold text-slate-400 uppercase">Te Laat</span>
+                        </div>
+                        <div className="text-2xl font-bold text-slate-900">{stats.lateCount}x</div>
+                    </div>
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 bg-slate-100 text-slate-600 rounded-lg"><AlertTriangle size={18}/></div>
+                            <span className="text-xs font-bold text-slate-400 uppercase">Waarschuwing</span>
+                        </div>
+                        <div className="text-2xl font-bold text-slate-900">{stats.warningCount}x</div>
+                    </div>
+                    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="flex items-center gap-3 mb-2">
+                            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><MessageSquare size={18}/></div>
+                            <span className="text-xs font-bold text-slate-400 uppercase">Notities</span>
+                        </div>
+                        <div className="text-2xl font-bold text-slate-900">{stats.notesCount}</div>
+                    </div>
+                </div>
+
+                {/* TIMELINE ITEMS */}
+                {allItems.length === 0 ? (
+                    <div className="p-12 text-center text-slate-400 italic border-2 border-dashed border-slate-200 rounded-2xl">
+                        Nog geen dossier items. Gebruik de knoppen links om iets toe te voegen.
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                        {allItems.map((item: any) => (
+                            <div key={item.id} className="relative pl-8 group">
+                                {/* Connector Line */}
+                                <div className="absolute left-3.5 top-8 bottom-[-24px] w-0.5 bg-slate-200 group-last:hidden"></div>
+                                
+                                {/* Icon */}
+                                <div className={`absolute left-0 top-0 w-8 h-8 rounded-full border-2 flex items-center justify-center z-10 ${
+                                    item.type === 'Sick' ? 'bg-red-50 border-red-200 text-red-600' :
+                                    item.type === 'Warning' ? 'bg-slate-900 border-slate-700 text-white' :
+                                    item.type === 'Recovery' ? 'bg-green-50 border-green-200 text-green-600' :
+                                    'bg-white border-slate-200 text-slate-400'
+                                }`}>
+                                    {item.type === 'Sick' && <Thermometer size={14} />}
+                                    {item.type === 'Warning' && <AlertTriangle size={14} />}
+                                    {item.type === 'Recovery' && <CheckCircle2 size={14} />}
+                                    {item.type === 'Note' && <MessageSquare size={14} />}
+                                    {item.type === 'Late' && <Clock size={14} />}
+                                </div>
+
+                                {/* Content Card */}
+                                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow group/card relative">
+                                    {/* Edit/Delete Actions (Hover) */}
+                                    <div className="absolute top-3 right-3 opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-2">
+                                        {item.type !== 'Recovery' && (
+                                            <button 
+                                                onClick={() => openActionModal(item.type, item, item.source)}
+                                                className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                                title="Bewerken"
+                                            >
+                                                <Edit2 size={14}/>
+                                            </button>
+                                        )}
+                                        <button 
+                                            onClick={() => handleDeleteEntry(item.id, item.source)}
+                                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                            title="Verwijderen"
+                                        >
+                                            <Trash2 size={14}/>
+                                        </button>
+                                    </div>
+
+                                    <div className="flex justify-between items-start mb-2 pr-12">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-bold text-slate-900">{item.title}</span>
+                                                {item.type === 'Sick' && !item.endDate && (
+                                                    <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">Actief</span>
+                                                )}
+                                                {item.source === 'note' && (
+                                                    <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-0.5 rounded-full">Notitie</span>
+                                                )}
+                                            </div>
+                                            <div className="text-xs text-slate-500 mt-0.5">
+                                                {item.date} • Door: {item.loggedBy || item.author}
+                                            </div>
+                                        </div>
+                                        {item.type === 'Sick' && !item.endDate && (
+                                            <button 
+                                                onClick={() => handleResolveSick(item.id)}
+                                                className="text-xs bg-green-50 text-green-700 border border-green-200 px-3 py-1.5 rounded-lg font-bold hover:bg-green-100 transition-colors"
+                                            >
+                                                Beter Melden
+                                            </button>
+                                        )}
+                                    </div>
+                                    
+                                    <p className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                                        {item.description || item.content}
+                                    </p>
+
+                                    {/* Meta Data Display */}
+                                    {item.meta && (
+                                        <div className="mt-3 pt-3 border-t border-slate-50 flex gap-4 text-xs text-slate-500">
+                                            {item.meta.severity && (
+                                                <span className="flex items-center gap-1">
+                                                    <ShieldAlert size={12} className={item.meta.severity === 'High' ? 'text-red-500' : 'text-amber-500'}/> 
+                                                    Ernst: {item.meta.severity}
+                                                </span>
+                                            )}
+                                            {item.meta.sickType && (
+                                                <span className="flex items-center gap-1">
+                                                    <Thermometer size={12}/> Type: {item.meta.sickType}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </div>
         );
     };
@@ -222,6 +394,9 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                             </button>
                             <button onClick={() => openActionModal('Sick')} className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-700 hover:text-red-700 font-bold text-sm flex items-center gap-3 transition-colors">
                                 <Thermometer size={16} className="text-red-500"/> Ziek Melden
+                            </button>
+                            <button onClick={() => openActionModal('Late')} className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-200 text-slate-700 hover:text-amber-700 font-bold text-sm flex items-center gap-3 transition-colors">
+                                <Clock size={16} className="text-amber-500"/> Te Laat
                             </button>
                             <button onClick={() => openActionModal('Warning')} className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-amber-50 border border-slate-200 hover:border-amber-200 text-slate-700 hover:text-amber-700 font-bold text-sm flex items-center gap-3 transition-colors">
                                 <AlertTriangle size={16} className="text-amber-500"/> Waarschuwing
@@ -302,23 +477,43 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                             </div>
                         )}
                         {activeTab === 'files' && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {employee.documents?.map(doc => (
-                                    <div key={doc.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-colors cursor-pointer group">
-                                        <div className="flex items-start justify-between mb-3">
-                                            <div className="p-2 bg-slate-50 rounded-lg text-slate-500 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
-                                                <FileText size={20}/>
+                            <div className="space-y-6">
+                                <div className="flex justify-between items-center">
+                                    <h3 className="font-bold text-slate-900">Bestanden</h3>
+                                    <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileUpload} />
+                                    <button onClick={() => fileInputRef.current?.click()} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors">
+                                        <Upload size={14}/> Uploaden
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                    {employee.documents?.map(doc => (
+                                        <div key={doc.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-colors cursor-pointer group relative">
+                                            <div className="flex items-start justify-between mb-3">
+                                                <div className="p-2 bg-slate-50 rounded-lg text-slate-500 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                                    <FileText size={20}/>
+                                                </div>
+                                                <button onClick={() => handleDeleteDocument(doc.id)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Trash2 size={16}/>
+                                                </button>
+                                            </div>
+                                            <h4 className="font-bold text-slate-900 text-sm mb-1 truncate">{doc.name}</h4>
+                                            <p className="text-xs text-slate-500">{doc.date} • {doc.size}</p>
+                                            <div className="mt-3 flex gap-2">
+                                                <button className="flex-1 py-1.5 bg-slate-50 text-slate-600 rounded text-xs font-bold hover:bg-slate-100 flex items-center justify-center gap-1">
+                                                    <Eye size={12}/> Bekijk
+                                                </button>
+                                                <button className="flex-1 py-1.5 bg-slate-50 text-slate-600 rounded text-xs font-bold hover:bg-slate-100 flex items-center justify-center gap-1">
+                                                    <Download size={12}/>
+                                                </button>
                                             </div>
                                         </div>
-                                        <h4 className="font-bold text-slate-900 text-sm mb-1 truncate">{doc.name}</h4>
-                                        <p className="text-xs text-slate-500">{doc.date} • {doc.size}</p>
-                                    </div>
-                                ))}
-                                {(!employee.documents || employee.documents.length === 0) && (
-                                    <div className="col-span-full py-12 text-center text-slate-400 italic border-2 border-dashed border-slate-200 rounded-xl">
-                                        Geen documenten in dit dossier.
-                                    </div>
-                                )}
+                                    ))}
+                                    {(!employee.documents || employee.documents.length === 0) && (
+                                        <div className="col-span-full py-12 text-center text-slate-400 italic border-2 border-dashed border-slate-200 rounded-xl">
+                                            Geen documenten in dit dossier.
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         )}
                     </div>
@@ -329,7 +524,7 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
             <Modal
                 isOpen={isActionModalOpen}
                 onClose={() => setIsActionModalOpen(false)}
-                title={actionType === 'Sick' ? 'Ziekmelding Registreren' : actionType === 'Warning' ? 'Officiële Waarschuwing' : 'Nieuwe Notitie'}
+                title={editingEntryId ? `Wijzig ${actionType === 'Note' ? 'Notitie' : 'Dossier Item'}` : (actionType === 'Sick' ? 'Ziekmelding Registreren' : actionType === 'Warning' ? 'Officiële Waarschuwing' : actionType === 'Late' ? 'Te Laat Melding' : 'Nieuwe Notitie')}
             >
                 <form onSubmit={handleSaveEntry} className="space-y-6">
                     {/* Common Date Field */}
@@ -391,7 +586,7 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                         </div>
                     )}
 
-                    {(actionType === 'Note' || actionType === 'Warning') && (
+                    {(actionType === 'Note' || actionType === 'Warning' || actionType === 'Late') && (
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Onderwerp / Titel</label>
                             <input 
