@@ -114,7 +114,7 @@ export interface GlobalSettings {
 export interface EmployeeNote {
   id: string;
   title: string;
-  category: 'General' | 'Performance' | 'Verzuim' | 'Gesprek' | 'Incident';
+  category: 'General' | 'Performance' | 'Verzuim' | 'Gesprek' | 'Incident' | 'Compliment';
   content: string;
   date: string;
   author: string;
@@ -124,7 +124,7 @@ export interface EmployeeNote {
 }
 
 // --- NEW DOSSIER TYPES ---
-export type DossierEntryType = 'Sick' | 'Late' | 'Warning' | 'OfficialNote' | 'Recovery';
+export type DossierEntryType = 'Sick' | 'Late' | 'Warning' | 'OfficialNote' | 'Recovery' | 'Compliment';
 
 export interface DossierEntry {
   id: string;

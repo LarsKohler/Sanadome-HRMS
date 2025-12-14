@@ -5,7 +5,7 @@ import {
     Briefcase, Clock, AlertTriangle, Thermometer, 
     FileText, Plus, CheckCircle2, MessageSquare, 
     Trash2, ShieldAlert, History, Paperclip, 
-    ChevronDown, Save, Edit2, Upload, Download, ArrowUpRight, Eye
+    ChevronDown, Save, Edit2, Upload, Download, ArrowUpRight, Eye, Heart
 } from 'lucide-react';
 import { Employee, DossierEntry, EmployeeNote, DossierEntryType, EmployeeDocument } from '../types';
 import { Modal } from './Modal';
@@ -22,6 +22,9 @@ interface HRDossierDetailProps {
 const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser, onUpdate, onClose, onShowToast }) => {
     const [activeTab, setActiveTab] = useState<'timeline' | 'files'>('timeline');
     
+    // Filtering
+    const [timelineFilter, setTimelineFilter] = useState<'All' | 'Sick' | 'Late' | 'Warning' | 'Note' | 'Compliment'>('All');
+
     // Modal States
     const [isActionModalOpen, setIsActionModalOpen] = useState(false);
     const [actionType, setActionType] = useState<DossierEntryType | 'Note'>('Note');
@@ -43,9 +46,10 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
         const activeSick = dossier.find(e => e.type === 'Sick' && !e.endDate);
         const lateCount = dossier.filter(e => e.type === 'Late').length;
         const warningCount = dossier.filter(e => e.type === 'Warning').length;
+        const complimentCount = dossier.filter(e => e.type === 'Compliment').length;
         const notesCount = employee.notes ? employee.notes.length : 0;
 
-        return { sickCount, activeSick, lateCount, warningCount, notesCount };
+        return { sickCount, activeSick, lateCount, warningCount, notesCount, complimentCount };
     }, [employee]);
 
     // --- ACTIONS ---
@@ -84,10 +88,12 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
         } else {
             resetForms();
             // Pre-fill generic titles
-            setNoteForm(prev => ({ 
-                ...prev, 
-                title: type === 'Sick' ? 'Ziekmelding' : type === 'Warning' ? 'Officiële Waarschuwing' : '' 
-            }));
+            let title = '';
+            if (type === 'Sick') title = 'Ziekmelding';
+            else if (type === 'Warning') title = 'Officiële Waarschuwing';
+            else if (type === 'Compliment') title = 'Compliment';
+            
+            setNoteForm(prev => ({ ...prev, title }));
         }
         setIsActionModalOpen(true);
     };
@@ -121,7 +127,7 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                 id: editingEntryId || crypto.randomUUID(),
                 type: actionType as DossierEntryType,
                 date: formattedDate,
-                title: noteForm.title || (actionType === 'Sick' ? 'Ziekmelding' : actionType === 'Warning' ? 'Officiële Waarschuwing' : 'Notitie'),
+                title: noteForm.title || (actionType === 'Sick' ? 'Ziekmelding' : actionType === 'Warning' ? 'Officiële Waarschuwing' : actionType === 'Compliment' ? 'Compliment' : 'Notitie'),
                 description: noteForm.content,
                 loggedBy: currentUser.name,
                 meta: actionType === 'Sick' ? { sickType: sickForm.type as any, tasksHandedOver: sickForm.tasksHandedOver } :
@@ -239,15 +245,24 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
 
     const renderTimeline = () => {
         // Combine Dossier Entries AND Notes into one timeline
-        const allItems = [
+        let allItems = [
             ...(employee.dossier || []).map(d => ({ ...d, source: 'dossier', sortDate: new Date(d.date.split('-').reverse().join('-')) })),
             ...(employee.notes || []).map(n => ({ ...n, source: 'note', sortDate: new Date(n.date.split('-').reverse().join('-')), type: 'Note', description: n.content, loggedBy: n.author }))
         ].sort((a,b) => b.sortDate.getTime() - a.sortDate.getTime());
 
+        // --- FILTERING ---
+        if (timelineFilter !== 'All') {
+            allItems = allItems.filter(item => {
+                if (timelineFilter === 'Note' && item.source === 'note') return true;
+                if (timelineFilter === 'Compliment' && item.type === 'Compliment') return true;
+                return item.type === timelineFilter;
+            });
+        }
+
         return (
             <div className="space-y-8">
-                {/* STATS DASHBOARD - UPDATED FOR BETTER FIT */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* STATS DASHBOARD - UPDATED FOR BETTER FIT (5 Columns) */}
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-28 relative overflow-hidden">
                         <div className="flex items-center gap-2 z-10">
                             <div className="p-1.5 bg-red-50 text-red-600 rounded-lg"><Thermometer size={16}/></div>
@@ -279,6 +294,14 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                         </div>
                         <div className="text-2xl font-bold text-slate-900">{stats.warningCount}x</div>
                     </div>
+
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-28">
+                        <div className="flex items-center gap-2">
+                            <div className="p-1.5 bg-green-50 text-green-600 rounded-lg"><Heart size={16}/></div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate" title="Complimenten">Complimenten</span>
+                        </div>
+                        <div className="text-2xl font-bold text-slate-900">{stats.complimentCount}x</div>
+                    </div>
                     
                     <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-28">
                         <div className="flex items-center gap-2">
@@ -289,10 +312,35 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                     </div>
                 </div>
 
+                {/* FILTER BAR */}
+                <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
+                    {[
+                        { id: 'All', label: 'Alles Toon' },
+                        { id: 'Sick', label: 'Ziekte', icon: Thermometer },
+                        { id: 'Late', label: 'Te Laat', icon: Clock },
+                        { id: 'Warning', label: 'Waarschuwing', icon: AlertTriangle },
+                        { id: 'Compliment', label: 'Compliment', icon: Heart },
+                        { id: 'Note', label: 'Notities', icon: MessageSquare },
+                    ].map(f => (
+                        <button
+                            key={f.id}
+                            onClick={() => setTimelineFilter(f.id as any)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap border transition-all flex items-center gap-1.5 ${
+                                timelineFilter === f.id 
+                                ? 'bg-slate-900 text-white border-slate-900' 
+                                : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                            }`}
+                        >
+                            {f.icon && <f.icon size={12}/>}
+                            {f.label}
+                        </button>
+                    ))}
+                </div>
+
                 {/* TIMELINE ITEMS */}
                 {allItems.length === 0 ? (
                     <div className="p-12 text-center text-slate-400 italic border-2 border-dashed border-slate-200 rounded-2xl">
-                        Nog geen dossier items. Gebruik de knoppen links om iets toe te voegen.
+                        Geen items gevonden met dit filter.
                     </div>
                 ) : (
                     <div className="space-y-6">
@@ -306,6 +354,7 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                                     item.type === 'Sick' ? 'bg-red-50 border-red-200 text-red-600' :
                                     item.type === 'Warning' ? 'bg-slate-900 border-slate-700 text-white' :
                                     item.type === 'Recovery' ? 'bg-green-50 border-green-200 text-green-600' :
+                                    item.type === 'Compliment' ? 'bg-green-50 border-green-200 text-green-600' :
                                     'bg-white border-slate-200 text-slate-400'
                                 }`}>
                                     {item.type === 'Sick' && <Thermometer size={14} />}
@@ -313,10 +362,13 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                                     {item.type === 'Recovery' && <CheckCircle2 size={14} />}
                                     {item.type === 'Note' && <MessageSquare size={14} />}
                                     {item.type === 'Late' && <Clock size={14} />}
+                                    {item.type === 'Compliment' && <Heart size={14} fill="currentColor" />}
                                 </div>
 
                                 {/* Content Card */}
-                                <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow group/card relative">
+                                <div className={`border rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow group/card relative ${
+                                    item.type === 'Compliment' ? 'bg-green-50/30 border-green-100' : 'bg-white border-slate-200'
+                                }`}>
                                     {/* Edit/Delete Actions (Hover) */}
                                     <div className="absolute top-3 right-3 opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-2">
                                         {item.type !== 'Recovery' && (
@@ -340,7 +392,7 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                                     <div className="flex justify-between items-start mb-2 pr-12">
                                         <div>
                                             <div className="flex items-center gap-2">
-                                                <span className="font-bold text-slate-900">{item.title}</span>
+                                                <span className={`font-bold ${item.type === 'Compliment' ? 'text-green-800' : 'text-slate-900'}`}>{item.title}</span>
                                                 {item.type === 'Sick' && !item.endDate && (
                                                     <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full animate-pulse">Actief</span>
                                                 )}
@@ -421,6 +473,9 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                         <div className="space-y-2">
                             <button onClick={() => openActionModal('Note')} className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold text-sm flex items-center gap-3 transition-colors">
                                 <MessageSquare size={16} className="text-blue-500"/> Notitie
+                            </button>
+                            <button onClick={() => openActionModal('Compliment')} className="w-full text-left px-4 py-3 rounded-xl bg-green-50 hover:bg-green-100 border border-green-200 text-green-700 font-bold text-sm flex items-center gap-3 transition-colors">
+                                <Heart size={16} className="text-green-600"/> Compliment
                             </button>
                             <button onClick={() => openActionModal('Sick')} className="w-full text-left px-4 py-3 rounded-xl bg-slate-50 hover:bg-red-50 border border-slate-200 hover:border-red-200 text-slate-700 hover:text-red-700 font-bold text-sm flex items-center gap-3 transition-colors">
                                 <Thermometer size={16} className="text-red-500"/> Ziek Melden
@@ -554,7 +609,7 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
             <Modal
                 isOpen={isActionModalOpen}
                 onClose={() => setIsActionModalOpen(false)}
-                title={editingEntryId ? `Wijzig ${actionType === 'Note' ? 'Notitie' : 'Dossier Item'}` : (actionType === 'Sick' ? 'Ziekmelding Registreren' : actionType === 'Warning' ? 'Officiële Waarschuwing' : actionType === 'Late' ? 'Te Laat Melding' : 'Nieuwe Notitie')}
+                title={editingEntryId ? `Wijzig ${actionType === 'Note' ? 'Notitie' : 'Dossier Item'}` : (actionType === 'Sick' ? 'Ziekmelding Registreren' : actionType === 'Warning' ? 'Officiële Waarschuwing' : actionType === 'Late' ? 'Te Laat Melding' : actionType === 'Compliment' ? 'Compliment Geven' : 'Nieuwe Notitie')}
             >
                 <form onSubmit={handleSaveEntry} className="space-y-6">
                     {/* Common Date Field */}
@@ -616,14 +671,14 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                         </div>
                     )}
 
-                    {(actionType === 'Note' || actionType === 'Warning' || actionType === 'Late') && (
+                    {(actionType === 'Note' || actionType === 'Warning' || actionType === 'Late' || actionType === 'Compliment') && (
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Onderwerp / Titel</label>
                             <input 
                                 type="text"
                                 required
                                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-                                placeholder={actionType === 'Warning' ? 'Reden van waarschuwing' : 'Korte titel'}
+                                placeholder={actionType === 'Warning' ? 'Reden van waarschuwing' : actionType === 'Compliment' ? 'Waarvoor is dit compliment?' : 'Korte titel'}
                                 value={noteForm.title}
                                 onChange={e => setNoteForm({...noteForm, title: e.target.value})}
                             />
