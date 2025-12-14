@@ -36,7 +36,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       addressCountry: 'Nederland',
       amount: 0,
       status: 'New' as DebtorStatus,
-      cashlistReason: ''
+      cashlistReason: '',
+      correctionReason: ''
   });
   const [isAddressParseError, setIsAddressParseError] = useState(false);
   const [newDetailNote, setNewDetailNote] = useState('');
@@ -46,6 +47,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [statusTargetIds, setStatusTargetIds] = useState<string[]>([]); 
   const [bulkCashlistReason, setBulkCashlistReason] = useState('');
+  const [bulkCorrectionReason, setBulkCorrectionReason] = useState('');
   const [targetStatus, setTargetStatus] = useState<DebtorStatus | null>(null);
 
   // Custom Confirm Modal State
@@ -369,6 +371,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       if (selectedIds.size === 0) return;
       setStatusTargetIds(Array.from(selectedIds) as string[]);
       setBulkCashlistReason('');
+      setBulkCorrectionReason('');
       setTargetStatus(null);
       setIsStatusModalOpen(true);
   };
@@ -399,14 +402,19 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const openSingleStatusModal = (id: string) => {
       setStatusTargetIds([id]);
       setBulkCashlistReason('');
+      setBulkCorrectionReason('');
       setTargetStatus(null);
       setIsStatusModalOpen(true);
   };
 
   const handleStatusSelect = (newStatus: DebtorStatus) => {
       setTargetStatus(newStatus);
-      // If NOT cashlist, apply immediately. If Cashlist, wait for user to type reason and click Save.
-      if (newStatus !== 'Cashlist') {
+      // Reset specialized reasons when switching status
+      if (newStatus !== 'Cashlist') setBulkCashlistReason('');
+      if (newStatus !== 'Correction') setBulkCorrectionReason('');
+
+      // If NOT cashlist OR correction, apply immediately. 
+      if (newStatus !== 'Cashlist' && newStatus !== 'Correction') {
           applyStatusChange(newStatus);
       }
   };
@@ -414,11 +422,9 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const applyStatusChange = (newStatus: DebtorStatus) => {
       if (statusTargetIds.length === 0) return;
       
-      // If Cashlist, validate reason
-      if (newStatus === 'Cashlist' && !bulkCashlistReason.trim()) {
-          // This should ideally be blocked by UI, but good safety
-          return; 
-      }
+      // Validation for special statuses
+      if (newStatus === 'Cashlist' && !bulkCashlistReason.trim()) return;
+      if (newStatus === 'Correction' && !bulkCorrectionReason.trim()) return;
 
       setIsStatusModalOpen(false);
 
@@ -430,11 +436,27 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           onConfirm: async () => {
               const updatedList = debtors.map(d => {
                   if (statusTargetIds.includes(d.id)) {
+                      // Determine the specific reason string if applicable
+                      let specificReason = '';
+                      if (newStatus === 'Cashlist') specificReason = bulkCashlistReason;
+                      else if (newStatus === 'Correction') specificReason = bulkCorrectionReason;
+
+                      // Create a log entry for the status change
+                      const noteContent = `Status gewijzigd van '${d.status}' naar '${newStatus}'.${specificReason ? ` Reden: ${specificReason}` : ''}`;
+                      const newNote: DebtorNote = {
+                          id: Math.random().toString(36).substr(2, 9),
+                          content: noteContent,
+                          date: new Date().toISOString(),
+                          author: currentUser.name
+                      };
+
                       return { 
                           ...d, 
                           status: newStatus, 
                           statusDate: new Date().toISOString(),
-                          cashlistReason: newStatus === 'Cashlist' ? bulkCashlistReason : d.cashlistReason 
+                          cashlistReason: newStatus === 'Cashlist' ? bulkCashlistReason : d.cashlistReason,
+                          correctionReason: newStatus === 'Correction' ? bulkCorrectionReason : d.correctionReason,
+                          notes: [...(d.notes || []), newNote] // Add timeline note
                       };
                   }
                   return d;
@@ -445,6 +467,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
               setStatusTargetIds([]);
               setSelectedIds(new Set());
               setBulkCashlistReason('');
+              setBulkCorrectionReason('');
               setTargetStatus(null);
               onShowToast("Status succesvol aangepast");
               closeConfirmModal();
@@ -579,7 +602,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           addressCountry: parsed.country,
           amount: debtor.amount,
           status: debtor.status,
-          cashlistReason: debtor.cashlistReason || ''
+          cashlistReason: debtor.cashlistReason || '',
+          correctionReason: debtor.correctionReason || ''
       });
       setNewDetailNote('');
   };
@@ -591,9 +615,30 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           onShowToast("Reden voor Cashlist is verplicht.");
           return;
       }
+      if (detailForm.status === 'Correction' && !detailForm.correctionReason.trim()) {
+          onShowToast("Reden voor Correctie is verplicht.");
+          return;
+      }
 
       // RECOMBINE ADDRESS: Standardize format "Street Nr, Zip City, Country"
       const fullAddress = `${detailForm.addressStreet} ${detailForm.addressNumber}, ${detailForm.addressZip} ${detailForm.addressCity}, ${detailForm.addressCountry}`.trim().replace(/^,/, '').replace(/,$/, '');
+
+      // Create update note if status changed
+      const currentNotes = [...(detailDebtor.notes || [])];
+      if (detailForm.status !== detailDebtor.status) {
+          let reasonText = '';
+          if (detailForm.status === 'Cashlist') reasonText = detailForm.cashlistReason;
+          if (detailForm.status === 'Correction') reasonText = detailForm.correctionReason;
+          
+          const noteContent = `Status gewijzigd van '${detailDebtor.status}' naar '${detailForm.status}'.${reasonText ? ` Reden: ${reasonText}` : ''}`;
+          
+          currentNotes.push({
+              id: Math.random().toString(36).substr(2, 9),
+              content: noteContent,
+              date: new Date().toISOString(),
+              author: currentUser.name
+          });
+      }
 
       const updatedDebtor: Debtor = {
           ...detailDebtor,
@@ -605,7 +650,9 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           amount: detailForm.amount,
           status: detailForm.status,
           statusDate: detailForm.status !== detailDebtor.status ? new Date().toISOString() : detailDebtor.statusDate,
-          cashlistReason: detailForm.status === 'Cashlist' ? detailForm.cashlistReason : detailDebtor.cashlistReason
+          cashlistReason: detailForm.status === 'Cashlist' ? detailForm.cashlistReason : detailDebtor.cashlistReason,
+          correctionReason: detailForm.status === 'Correction' ? detailForm.correctionReason : detailDebtor.correctionReason,
+          notes: currentNotes
       };
 
       const updatedList = debtors.map(d => d.id === updatedDebtor.id ? updatedDebtor : d);
@@ -1218,6 +1265,30 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                           </button>
                       </div>
                   </div>
+              ) : targetStatus === 'Correction' ? (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                          <label className="block text-xs font-bold text-slate-700 uppercase mb-2">Reden voor Correctie (Verplicht)</label>
+                          <textarea 
+                              className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-slate-500 outline-none bg-white"
+                              rows={3}
+                              placeholder="Waarom wordt dit dossier gecorrigeerd?"
+                              value={bulkCorrectionReason}
+                              onChange={(e) => setBulkCorrectionReason(e.target.value)}
+                              autoFocus
+                          />
+                      </div>
+                      <div className="flex gap-3 pt-2">
+                          <button onClick={() => setTargetStatus(null)} className="flex-1 py-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-50">Terug</button>
+                          <button 
+                              onClick={() => applyStatusChange('Correction')}
+                              disabled={!bulkCorrectionReason.trim()}
+                              className="flex-1 py-3 bg-slate-700 text-white rounded-xl font-bold text-sm shadow-md hover:bg-slate-800 disabled:opacity-50"
+                          >
+                              Bevestigen
+                          </button>
+                      </div>
+                  </div>
               ) : (
                   <div className="grid grid-cols-2 gap-4">
                       <StatusOptionCard 
@@ -1367,6 +1438,22 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                               </div>
                           )}
 
+                          {/* Correction Reason Input (Visible if status is Correction) */}
+                          {detailForm.status === 'Correction' && (
+                              <div className="bg-slate-100 p-4 rounded-xl border border-slate-200 animate-in slide-in-from-top-2">
+                                  <label className="block text-xs font-bold text-slate-700 uppercase mb-2 flex items-center gap-1">
+                                      <AlertCircle size={12}/> Reden Correctie (Verplicht)
+                                  </label>
+                                  <textarea 
+                                      className="w-full p-3 border border-slate-300 rounded-xl text-sm focus:ring-2 focus:ring-slate-500 outline-none bg-white"
+                                      rows={3}
+                                      placeholder="Waarom wordt dit dossier gecorrigeerd?"
+                                      value={detailForm.correctionReason}
+                                      onChange={(e) => setDetailForm({...detailForm, correctionReason: e.target.value})}
+                                  />
+                              </div>
+                          )}
+
                           <div className="grid grid-cols-2 gap-4">
                               <div>
                                   <label className="block text-xs font-bold text-slate-500 uppercase mb-2">E-mailadres</label>
@@ -1486,7 +1573,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                           <div className="pt-4 border-t border-slate-100">
                               <button 
                                 onClick={handleSaveDetails}
-                                disabled={detailForm.status === 'Cashlist' && !detailForm.cashlistReason.trim()}
+                                disabled={(detailForm.status === 'Cashlist' && !detailForm.cashlistReason.trim()) || (detailForm.status === 'Correction' && !detailForm.correctionReason.trim())}
                                 className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                   <Save size={18}/> Wijzigingen Opslaan

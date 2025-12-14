@@ -525,6 +525,7 @@ export interface Debtor {
   isEnriched?: boolean;
   notes?: DebtorNote[];
   cashlistReason?: string;
+  correctionReason?: string;
 }
 
 export type SurveyQuestionType = 'Rating' | 'Scale10' | 'YesNo' | 'Text' | 'Choice';
