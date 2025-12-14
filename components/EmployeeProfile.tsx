@@ -1,14 +1,13 @@
 
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Briefcase, MapPin, 
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy, Lock, Pencil, Medal, Calendar as CalendarIcon
+  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy, Lock, Pencil, Medal, Calendar as CalendarIcon, Thermometer, FolderOpen, Info
 } from 'lucide-react';
-import { Employee, EmployeeNote, EmployeeDocument, ViewState, NewsPost, EvaluationCycle, BadgeIconKey, BadgeColor, AssignedBadge, AcademyCourse, AcademyProgress, Applicant } from '../types';
+import { Employee, EmployeeNote, EmployeeDocument, ViewState, NewsPost, EvaluationCycle, BadgeIconKey, BadgeColor, AssignedBadge, AcademyCourse, AcademyProgress, Applicant, DossierEntry } from '../types';
 import { Modal } from './Modal';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { api } from '../utils/api';
@@ -16,20 +15,9 @@ import { hasPermission } from '../utils/permissions';
 
 // ... (Existing Constants BADGE_ICONS, BADGE_COLORS) ...
 const BADGE_ICONS: Record<BadgeIconKey, React.ElementType> = {
-    'Trophy': Trophy,
-    'Star': Star,
-    'Medal': Medal,
-    'Heart': Heart,
-    'Zap': Zap,
-    'Shield': Shield,
-    'Rocket': Rocket,
-    'Crown': Crown,
-    'ThumbsUp': ThumbsUp,
-    'Lightbulb': Lightbulb,
-    'Flame': Flame,
-    'Target': Target,
-    'Users': Users,
-    'Eye': Eye
+    'Trophy': Trophy, 'Star': Star, 'Medal': Medal, 'Heart': Heart, 'Zap': Zap, 'Shield': Shield,
+    'Rocket': Rocket, 'Crown': Crown, 'ThumbsUp': ThumbsUp, 'Lightbulb': Lightbulb, 'Flame': Flame,
+    'Target': Target, 'Users': Users, 'Eye': Eye
 };
 
 const BADGE_COLORS: Record<BadgeColor, string> = {
@@ -88,6 +76,15 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   const [activeTab, setActiveTab] = useState('Overzicht');
   const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
   
+  // NEW: HR Dossier States
+  const [isSickModalOpen, setIsSickModalOpen] = useState(false);
+  const [isLateModalOpen, setIsLateModalOpen] = useState(false);
+  const [isWarningModalOpen, setIsWarningModalOpen] = useState(false);
+  
+  const [sickForm, setSickForm] = useState({ duration: '', tasksHandedOver: false, type: 'Kort' as 'Kort'|'Lang'|'Frequent', notes: '' });
+  const [lateForm, setLateForm] = useState({ minutes: 0, reason: '', date: new Date().toISOString().split('T')[0] });
+  const [warningForm, setWarningForm] = useState({ title: '', description: '', severity: 'Low' as 'Low'|'Medium'|'High' });
+
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
@@ -95,6 +92,8 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   const isOwnProfile = employee.id === currentUser.id;
   const isManager = hasPermission(currentUser, 'MANAGE_EMPLOYEES');
   const canEdit = isOwnProfile || isManager;
+  // Dossier Access: Only Managers can SEE and EDIT the HR Dossier tab.
+  const canViewDossier = isManager; 
 
   // Note State
   const [noteTitle, setNoteTitle] = useState('');
@@ -224,11 +223,15 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
             availableTabs.push('Onboarding');
         }
         availableTabs.push('Documenten');
-    } else {
+    }
+    if (canViewDossier) {
+        availableTabs.push('HR Dossier');
+    }
+    if (!isOwnProfile && !isManager) {
         availableTabs.push('Contact');
     }
     return availableTabs;
-  }, [employee.onboardingStatus, employee.onboardingHistory, employee.onboardingTasks, isOwnProfile, isManager]);
+  }, [employee.onboardingStatus, employee.onboardingHistory, employee.onboardingTasks, isOwnProfile, isManager, canViewDossier]);
 
   useEffect(() => {
       if (!tabs.includes(activeTab)) {
@@ -261,29 +264,90 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
     }
   };
 
-  const handleAddNote = (e: React.FormEvent) => {
-    // ... existing implementation
-    e.preventDefault();
-    const newNote: EmployeeNote = {
-      id: Math.random().toString(36).substr(2, 9),
-      title: noteTitle,
-      category: noteCategory,
-      content: noteContent,
-      date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
-      author: currentUser.name, 
-      visibleToEmployee: noteVisible,
-      impact: noteImpact,
-      score: noteImpact === 'Neutral' ? 0 : (noteImpact === 'Negative' ? -Math.abs(noteScore) : Math.abs(noteScore))
-    };
-    const updatedEmployee = { ...employee, notes: [newNote, ...(employee.notes || [])] };
-    onUpdateEmployee(updatedEmployee);
-    setIsNoteModalOpen(false);
-    setNoteTitle('');
-    setNoteContent('');
-    setNoteVisible(true);
-    setNoteImpact('Neutral');
-    setNoteScore(0);
-    onShowToast('Notitie toegevoegd.');
+  // --- HR DOSSIER LOGIC ---
+
+  const handleAddSickLeave = async (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      const newEntry: DossierEntry = {
+          id: Math.random().toString(36).substr(2, 9),
+          type: 'Sick',
+          date: new Date().toLocaleDateString('nl-NL'),
+          title: 'Ziekmelding',
+          description: sickForm.notes || 'Geen toelichting',
+          loggedBy: currentUser.name,
+          meta: {
+              sickType: sickForm.type,
+              tasksHandedOver: sickForm.tasksHandedOver,
+              nextActionDate: new Date(Date.now() + 86400000 * 2).toLocaleDateString('nl-NL') // Follow up in 2 days
+          }
+      };
+
+      const updatedDossier = [newEntry, ...(employee.dossier || [])];
+      onUpdateEmployee({ ...employee, dossier: updatedDossier });
+      
+      setIsSickModalOpen(false);
+      setSickForm({ duration: '', tasksHandedOver: false, type: 'Kort', notes: '' });
+      onShowToast("Ziekmelding geregistreerd.");
+  };
+
+  const handleAddLateness = async (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      // Calculate Frequency
+      const recentLates = (employee.dossier || []).filter(e => {
+          const entryDate = new Date(e.date.split('-').reverse().join('-')); // Simple parse assumption or use timestamp
+          const thirtyDaysAgo = new Date();
+          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+          return e.type === 'Late' && entryDate > thirtyDaysAgo;
+      }).length;
+
+      const newEntry: DossierEntry = {
+          id: Math.random().toString(36).substr(2, 9),
+          type: 'Late',
+          date: new Date(lateForm.date).toLocaleDateString('nl-NL'),
+          title: 'Te Laat',
+          description: lateForm.reason,
+          loggedBy: currentUser.name,
+          meta: {
+              minutesLate: lateForm.minutes,
+              severity: lateForm.minutes > 30 ? 'Medium' : 'Low'
+          }
+      };
+
+      if (recentLates >= 2) {
+          alert(`Let op: Dit is de ${recentLates + 1}e keer te laat in 30 dagen. Overweeg een officiële waarschuwing.`);
+      }
+
+      const updatedDossier = [newEntry, ...(employee.dossier || [])];
+      onUpdateEmployee({ ...employee, dossier: updatedDossier });
+      
+      setIsLateModalOpen(false);
+      setLateForm({ minutes: 0, reason: '', date: new Date().toISOString().split('T')[0] });
+      onShowToast("Te laat melding geregistreerd.");
+  };
+
+  const handleAddWarning = async (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      const newEntry: DossierEntry = {
+          id: Math.random().toString(36).substr(2, 9),
+          type: 'Warning',
+          date: new Date().toLocaleDateString('nl-NL'),
+          title: warningForm.title,
+          description: warningForm.description,
+          loggedBy: currentUser.name,
+          meta: {
+              severity: warningForm.severity
+          }
+      };
+
+      const updatedDossier = [newEntry, ...(employee.dossier || [])];
+      onUpdateEmployee({ ...employee, dossier: updatedDossier });
+      
+      setIsWarningModalOpen(false);
+      setWarningForm({ title: '', description: '', severity: 'Low' });
+      onShowToast("Officiële waarschuwing vastgelegd.");
   };
 
   // --- RENDER SECTIONS ---
@@ -656,6 +720,145 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       );
   };
 
+  const renderHRDossier = () => {
+      // Calculate Stats
+      const sickLeaves = (employee.dossier || []).filter(e => e.type === 'Sick');
+      const lates = (employee.dossier || []).filter(e => e.type === 'Late');
+      
+      // Basic "Bradford Factor" calc (Frequency^2 * Days) - Simplified here to Frequency count for now
+      const sickFreqLast12Months = sickLeaves.filter(e => {
+          const d = new Date(e.date.split('-').reverse().join('-'));
+          const yearAgo = new Date();
+          yearAgo.setFullYear(yearAgo.getFullYear() - 1);
+          return d > yearAgo;
+      }).length;
+
+      const activeCase = sickLeaves.find(e => !e.endDate); // If no end date, considered open
+
+      return (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              {/* DOSSIER DASHBOARD */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Verzuim Meter */}
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+                      <div className="absolute right-0 top-0 p-4 opacity-10">
+                          <Thermometer size={64} className="text-slate-900"/>
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Verzuim Frequentie (12 mnd)</h4>
+                      <div className="flex items-end gap-2">
+                          <span className={`text-4xl font-bold ${sickFreqLast12Months > 3 ? 'text-red-600' : sickFreqLast12Months > 1 ? 'text-amber-500' : 'text-green-600'}`}>
+                              {sickFreqLast12Months}
+                          </span>
+                          <span className="text-sm text-slate-500 mb-1">meldingen</span>
+                      </div>
+                      {activeCase ? (
+                          <div className="mt-4 bg-red-50 text-red-700 text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-2 border border-red-100">
+                              <AlertCircle size={14}/> Huidig Ziek: Sinds {activeCase.date}
+                          </div>
+                      ) : (
+                          <div className="mt-4 text-xs text-green-600 font-bold flex items-center gap-1">
+                              <CheckCircle2 size={14}/> Geen lopend verzuim
+                          </div>
+                      )}
+                  </div>
+
+                  {/* Te Laat Teller */}
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm relative overflow-hidden">
+                      <div className="absolute right-0 top-0 p-4 opacity-10">
+                          <Clock size={64} className="text-slate-900"/>
+                      </div>
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Te Laat (Totaal)</h4>
+                      <div className="flex items-end gap-2">
+                          <span className="text-4xl font-bold text-slate-900">{lates.length}</span>
+                          <span className="text-sm text-slate-500 mb-1">keren</span>
+                      </div>
+                      <p className="text-xs text-slate-400 mt-4">Laatste keer: {lates[0]?.date || '-'}</p>
+                  </div>
+
+                  {/* Quick Actions */}
+                  <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200 flex flex-col justify-center gap-3">
+                      <button 
+                        onClick={() => setIsSickModalOpen(true)}
+                        className="w-full py-2.5 bg-white border border-red-200 text-red-700 font-bold text-sm rounded-xl shadow-sm hover:bg-red-50 flex items-center justify-center gap-2 transition-colors"
+                      >
+                          <Thermometer size={16}/> Meld Ziekte
+                      </button>
+                      <button 
+                        onClick={() => setIsLateModalOpen(true)}
+                        className="w-full py-2.5 bg-white border border-amber-200 text-amber-700 font-bold text-sm rounded-xl shadow-sm hover:bg-amber-50 flex items-center justify-center gap-2 transition-colors"
+                      >
+                          <Clock size={16}/> Meld Te Laat
+                      </button>
+                      <button 
+                        onClick={() => setIsWarningModalOpen(true)}
+                        className="w-full py-2.5 bg-slate-900 text-white font-bold text-sm rounded-xl shadow-md hover:bg-slate-800 flex items-center justify-center gap-2 transition-colors"
+                      >
+                          <AlertTriangle size={16}/> Officiële Waarschuwing
+                      </button>
+                  </div>
+              </div>
+
+              {/* TIMELINE */}
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center">
+                      <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                          <FolderOpen size={18} className="text-teal-600"/> Dossier Historie
+                      </h3>
+                  </div>
+                  <div className="p-6">
+                      {(employee.dossier && employee.dossier.length > 0) ? (
+                          <div className="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-slate-200">
+                              {employee.dossier.map((entry) => (
+                                  <div key={entry.id} className="relative flex items-start group">
+                                      <div className={`absolute left-0 top-1 w-10 h-10 rounded-full border-4 border-white flex items-center justify-center shadow-sm z-10 ${
+                                          entry.type === 'Sick' ? 'bg-red-100 text-red-600' : 
+                                          entry.type === 'Late' ? 'bg-amber-100 text-amber-600' :
+                                          entry.type === 'Warning' ? 'bg-slate-900 text-white' : 
+                                          'bg-blue-100 text-blue-600'
+                                      }`}>
+                                          {entry.type === 'Sick' && <Thermometer size={18}/>}
+                                          {entry.type === 'Late' && <Clock size={18}/>}
+                                          {entry.type === 'Warning' && <AlertTriangle size={18}/>}
+                                          {entry.type === 'OfficialNote' && <FileText size={18}/>}
+                                      </div>
+                                      <div className="ml-16 w-full">
+                                          <div className="flex justify-between items-start mb-1">
+                                              <div>
+                                                  <span className="text-xs font-bold text-slate-400">{entry.date}</span>
+                                                  <h4 className="font-bold text-slate-900 text-sm">{entry.title}</h4>
+                                              </div>
+                                              <span className="text-[10px] text-slate-400 font-medium bg-slate-100 px-2 py-1 rounded">
+                                                  Door: {entry.loggedBy}
+                                              </span>
+                                          </div>
+                                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 text-sm text-slate-600 leading-relaxed">
+                                              {entry.description}
+                                              {entry.meta?.minutesLate && (
+                                                  <div className="mt-2 text-xs font-bold text-amber-600">
+                                                      ⏱ {entry.meta.minutesLate} minuten te laat
+                                                  </div>
+                                              )}
+                                              {entry.meta?.nextActionDate && (
+                                                  <div className="mt-2 text-xs font-bold text-teal-600 flex items-center gap-1">
+                                                      <CalendarIcon size={12}/> Opvolging: {entry.meta.nextActionDate}
+                                                  </div>
+                                              )}
+                                          </div>
+                                      </div>
+                                  </div>
+                              ))}
+                          </div>
+                      ) : (
+                          <div className="text-center py-12 text-slate-400 italic">
+                              Nog geen dossier-items vastgelegd.
+                          </div>
+                      )}
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
   const renderCareerDetails = () => {
       const departmentDisplay = employee.departments ? employee.departments.join(', ') : 'Geen afdeling';
 
@@ -1006,16 +1209,179 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       {activeTab === 'Evaluatie' && renderPerformanceReport()}
       {activeTab === 'Onboarding' && renderOnboardingContent()}
       {activeTab === 'Contact' && renderContactContent()}
+      {activeTab === 'HR Dossier' && canViewDossier && renderHRDossier()}
 
-      <Modal
-        isOpen={isNoteModalOpen}
-        onClose={() => setIsNoteModalOpen(false)}
-        title="Notitie toevoegen"
-      >
-        <form onSubmit={handleAddNote} className="space-y-5">
-             <p className="text-slate-500 italic">Notitie functionaliteit is beschikbaar via het tabblad 'Documenten'.</p>
-             <button type="button" onClick={() => setIsNoteModalOpen(false)} className="w-full py-2 border border-slate-200 rounded-lg font-bold text-slate-600">Sluiten</button>
-        </form>
+      {/* SICK LEAVE MODAL */}
+      <Modal isOpen={isSickModalOpen} onClose={() => setIsSickModalOpen(false)} title="Nieuwe Ziekmelding">
+          <form onSubmit={handleAddSickLeave} className="space-y-6">
+              <div className="p-4 bg-red-50 border border-red-100 rounded-xl text-sm text-red-800 mb-4 flex items-start gap-3">
+                  <Thermometer className="shrink-0 mt-0.5" size={18}/>
+                  <div>
+                      <span className="font-bold">Protocol Ziekmelding:</span>
+                      <ul className="list-disc pl-4 mt-1 space-y-1">
+                          <li>Vraag naar vermoedelijke duur.</li>
+                          <li>Vraag of er lopende taken overgedragen moeten worden.</li>
+                          <li>Wens beterschap, maar vraag niet naar medische details (AVG).</li>
+                      </ul>
+                  </div>
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Type Verzuim</label>
+                  <div className="flex gap-2">
+                      {['Kort', 'Lang', 'Frequent'].map(type => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => setSickForm({...sickForm, type: type as any})}
+                            className={`flex-1 py-3 rounded-xl text-sm font-bold border transition-colors ${sickForm.type === type ? 'bg-slate-900 text-white border-slate-900' : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'}`}
+                          >
+                              {type}
+                          </button>
+                      ))}
+                  </div>
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Vermoedelijke Duur</label>
+                  <input 
+                      type="text" 
+                      placeholder="bv. Paar dagen, 1 week..."
+                      className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none"
+                      value={sickForm.duration}
+                      onChange={e => setSickForm({...sickForm, duration: e.target.value})}
+                  />
+              </div>
+
+              <div className="flex items-center gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <input 
+                      type="checkbox" 
+                      id="tasksHandover"
+                      className="w-5 h-5 rounded text-red-600 focus:ring-red-500 border-slate-300"
+                      checked={sickForm.tasksHandedOver}
+                      onChange={e => setSickForm({...sickForm, tasksHandedOver: e.target.checked})}
+                  />
+                  <label htmlFor="tasksHandover" className="text-sm font-bold text-slate-700">Zijn taken/afspraken overgedragen?</label>
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Interne Notitie</label>
+                  <textarea 
+                      rows={3}
+                      placeholder="Afspraken over contactmomenten, etc."
+                      className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-red-500 outline-none resize-none"
+                      value={sickForm.notes}
+                      onChange={e => setSickForm({...sickForm, notes: e.target.value})}
+                  />
+              </div>
+
+              <button type="submit" className="w-full py-3 bg-red-600 text-white font-bold rounded-xl shadow-lg hover:bg-red-700 transition-colors">
+                  Ziekmelding Registreren
+              </button>
+          </form>
+      </Modal>
+
+      {/* LATENESS MODAL */}
+      <Modal isOpen={isLateModalOpen} onClose={() => setIsLateModalOpen(false)} title="Te Laat Melding">
+          <form onSubmit={handleAddLateness} className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                  <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Datum</label>
+                      <input 
+                          type="date" 
+                          className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                          value={lateForm.date}
+                          onChange={e => setLateForm({...lateForm, date: e.target.value})}
+                      />
+                  </div>
+                  <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Aantal Minuten</label>
+                      <input 
+                          type="number" 
+                          className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                          value={lateForm.minutes}
+                          onChange={e => setLateForm({...lateForm, minutes: parseInt(e.target.value)})}
+                      />
+                  </div>
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Reden</label>
+                  <input 
+                      type="text"
+                      placeholder="bv. Verslapen, file, trein vertraging..."
+                      className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-amber-500 outline-none"
+                      value={lateForm.reason}
+                      onChange={e => setLateForm({...lateForm, reason: e.target.value})}
+                  />
+              </div>
+
+              <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl text-sm text-amber-800">
+                  <p className="font-bold flex items-center gap-2"><Info size={16}/> Beleid</p>
+                  <p className="mt-1">Bij frequent te laat komen (3x per maand) volgt een officiële waarschuwing.</p>
+              </div>
+
+              <button type="submit" className="w-full py-3 bg-amber-500 text-white font-bold rounded-xl shadow-lg hover:bg-amber-600 transition-colors">
+                  Registreren
+              </button>
+          </form>
+      </Modal>
+
+      {/* WARNING MODAL */}
+      <Modal isOpen={isWarningModalOpen} onClose={() => setIsWarningModalOpen(false)} title="Officiële Waarschuwing">
+          <form onSubmit={handleAddWarning} className="space-y-6">
+              <div className="bg-slate-50 p-4 border border-slate-200 rounded-xl mb-4">
+                  <p className="text-sm text-slate-600">
+                      Dit formulier legt een officiële waarschuwing vast in het personeelsdossier. Dit is zichtbaar voor HR en Management.
+                  </p>
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Ernst</label>
+                  <div className="flex gap-2">
+                      {['Low', 'Medium', 'High'].map(level => (
+                          <button
+                            key={level}
+                            type="button"
+                            onClick={() => setWarningForm({...warningForm, severity: level as any})}
+                            className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-colors ${
+                                warningForm.severity === level 
+                                ? (level === 'High' ? 'bg-red-600 text-white border-red-600' : level === 'Medium' ? 'bg-orange-500 text-white border-orange-500' : 'bg-yellow-500 text-white border-yellow-500')
+                                : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                            }`}
+                          >
+                              {level === 'High' ? 'Ernstig' : level === 'Medium' ? 'Matig' : 'Licht'}
+                          </button>
+                      ))}
+                  </div>
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Onderwerp</label>
+                  <input 
+                      type="text" 
+                      placeholder="bv. Werkweigering, Veiligheidsvoorschriften..."
+                      className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none"
+                      value={warningForm.title}
+                      onChange={e => setWarningForm({...warningForm, title: e.target.value})}
+                  />
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Beschrijving Incident</label>
+                  <textarea 
+                      rows={5}
+                      placeholder="Beschrijf feitelijk wat er is gebeurd..."
+                      className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-slate-900 outline-none resize-none"
+                      value={warningForm.description}
+                      onChange={e => setWarningForm({...warningForm, description: e.target.value})}
+                  />
+              </div>
+
+              <button type="submit" className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-slate-800 transition-colors">
+                  Waarschuwing Vastleggen
+              </button>
+          </form>
       </Modal>
 
     </div>

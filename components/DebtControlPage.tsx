@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar, Sparkles, Edit2, MessageSquare, Send, FolderOpen, Save, MapPin, Hash, Globe } from 'lucide-react';
+import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar, Sparkles, Edit2, MessageSquare, Send, FolderOpen, Save, MapPin, Hash, Globe, Ban, FileCheck } from 'lucide-react';
 import { Debtor, DebtorStatus, Employee, DebtorNote } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
@@ -24,6 +24,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   // --- NEW: COMPREHENSIVE DETAIL MODAL STATE ---
   const [detailDebtor, setDetailDebtor] = useState<Debtor | null>(null);
   const [detailForm, setDetailForm] = useState({
+      firstName: '',
+      lastName: '',
       email: '',
       phone: '',
       // Address split fields
@@ -33,14 +35,18 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       addressCity: '',
       addressCountry: 'Nederland',
       amount: 0,
-      status: 'New' as DebtorStatus
+      status: 'New' as DebtorStatus,
+      cashlistReason: ''
   });
   const [isAddressParseError, setIsAddressParseError] = useState(false);
   const [newDetailNote, setNewDetailNote] = useState('');
+  const [ignoredAddressWarnings, setIgnoredAddressWarnings] = useState<Set<string>>(new Set());
   
   // Status Modal State (Bulk)
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [statusTargetIds, setStatusTargetIds] = useState<string[]>([]); 
+  const [bulkCashlistReason, setBulkCashlistReason] = useState('');
+  const [targetStatus, setTargetStatus] = useState<DebtorStatus | null>(null);
 
   // Custom Confirm Modal State
   const [confirmModalState, setConfirmModalState] = useState<{
@@ -70,7 +76,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
 
   // Helper to check 2 week rule
   const isActionRequired = (debtor: Debtor) => {
-      if (debtor.status === 'Paid' || debtor.status === 'Blacklist' || debtor.status === 'New') return false;
+      if (debtor.status === 'Paid' || debtor.status === 'Correction' || debtor.status === 'Blacklist' || debtor.status === 'Cashlist' || debtor.status === 'New') return false;
       if (!debtor.statusDate) return false; 
 
       const statusDate = new Date(debtor.statusDate);
@@ -89,6 +95,14 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  const isAddressIncomplete = (debtor: Debtor) => {
+      if (ignoredAddressWarnings.has(debtor.id)) return false;
+      // Basic check: looks for zipcode pattern or simple length
+      const hasZip = /\d{4}/.test(debtor.address);
+      const isShort = debtor.address.length < 10;
+      return !hasZip || isShort;
+  };
+
   // Sorting Logic
   const sortDebtors = (list: Debtor[]) => {
       return list.sort((a, b) => {
@@ -98,12 +112,14 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           if (aAction && !bAction) return -1;
           if (!aAction && bAction) return 1;
 
-          // 2. Blacklist (Keep urgent matters high)
-          if (a.status === 'Blacklist' && b.status !== 'Blacklist') return -1;
-          if (b.status === 'Blacklist' && a.status !== 'Blacklist') return 1;
+          // 2. Blacklist/Cashlist (Keep urgent matters high)
+          const isBadA = a.status === 'Blacklist' || a.status === 'Cashlist';
+          const isBadB = b.status === 'Blacklist' || b.status === 'Cashlist';
+          if (isBadA && !isBadB) return -1;
+          if (isBadB && !isBadA) return 1;
 
           // 3. Status Progression 
-          const statusWeight = { 'Final Notice': 3, '2nd Reminder': 2, '1st Reminder': 1, 'New': 0, 'Paid': -1 };
+          const statusWeight = { 'Final Notice': 3, '2nd Reminder': 2, '1st Reminder': 1, 'New': 0, 'Paid': -1, 'Correction': -1 };
           const wA = statusWeight[a.status as keyof typeof statusWeight] || 0;
           const wB = statusWeight[b.status as keyof typeof statusWeight] || 0;
           if (wA !== wB) return wB - wA;
@@ -296,8 +312,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           case 'ACTION': return list.filter(d => isActionRequired(d));
           case 'NEW': return list.filter(d => d.status === 'New');
           case 'ONGOING': return list.filter(d => d.status === '1st Reminder' || d.status === '2nd Reminder');
-          case 'URGENT': return list.filter(d => d.status === 'Final Notice' || d.status === 'Blacklist');
-          case 'DONE': return list.filter(d => d.status === 'Paid');
+          case 'URGENT': return list.filter(d => d.status === 'Final Notice' || d.status === 'Blacklist' || d.status === 'Cashlist');
+          case 'DONE': return list.filter(d => d.status === 'Paid' || d.status === 'Correction');
           default: return list;
       }
   }, [debtors, searchTerm, activeTab]);
@@ -351,6 +367,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const openBulkStatusModal = () => {
       if (selectedIds.size === 0) return;
       setStatusTargetIds(Array.from(selectedIds) as string[]);
+      setBulkCashlistReason('');
+      setTargetStatus(null);
       setIsStatusModalOpen(true);
   };
 
@@ -379,11 +397,28 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
 
   const openSingleStatusModal = (id: string) => {
       setStatusTargetIds([id]);
+      setBulkCashlistReason('');
+      setTargetStatus(null);
       setIsStatusModalOpen(true);
+  };
+
+  const handleStatusSelect = (newStatus: DebtorStatus) => {
+      setTargetStatus(newStatus);
+      // If NOT cashlist, apply immediately. If Cashlist, wait for user to type reason and click Save.
+      if (newStatus !== 'Cashlist') {
+          applyStatusChange(newStatus);
+      }
   };
 
   const applyStatusChange = (newStatus: DebtorStatus) => {
       if (statusTargetIds.length === 0) return;
+      
+      // If Cashlist, validate reason
+      if (newStatus === 'Cashlist' && !bulkCashlistReason.trim()) {
+          // This should ideally be blocked by UI, but good safety
+          return; 
+      }
+
       setIsStatusModalOpen(false);
 
       setConfirmModalState({
@@ -394,7 +429,12 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           onConfirm: async () => {
               const updatedList = debtors.map(d => {
                   if (statusTargetIds.includes(d.id)) {
-                      return { ...d, status: newStatus, statusDate: new Date().toISOString() };
+                      return { 
+                          ...d, 
+                          status: newStatus, 
+                          statusDate: new Date().toISOString(),
+                          cashlistReason: newStatus === 'Cashlist' ? bulkCashlistReason : d.cashlistReason 
+                      };
                   }
                   return d;
               });
@@ -403,6 +443,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
               
               setStatusTargetIds([]);
               setSelectedIds(new Set());
+              setBulkCashlistReason('');
+              setTargetStatus(null);
               onShowToast("Status succesvol aangepast");
               closeConfirmModal();
           }
@@ -500,6 +542,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       }
 
       setDetailForm({
+          firstName: debtor.firstName || '',
+          lastName: debtor.lastName || '',
           email: debtor.email || '',
           phone: debtor.phone || '',
           addressStreet: street,
@@ -508,7 +552,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           addressCity: city,
           addressCountry: country,
           amount: debtor.amount,
-          status: debtor.status
+          status: debtor.status,
+          cashlistReason: debtor.cashlistReason || ''
       });
       setNewDetailNote('');
   };
@@ -516,17 +561,25 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const handleSaveDetails = async () => {
       if (!detailDebtor) return;
 
+      if (detailForm.status === 'Cashlist' && !detailForm.cashlistReason.trim()) {
+          onShowToast("Reden voor Cashlist is verplicht.");
+          return;
+      }
+
       // RECOMBINE ADDRESS: Standardize format "Street Nr, Zip City, Country"
       const fullAddress = `${detailForm.addressStreet} ${detailForm.addressNumber}, ${detailForm.addressZip} ${detailForm.addressCity}, ${detailForm.addressCountry}`.trim().replace(/^,/, '').replace(/,$/, '');
 
       const updatedDebtor: Debtor = {
           ...detailDebtor,
+          firstName: detailForm.firstName,
+          lastName: detailForm.lastName,
           email: detailForm.email,
           phone: detailForm.phone,
           address: fullAddress,
           amount: detailForm.amount,
           status: detailForm.status,
-          statusDate: detailForm.status !== detailDebtor.status ? new Date().toISOString() : detailDebtor.statusDate
+          statusDate: detailForm.status !== detailDebtor.status ? new Date().toISOString() : detailDebtor.statusDate,
+          cashlistReason: detailForm.status === 'Cashlist' ? detailForm.cashlistReason : detailDebtor.cashlistReason
       };
 
       const updatedList = debtors.map(d => d.id === updatedDebtor.id ? updatedDebtor : d);
@@ -561,6 +614,10 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       
       await api.saveDebtors(updatedList);
       onShowToast("Notitie toegevoegd");
+  };
+
+  const handleIgnoreAddressWarning = (id: string) => {
+      setIgnoredAddressWarnings(prev => new Set(prev).add(id));
   };
 
   // --- DATE EDIT (Quick Action) ---
@@ -693,7 +750,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       setWikTarget(null);
   };
 
-  const totalDebt = debtors.filter(d => d.status !== 'Paid').reduce((acc, curr) => acc + curr.amount, 0);
+  const totalDebt = debtors.filter(d => d.status !== 'Paid' && d.status !== 'Correction').reduce((acc, curr) => acc + curr.amount, 0);
   const actionRequiredCount = debtors.filter(d => isActionRequired(d)).length;
 
   const getStatusBadge = (status: DebtorStatus) => {
@@ -704,7 +761,9 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           case '2nd Reminder': return `${base} bg-orange-100/50 text-orange-700 border-orange-200 hover:bg-orange-100`;
           case 'Final Notice': return `${base} bg-red-100/50 text-red-700 border-red-200 hover:bg-red-100`;
           case 'Paid': return `${base} bg-green-100/50 text-green-700 border-green-200 hover:bg-green-100`;
+          case 'Correction': return `${base} bg-slate-200 text-slate-700 border-slate-300 hover:bg-slate-300`;
           case 'Blacklist': return `${base} bg-slate-800 text-white border-slate-700 hover:bg-slate-700`;
+          case 'Cashlist': return `${base} bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200`;
           default: return `${base} bg-slate-100 text-slate-600 border-slate-200`;
       }
   };
@@ -864,6 +923,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                           const daysOverdue = getDaysOverdue(debtor);
                           const isSelected = selectedIds.has(debtor.id);
                           const hasNotes = debtor.notes && debtor.notes.length > 0;
+                          const addressIncomplete = isAddressIncomplete(debtor);
 
                           return (
                           <tr 
@@ -914,7 +974,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                                               {debtor.phone && debtor.phone !== 'N.v.t.' ? debtor.phone : <span className="text-slate-400 italic">Geen tel</span>}
                                           </span>
                                       </div>
-                                      <div className="flex items-start gap-2 text-slate-600 pt-1 border-t border-slate-100 mt-1">
+                                      <div className="flex items-start gap-2 text-slate-600 pt-1 border-t border-slate-100 mt-1 relative group/address">
                                           {debtor.isEnriched ? (
                                               <Sparkles size={14} className="text-indigo-500 mt-0.5 flex-shrink-0" />
                                           ) : (
@@ -923,6 +983,15 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                                           <span className={`text-xs leading-tight ${debtor.isEnriched ? 'text-indigo-700' : ''}`}>
                                               {debtor.address || <span className="italic text-slate-400">Adres onbekend</span>}
                                           </span>
+                                          {addressIncomplete && (
+                                              <div 
+                                                className="absolute right-0 top-1 text-orange-500 cursor-pointer p-1 hover:bg-orange-50 rounded"
+                                                onClick={(e) => { e.stopPropagation(); handleOpenDetail(debtor); }}
+                                                title="Adres incompleet. Klik om aan te vullen."
+                                              >
+                                                  <AlertTriangle size={14} />
+                                              </div>
+                                          )}
                                       </div>
                                   </div>
                               </td>
@@ -936,13 +1005,14 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                                       >
                                           <span className="flex items-center gap-1.5 truncate">
                                             {debtor.status === 'Paid' && <CheckCircle2 size={12} />}
+                                            {debtor.status === 'Correction' && <CheckCircle2 size={12} />}
                                             {debtor.status === 'Blacklist' && <AlertCircle size={12} />}
                                             {debtor.status}
                                           </span>
                                           <ChevronDown size={12} className="opacity-50"/>
                                       </button>
                                       
-                                      {debtor.status !== 'Paid' && debtor.status !== 'New' && debtor.statusDate && (
+                                      {debtor.status !== 'Paid' && debtor.status !== 'Correction' && debtor.status !== 'New' && debtor.statusDate && (
                                           <div className="flex items-center gap-2 pl-1">
                                               <div className={`text-[10px] font-bold ${needsAction ? 'text-red-600 bg-red-50 px-2 py-0.5 rounded' : 'text-slate-400'}`}>
                                                   {daysOverdue} dagen geleden
@@ -1047,50 +1117,91 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       >
           <div className="p-2">
               <p className="text-sm text-slate-500 mb-6">Kies de nieuwe status voor {statusTargetIds.length} dossier(s).</p>
-              <div className="grid grid-cols-2 gap-4">
-                  <StatusOptionCard 
-                    status="New" 
-                    label="Nieuw" 
-                    description="Nog geen actie ondernomen."
-                    colorClass="bg-blue-50/50 border-blue-200 text-blue-700 hover:border-blue-400"
-                    onClick={() => applyStatusChange('New')}
-                  />
-                  <StatusOptionCard 
-                    status="1st Reminder" 
-                    label="1e Herinnering" 
-                    description="Eerste mail/brief verstuurd."
-                    colorClass="bg-amber-50/50 border-amber-200 text-amber-700 hover:border-amber-400"
-                    onClick={() => applyStatusChange('1st Reminder')}
-                  />
-                  <StatusOptionCard 
-                    status="2nd Reminder" 
-                    label="2e Herinnering" 
-                    description="Tweede waarschuwing (+14 dagen)."
-                    colorClass="bg-orange-50/50 border-orange-200 text-orange-700 hover:border-orange-400"
-                    onClick={() => applyStatusChange('2nd Reminder')}
-                  />
-                  <StatusOptionCard 
-                    status="Final Notice" 
-                    label="Aanmaning" 
-                    description="Laatste waarschuwing voor blacklist."
-                    colorClass="bg-red-50/50 border-red-200 text-red-700 hover:border-red-400"
-                    onClick={() => applyStatusChange('Final Notice')}
-                  />
-                  <StatusOptionCard 
-                    status="Paid" 
-                    label="Betaald" 
-                    description="Dossier succesvol afgerond."
-                    colorClass="bg-green-50/50 border-green-200 text-green-700 hover:border-green-400"
-                    onClick={() => applyStatusChange('Paid')}
-                  />
-                  <StatusOptionCard 
-                    status="Blacklist" 
-                    label="Blacklist" 
-                    description="Geen toegang meer tot hotel."
-                    colorClass="bg-slate-100 border-slate-300 text-slate-900 hover:border-slate-500"
-                    onClick={() => applyStatusChange('Blacklist')}
-                  />
-              </div>
+              
+              {targetStatus === 'Cashlist' ? (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+                      <div className="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                          <label className="block text-xs font-bold text-purple-800 uppercase mb-2">Reden voor Cashlist (Verplicht)</label>
+                          <textarea 
+                              className="w-full p-3 border border-purple-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-white"
+                              rows={3}
+                              placeholder="Waarom wordt deze gast op de cashlist geplaatst?"
+                              value={bulkCashlistReason}
+                              onChange={(e) => setBulkCashlistReason(e.target.value)}
+                              autoFocus
+                          />
+                      </div>
+                      <div className="flex gap-3 pt-2">
+                          <button onClick={() => setTargetStatus(null)} className="flex-1 py-3 bg-white border border-slate-200 rounded-xl font-bold text-sm text-slate-600 hover:bg-slate-50">Terug</button>
+                          <button 
+                              onClick={() => applyStatusChange('Cashlist')}
+                              disabled={!bulkCashlistReason.trim()}
+                              className="flex-1 py-3 bg-purple-600 text-white rounded-xl font-bold text-sm shadow-md hover:bg-purple-700 disabled:opacity-50"
+                          >
+                              Bevestigen
+                          </button>
+                      </div>
+                  </div>
+              ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                      <StatusOptionCard 
+                        status="New" 
+                        label="Nieuw" 
+                        description="Nog geen actie ondernomen."
+                        colorClass="bg-blue-50/50 border-blue-200 text-blue-700 hover:border-blue-400"
+                        onClick={() => handleStatusSelect('New')}
+                      />
+                      <StatusOptionCard 
+                        status="1st Reminder" 
+                        label="1e Herinnering" 
+                        description="Eerste mail/brief verstuurd."
+                        colorClass="bg-amber-50/50 border-amber-200 text-amber-700 hover:border-amber-400"
+                        onClick={() => handleStatusSelect('1st Reminder')}
+                      />
+                      <StatusOptionCard 
+                        status="2nd Reminder" 
+                        label="2e Herinnering" 
+                        description="Tweede waarschuwing (+14 dagen)."
+                        colorClass="bg-orange-50/50 border-orange-200 text-orange-700 hover:border-orange-400"
+                        onClick={() => handleStatusSelect('2nd Reminder')}
+                      />
+                      <StatusOptionCard 
+                        status="Final Notice" 
+                        label="Aanmaning" 
+                        description="Laatste waarschuwing voor blacklist."
+                        colorClass="bg-red-50/50 border-red-200 text-red-700 hover:border-red-400"
+                        onClick={() => handleStatusSelect('Final Notice')}
+                      />
+                      <StatusOptionCard 
+                        status="Paid" 
+                        label="Betaald" 
+                        description="Dossier succesvol afgerond."
+                        colorClass="bg-green-50/50 border-green-200 text-green-700 hover:border-green-400"
+                        onClick={() => handleStatusSelect('Paid')}
+                      />
+                      <StatusOptionCard 
+                        status="Correction" 
+                        label="Correctie" 
+                        description="Administratief gecorrigeerd (0)."
+                        colorClass="bg-slate-100 border-slate-300 text-slate-700 hover:border-slate-500"
+                        onClick={() => handleStatusSelect('Correction')}
+                      />
+                      <StatusOptionCard 
+                        status="Cashlist" 
+                        label="Cashlist" 
+                        description="Alleen vooraf betalen."
+                        colorClass="bg-purple-50/50 border-purple-200 text-purple-800 hover:border-purple-400"
+                        onClick={() => handleStatusSelect('Cashlist')}
+                      />
+                      <StatusOptionCard 
+                        status="Blacklist" 
+                        label="Blacklist" 
+                        description="Geen toegang meer tot hotel."
+                        colorClass="bg-slate-800 border-slate-700 text-white hover:bg-slate-700"
+                        onClick={() => handleStatusSelect('Blacklist')}
+                      />
+                  </div>
+              )}
           </div>
       </Modal>
 
@@ -1102,7 +1213,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
               {/* Header */}
               <div className="px-8 py-6 border-b border-slate-100 bg-white sticky top-0 z-10 flex justify-between items-center">
                   <div>
-                      <h2 className="text-2xl font-bold text-slate-900">{detailDebtor.firstName} {detailDebtor.lastName}</h2>
+                      <h2 className="text-2xl font-bold text-slate-900">{detailForm.firstName} {detailForm.lastName}</h2>
                       <div className="flex items-center gap-2 text-sm text-slate-500 mt-1">
                           <span className="font-mono bg-slate-100 px-2 py-0.5 rounded text-slate-600">#{detailDebtor.reservationNumber}</span>
                           <span>•</span>
@@ -1122,6 +1233,26 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                       </h3>
                       
                       <div className="space-y-6">
+                          {/* Name Editing */}
+                          <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Voornaam</label>
+                                  <input 
+                                      className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                      value={detailForm.firstName}
+                                      onChange={(e) => setDetailForm({...detailForm, firstName: e.target.value})}
+                                  />
+                              </div>
+                              <div>
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Achternaam</label>
+                                  <input 
+                                      className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                      value={detailForm.lastName}
+                                      onChange={(e) => setDetailForm({...detailForm, lastName: e.target.value})}
+                                  />
+                              </div>
+                          </div>
+
                           {/* Status Select */}
                           <div>
                               <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Status</label>
@@ -1136,11 +1267,29 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                                       <option value="2nd Reminder">2e Herinnering</option>
                                       <option value="Final Notice">Aanmaning</option>
                                       <option value="Paid">Betaald</option>
+                                      <option value="Correction">Correctie</option>
+                                      <option value="Cashlist">Cashlist</option>
                                       <option value="Blacklist">Blacklist</option>
                                   </select>
                                   <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16}/>
                               </div>
                           </div>
+
+                          {/* Cashlist Reason Input (Visible if status is Cashlist) */}
+                          {detailForm.status === 'Cashlist' && (
+                              <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 animate-in slide-in-from-top-2">
+                                  <label className="block text-xs font-bold text-purple-800 uppercase mb-2 flex items-center gap-1">
+                                      <AlertCircle size={12}/> Reden Cashlist (Verplicht)
+                                  </label>
+                                  <textarea 
+                                      className="w-full p-3 border border-purple-200 rounded-xl text-sm focus:ring-2 focus:ring-purple-500 outline-none bg-white"
+                                      rows={3}
+                                      placeholder="Waarom moet deze gast direct betalen?"
+                                      value={detailForm.cashlistReason}
+                                      onChange={(e) => setDetailForm({...detailForm, cashlistReason: e.target.value})}
+                                  />
+                              </div>
+                          )}
 
                           <div className="grid grid-cols-2 gap-4">
                               <div>
@@ -1171,12 +1320,29 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
 
                           <div>
                               <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Adresgegevens (Brief Indeling)</label>
-                              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3 relative">
-                                  {isAddressParseError && (
-                                      <div className="absolute top-2 right-2 text-orange-500 animate-pulse" title="Adres kon niet automatisch gesplitst worden. Controleer a.u.b.">
-                                          <AlertTriangle size={18} />
+                              
+                              {/* Address Warning */}
+                              {(isAddressIncomplete(detailDebtor) || isAddressParseError) && (
+                                  <div className="bg-orange-50 border border-orange-100 p-3 rounded-xl flex justify-between items-start mb-2 animate-in fade-in">
+                                      <div className="flex gap-2">
+                                          <AlertTriangle className="text-orange-500 mt-0.5" size={16}/>
+                                          <div>
+                                              <p className="text-xs font-bold text-orange-800">Adres incompleet</p>
+                                              <p className="text-xs text-orange-700">Controleer postcode en huisnummer.</p>
+                                          </div>
                                       </div>
-                                  )}
+                                      <div className="flex gap-2">
+                                          <button 
+                                            onClick={() => handleIgnoreAddressWarning(detailDebtor.id)}
+                                            className="text-[10px] font-bold text-orange-600 hover:text-orange-800"
+                                          >
+                                              Negeren
+                                          </button>
+                                      </div>
+                                  </div>
+                              )}
+
+                              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3 relative">
                                   <div className="flex gap-3">
                                       <div className="flex-1">
                                           <input 
@@ -1244,7 +1410,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                           <div className="pt-4 border-t border-slate-100">
                               <button 
                                 onClick={handleSaveDetails}
-                                className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
+                                disabled={detailForm.status === 'Cashlist' && !detailForm.cashlistReason.trim()}
+                                className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                   <Save size={18}/> Wijzigingen Opslaan
                               </button>

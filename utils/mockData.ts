@@ -15,6 +15,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
     accountStatus: 'Active',
     documents: [],
     notes: [],
+    dossier: [], // Init empty dossier
     onboardingStatus: 'Completed',
     onboardingTasks: [],
     customPermissions: [],
@@ -33,6 +34,7 @@ export const MOCK_EMPLOYEES: Employee[] = [
     accountStatus: 'Active',
     documents: [],
     notes: [],
+    dossier: [], // Init empty dossier
     onboardingStatus: 'Completed',
     onboardingTasks: [],
     evaluations: []

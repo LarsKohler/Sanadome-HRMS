@@ -1,5 +1,4 @@
 
-
 export interface SubTask {
     id: string;
     title: string;
@@ -122,6 +121,27 @@ export interface EmployeeNote {
   impact?: 'Positive' | 'Negative' | 'Neutral';
   score?: number;
 }
+
+// --- NEW DOSSIER TYPES ---
+export type DossierEntryType = 'Sick' | 'Late' | 'Warning' | 'OfficialNote' | 'Recovery';
+
+export interface DossierEntry {
+  id: string;
+  type: DossierEntryType;
+  date: string;
+  endDate?: string; // For sick leave recovery
+  title: string;
+  description: string;
+  loggedBy: string;
+  meta?: {
+    minutesLate?: number;
+    severity?: 'Low' | 'Medium' | 'High';
+    sickType?: 'Kort' | 'Lang' | 'Frequent';
+    tasksHandedOver?: boolean;
+    nextActionDate?: string;
+  };
+}
+// -------------------------
 
 export interface EmployeeDocument {
   id: string;
@@ -293,6 +313,7 @@ export interface Employee {
   password?: string;
   documents: EmployeeDocument[];
   notes: EmployeeNote[];
+  dossier?: DossierEntry[]; // NEW: Structured HR Dossier
   onboardingStatus: 'Pending' | 'Active' | 'Completed';
   onboardingTasks: OnboardingTask[];
   onboardingWeeks?: OnboardingWeekData[];
@@ -479,7 +500,7 @@ export interface BikeReservation {
   createdBy: string;
 }
 
-export type DebtorStatus = 'New' | '1st Reminder' | '2nd Reminder' | 'Final Notice' | 'Paid' | 'Blacklist';
+export type DebtorStatus = 'New' | '1st Reminder' | '2nd Reminder' | 'Final Notice' | 'Paid' | 'Blacklist' | 'Correction' | 'Cashlist';
 
 export interface DebtorNote {
   id: string;
@@ -503,6 +524,7 @@ export interface Debtor {
   importedAt: string;
   isEnriched?: boolean;
   notes?: DebtorNote[];
+  cashlistReason?: string;
 }
 
 export type SurveyQuestionType = 'Rating' | 'Scale10' | 'YesNo' | 'Text' | 'Choice';
