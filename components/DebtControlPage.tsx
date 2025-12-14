@@ -453,104 +453,129 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
 
   // --- NEW: COMPREHENSIVE DETAIL MODAL LOGIC ---
 
-  const handleOpenDetail = (debtor: Debtor) => {
-      setDetailDebtor(debtor);
-      setIsAddressParseError(false); // Reset error
-      
+  // Improved Address Parser
+  const parseAddress = (rawAddr: string) => {
       let street = '';
       let number = '';
       let zip = '';
       let city = '';
       let country = 'Nederland';
+
+      if (!rawAddr) return { street, number, zip, city, country };
+
+      // 1. Initial cleanup
+      const cleanAddr = rawAddr.trim();
       
-      const addr = debtor.address || '';
-      
-      // PARSE ADDRESS LOGIC - Improved for standard format "Street Nr, Zip City, Country"
-      const commaParts = addr.split(',').map(s => s.trim());
+      // 2. Regexes
+      const zipRegex = /\b\d{4}\s?[A-Za-z]{2}\b|\b\d{4,5}\b/; // NL or Generic 4-5 digits
 
-      if (commaParts.length >= 3) {
-          // Format: Street Nr, Zip City, Country
-          country = commaParts.pop() || 'Nederland';
-          const partZipCity = commaParts.pop() || '';
-          const partStreetNr = commaParts.join(', '); // Join rest back in case of extra commas
+      // 3. Split parts
+      let parts = cleanAddr.split(',').map(s => s.trim()).filter(s => s.length > 0);
 
-          // Parse Street/Nr
-          const numberMatch = partStreetNr.match(/(\d+[\w-]*)$/);
-          if (numberMatch) {
-              number = numberMatch[0];
-              street = partStreetNr.substring(0, numberMatch.index).trim();
-          } else {
-              street = partStreetNr;
+      // 4. Extract Country (Last part)
+      // If > 2 parts, check if last part is purely alphabetic (Country names usually don't have numbers)
+      if (parts.length > 2) {
+          const lastPart = parts[parts.length - 1];
+          if (!/\d/.test(lastPart)) {
+              country = parts.pop()!;
           }
+      } else if (parts.length === 2) {
+          // If 2 parts, could be "Street 1, Zip City" OR "Street 1, City"
+          // Don't pop country yet unless we are sure. Default is NL.
+      }
 
-          // Parse Zip/City
-          const zipMatch = partZipCity.match(/^(\d{4}\s?[a-zA-Z]{2})\s+(.*)$/);
-          if (zipMatch) {
-              zip = zipMatch[1];
-              city = zipMatch[2];
-          } else {
-              city = partZipCity; // Fallback
-          }
-
-      } else if (commaParts.length === 2) {
-          // Format: Street Nr, Zip City (Implies NL)
-          country = 'Nederland'; // EXPLICIT DEFAULT FOR 2 PARTS
-          const partZipCity = commaParts[1];
-          const partStreetNr = commaParts[0];
-
-          // Parse Street/Nr
-          const numberMatch = partStreetNr.match(/(\d+[\w-]*)$/);
-          if (numberMatch) {
-              number = numberMatch[0];
-              street = partStreetNr.substring(0, numberMatch.index).trim();
-          } else {
-              street = partStreetNr;
-          }
-
-          // Parse Zip/City
-          const zipMatch = partZipCity.match(/(\d{4}\s?[a-zA-Z]{2})/);
-          if (zipMatch) {
-              zip = zipMatch[0];
-              city = partZipCity.replace(zip, '').trim();
-          } else {
-              city = partZipCity;
-          }
-      } else {
-          // Fallback: Try regex parsing on raw string if no commas found (e.g. from raw import)
-          const zipMatch = addr.match(/(\d{4}\s?[a-zA-Z]{2})/);
-          if (zipMatch) {
-              const part1 = addr.substring(0, zipMatch.index).trim(); // Street + Nr
-              const part2 = addr.substring(zipMatch.index).trim(); // Zip + City + Country?
-              
-              const numberMatch = part1.match(/(\d+[\w-]*)$/);
-              if (numberMatch) {
-                  number = numberMatch[0];
-                  street = part1.substring(0, numberMatch.index).trim();
-              } else {
-                  street = part1;
+      // 5. Extract Zip and City
+      // We iterate backwards through remaining parts to find Zip
+      for (let i = parts.length - 1; i >= 0; i--) {
+          const part = parts[i];
+          const match = part.match(zipRegex);
+          
+          if (match) {
+              const rawZip = match[0];
+              // Normalize Zip
+              zip = rawZip.replace(/\s+/g, '').toUpperCase();
+              if (zip.length === 6 && /[A-Z]/.test(zip)) {
+                  zip = zip.slice(0, 4) + ' ' + zip.slice(4); // NL Format
               }
 
-              const zipLen = zipMatch[0].length;
-              zip = zipMatch[0];
-              city = part2.substring(zipLen).trim();
-              country = 'Nederland'; // Fallback default
-          } else {
-              // Failed to parse strictly
-              street = addr;
-              setIsAddressParseError(true);
+              // Check if city is in this part
+              const remainder = part.replace(rawZip, '').trim();
+              if (remainder.length > 0) {
+                  // "6525CD Nijmegen" or "Nijmegen 6525CD"
+                  city = remainder.replace(/^[-,\s]+|[-,\s]+$/g, ''); // Trim punctuation
+              }
+              
+              // Case: "Street 1, Nijmegen, 1234AB" -> City is in previous part
+              if (!city && i > 0) {
+                   const prev = parts[i-1];
+                   if (!/\d/.test(prev)) { // Heuristic: City usually no digits
+                       city = prev;
+                       parts.splice(i-1, 1);
+                       i--; 
+                   }
+              }
+              
+              // Case: "Street 1, 1234AB, Nijmegen" -> City is in next part
+              if (!city && i < parts.length - 1) {
+                  city = parts[i+1];
+                  parts.splice(i+1, 1);
+              }
+
+              parts.splice(i, 1); // Remove zip part
+              break; // Stop after finding zip
           }
       }
+
+      // 6. If no city found yet, but we have parts left
+      if (!city && parts.length > 1) {
+          // Assume last remaining part is city (European format: Street, City)
+          const last = parts[parts.length - 1];
+          if (!/\d/.test(last)) {
+              city = parts.pop()!;
+          }
+      }
+
+      // 7. Street and Number (Remaining)
+      let fullStreet = parts.join(' ').trim();
+      
+      // Extract Number
+      const numberMatch = fullStreet.match(/(\d+[\w\s-]*)$/); // Match number at end
+      if (numberMatch) {
+          number = numberMatch[0].trim();
+          street = fullStreet.substring(0, numberMatch.index).trim();
+      } else {
+          // Try match number at start? (US Format: 123 Main St)
+          const startNumMatch = fullStreet.match(/^(\d+)\s+(.*)/);
+          if (startNumMatch) {
+              number = startNumMatch[1];
+              street = startNumMatch[2];
+          } else {
+              street = fullStreet;
+          }
+      }
+      
+      // Final cleanup
+      street = street.replace(/,$/, '').trim();
+
+      return { street, number, zip, city, country };
+  };
+
+  const handleOpenDetail = (debtor: Debtor) => {
+      setDetailDebtor(debtor);
+      setIsAddressParseError(false);
+      
+      const parsed = parseAddress(debtor.address || '');
 
       setDetailForm({
           firstName: debtor.firstName || '',
           lastName: debtor.lastName || '',
           email: debtor.email || '',
           phone: debtor.phone || '',
-          addressStreet: street,
-          addressNumber: number,
-          addressZip: zip,
-          addressCity: city,
-          addressCountry: country,
+          addressStreet: parsed.street,
+          addressNumber: parsed.number,
+          addressZip: parsed.zip,
+          addressCity: parsed.city,
+          addressCountry: parsed.country,
           amount: debtor.amount,
           status: debtor.status,
           cashlistReason: debtor.cashlistReason || ''
