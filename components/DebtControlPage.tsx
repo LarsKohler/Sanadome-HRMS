@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar, Sparkles, Edit2, MessageSquare, Send, FolderOpen, Save, MapPin, Hash, Globe, Ban, FileCheck } from 'lucide-react';
+import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar, Sparkles, Edit2, MessageSquare, Send, FolderOpen, Save, MapPin, Hash, Globe, Ban, FileCheck, Languages } from 'lucide-react';
 import { Debtor, DebtorStatus, Employee, DebtorNote } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
@@ -66,6 +66,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   // WIK Letter State
   const [wikTarget, setWikTarget] = useState<Debtor | null>(null);
   const [wikDateInput, setWikDateInput] = useState('');
+  const [wikLanguage, setWikLanguage] = useState<'nl' | 'en' | 'de'>('nl');
 
   // Date Edit State (Quick Action)
   const [dateEditTarget, setDateEditTarget] = useState<Debtor | null>(null);
@@ -671,6 +672,16 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const openWikModal = (debtor: Debtor) => {
       setWikTarget(debtor);
       setWikDateInput('');
+      
+      // Auto-detect language based on address country
+      const addressLower = (debtor.address || '').toLowerCase();
+      if (addressLower.includes('deutschland') || addressLower.includes('germany')) {
+          setWikLanguage('de');
+      } else if (addressLower.includes('nederland') || addressLower.includes('netherlands')) {
+          setWikLanguage('nl');
+      } else {
+          setWikLanguage('en'); // Default international
+      }
   };
 
   const generateWIKLetter = () => {
@@ -699,6 +710,51 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           // Fallback for raw legacy data
           line1 = addrString; // Just put everything on line 1 if parsing fails
       }
+
+      // Translations Object
+      const translations = {
+          nl: {
+              subject: "Betalingsherinnering – Laatste aanmaning",
+              salutation: `Beste ${wikTarget.lastName},`,
+              body: `
+                <p>Hierbij herinneren wij u aan de openstaande factuur met reserveringsnummer <strong>${wikTarget.reservationNumber}</strong> van <strong>${formattedDateInput}</strong> met een bedrag van <strong>€${amountFormatted}</strong>.</p>
+                <p>Helaas hebben wij, ondanks meerdere herinneringen, tot op heden nog geen betaling van u mogen ontvangen. Wij verzoeken u vriendelijk het verschuldigde bedrag binnen 14 dagen over te maken naar ons rekeningnummer <strong>NL52 RABO 0181 6526 68</strong>, ten name van Sanadome Hotel & Spa Nijmegen, onder vermelding van het reserveringsnummer.</p>
+                <p>Wij wijzen u erop dat wij bij uitblijven van tijdige betaling genoodzaakt zijn de vordering over te dragen aan een externe incassopartij. In dat geval worden incassokosten en wettelijke rente in rekening gebracht, conform de geldende wettelijke regelingen.</p>
+                <p>Mocht u inmiddels wel betaald hebben, dan kunt u deze aanmaning als niet verzonden beschouwen.</p>
+                <p>Indien u vragen, of opmerkingen met betrekking tot deze factuur heeft, kunt u ten allertijden contact opnemen met ons via de contactgegevens onderstaand deze brief.</p>
+                <p>Wij vertrouwen erop dat u de betaling alsnog tijdig zult voldoen en hopen hiermee verdere incassomaatregelen te voorkomen.</p>
+              `,
+              closing: "Met hartelijke groet,"
+          },
+          en: {
+              subject: "Payment Reminder – Final Notice",
+              salutation: `Dear ${wikTarget.lastName},`,
+              body: `
+                <p>We are writing to remind you of the outstanding invoice with reservation number <strong>${wikTarget.reservationNumber}</strong> dated <strong>${formattedDateInput}</strong> with an amount of <strong>€${amountFormatted}</strong>.</p>
+                <p>Unfortunately, despite previous reminders, we have not yet received payment from you. We kindly request that you transfer the amount due within 14 days to our bank account <strong>NL52 RABO 0181 6526 68</strong>, in the name of Sanadome Hotel & Spa Nijmegen, stating the reservation number.</p>
+                <p>Please be advised that if payment is not made on time, we will be forced to hand over the claim to an external collection agency. In that case, collection costs and statutory interest will be charged in accordance with applicable legal regulations.</p>
+                <p>If you have already paid, please disregard this notice.</p>
+                <p>If you have any questions or comments regarding this invoice, please feel free to contact us via the contact details below.</p>
+                <p>We trust that you will settle the payment promptly to avoid further collection measures.</p>
+              `,
+              closing: "With kind regards,"
+          },
+          de: {
+              subject: "Zahlungserinnerung – Letzte Mahnung",
+              salutation: `Sehr geehrte(r) ${wikTarget.lastName},`,
+              body: `
+                <p>hiermit erinnern wir Sie an die offene Rechnung mit der Reservierungsnummer <strong>${wikTarget.reservationNumber}</strong> vom <strong>${formattedDateInput}</strong> über einen Betrag von <strong>€${amountFormatted}</strong>.</p>
+                <p>Leider haben wir trotz mehrfacher Erinnerungen bis heute keinen Zahlungseingang von Ihnen feststellen können. Wir bitten Sie freundlich, den fälligen Betrag innerhalb von 14 Tagen auf unser Konto <strong>NL52 RABO 0181 6526 68</strong>, lautend auf Sanadome Hotel & Spa Nijmegen, unter Angabe der Reservierungsnummer zu überweisen.</p>
+                <p>Wir weisen Sie darauf hin, dass wir uns bei Ausbleiben einer fristgerechten Zahlung gezwungen sehen, die Forderung an ein externes Inkassobüro zu übergeben. In diesem Fall werden Inkassokosten und gesetzliche Zinsen gemäß den geltenden gesetzlichen Bestimmungen berechnet.</p>
+                <p>Sollten Sie die Zahlung bereits geleistet haben, betrachten Sie dieses Schreiben bitte als gegenstandslos.</p>
+                <p>Sollten Sie Fragen oder Anmerkungen zu dieser Rechnung haben, können Sie uns jederzeit über die untenstehenden Kontaktdaten erreichen.</p>
+                <p>Wir vertrauen darauf, dass Sie die Zahlung nun zeitnah begleichen, um weitere Inkassomaßnahmen zu vermeiden.</p>
+              `,
+              closing: "Mit freundlichen Grüßen,"
+          }
+      };
+
+      const t = translations[wikLanguage];
 
       const letterContent = `
         <html>
@@ -741,21 +797,16 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
             </div>
 
             <div class="subject">
-                Betalingsherinnering – Laatste aanmaning
+                ${t.subject}
             </div>
 
             <div class="content">
-                <p>Beste ${wikTarget.lastName},</p>
-                <p>Hierbij herinneren wij u aan de openstaande factuur met reserveringsnummer <strong>${wikTarget.reservationNumber}</strong> van <strong>${formattedDateInput}</strong> met een bedrag van <strong>€${amountFormatted}</strong>.</p>
-                <p>Helaas hebben wij, ondanks meerdere herinneringen, tot op heden nog geen betaling van u mogen ontvangen. Wij verzoeken u vriendelijk het verschuldigde bedrag binnen 14 dagen over te maken naar ons rekeningnummer <strong>NL52 RABO 0181 6526 68</strong>, ten name van Sanadome Hotel & Spa Nijmegen, onder vermelding van het reserveringsnummer.</p>
-                <p>Wij wijzen u erop dat wij bij uitblijven van tijdige betaling genoodzaakt zijn de vordering over te dragen aan een externe incassopartij. In dat geval worden incassokosten en wettelijke rente in rekening gebracht, conform de geldende wettelijke regelingen.</p>
-                <p>Mocht u inmiddels wel betaald hebben, dan kunt u deze aanmaning als niet verzonden beschouwen.</p>
-                <p>Indien u vragen, of opmerkingen met betrekking tot deze factuur heeft, kunt u ten allertijden contact opnemen met ons via de contactgegevens onderstaand deze brief.</p>
-                <p>Wij vertrouwen erop dat u de betaling alsnog tijdig zult voldoen en hopen hiermee verdere incassomaatregelen te voorkomen.</p>
+                <p>${t.salutation}</p>
+                ${t.body}
             </div>
 
             <div class="signature">
-                Met hartelijke groet | With kind regards,<br>
+                ${t.closing}<br>
                 <strong>${currentUser.name} | ${currentUser.role}</strong>
             </div>
         </body>
@@ -1542,6 +1593,30 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           <div className="space-y-6">
               <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-sm font-medium">
                   <p>Je staat op het punt een officiële aanmaning te genereren voor <br/><span className="text-slate-900 text-base block mt-1">{wikTarget?.firstName} {wikTarget?.lastName}</span></p>
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Taal</label>
+                  <div className="flex gap-2">
+                      <button 
+                        onClick={() => setWikLanguage('nl')}
+                        className={`flex-1 py-2 rounded-lg text-sm font-bold border transition-colors ${wikLanguage === 'nl' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                      >
+                          Nederlands
+                      </button>
+                      <button 
+                        onClick={() => setWikLanguage('en')}
+                        className={`flex-1 py-2 rounded-lg text-sm font-bold border transition-colors ${wikLanguage === 'en' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                      >
+                          English
+                      </button>
+                      <button 
+                        onClick={() => setWikLanguage('de')}
+                        className={`flex-1 py-2 rounded-lg text-sm font-bold border transition-colors ${wikLanguage === 'de' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
+                      >
+                          Deutsch
+                      </button>
+                  </div>
               </div>
               
               <div>
