@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { Employee, DossierEntry } from '../types';
 import { Modal } from './Modal';
-import EmployeeProfile from './EmployeeProfile';
+import HRDossierDetail from './HRDossierDetail'; // Updated import
 
 interface HRDossierPageProps {
     employees: Employee[];
@@ -76,8 +76,7 @@ const HRDossierPage: React.FC<HRDossierPageProps> = ({ employees, currentUser, o
 
     const selectedEmployee = employees.find(e => e.id === selectedEmployeeId);
 
-    // Render the detail view as a Modal wrapper around the EmployeeProfile (forced to Dossier tab context conceptually, though we reuse the component)
-    // Actually, EmployeeProfile handles its own tabs. We can pass a prop to default to a tab if we wanted, but sticking to standard behavior is fine.
+    // Render the detail view using the dedicated HR Dossier Slide-out
     
     return (
         <div className="p-6 md:p-10 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 min-h-[calc(100vh-80px)]">
@@ -230,30 +229,18 @@ const HRDossierPage: React.FC<HRDossierPageProps> = ({ employees, currentUser, o
                 </table>
             </div>
 
-            {/* DETAIL MODAL (Reusing Employee Profile Component for consistency) */}
+            {/* DETAIL SLIDEOUT (Custom Component) */}
             {selectedEmployee && (
                 <div className="fixed inset-0 z-50 flex justify-end">
                     <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" onClick={() => setSelectedEmployeeId(null)}></div>
                     <div className="relative w-full max-w-5xl bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 overflow-hidden">
-                        <div className="flex-1 overflow-y-auto bg-slate-50">
-                            <EmployeeProfile 
-                                employee={selectedEmployee}
-                                currentUser={currentUser}
-                                onUpdateEmployee={onUpdateEmployee}
-                                onShowToast={onShowToast}
-                                onChangeView={() => {}} // No-op for navigation inside modal
-                                onNext={() => {}} 
-                                onPrevious={() => {}}
-                                managers={[]}
-                                onBack={() => setSelectedEmployeeId(null)}
-                            />
-                        </div>
-                        <button 
-                            onClick={() => setSelectedEmployeeId(null)}
-                            className="absolute top-4 right-4 p-2 bg-white/50 hover:bg-white rounded-full text-slate-600 backdrop-blur-md transition-all shadow-sm z-50"
-                        >
-                            <X size={24}/>
-                        </button>
+                        <HRDossierDetail 
+                            employee={selectedEmployee}
+                            currentUser={currentUser}
+                            onUpdate={onUpdateEmployee}
+                            onClose={() => setSelectedEmployeeId(null)}
+                            onShowToast={onShowToast}
+                        />
                     </div>
                 </div>
             )}
