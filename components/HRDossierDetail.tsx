@@ -151,13 +151,33 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
         if (!confirm("Weet je zeker dat je dit item wilt verwijderen?")) return;
 
         let updatedEmployee = { ...employee };
+        
         if (source === 'dossier') {
+            const entryToDelete = employee.dossier?.find(e => e.id === id);
+            
+            // SMART LOGIC: If deleting a 'Recovery', re-open the corresponding sick leave
+            if (entryToDelete && entryToDelete.type === 'Recovery') {
+                updatedEmployee.dossier = (updatedEmployee.dossier || []).map(e => {
+                    // Check if this is a sick entry that ended on the same date as the recovery being deleted
+                    if (e.type === 'Sick' && e.endDate === entryToDelete.date) {
+                         const { endDate, ...rest } = e; // Remove endDate property to make it active
+                         return rest as DossierEntry;
+                    }
+                    return e;
+                });
+                onShowToast("Herstelmelding verwijderd. Ziekte heropend.");
+            } else {
+                onShowToast("Item verwijderd.");
+            }
+
+            // Remove the actual entry
             updatedEmployee.dossier = (updatedEmployee.dossier || []).filter(e => e.id !== id);
         } else {
             updatedEmployee.notes = (updatedEmployee.notes || []).filter(n => n.id !== id);
+            onShowToast("Notitie verwijderd.");
         }
+        
         onUpdate(updatedEmployee);
-        onShowToast("Item verwijderd.");
     };
 
     const handleResolveSick = (entryId: string) => {
@@ -226,34 +246,44 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
 
         return (
             <div className="space-y-8">
-                {/* STATS DASHBOARD */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-red-50 text-red-600 rounded-lg"><Thermometer size={18}/></div>
-                            <span className="text-xs font-bold text-slate-400 uppercase">Ziek</span>
+                {/* STATS DASHBOARD - UPDATED FOR BETTER FIT */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-28 relative overflow-hidden">
+                        <div className="flex items-center gap-2 z-10">
+                            <div className="p-1.5 bg-red-50 text-red-600 rounded-lg"><Thermometer size={16}/></div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">Ziekte</span>
                         </div>
-                        <div className="text-2xl font-bold text-slate-900">{stats.sickCount}x</div>
-                        {stats.activeSick && <span className="text-[10px] text-red-600 font-bold flex items-center gap-1 mt-1"><span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></span> Nu Actief</span>}
+                        <div className="z-10">
+                            <div className="text-2xl font-bold text-slate-900">{stats.sickCount}x</div>
+                        </div>
+                        {stats.activeSick && (
+                            <div className="absolute bottom-0 left-0 w-full bg-red-50 px-4 py-1 flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                                <span className="text-[10px] font-bold text-red-700 uppercase">Actief</span>
+                            </div>
+                        )}
                     </div>
-                    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-amber-50 text-amber-600 rounded-lg"><Clock size={18}/></div>
-                            <span className="text-xs font-bold text-slate-400 uppercase">Te Laat</span>
+                    
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-28">
+                        <div className="flex items-center gap-2">
+                            <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg"><Clock size={16}/></div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">Te Laat</span>
                         </div>
                         <div className="text-2xl font-bold text-slate-900">{stats.lateCount}x</div>
                     </div>
-                    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-slate-100 text-slate-600 rounded-lg"><AlertTriangle size={18}/></div>
-                            <span className="text-xs font-bold text-slate-400 uppercase">Waarschuwing</span>
+                    
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-28">
+                        <div className="flex items-center gap-2">
+                            <div className="p-1.5 bg-slate-100 text-slate-600 rounded-lg"><AlertTriangle size={16}/></div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate" title="Waarschuwingen">Waarschuwing</span>
                         </div>
                         <div className="text-2xl font-bold text-slate-900">{stats.warningCount}x</div>
                     </div>
-                    <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
-                        <div className="flex items-center gap-3 mb-2">
-                            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><MessageSquare size={18}/></div>
-                            <span className="text-xs font-bold text-slate-400 uppercase">Notities</span>
+                    
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between h-28">
+                        <div className="flex items-center gap-2">
+                            <div className="p-1.5 bg-blue-50 text-blue-600 rounded-lg"><MessageSquare size={16}/></div>
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider truncate">Notities</span>
                         </div>
                         <div className="text-2xl font-bold text-slate-900">{stats.notesCount}</div>
                     </div>
