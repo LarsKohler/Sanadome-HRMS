@@ -1,5 +1,4 @@
 
-
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
 import { Employee, NewsPost, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, Ticket, ChecklistTemplate, ChecklistSubmission } from '../types';
@@ -26,13 +25,16 @@ const sanitizeApplicants = (data: any[]): Applicant[] => {
 };
 
 export const api = {
-  // --- GLOBAL SETTINGS (MODULE VISIBILITY) ---
+  // --- GLOBAL SETTINGS (MODULE VISIBILITY & BRANDING) ---
   getGlobalSettings: async (): Promise<GlobalSettings | null> => {
       if (isLive && supabase) {
           try {
-              const { data, error } = await supabase.from('global_settings').select('modules').eq('id', 'main').single();
-              if (!error && data) return { modules: data.modules };
-              return null; // No settings yet
+              // Now selecting 'data' which contains the full JSON object including loginImages
+              const { data, error } = await supabase.from('global_settings').select('data').eq('id', 'main').single();
+              if (!error && data) {
+                  return data.data as GlobalSettings;
+              }
+              return null;
           } catch (e) {
               return null;
           }
@@ -43,7 +45,12 @@ export const api = {
 
   saveGlobalSettings: async (settings: GlobalSettings) => {
       if (isLive && supabase) {
-          await supabase.from('global_settings').upsert({ id: 'main', modules: settings.modules, updated_at: new Date().toISOString() });
+          // Saving the entire settings object into the 'data' column
+          await supabase.from('global_settings').upsert({ 
+              id: 'main', 
+              data: settings, 
+              updated_at: new Date().toISOString() 
+          });
       } else {
           localStorage.setItem('hrms_global_settings', JSON.stringify(settings));
       }
@@ -458,8 +465,6 @@ export const api = {
 
       return () => { supabase.removeChannel(channel); };
     } else {
-      // Fallback subscription to local storage logic is less robust without notifications arg
-      // but assuming storage.subscribe is updated or simplified.
       return () => {};
     }
   },
@@ -483,23 +488,28 @@ export const api = {
       return null;
   },
 
-  // ... (Other existing methods like uploadFile, etc. kept as is) ...
-  uploadFile: async (file: File): Promise<string> => {
+  // UPLOAD FILE UPDATED TO SUPPORT BRANDING BUCKET
+  uploadFile: async (file: File, bucket: 'documents' | 'branding' = 'documents'): Promise<string> => {
       if (isLive && supabase) {
-          const fileName = `${Date.now()}-${file.name}`;
-          const { data, error } = await supabase.storage.from('documents').upload(fileName, file);
+          // Clean filename
+          const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+          
+          const { data, error } = await supabase.storage.from(bucket).upload(fileName, file);
+          
           if (data) {
-              const { data: publicUrl } = supabase.storage.from('documents').getPublicUrl(fileName);
+              const { data: publicUrl } = supabase.storage.from(bucket).getPublicUrl(fileName);
               return publicUrl.publicUrl;
+          } else {
+              console.error("Upload error:", error);
           }
       }
       return URL.createObjectURL(file); // Fallback for demo
   },
 
-  deleteFile: async (path: string) => {
+  deleteFile: async (path: string, bucket: 'documents' | 'branding' = 'documents') => {
       if (isLive && supabase) {
           const fileName = path.split('/').pop();
-          if (fileName) await supabase.storage.from('documents').remove([fileName]);
+          if (fileName) await supabase.storage.from(bucket).remove([fileName]);
       }
   },
 

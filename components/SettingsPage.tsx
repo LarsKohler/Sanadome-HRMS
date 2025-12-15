@@ -232,7 +232,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
 
       onShowToast("Afbeelding uploaden...");
       try {
-          const url = await api.uploadFile(file);
+          // Use 'branding' bucket for better organization
+          const url = await api.uploadFile(file, 'branding');
           if (url) {
               if (uploadType === 'login') {
                   const updated = [...loginImages, url];

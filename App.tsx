@@ -23,7 +23,7 @@ import BadgeManager from './components/BadgeManager';
 import AcademyPage from './components/AcademyPage'; 
 import CompensationPage from './components/CompensationPage';
 import ChecklistsPage from './components/ChecklistsPage';
-import HRDossierPage from './components/HRDossierPage'; // NEW
+import HRDossierPage from './components/HRDossierPage'; 
 import UpdateNotifier from './components/UpdateNotifier';
 import { api, isLive } from './utils/api';
 import { isModuleEnabled } from './utils/permissions';
@@ -50,18 +50,25 @@ function App() {
   // Specific Feature States
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
 
-  // Initialize Data
+  // Initialize Global Settings FIRST (so login screen has images)
+  useEffect(() => {
+      const loadSettings = async () => {
+          const settings = await api.getGlobalSettings();
+          if (settings) setGlobalSettings(settings);
+      };
+      loadSettings();
+  }, []);
+
+  // Initialize Data (Protected)
   useEffect(() => {
     const loadData = async () => {
       const emps = await api.getEmployees();
       const news = await api.getNews();
       const apps = await api.getApplicants(); 
-      const settings = await api.getGlobalSettings(); 
       
       setEmployees(emps);
       setNewsItems(news);
       setApplicants(apps);
-      setGlobalSettings(settings);
     };
 
     if (isAuthenticated) {
@@ -105,8 +112,6 @@ function App() {
           setCurrentUser(user);
           setIsAuthenticated(true);
           localStorage.setItem('hrms_current_user', JSON.stringify(user));
-          // Load settings after login too
-          api.getGlobalSettings().then(setGlobalSettings);
           return true;
       }
       return false;
