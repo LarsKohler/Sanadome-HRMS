@@ -1,13 +1,16 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { Lock, ArrowRight, AlertCircle, User, Key, ChevronLeft, Mail, UserPlus, Shield } from 'lucide-react';
 import { api } from '../utils/api';
+import { GlobalSettings } from '../types';
 
 interface LoginProps {
   onLogin: (email: string, password: string) => Promise<boolean>;
 }
 
-const LOGIN_IMAGES = [
+// Fallback images
+const DEFAULT_LOGIN_IMAGES = [
   "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1920&q=80", // Spa/Pool
   "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1920&q=80", // Exterior Night
   "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1920&q=80", // Luxury Lounge
@@ -20,14 +23,28 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  
+  // Custom Images State
+  const [loginImages, setLoginImages] = useState<string[]>(DEFAULT_LOGIN_IMAGES);
+
+  // Load settings on mount
+  useEffect(() => {
+      const loadSettings = async () => {
+          const settings = await api.getGlobalSettings();
+          if (settings && settings.branding && settings.branding.loginImages && settings.branding.loginImages.length > 0) {
+              setLoginImages(settings.branding.loginImages);
+          }
+      };
+      loadSettings();
+  }, []);
 
   // Rotate images
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % LOGIN_IMAGES.length);
+      setCurrentImageIndex((prev) => (prev + 1) % loginImages.length);
     }, 6000);
     return () => clearInterval(interval);
-  }, []);
+  }, [loginImages]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +82,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       {/* LEFT PANEL: Visuals */}
       <div className="hidden lg:block lg:w-[45%] relative overflow-hidden bg-slate-900">
         {/* Stacked Images for Cross-fade */}
-        {LOGIN_IMAGES.map((src, index) => (
+        {loginImages.map((src, index) => (
            <div 
              key={src}
              className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-70 z-10' : 'opacity-0 z-0'}`}

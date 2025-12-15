@@ -31,19 +31,47 @@ export const api = {
       if (isLive && supabase) {
           try {
               const { data, error } = await supabase.from('global_settings').select('modules').eq('id', 'main').single();
-              if (!error && data) return { modules: data.modules };
-              return null; // No settings yet
+              // Note: branding might be in a different column if schema updated, but assuming jsonb blob for now 'modules' is possibly not enough if structure changed. 
+              // Better to select * if structure evolves.
+              // Assuming 'modules' column actually stores the whole JSON or we need to update query.
+              // Let's assume the table has a 'data' column or similar for flexibility, or we stick to existing code.
+              // If current implementation stores everything in 'modules' column (misnamed but functional), we proceed. 
+              // However, typically 'data' or specific columns.
+              // For safety in this mock/demo, let's assume 'modules' holds the config or we adapt.
+              
+              // Let's assume we select * to get all fields
+              const { data: fullData } = await supabase.from('global_settings').select('*').eq('id', 'main').single();
+              
+              if (fullData) {
+                  // Merge with defaults
+                  return {
+                      modules: fullData.modules || {},
+                      branding: fullData.branding || { loginImages: [] }
+                  };
+              }
+              return null;
           } catch (e) {
               return null;
           }
       }
       const local = localStorage.getItem('hrms_global_settings');
-      return local ? JSON.parse(local) : null;
+      if (local) {
+          const settings = JSON.parse(local);
+          // Ensure branding exists
+          if (!settings.branding) settings.branding = { loginImages: [] };
+          return settings;
+      }
+      return { modules: {}, branding: { loginImages: [] } };
   },
 
   saveGlobalSettings: async (settings: GlobalSettings) => {
       if (isLive && supabase) {
-          await supabase.from('global_settings').upsert({ id: 'main', modules: settings.modules, updated_at: new Date().toISOString() });
+          await supabase.from('global_settings').upsert({ 
+              id: 'main', 
+              modules: settings.modules, 
+              branding: settings.branding, // Ensure this column exists in Supabase or store in a single JSONB 'data' column
+              updated_at: new Date().toISOString() 
+          });
       } else {
           localStorage.setItem('hrms_global_settings', JSON.stringify(settings));
       }

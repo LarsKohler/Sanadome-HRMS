@@ -1,9 +1,11 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
-import { Shield, Search, Check, AlertTriangle, User, Save, RefreshCcw, Lock, Unlock, Briefcase, Plus, X, LayoutGrid, EyeOff, CheckSquare, Square, Eye, Users } from 'lucide-react';
+
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { Shield, Search, Check, AlertTriangle, User, Save, RefreshCcw, Lock, Unlock, Briefcase, Plus, X, LayoutGrid, EyeOff, CheckSquare, Square, Eye, Users, Image as ImageIcon, Trash2, Upload } from 'lucide-react';
 import { Employee, Permission, PERMISSION_LABELS, GlobalSettings, ViewState } from '../types';
 import { ROLE_PERMISSIONS } from '../utils/permissions';
 import { Modal } from './Modal';
+import { api } from '../utils/api';
 
 interface SettingsPageProps {
   employees: Employee[];
@@ -34,7 +36,7 @@ const MODULE_NAMES: Record<string, string> = {
 };
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onUpdateEmployee, onShowToast, globalSettings, onUpdateGlobalSettings }) => {
-  const [activeTab, setActiveTab] = useState<'users' | 'roles' | 'modules'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'roles' | 'modules' | 'branding'>('users');
   
   // Selection State
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
@@ -61,6 +63,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
       hiddenForUsers: [],
       allowedUsers: []
   });
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize selection
   useEffect(() => {
@@ -158,13 +162,14 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
       const newConfig = { ...currentConfig, enabled };
       
       const newSettings = {
+          ...globalSettings,
           modules: {
               ...(globalSettings?.modules || {}),
               [viewId]: newConfig
           }
       };
       
-      onUpdateGlobalSettings(newSettings);
+      onUpdateGlobalSettings(newSettings as GlobalSettings);
   };
 
   const openModuleConfig = (moduleId: string) => {
@@ -184,6 +189,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
       if (!editingModuleId) return;
       
       const newSettings = {
+          ...globalSettings,
           modules: {
               ...(globalSettings?.modules || {}),
               [editingModuleId]: {
@@ -194,13 +200,55 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
           }
       };
 
-      onUpdateGlobalSettings(newSettings);
+      onUpdateGlobalSettings(newSettings as GlobalSettings);
       setIsConfigModalOpen(false);
       onShowToast("Module instellingen opgeslagen.");
   };
 
   const toggleArrayItem = (arr: string[], item: string) => {
       return arr.includes(item) ? arr.filter(i => i !== item) : [...arr, item];
+  };
+
+  // --- HANDLERS FOR BRANDING ---
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      onShowToast("Afbeelding uploaden...");
+      try {
+          const url = await api.uploadFile(file);
+          if (url) {
+              const currentImages = globalSettings?.branding?.loginImages || [];
+              const newSettings = {
+                  ...globalSettings,
+                  modules: globalSettings?.modules || {},
+                  branding: {
+                      loginImages: [...currentImages, url]
+                  }
+              };
+              onUpdateGlobalSettings(newSettings as GlobalSettings);
+              onShowToast("Afbeelding toegevoegd.");
+          }
+      } catch (e) {
+          console.error(e);
+          onShowToast("Upload mislukt.");
+      }
+  };
+
+  const handleDeleteImage = (urlToDelete: string) => {
+      if (!confirm("Weet je zeker dat je deze afbeelding wilt verwijderen?")) return;
+      
+      const currentImages = globalSettings?.branding?.loginImages || [];
+      const newSettings = {
+          ...globalSettings,
+          modules: globalSettings?.modules || {},
+          branding: {
+              loginImages: currentImages.filter(url => url !== urlToDelete)
+          }
+      };
+      onUpdateGlobalSettings(newSettings as GlobalSettings);
+      onShowToast("Afbeelding verwijderd.");
   };
 
   return (
@@ -220,24 +268,30 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[700px]">
           
           {/* TABS */}
-          <div className="border-b border-slate-200 px-6 py-4 flex gap-4 bg-white">
+          <div className="border-b border-slate-200 px-6 py-4 flex gap-4 bg-white overflow-x-auto">
               <button 
                 onClick={() => setActiveTab('users')}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'users' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'users' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                   <User size={16}/> Gebruikers
               </button>
               <button 
                 onClick={() => setActiveTab('roles')}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'roles' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'roles' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                   <Briefcase size={16}/> Rollen
               </button>
               <button 
                 onClick={() => setActiveTab('modules')}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'modules' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'modules' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                   <LayoutGrid size={16}/> Modules
+              </button>
+              <button 
+                onClick={() => setActiveTab('branding')}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'branding' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+              >
+                  <ImageIcon size={16}/> Huisstijl
               </button>
           </div>
 
@@ -482,7 +536,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                             <p className="text-lg mt-2">Kies een rol uit het menu om de rechten aan te passen.</p>
                         </div>
                       )
-                  ) : (
+                  ) : activeTab === 'modules' ? (
                       /* MODULES TAB */
                       <div className="max-w-6xl mx-auto animate-in fade-in">
                           <div className="flex justify-between items-center mb-6">
@@ -562,6 +616,58 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                                       })}
                                   </tbody>
                               </table>
+                          </div>
+                      </div>
+                  ) : (
+                      /* BRANDING TAB */
+                      <div className="max-w-6xl mx-auto animate-in fade-in">
+                          <div className="flex justify-between items-center mb-6">
+                              <div>
+                                  <h2 className="text-2xl font-bold text-slate-900">Inlogscherm Huisstijl</h2>
+                                  <p className="text-slate-500 mt-1">Beheer de achtergrondafbeeldingen van het inlogscherm.</p>
+                              </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                              {/* Upload Card */}
+                              <div 
+                                onClick={() => fileInputRef.current?.click()}
+                                className="border-2 border-dashed border-slate-300 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-teal-500 hover:bg-teal-50/30 transition-all group h-64"
+                              >
+                                  <input 
+                                    type="file" 
+                                    ref={fileInputRef}
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={handleImageUpload}
+                                  />
+                                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-teal-100 group-hover:text-teal-600 transition-colors">
+                                      <Upload size={24} />
+                                  </div>
+                                  <h3 className="font-bold text-slate-700 mb-1">Afbeelding Uploaden</h3>
+                                  <p className="text-xs text-slate-400 text-center">JPG, PNG (Max 5MB)</p>
+                              </div>
+
+                              {/* Image Cards */}
+                              {globalSettings?.branding?.loginImages?.map((url, idx) => (
+                                  <div key={idx} className="relative rounded-2xl overflow-hidden shadow-sm border border-slate-200 group h-64">
+                                      <img src={url} alt={`Branding ${idx}`} className="w-full h-full object-cover" />
+                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                          <button 
+                                            onClick={() => handleDeleteImage(url)}
+                                            className="bg-white text-red-600 px-4 py-2 rounded-lg font-bold text-xs shadow-lg hover:bg-red-50 flex items-center gap-2"
+                                          >
+                                              <Trash2 size={14}/> Verwijderen
+                                          </button>
+                                      </div>
+                                  </div>
+                              ))}
+                              
+                              {(!globalSettings?.branding?.loginImages || globalSettings.branding.loginImages.length === 0) && (
+                                  <div className="col-span-full py-12 text-center text-slate-400 italic">
+                                      Geen aangepaste afbeeldingen ingesteld. De standaard systeemafbeeldingen worden gebruikt.
+                                  </div>
+                              )}
                           </div>
                       </div>
                   )}
