@@ -78,7 +78,12 @@ export const api = {
   getShiftHandoverItems: async (date: string): Promise<ShiftHandoverItem[]> => {
       if (isLive && supabase) {
           try {
-              const { data, error } = await supabase.from('shift_handover_items').select('*').eq('date', date);
+              // Fetch 'General' items OR 'Specific' items for the selected date
+              const { data, error } = await supabase
+                  .from('shift_handover_items')
+                  .select('*')
+                  .or(`category.eq.General,and(category.eq.Specific,date.eq.${date})`);
+
               if (!error && data) {
                   return data.map((d: any) => ({
                       id: d.id,
@@ -98,7 +103,11 @@ export const api = {
       }
       const local = localStorage.getItem('hrms_handover_items');
       const all: ShiftHandoverItem[] = local ? JSON.parse(local) : [];
-      return all.filter(item => item.date === date);
+      
+      // Local filtering: Keep all 'General', filter 'Specific' by date
+      return all.filter(item => 
+          item.category === 'General' || (item.category === 'Specific' && item.date === date)
+      );
   },
 
   saveShiftHandoverItem: async (item: ShiftHandoverItem) => {
