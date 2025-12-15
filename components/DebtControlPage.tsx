@@ -487,9 +487,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       });
   };
 
-  // --- NEW: COMPREHENSIVE DETAIL MODAL LOGIC ---
-
-  // Improved Address Parser
+  // ... (Address parser logic omitted for brevity, remains unchanged) ...
   const parseAddress = (rawAddr: string) => {
       let street = '';
       let number = '';
@@ -1804,6 +1802,34 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           </div>
       </div>
       )}
+
+      {/* CONFIRMATION MODAL (Generic) */}
+      <Modal
+          isOpen={confirmModalState.isOpen}
+          onClose={closeConfirmModal}
+          title={confirmModalState.title}
+      >
+          <div className="space-y-4">
+              <p className="text-sm text-slate-600">{confirmModalState.message}</p>
+              <div className="flex justify-end gap-3 pt-2">
+                  <button 
+                      onClick={closeConfirmModal}
+                      className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors"
+                  >
+                      Annuleren
+                  </button>
+                  <button 
+                      onClick={confirmModalState.onConfirm}
+                      className={`px-4 py-2 text-white rounded-lg font-bold text-sm shadow-sm transition-colors ${
+                          confirmModalState.type === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-slate-900 hover:bg-slate-800'
+                      }`}
+                  >
+                      Bevestigen
+                  </button>
+              </div>
+          </div>
+      </Modal>
+
     </div>
   );
 };
