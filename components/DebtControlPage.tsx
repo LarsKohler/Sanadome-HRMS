@@ -1,14 +1,17 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Upload, Euro, AlertCircle, CheckCircle2, Search, Filter, FileSpreadsheet, MoreHorizontal, ArrowUpRight, RefreshCw, Mail, Phone, AlertTriangle, ChevronDown, ChevronUp, Clock, Trash2, X, Edit, CheckSquare, Square, Printer, Calendar, Sparkles, Edit2, MessageSquare, Send, FolderOpen, Save, MapPin, Hash, Globe, Ban, FileCheck, Languages, Plus } from 'lucide-react';
-import { Debtor, DebtorStatus, Employee, DebtorNote } from '../types';
+import { 
+    Euro, Search, Filter, AlertTriangle, Clock, CheckCircle2, 
+    MoreHorizontal, ChevronDown, Download, Upload, Plus, FileText, 
+    Trash2, Edit, X, RefreshCw, Printer, Sparkles, FolderOpen, Mail, Phone, Calendar, Hash, Globe, FileSpreadsheet, AlertCircle, CheckSquare, Square, Edit2, FileCheck, Send
+} from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { Employee, Debtor, DebtorStatus, DebtorNote } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
-import * as XLSX from 'xlsx';
 
 interface DebtControlPageProps {
-  currentUser: Employee;
-  onShowToast: (message: string) => void;
+    currentUser: Employee;
+    onShowToast: (message: string) => void;
 }
 
 const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowToast }) => {
@@ -16,12 +19,8 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const [isLoading, setIsLoading] = useState(true);
   const [isUploading, setIsUploading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeTab, setActiveTab] = useState<'ALL' | 'ACTION' | 'NEW' | 'ONGOING' | 'URGENT' | 'DONE'>('ALL');
-  
-  // NEW: Specific Status Filter
   const [statusFilter, setStatusFilter] = useState<DebtorStatus | 'All'>('All');
-
-  // Selection State
+  const [activeTab, setActiveTab] = useState<'ALL' | 'ACTION' | 'NEW' | 'ONGOING' | 'URGENT' | 'DONE'>('ALL');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // --- NEW: COMPREHENSIVE DETAIL MODAL STATE ---
@@ -41,6 +40,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       addressCountry: 'Nederland',
       amount: 0,
       status: 'New' as DebtorStatus,
+      statusDate: new Date().toISOString().split('T')[0], // NEW: Start Date
       cashlistReason: '',
       correctionReason: ''
   });
@@ -615,6 +615,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           addressCountry: parsed.country,
           amount: debtor.amount,
           status: debtor.status,
+          statusDate: debtor.statusDate ? new Date(debtor.statusDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
           cashlistReason: debtor.cashlistReason || '',
           correctionReason: debtor.correctionReason || ''
       });
@@ -654,6 +655,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           addressCountry: 'Nederland',
           amount: 0,
           status: 'New',
+          statusDate: new Date().toISOString().split('T')[0],
           cashlistReason: '',
           correctionReason: ''
       });
@@ -694,7 +696,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
               address: fullAddress,
               amount: detailForm.amount,
               status: detailForm.status,
-              statusDate: new Date().toISOString(),
+              statusDate: new Date(detailForm.statusDate).toISOString(), // Use custom start date
               lastUpdated: new Date().toISOString(),
               importedAt: new Date().toLocaleDateString('nl-NL'),
               isEnriched: false,
@@ -745,7 +747,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
               address: fullAddress,
               amount: detailForm.amount,
               status: detailForm.status,
-              statusDate: detailForm.status !== detailDebtor.status ? new Date().toISOString() : detailDebtor.statusDate,
+              statusDate: new Date(detailForm.statusDate).toISOString(), // Use form date (allows edit)
               cashlistReason: detailForm.status === 'Cashlist' ? detailForm.cashlistReason : detailDebtor.cashlistReason,
               correctionReason: detailForm.status === 'Correction' ? detailForm.correctionReason : detailDebtor.correctionReason,
               notes: currentNotes
@@ -1532,23 +1534,36 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                           </div>
 
                           {/* Status Select */}
-                          <div>
-                              <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Status</label>
-                              <div className="relative">
-                                  <select 
-                                      className="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold bg-slate-50 appearance-none focus:ring-2 focus:ring-teal-500 outline-none"
-                                      value={detailForm.status}
-                                      onChange={(e) => setDetailForm({...detailForm, status: e.target.value as DebtorStatus})}
-                                  >
-                                      <option value="New">Nieuw</option>
-                                      <option value="1st Reminder">1e Herinnering</option>
-                                      <option value="2nd Reminder">2e Herinnering</option>
-                                      <option value="Final Notice">Aanmaning</option>
-                                      <option value="Paid">Betaald</option>
-                                      <option value="Correction">Correctie</option>
-                                      <option value="Cashlist">Cashlist</option>
-                                  </select>
-                                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16}/>
+                          <div className="grid grid-cols-2 gap-4">
+                              <div>
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Status</label>
+                                  <div className="relative">
+                                      <select 
+                                          className="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold bg-slate-50 appearance-none focus:ring-2 focus:ring-teal-500 outline-none"
+                                          value={detailForm.status}
+                                          onChange={(e) => setDetailForm({...detailForm, status: e.target.value as DebtorStatus})}
+                                      >
+                                          <option value="New">Nieuw</option>
+                                          <option value="1st Reminder">1e Herinnering</option>
+                                          <option value="2nd Reminder">2e Herinnering</option>
+                                          <option value="Final Notice">Aanmaning</option>
+                                          <option value="Paid">Betaald</option>
+                                          <option value="Correction">Correctie</option>
+                                          <option value="Cashlist">Cashlist</option>
+                                      </select>
+                                      <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16}/>
+                                  </div>
+                              </div>
+                              
+                              {/* NEW: Start Date Field */}
+                              <div>
+                                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Startdatum Dossier</label>
+                                  <input
+                                      type="date"
+                                      className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none font-medium text-slate-700"
+                                      value={detailForm.statusDate}
+                                      onChange={(e) => setDetailForm({...detailForm, statusDate: e.target.value})}
+                                  />
                               </div>
                           </div>
 
@@ -1729,7 +1744,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                   {!isCreating && (
                       <div className="w-full md:w-1/2 p-8 overflow-y-auto flex flex-col h-full">
                           <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
-                              <MessageSquare size={18} className="text-blue-600"/> Historie & Notities
+                              <MoreHorizontal size={18} className="text-blue-600"/> Historie & Notities
                           </h3>
 
                           <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-6 mb-6">
@@ -1788,123 +1803,6 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           </div>
       </div>
       )}
-
-      {/* Date Edit Modal (Quick Action) */}
-      <Modal
-        isOpen={!!dateEditTarget}
-        onClose={() => setDateEditTarget(null)}
-        title="Datum Wijzigen"
-      >
-          <form onSubmit={handleDateSave} className="space-y-5">
-              <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 text-amber-800 text-sm flex gap-3">
-                  <AlertTriangle className="flex-shrink-0 mt-0.5" size={18} />
-                  <div>
-                      <p className="font-bold mb-1">Let op:</p>
-                      <p>Door de datum handmatig aan te passen naar meer dan 7 dagen geleden, wordt automatisch de 'Actie Vereist' markering geactiveerd.</p>
-                  </div>
-              </div>
-              
-              <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Status Datum</label>
-                  <input 
-                    type="date" 
-                    className="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-900"
-                    value={newDateValue}
-                    onChange={(e) => setNewDateValue(e.target.value)}
-                    required
-                  />
-              </div>
-
-              <button 
-                type="submit" 
-                className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors shadow-lg"
-              >
-                  Datum Opslaan
-              </button>
-          </form>
-      </Modal>
-
-      {/* WIK Letter Date Modal */}
-      <Modal
-        isOpen={!!wikTarget}
-        onClose={() => setWikTarget(null)}
-        title="WIK Brief Genereren"
-      >
-          <div className="space-y-6">
-              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-blue-800 text-sm font-medium">
-                  <p>Je staat op het punt een officiële aanmaning te genereren voor <br/><span className="text-slate-900 text-base block mt-1">{wikTarget?.firstName} {wikTarget?.lastName}</span></p>
-              </div>
-
-              <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Taal</label>
-                  <div className="flex gap-2">
-                      <button 
-                        onClick={() => setWikLanguage('nl')}
-                        className={`flex-1 py-2 rounded-lg text-sm font-bold border transition-colors ${wikLanguage === 'nl' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-                      >
-                          Nederlands
-                      </button>
-                      <button 
-                        onClick={() => setWikLanguage('en')}
-                        className={`flex-1 py-2 rounded-lg text-sm font-bold border transition-colors ${wikLanguage === 'en' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-                      >
-                          English
-                      </button>
-                      <button 
-                        onClick={() => setWikLanguage('de')}
-                        className={`flex-1 py-2 rounded-lg text-sm font-bold border transition-colors ${wikLanguage === 'de' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}
-                      >
-                          Deutsch
-                      </button>
-                  </div>
-              </div>
-              
-              <div>
-                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
-                      Datum van incheck / Factuurdatum
-                  </label>
-                  <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                      <input 
-                        type="date" 
-                        className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl text-sm font-bold text-slate-700 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none"
-                        value={wikDateInput}
-                        onChange={(e) => setWikDateInput(e.target.value)}
-                      />
-                  </div>
-                  <p className="text-xs text-slate-400 mt-1.5">
-                      Wordt gebruikt in de aanhef van de brief.
-                  </p>
-              </div>
-
-              <button 
-                onClick={generateWIKLetter}
-                disabled={!wikDateInput}
-                className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg"
-              >
-                  <Printer size={18} /> Genereer & Print Brief
-              </button>
-          </div>
-      </Modal>
-
-      {/* Confirm Modal */}
-      <Modal 
-        isOpen={confirmModalState.isOpen} 
-        onClose={closeConfirmModal} 
-        title={confirmModalState.title}
-      >
-         <div className="space-y-4">
-            <div className={`p-4 rounded-xl flex items-start gap-3 ${confirmModalState.type === 'danger' ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'}`}>
-               {confirmModalState.type === 'danger' ? <AlertTriangle size={20} className="shrink-0" /> : <AlertCircle size={20} className="shrink-0" />}
-               <p className="text-sm font-medium">{confirmModalState.message}</p>
-            </div>
-            <div className="flex justify-end gap-3 pt-2">
-               <button onClick={closeConfirmModal} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors">Annuleren</button>
-               <button onClick={confirmModalState.onConfirm} className={`px-4 py-2 text-white rounded-lg font-bold text-sm shadow-sm transition-colors ${confirmModalState.type === 'danger' ? 'bg-red-600 hover:bg-red-700' : 'bg-slate-900 hover:bg-slate-800'}`}>Bevestigen</button>
-            </div>
-         </div>
-      </Modal>
-
     </div>
   );
 };
