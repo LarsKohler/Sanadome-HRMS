@@ -1,7 +1,6 @@
 
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Shield, Search, Check, AlertTriangle, User, Save, RefreshCcw, Lock, Unlock, Briefcase, Plus, X, LayoutGrid, EyeOff, CheckSquare, Square, Eye, Users, Image as ImageIcon, Trash2, Upload } from 'lucide-react';
+import { Shield, Search, Check, AlertTriangle, User, Save, RefreshCcw, Lock, Unlock, Briefcase, Plus, X, LayoutGrid, EyeOff, CheckSquare, Square, Eye, Users, Image as ImageIcon, Trash2, Upload, Link } from 'lucide-react';
 import { Employee, Permission, PERMISSION_LABELS, GlobalSettings, ViewState } from '../types';
 import { ROLE_PERMISSIONS } from '../utils/permissions';
 import { Modal } from './Modal';
@@ -46,6 +45,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
 
   // Local state for Role Definitions
   const [roleConfigs, setRoleConfigs] = useState<Record<string, Permission[]>>(ROLE_PERMISSIONS);
+
+  // Branding State
+  const [newImageUrl, setNewImageUrl] = useState('');
 
   // Module Management State
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -228,12 +230,28 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                   }
               };
               onUpdateGlobalSettings(newSettings as GlobalSettings);
-              onShowToast("Afbeelding toegevoegd.");
+              onShowToast("Afbeelding toegevoegd. (Let op: uploads verdwijnen na refresh in demo-modus, gebruik links voor permanente opslag)");
           }
       } catch (e) {
           console.error(e);
           onShowToast("Upload mislukt.");
       }
+  };
+
+  const handleAddImageUrl = () => {
+      if (!newImageUrl.trim()) return;
+      
+      const currentImages = globalSettings?.branding?.loginImages || [];
+      const newSettings = {
+          ...globalSettings,
+          modules: globalSettings?.modules || {},
+          branding: {
+              loginImages: [...currentImages, newImageUrl.trim()]
+          }
+      };
+      onUpdateGlobalSettings(newSettings as GlobalSettings);
+      setNewImageUrl('');
+      onShowToast("Afbeelding URL toegevoegd.");
   };
 
   const handleDeleteImage = (urlToDelete: string) => {
@@ -628,6 +646,27 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                               </div>
                           </div>
 
+                          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm mb-8">
+                              <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider flex items-center gap-2"><Link size={16}/> Afbeelding via URL toevoegen</h3>
+                              <div className="flex gap-3">
+                                  <input 
+                                    type="text" 
+                                    placeholder="https://example.com/image.jpg" 
+                                    value={newImageUrl}
+                                    onChange={(e) => setNewImageUrl(e.target.value)}
+                                    className="flex-1 p-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-slate-50"
+                                  />
+                                  <button 
+                                    onClick={handleAddImageUrl}
+                                    disabled={!newImageUrl.trim()}
+                                    className="bg-slate-900 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-md hover:bg-slate-800 transition-colors disabled:opacity-50"
+                                  >
+                                      Toevoegen
+                                  </button>
+                              </div>
+                              <p className="text-xs text-slate-400 mt-2">Gebruik een permanente link (bv. van Unsplash of eigen hosting) om te zorgen dat de afbeelding blijft staan na het verversen van de pagina.</p>
+                          </div>
+
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                               {/* Upload Card */}
                               <div 
@@ -644,13 +683,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                                   <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mb-4 group-hover:bg-teal-100 group-hover:text-teal-600 transition-colors">
                                       <Upload size={24} />
                                   </div>
-                                  <h3 className="font-bold text-slate-700 mb-1">Afbeelding Uploaden</h3>
-                                  <p className="text-xs text-slate-400 text-center">JPG, PNG (Max 5MB)</p>
+                                  <h3 className="font-bold text-slate-700 mb-1">Bestand Uploaden</h3>
+                                  <p className="text-xs text-slate-400 text-center">JPG, PNG (Tijdelijk)</p>
                               </div>
 
                               {/* Image Cards */}
                               {globalSettings?.branding?.loginImages?.map((url, idx) => (
-                                  <div key={idx} className="relative rounded-2xl overflow-hidden shadow-sm border border-slate-200 group h-64">
+                                  <div key={idx} className="relative rounded-2xl overflow-hidden shadow-sm border border-slate-200 group h-64 bg-slate-100">
                                       <img src={url} alt={`Branding ${idx}`} className="w-full h-full object-cover" />
                                       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                                           <button 
