@@ -50,7 +50,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadType, setUploadType] = useState<'login' | 'welcome' | null>(null);
 
-  // Module Names Mapping (Defined inside component to avoid import timing issues)
+  // Module Names Mapping - Defined locally with string literals to prevent import order issues
   const moduleNames: Record<string, string> = {
       'NEWS': 'Nieuws',
       'ACADEMY': 'Academy',
@@ -231,26 +231,31 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
       const file = e.target.files?.[0];
       if (!file || !uploadType) return;
 
-      onShowToast("Afbeelding uploaden...");
+      onShowToast("Afbeelding uploaden naar database...");
       try {
-          // Use 'branding' bucket for better organization
+          // Explicitly use 'branding' bucket.
+          // IMPORTANT: Requires Supabase policy allowing insert to 'branding' bucket.
           const url = await api.uploadFile(file, 'branding');
-          if (url) {
+          
+          if (url && url.startsWith('http')) {
+              let updatedSettings;
               if (uploadType === 'login') {
                   const updated = [...loginImages, url];
                   setLoginImages(updated);
-                  onUpdateGlobalSettings({ ...globalSettings!, loginImages: updated });
+                  updatedSettings = { ...globalSettings!, loginImages: updated };
               } else {
                   const updated = [...welcomeImages, url];
                   setWelcomeImages(updated);
-                  onUpdateGlobalSettings({ ...globalSettings!, welcomeImages: updated });
+                  updatedSettings = { ...globalSettings!, welcomeImages: updated };
               }
-              onShowToast("Afbeelding toegevoegd.");
+              onUpdateGlobalSettings(updatedSettings);
+              onShowToast("Afbeelding succesvol opgeslagen en toegevoegd.");
           } else {
-              onShowToast("Upload mislukt.");
+              console.error("Upload returned invalid URL:", url);
+              onShowToast("Upload mislukt: Geen geldige URL ontvangen.");
           }
       } catch (err: any) {
-          console.error("Upload failed", err);
+          console.error("Upload Exception:", err);
           onShowToast(`Fout bij uploaden: ${err.message || 'Onbekende fout'}`);
       } finally {
           setUploadType(null);
@@ -268,7 +273,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
           setWelcomeImages(updated);
           onUpdateGlobalSettings({ ...globalSettings!, welcomeImages: updated });
       }
-      onShowToast("Afbeelding verwijderd.");
+      onShowToast("Afbeelding verwijderd uit lijst.");
   };
 
   return (
