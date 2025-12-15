@@ -326,12 +326,14 @@ const ShiftHandoverPage: React.FC<ShiftHandoverPageProps> = ({ currentUser, onSh
             <style>{`
                 @media print {
                     @page { margin: 15mm; size: A4; }
-                    html, body { 
+                    
+                    /* Aggressively force white backgrounds on ALL parent containers */
+                    html, body, #root, main, .flex, .h-screen, .bg-slate-50, .min-h-screen { 
                         background-color: white !important;
-                        height: auto; 
-                        overflow: visible; 
-                        -webkit-print-color-adjust: exact;
-                        print-color-adjust: exact;
+                        color: black !important;
+                        height: auto !important;
+                        min-height: 0 !important;
+                        overflow: visible !important;
                     }
                     
                     /* Hide everything not in this component */
