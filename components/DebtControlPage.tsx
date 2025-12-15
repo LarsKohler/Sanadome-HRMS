@@ -527,7 +527,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           if (match) {
               const rawZip = match[0];
               // Normalize Zip
-              zip = rawZip.replace(/\s+/g, '').toUpperCase();
+              zip = rawZip.replace(/\s+/g, ''); // Compact for internal use, though NL prefers space
               if (zip.length === 6 && /[A-Z]/.test(zip)) {
                   zip = zip.slice(0, 4) + ' ' + zip.slice(4); // NL Format
               }
@@ -1802,6 +1802,57 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           </div>
       </div>
       )}
+
+      {/* WIK LETTER MODAL */}
+      <Modal 
+          isOpen={!!wikTarget} 
+          onClose={() => setWikTarget(null)} 
+          title="WIK Brief Genereren"
+      >
+          <div className="space-y-4">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-sm text-slate-600">
+                  <p>Genereer een officiële 14-dagen brief (WIK) voor <strong>{wikTarget?.lastName}</strong>.</p>
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Datum Factuur/Brief</label>
+                  <input 
+                      type="date" 
+                      className="w-full p-3 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      value={wikDateInput}
+                      onChange={(e) => setWikDateInput(e.target.value)}
+                      autoFocus
+                  />
+                  <p className="text-[10px] text-slate-400 mt-1">De datum die op de brief vermeld wordt.</p>
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Taal</label>
+                  <div className="flex gap-2">
+                      {['nl', 'en', 'de'].map(lang => (
+                          <button
+                              key={lang}
+                              onClick={() => setWikLanguage(lang as any)}
+                              className={`flex-1 py-2 rounded-lg text-sm font-bold border uppercase ${wikLanguage === lang ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+                          >
+                              {lang}
+                          </button>
+                      ))}
+                  </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                  <button onClick={() => setWikTarget(null)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors">Annuleren</button>
+                  <button 
+                      onClick={generateWIKLetter} 
+                      disabled={!wikDateInput}
+                      className="px-6 py-2 bg-slate-900 text-white rounded-lg font-bold text-sm shadow-sm hover:bg-slate-800 transition-colors disabled:opacity-50"
+                  >
+                      Genereren & Printen
+                  </button>
+              </div>
+          </div>
+      </Modal>
 
       {/* CONFIRMATION MODAL (Generic) */}
       <Modal
