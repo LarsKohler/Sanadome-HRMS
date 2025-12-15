@@ -159,32 +159,32 @@ const ShiftHandoverPage: React.FC<ShiftHandoverPageProps> = ({ currentUser, onSh
             </div>
 
             {/* PRINT HEADER (Visible only in print) */}
-            <div className="hidden print:block mb-8 border-b-2 border-slate-800 pb-4">
+            <div className="hidden print:block mb-8 border-b-2 border-black pb-4">
                 <div className="flex justify-between items-start">
                     <div>
-                        <h1 className="text-4xl font-black uppercase tracking-tight text-slate-900 mb-2">SHIFT OVERDRACHT</h1>
-                        <p className="text-slate-600 font-medium">Sanadome Hotel & Spa Nijmegen</p>
+                        <h1 className="text-4xl font-black uppercase tracking-tight text-black mb-1">SHIFT OVERDRACHT</h1>
+                        <p className="text-black font-medium text-lg">Sanadome Hotel & Spa Nijmegen</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-sm text-slate-500 font-bold uppercase tracking-wider">Datum</p>
-                        <p className="text-xl font-bold text-slate-900">{new Date(selectedDate).toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                        <p className="text-sm text-gray-600 font-bold uppercase tracking-wider">Datum Overdracht</p>
+                        <p className="text-2xl font-bold text-black">{new Date(selectedDate).toLocaleDateString('nl-NL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
                     </div>
                 </div>
             </div>
 
-            <div className="space-y-8">
+            <div className="space-y-8 print:space-y-6">
                 {/* GENERAL SECTION */}
-                <div className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm print:border-2 print:border-slate-900 print:rounded-none print:shadow-none break-inside-avoid">
-                    <div className="bg-amber-50 px-6 py-4 border-b-2 border-slate-200 flex justify-between items-center print:bg-slate-100 print:border-slate-900 print:px-4 print:py-2">
-                        <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2 print:text-black print:uppercase print:text-base">
+                <div className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm print:border-none print:shadow-none break-inside-avoid">
+                    <div className="bg-amber-50 px-6 py-4 border-b-2 border-slate-200 flex justify-between items-center print:bg-transparent print:border-b-2 print:border-black print:px-0 print:py-2">
+                        <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2 print:text-black print:text-xl print:uppercase">
                             <AlertTriangle size={20} className="text-amber-500 print:hidden"/> Belangrijke Meldingen
                         </h3>
                         {!isSeniorOrManager && <Lock size={16} className="text-slate-400 print:hidden" title="Alleen Seniors/Managers mogen dit bewerken"/>}
                     </div>
-                    <div className="p-6 space-y-4 print:p-4">
+                    <div className="p-6 space-y-4 print:px-0 print:py-4">
                         {generalItems.length > 0 ? (
                             generalItems.map(item => (
-                                <div key={item.id} className="relative group pl-4 border-l-4 border-amber-400 print:border-slate-900">
+                                <div key={item.id} className="relative group pl-4 border-l-4 border-amber-400 print:border-l-4 print:border-black print:pl-4 print:mb-4">
                                     <div className="print:hidden absolute right-0 top-0 opacity-0 group-hover:opacity-100 transition-opacity flex gap-2">
                                         {isSeniorOrManager && (
                                             <>
@@ -194,49 +194,49 @@ const ShiftHandoverPage: React.FC<ShiftHandoverPageProps> = ({ currentUser, onSh
                                         )}
                                     </div>
                                     <p className="text-slate-800 font-medium whitespace-pre-wrap print:text-black text-sm leading-relaxed">{item.content}</p>
-                                    <div className="text-xs text-slate-400 mt-1 print:text-slate-600 print:mt-0.5">
-                                        {item.date !== selectedDate && <span className="font-bold mr-1">[{new Date(item.date).toLocaleDateString('nl-NL', {day: 'numeric', month: 'short'})}]</span>}
-                                        Geplaatst door: {item.authorName}
+                                    <div className="text-xs text-slate-400 mt-1 print:text-gray-600 print:mt-1 font-medium">
+                                        <span className="text-slate-500 print:text-black font-bold mr-1">{new Date(item.date).toLocaleDateString('nl-NL', {day: 'numeric', month: 'short'})}</span>
+                                        - Geplaatst door: {item.authorName}
                                     </div>
                                 </div>
                             ))
                         ) : (
-                            <p className="text-slate-400 italic text-sm text-center py-4">Geen algemene meldingen.</p>
+                            <p className="text-slate-400 italic text-sm text-center py-4 print:text-left print:text-black">Geen algemene meldingen.</p>
                         )}
                     </div>
                 </div>
 
                 {/* SPECIFIC SECTION */}
-                <div className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm print:border-2 print:border-slate-900 print:rounded-none print:shadow-none break-inside-avoid">
-                    <div className="bg-slate-50 px-6 py-4 border-b-2 border-slate-200 print:bg-slate-100 print:border-slate-900 print:px-4 print:py-2">
-                        <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2 print:text-black print:uppercase print:text-base">
+                <div className="bg-white rounded-2xl border-2 border-slate-200 overflow-hidden shadow-sm print:border-none print:shadow-none break-inside-avoid">
+                    <div className="bg-slate-50 px-6 py-4 border-b-2 border-slate-200 print:bg-transparent print:border-b-2 print:border-black print:px-0 print:py-2">
+                        <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2 print:text-black print:text-xl print:uppercase">
                             <Users size={20} className="text-blue-500 print:hidden"/> Gerichte Meldingen
                         </h3>
                     </div>
                     
                     <table className="w-full text-left border-collapse">
-                        <thead className="bg-slate-50 border-b-2 border-slate-200 print:bg-white print:border-slate-900 text-xs font-bold uppercase text-slate-500 print:text-black">
+                        <thead className="bg-slate-50 border-b-2 border-slate-200 print:bg-transparent print:border-b print:border-black text-xs font-bold uppercase text-slate-500 print:text-black">
                             <tr>
-                                <th className="px-6 py-3 w-1/4 border-r border-slate-200 print:border-slate-900 print:px-2 print:py-2">Gericht aan</th>
-                                <th className="px-6 py-3 w-1/6 border-r border-slate-200 print:border-slate-900 print:px-2 print:py-2">Ingevuld door</th>
+                                <th className="px-6 py-3 w-1/4 border-r border-slate-200 print:border-none print:px-0 print:py-2">Gericht aan</th>
+                                <th className="px-6 py-3 w-1/6 border-r border-slate-200 print:border-none print:px-2 print:py-2">Ingevuld door</th>
                                 <th className="px-6 py-3 print:px-2 print:py-2">Melding</th>
                                 <th className="px-6 py-3 w-16 text-right print:hidden"></th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-200 print:divide-slate-900">
+                        <tbody className="divide-y divide-slate-200 print:divide-gray-300">
                             {specificItems.length > 0 ? (
                                 specificItems.map(item => (
-                                    <tr key={item.id} className="group hover:bg-slate-50 print:hover:bg-white">
-                                        <td className="px-6 py-4 border-r border-slate-200 print:border-slate-900 print:px-2 print:py-2 align-top text-sm font-bold text-slate-800 print:text-black">
+                                    <tr key={item.id} className="group hover:bg-slate-50 print:hover:bg-transparent">
+                                        <td className="px-6 py-4 border-r border-slate-200 print:border-none print:px-0 print:py-3 align-top text-sm font-bold text-slate-800 print:text-black">
                                             {item.target || '-'}
-                                            <div className="text-xs font-normal text-slate-400 mt-1">
+                                            <div className="text-xs font-normal text-slate-400 mt-1 print:text-gray-500">
                                                 {new Date(item.date).toLocaleDateString('nl-NL', {day: 'numeric', month: 'short'})}
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 border-r border-slate-200 print:border-slate-900 print:px-2 print:py-2 align-top text-sm text-slate-600 print:text-black">
+                                        <td className="px-6 py-4 border-r border-slate-200 print:border-none print:px-2 print:py-3 align-top text-sm text-slate-600 print:text-black">
                                             {item.authorName}
                                         </td>
-                                        <td className="px-6 py-4 align-top text-sm text-slate-800 print:text-black whitespace-pre-wrap print:px-2 print:py-2 leading-relaxed">
+                                        <td className="px-6 py-4 align-top text-sm text-slate-800 print:text-black whitespace-pre-wrap print:px-2 print:py-3 leading-relaxed">
                                             {item.content}
                                         </td>
                                         <td className="px-6 py-4 text-right print:hidden align-top">
@@ -249,7 +249,7 @@ const ShiftHandoverPage: React.FC<ShiftHandoverPageProps> = ({ currentUser, onSh
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={4} className="px-6 py-8 text-center text-slate-400 italic text-sm">Geen gerichte meldingen.</td>
+                                    <td colSpan={4} className="px-6 py-8 text-center text-slate-400 italic text-sm print:text-left print:px-0 print:text-black">Geen gerichte meldingen.</td>
                                 </tr>
                             )}
                         </tbody>
@@ -258,10 +258,9 @@ const ShiftHandoverPage: React.FC<ShiftHandoverPageProps> = ({ currentUser, onSh
             </div>
 
             {/* PRINT FOOTER */}
-            <div className="hidden print:flex fixed bottom-0 left-0 w-full justify-between items-center text-[10px] text-slate-500 border-t border-slate-300 pt-2 pb-4">
+            <div className="hidden print:flex fixed bottom-0 left-0 w-full justify-between items-center text-[10px] text-gray-500 border-t border-gray-300 pt-2 pb-4">
                 <span>MijnSanadome HRMS &copy; {new Date().getFullYear()}</span>
                 <span>Gegenereerd op: {new Date().toLocaleString('nl-NL')}</span>
-                <span className="uppercase">Vertrouwelijk Document</span>
             </div>
 
             {/* EDIT MODAL */}
@@ -315,7 +314,7 @@ const ShiftHandoverPage: React.FC<ShiftHandoverPageProps> = ({ currentUser, onSh
                     </div>
 
                     <div className="pt-4 flex justify-end gap-3">
-                        <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-500 font-bold hover:bg-slate-50 rounded-lg">Annuleren</button>
+                        <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-500 font-bold hover:bg-slate-100 rounded-lg">Annuleren</button>
                         <button type="submit" className="px-6 py-2 bg-slate-900 text-white font-bold rounded-lg hover:bg-slate-800 shadow-lg flex items-center gap-2">
                             <Save size={16}/> Opslaan
                         </button>
@@ -342,11 +341,10 @@ const ShiftHandoverPage: React.FC<ShiftHandoverPageProps> = ({ currentUser, onSh
                     .max-w-\\[2400px\\] { max-width: none !important; margin: 0 !important; padding: 0 !important; }
                     
                     /* Ensure colors print correctly */
-                    * { border-color: #cbd5e1 !important; }
-                    .print\\:border-slate-900 { border-color: #0f172a !important; }
+                    * { border-color: #000 !important; }
                     
                     /* Improve typography for print */
-                    body { font-family: 'Inter', sans-serif; font-size: 12pt; }
+                    body { font-family: 'Inter', sans-serif; font-size: 11pt; }
                 }
             `}</style>
         </div>
