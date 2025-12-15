@@ -19,7 +19,8 @@ export type ViewState =
   | 'BIKE_RENTAL'
   | 'COMPENSATION'
   | 'CHECKLISTS'
-  | 'ACADEMY';
+  | 'ACADEMY'
+  | 'SHIFT_HANDOVER';
 
 export const ViewState = {
   HOME: 'HOME',
@@ -41,6 +42,7 @@ export const ViewState = {
   COMPENSATION: 'COMPENSATION',
   CHECKLISTS: 'CHECKLISTS',
   ACADEMY: 'ACADEMY',
+  SHIFT_HANDOVER: 'SHIFT_HANDOVER',
 } as const;
 
 export type Permission =
@@ -66,7 +68,8 @@ export type Permission =
   | 'MANAGE_COMPENSATION'
   | 'DELETE_COMPENSATION'
   | 'MANAGE_TICKETS'
-  | 'MANAGE_CHECKLISTS';
+  | 'MANAGE_CHECKLISTS'
+  | 'MANAGE_HANDOVER';
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   VIEW_REPORTS: 'Rapportages Inzien',
@@ -92,6 +95,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   DELETE_COMPENSATION: 'Compensatie Verwijderen',
   MANAGE_TICKETS: 'Tickets Beheren',
   MANAGE_CHECKLISTS: 'Checklists Beheren',
+  MANAGE_HANDOVER: 'Shift Overdracht Beheren',
 };
 
 export interface GlobalSettings {
@@ -586,6 +590,17 @@ export interface ChecklistSubmission {
   responses: Record<string, any>;
   startedAt: string;
   completedAt?: string;
+}
+
+export interface ShiftHandoverItem {
+  id: string;
+  date: string;
+  content: string;
+  category: 'General' | 'Specific';
+  target?: string;
+  authorName: string;
+  priority?: 'High' | 'Normal';
+  createdAt: string;
 }
 
 export interface Notification {

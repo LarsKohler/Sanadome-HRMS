@@ -1,7 +1,9 @@
 
+
+
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, Ticket, ChecklistTemplate, ChecklistSubmission } from '../types';
+import { Employee, NewsPost, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, Ticket, ChecklistTemplate, ChecklistSubmission, ShiftHandoverItem } from '../types';
 import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_EVALUATION_TEMPLATES, MOCK_BIKE_SETTINGS, MOCK_BIKE_RESERVATIONS, MOCK_ACADEMY_COURSES, MOCK_ACADEMY_PROGRESS, MOCK_TICKETS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
@@ -69,6 +71,64 @@ export const api = {
           }
       } else {
           localStorage.setItem('hrms_global_settings', JSON.stringify(settings));
+      }
+  },
+
+  // --- SHIFT HANDOVER ---
+  getShiftHandoverItems: async (date: string): Promise<ShiftHandoverItem[]> => {
+      if (isLive && supabase) {
+          try {
+              const { data, error } = await supabase.from('shift_handover_items').select('*').eq('date', date);
+              if (!error && data) {
+                  return data.map((d: any) => ({
+                      id: d.id,
+                      date: d.date,
+                      content: d.content,
+                      category: d.category,
+                      target: d.target,
+                      authorName: d.author_name,
+                      priority: d.priority,
+                      createdAt: d.created_at
+                  }));
+              }
+              return [];
+          } catch (e) {
+              return [];
+          }
+      }
+      const local = localStorage.getItem('hrms_handover_items');
+      const all: ShiftHandoverItem[] = local ? JSON.parse(local) : [];
+      return all.filter(item => item.date === date);
+  },
+
+  saveShiftHandoverItem: async (item: ShiftHandoverItem) => {
+      if (isLive && supabase) {
+          await supabase.from('shift_handover_items').upsert({
+              id: item.id,
+              date: item.date,
+              content: item.content,
+              category: item.category,
+              target: item.target,
+              author_name: item.authorName,
+              priority: item.priority
+          });
+      } else {
+          const local = localStorage.getItem('hrms_handover_items');
+          const current: ShiftHandoverItem[] = local ? JSON.parse(local) : [];
+          const idx = current.findIndex(i => i.id === item.id);
+          if (idx >= 0) current[idx] = item;
+          else current.push(item);
+          localStorage.setItem('hrms_handover_items', JSON.stringify(current));
+      }
+  },
+
+  deleteShiftHandoverItem: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('shift_handover_items').delete().eq('id', id);
+      } else {
+          const local = localStorage.getItem('hrms_handover_items');
+          const current: ShiftHandoverItem[] = local ? JSON.parse(local) : [];
+          localStorage.setItem('hrms_handover_items', JSON.stringify(current.filter(i => i.id !== id)));
       }
   },
 
