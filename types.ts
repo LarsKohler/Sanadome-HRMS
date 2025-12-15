@@ -601,6 +601,7 @@ export interface ShiftHandoverItem {
   authorName: string;
   priority?: 'High' | 'Normal';
   createdAt: string;
+  expiryDate?: string; // New field for persistence until deletion
 }
 
 export interface Notification {

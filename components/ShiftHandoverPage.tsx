@@ -65,8 +65,9 @@ const ShiftHandoverPage: React.FC<ShiftHandoverPageProps> = ({ currentUser, onSh
     };
 
     const handleDelete = async (id: string) => {
-        if (confirm("Weet je zeker dat je dit item wilt verwijderen?")) {
-            await api.deleteShiftHandoverItem(id);
+        if (confirm("Weet je zeker dat je dit item wilt verwijderen vanaf deze datum?")) {
+            // Soft delete using the current selected date as the expiry point
+            await api.deleteShiftHandoverItem(id, selectedDate);
             setItems(prev => prev.filter(i => i.id !== id));
             onShowToast("Item verwijderd.");
         }
@@ -87,7 +88,8 @@ const ShiftHandoverPage: React.FC<ShiftHandoverPageProps> = ({ currentUser, onSh
             target: editingItem.target,
             authorName: editingItem.authorName || currentUser.name,
             priority: editingItem.priority as 'High' | 'Normal',
-            createdAt: editingItem.createdAt || new Date().toISOString()
+            createdAt: editingItem.createdAt || new Date().toISOString(),
+            expiryDate: editingItem.expiryDate // Preserve existing expiry if editing
         };
 
         await api.saveShiftHandoverItem(newItem);
@@ -192,7 +194,10 @@ const ShiftHandoverPage: React.FC<ShiftHandoverPageProps> = ({ currentUser, onSh
                                         )}
                                     </div>
                                     <p className="text-slate-800 font-medium whitespace-pre-wrap print:text-black text-sm leading-relaxed">{item.content}</p>
-                                    <div className="text-xs text-slate-400 mt-1 print:text-slate-600 print:mt-0.5">Geplaatst door: {item.authorName}</div>
+                                    <div className="text-xs text-slate-400 mt-1 print:text-slate-600 print:mt-0.5">
+                                        {item.date !== selectedDate && <span className="font-bold mr-1">[{new Date(item.date).toLocaleDateString('nl-NL', {day: 'numeric', month: 'short'})}]</span>}
+                                        Geplaatst door: {item.authorName}
+                                    </div>
                                 </div>
                             ))
                         ) : (
@@ -212,7 +217,7 @@ const ShiftHandoverPage: React.FC<ShiftHandoverPageProps> = ({ currentUser, onSh
                     <table className="w-full text-left border-collapse">
                         <thead className="bg-slate-50 border-b-2 border-slate-200 print:bg-white print:border-slate-900 text-xs font-bold uppercase text-slate-500 print:text-black">
                             <tr>
-                                <th className="px-6 py-3 w-1/4 border-r border-slate-200 print:border-slate-900 print:px-2 print:py-2">Gericht aan/datum</th>
+                                <th className="px-6 py-3 w-1/4 border-r border-slate-200 print:border-slate-900 print:px-2 print:py-2">Gericht aan</th>
                                 <th className="px-6 py-3 w-1/6 border-r border-slate-200 print:border-slate-900 print:px-2 print:py-2">Ingevuld door</th>
                                 <th className="px-6 py-3 print:px-2 print:py-2">Melding</th>
                                 <th className="px-6 py-3 w-16 text-right print:hidden"></th>
@@ -224,6 +229,9 @@ const ShiftHandoverPage: React.FC<ShiftHandoverPageProps> = ({ currentUser, onSh
                                     <tr key={item.id} className="group hover:bg-slate-50 print:hover:bg-white">
                                         <td className="px-6 py-4 border-r border-slate-200 print:border-slate-900 print:px-2 print:py-2 align-top text-sm font-bold text-slate-800 print:text-black">
                                             {item.target || '-'}
+                                            <div className="text-xs font-normal text-slate-400 mt-1">
+                                                {new Date(item.date).toLocaleDateString('nl-NL', {day: 'numeric', month: 'short'})}
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 border-r border-slate-200 print:border-slate-900 print:px-2 print:py-2 align-top text-sm text-slate-600 print:text-black">
                                             {item.authorName}
@@ -283,7 +291,7 @@ const ShiftHandoverPage: React.FC<ShiftHandoverPageProps> = ({ currentUser, onSh
 
                     {editingItem.category === 'Specific' && (
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Gericht aan / Datum</label>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Gericht aan</label>
                             <input 
                                 type="text" 
                                 className="w-full p-3 border border-slate-200 rounded-xl text-sm"

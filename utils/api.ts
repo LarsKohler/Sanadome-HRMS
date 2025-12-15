@@ -1,6 +1,8 @@
 
 
 
+
+
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
 import { Employee, NewsPost, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, Ticket, ChecklistTemplate, ChecklistSubmission, ShiftHandoverItem } from '../types';
@@ -78,23 +80,30 @@ export const api = {
   getShiftHandoverItems: async (date: string): Promise<ShiftHandoverItem[]> => {
       if (isLive && supabase) {
           try {
-              // Fetch 'General' items OR 'Specific' items for the selected date
+              // Fetch items created ON or BEFORE the selected date
+              // The logic is: Item is visible if created <= date AND (not expired OR expired > date)
               const { data, error } = await supabase
                   .from('shift_handover_items')
                   .select('*')
-                  .or(`category.eq.General,and(category.eq.Specific,date.eq.${date})`);
+                  .lte('date', date);
 
               if (!error && data) {
-                  return data.map((d: any) => ({
-                      id: d.id,
-                      date: d.date,
-                      content: d.content,
-                      category: d.category,
-                      target: d.target,
-                      authorName: d.author_name,
-                      priority: d.priority,
-                      createdAt: d.created_at
-                  }));
+                  return data
+                      .filter((d: any) => {
+                          // JS Filter for expiry logic (simple inequality string comparison works for ISO dates)
+                          return !d.expiry_date || d.expiry_date > date;
+                      })
+                      .map((d: any) => ({
+                          id: d.id,
+                          date: d.date,
+                          content: d.content,
+                          category: d.category,
+                          target: d.target,
+                          authorName: d.author_name,
+                          priority: d.priority,
+                          createdAt: d.created_at,
+                          expiryDate: d.expiry_date
+                      }));
               }
               return [];
           } catch (e) {
@@ -104,9 +113,9 @@ export const api = {
       const local = localStorage.getItem('hrms_handover_items');
       const all: ShiftHandoverItem[] = local ? JSON.parse(local) : [];
       
-      // Local filtering: Keep all 'General', filter 'Specific' by date
+      // Local filtering: start date <= current AND (no expiry OR expiry > current)
       return all.filter(item => 
-          item.category === 'General' || (item.category === 'Specific' && item.date === date)
+          item.date <= date && (!item.expiryDate || item.expiryDate > date)
       );
   },
 
@@ -119,7 +128,8 @@ export const api = {
               category: item.category,
               target: item.target,
               author_name: item.authorName,
-              priority: item.priority
+              priority: item.priority,
+              expiry_date: item.expiryDate // Ensure this is saved if present
           });
       } else {
           const local = localStorage.getItem('hrms_handover_items');
@@ -131,13 +141,16 @@ export const api = {
       }
   },
 
-  deleteShiftHandoverItem: async (id: string) => {
+  deleteShiftHandoverItem: async (id: string, date: string) => {
+      // Soft Delete: Set expiry_date to the current view date
+      // This means it stops showing *after* this date.
       if (isLive && supabase) {
-          await supabase.from('shift_handover_items').delete().eq('id', id);
+          await supabase.from('shift_handover_items').update({ expiry_date: date }).eq('id', id);
       } else {
           const local = localStorage.getItem('hrms_handover_items');
           const current: ShiftHandoverItem[] = local ? JSON.parse(local) : [];
-          localStorage.setItem('hrms_handover_items', JSON.stringify(current.filter(i => i.id !== id)));
+          const updated = current.map(i => i.id === id ? { ...i, expiryDate: date } : i);
+          localStorage.setItem('hrms_handover_items', JSON.stringify(updated));
       }
   },
 

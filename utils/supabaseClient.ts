@@ -1,4 +1,6 @@
 
+
+
 import { createClient } from '@supabase/supabase-js';
 
 // --- SQL INSTRUCTIES VOOR SUPABASE ---
@@ -75,6 +77,20 @@ import { createClient } from '@supabase/supabase-js';
     completed_at timestamptz
   );
   
+  -- Shift Overdracht
+  -- UPDATED: Added expiry_date column for history retention
+  CREATE TABLE IF NOT EXISTS shift_handover_items (
+    id text PRIMARY KEY,
+    date date NOT NULL, 
+    content text NOT NULL,
+    category text NOT NULL, 
+    target text, 
+    author_name text NOT NULL,
+    priority text DEFAULT 'Normal',
+    created_at timestamptz DEFAULT now(),
+    expiry_date date
+  );
+
   -- Global Settings
   CREATE TABLE IF NOT EXISTS global_settings (
     id text PRIMARY KEY,
@@ -102,6 +118,7 @@ import { createClient } from '@supabase/supabase-js';
   ALTER TABLE compensation_logs ENABLE ROW LEVEL SECURITY;
   ALTER TABLE checklist_templates ENABLE ROW LEVEL SECURITY;
   ALTER TABLE checklist_submissions ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE shift_handover_items ENABLE ROW LEVEL SECURITY;
   ALTER TABLE global_settings ENABLE ROW LEVEL SECURITY;
 
   -- ================================================================
@@ -226,6 +243,16 @@ import { createClient } from '@supabase/supabase-js';
   DROP POLICY IF EXISTS "Checklist Sub: Iedereen lezen/schrijven" ON checklist_submissions;
   CREATE POLICY "Checklist Sub: Iedereen lezen/schrijven" ON checklist_submissions FOR ALL USING ( true );
 
+  -- Shift Handover (Logbook)
+  DROP POLICY IF EXISTS "Shift: Iedereen lezen" ON shift_handover_items;
+  CREATE POLICY "Shift: Iedereen lezen" ON shift_handover_items FOR SELECT USING ( true );
+  DROP POLICY IF EXISTS "Shift: Iedereen schrijven" ON shift_handover_items;
+  CREATE POLICY "Shift: Iedereen schrijven" ON shift_handover_items FOR INSERT WITH CHECK ( true );
+  DROP POLICY IF EXISTS "Shift: Iedereen updaten" ON shift_handover_items;
+  CREATE POLICY "Shift: Iedereen updaten" ON shift_handover_items FOR UPDATE USING ( true );
+  DROP POLICY IF EXISTS "Shift: Iedereen verwijderen" ON shift_handover_items;
+  CREATE POLICY "Shift: Iedereen verwijderen" ON shift_handover_items FOR DELETE USING ( true );
+
   -- Global Settings
   DROP POLICY IF EXISTS "Settings: Iedereen lezen" ON global_settings;
   CREATE POLICY "Settings: Iedereen lezen" ON global_settings FOR SELECT USING ( true );
@@ -247,6 +274,7 @@ import { createClient } from '@supabase/supabase-js';
     academy_courses,
     academy_progress,
     checklist_submissions,
+    shift_handover_items,
     compensation_logs,
     global_settings;
 */
