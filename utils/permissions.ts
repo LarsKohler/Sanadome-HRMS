@@ -83,7 +83,7 @@ export const isModuleEnabled = (view: ViewState, user: Employee | null, settings
     // Core modules always available
     if (view === ViewState.HOME || view === ViewState.SETTINGS || view === ViewState.SYSTEM_STATUS) return true;
 
-    // If no settings loaded yet, default to ENABLED (fail-open for UX, or closed for security - chosen Open for now)
+    // If no settings loaded yet, default to ENABLED (fail-open for UX)
     if (!settings) return true;
 
     const config = settings.modules[view];
@@ -94,9 +94,19 @@ export const isModuleEnabled = (view: ViewState, user: Employee | null, settings
     // 1. Global Switch
     if (!config.enabled) return false;
 
-    // 2. Check exclusions
-    if (config.hiddenForRoles && config.hiddenForRoles.includes(user.role)) return false;
-    if (config.hiddenForUsers && config.hiddenForUsers.includes(user.id)) return false;
+    // 2. Access Mode Logic
+    if (config.accessMode === 'restricted') {
+        // WHITELIST LOGIC: Only allow if in allowedUsers list
+        // (Admins/Managers should probably override this, but let's stick to strict config first, or maybe Managers always see everything? 
+        // For now, strict: if restricted, you must be in the list)
+        // Exception: Managers might need access to configure it, but that's handled in Settings view, not Sidebar view.
+        return config.allowedUsers ? config.allowedUsers.includes(user.id) : false;
+    } else {
+        // BLACKLIST LOGIC (Default/Open)
+        // Check exclusions
+        if (config.hiddenForRoles && config.hiddenForRoles.includes(user.role)) return false;
+        if (config.hiddenForUsers && config.hiddenForUsers.includes(user.id)) return false;
+    }
 
     return true;
 };

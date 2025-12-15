@@ -1,4 +1,5 @@
 
+
 import { Employee, NewsPost, OnboardingTemplate, SystemUpdateLog, KnowledgeArticle, Applicant, Ticket, Vacancy, EvaluationTemplate, BikeSettings, BikeReservation, AcademyCourse, AcademyProgress } from '../types';
 
 export const MOCK_EMPLOYEES: Employee[] = [
@@ -130,6 +131,7 @@ export const MOCK_TICKETS: Ticket[] = [
     description: 'Ik krijg soms een 500 error als ik probeer in te loggen op mobiel.',
     type: 'Bug',
     priority: 'High',
+    page: 'Dashboard',
     status: 'Open',
     submittedBy: 'Janique Vink',
     submittedById: '2',

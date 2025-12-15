@@ -1,4 +1,5 @@
 
+
 export type ViewState =
   | 'HOME'
   | 'DIRECTORY'
@@ -98,8 +99,10 @@ export interface GlobalSettings {
     id: ViewState;
     name: string;
     enabled: boolean;
-    hiddenForRoles: string[];
-    hiddenForUsers: string[];
+    accessMode?: 'open' | 'restricted'; // 'open' = blacklist (hiddenFor...), 'restricted' = whitelist (allowedUsers)
+    hiddenForRoles: string[]; // Used in 'open' mode
+    hiddenForUsers: string[]; // Used in 'open' mode
+    allowedUsers?: string[]; // Used in 'restricted' mode
   }>;
 }
 
@@ -392,7 +395,7 @@ export interface EvaluationTemplate {
   sections: {
     id: string;
     title: string;
-    questions: { id: string; text: string }[];
+    questions: { id: string; text: string; description?: string }[];
   }[];
   createdAt: string;
   updatedAt: string;
