@@ -105,6 +105,8 @@ function App() {
           setCurrentUser(user);
           setIsAuthenticated(true);
           localStorage.setItem('hrms_current_user', JSON.stringify(user));
+          // Load settings after login too
+          api.getGlobalSettings().then(setGlobalSettings);
           return true;
       }
       return false;
@@ -206,7 +208,7 @@ function App() {
   };
 
   if (!isAuthenticated) {
-      return <Login onLogin={handleLogin} />;
+      return <Login onLogin={handleLogin} customImages={globalSettings?.loginImages} />;
   }
 
   if (currentUser?.accountStatus === 'Pending') {
@@ -220,7 +222,7 @@ function App() {
           setEmployees(prev => prev.map(e => e.id === updated.id ? updated : e));
           const freshData = await api.getEmployees();
           setEmployees(freshData);
-      }} />;
+      }} customImages={globalSettings?.welcomeImages} />;
   }
 
   // Check if current view is enabled, else redirect home

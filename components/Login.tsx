@@ -5,29 +5,32 @@ import { api } from '../utils/api';
 
 interface LoginProps {
   onLogin: (email: string, password: string) => Promise<boolean>;
+  customImages?: string[];
 }
 
-const LOGIN_IMAGES = [
+const DEFAULT_LOGIN_IMAGES = [
   "https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1920&q=80", // Spa/Pool
   "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1920&q=80", // Exterior Night
   "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1920&q=80", // Luxury Lounge
 ];
 
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, customImages }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
+  
+  const activeImages = (customImages && customImages.length > 0) ? customImages : DEFAULT_LOGIN_IMAGES;
 
   // Rotate images
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % LOGIN_IMAGES.length);
+      setCurrentImageIndex((prev) => (prev + 1) % activeImages.length);
     }, 6000);
     return () => clearInterval(interval);
-  }, []);
+  }, [activeImages.length]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +68,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
       {/* LEFT PANEL: Visuals */}
       <div className="hidden lg:block lg:w-[45%] relative overflow-hidden bg-slate-900">
         {/* Stacked Images for Cross-fade */}
-        {LOGIN_IMAGES.map((src, index) => (
+        {activeImages.map((src, index) => (
            <div 
              key={src}
              className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-70 z-10' : 'opacity-0 z-0'}`}
