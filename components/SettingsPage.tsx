@@ -11,28 +11,9 @@ interface SettingsPageProps {
   currentUser: Employee;
   onUpdateEmployee: (employee: Employee) => void;
   onShowToast: (message: string) => void;
-  globalSettings: GlobalSettings | null; // NEW
-  onUpdateGlobalSettings: (settings: GlobalSettings) => void; // NEW
+  globalSettings: GlobalSettings | null;
+  onUpdateGlobalSettings: (settings: GlobalSettings) => void;
 }
-
-// Readable names for modules - Updated list
-const MODULE_NAMES: Record<string, string> = {
-    [ViewState.NEWS]: 'Nieuws',
-    [ViewState.ACADEMY]: 'Academy',
-    [ViewState.KNOWLEDGE_BASE]: 'Kennisbank',
-    [ViewState.DIRECTORY]: 'Collega\'s',
-    [ViewState.HR_DOSSIER]: 'HR Dossiers', // Added
-    [ViewState.CHECKLISTS]: 'Checklists', // Added
-    [ViewState.BIKE_RENTAL]: 'Fietsverhuur',
-    [ViewState.COMPENSATION]: 'Compensatie',
-    [ViewState.ONBOARDING]: 'Onboarding',
-    [ViewState.EVALUATIONS]: 'Performance',
-    [ViewState.RECRUITMENT]: 'Recruitment',
-    [ViewState.DEBT_CONTROL]: 'Debiteuren',
-    [ViewState.LINEN_AUDIT]: 'Linnen Audit',
-    [ViewState.REPORTS]: 'Rapportages'
-    // Documents removed as it is merged into HR Dossier
-};
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onUpdateEmployee, onShowToast, globalSettings, onUpdateGlobalSettings }) => {
   const [activeTab, setActiveTab] = useState<'users' | 'roles' | 'modules' | 'branding'>('users');
@@ -68,6 +49,26 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
   const [welcomeImages, setWelcomeImages] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadType, setUploadType] = useState<'login' | 'welcome' | null>(null);
+
+  // Module Names Mapping (Defined inside component to avoid import timing issues)
+  const moduleNames: Record<string, string> = {
+      'NEWS': 'Nieuws',
+      'ACADEMY': 'Academy',
+      'KNOWLEDGE_BASE': 'Kennisbank',
+      'DIRECTORY': 'Collega\'s',
+      'HR_DOSSIER': 'HR Dossiers',
+      'CHECKLISTS': 'Checklists',
+      'BIKE_RENTAL': 'Fietsverhuur',
+      'COMPENSATION': 'Compensatie',
+      'ONBOARDING': 'Onboarding',
+      'EVALUATIONS': 'Performance',
+      'RECRUITMENT': 'Recruitment',
+      'DEBT_CONTROL': 'Debiteuren',
+      'LINEN_AUDIT': 'Linnen Audit',
+      'REPORTS': 'Rapportages',
+      'SETTINGS': 'Instellingen',
+      'SYSTEM_STATUS': 'Systeemstatus'
+  };
 
   // Initialize selection
   useEffect(() => {
@@ -155,7 +156,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
   const getModuleConfig = (viewId: string) => {
       const defaultConf = {
           id: viewId as ViewState,
-          name: MODULE_NAMES[viewId],
+          name: moduleNames[viewId] || viewId,
           enabled: true,
           accessMode: 'open' as const,
           hiddenForRoles: [],
@@ -204,7 +205,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
               ...(globalSettings?.modules || {}),
               [editingModuleId]: {
                   id: editingModuleId as ViewState,
-                  name: MODULE_NAMES[editingModuleId],
+                  name: moduleNames[editingModuleId] || editingModuleId,
                   ...moduleConfigForm
               }
           }
@@ -248,9 +249,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
           } else {
               onShowToast("Upload mislukt.");
           }
-      } catch (err) {
-          console.error(err);
-          onShowToast("Er ging iets mis bij het uploaden.");
+      } catch (err: any) {
+          console.error("Upload failed", err);
+          onShowToast(`Fout bij uploaden: ${err.message || 'Onbekende fout'}`);
       } finally {
           setUploadType(null);
           if (fileInputRef.current) fileInputRef.current.value = '';
@@ -577,13 +578,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                                       </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-100 text-sm">
-                                      {Object.keys(MODULE_NAMES).map(viewId => {
+                                      {Object.keys(moduleNames).map(viewId => {
                                           const config = getModuleConfig(viewId);
                                           const isRestricted = config.accessMode === 'restricted';
 
                                           return (
                                               <tr key={viewId} className="hover:bg-slate-50 transition-colors">
-                                                  <td className="px-6 py-4 font-bold text-slate-900">{MODULE_NAMES[viewId]}</td>
+                                                  <td className="px-6 py-4 font-bold text-slate-900">{moduleNames[viewId]}</td>
                                                   <td className="px-6 py-4">
                                                       <button 
                                                         onClick={() => updateModuleStatus(viewId, !config.enabled)}
@@ -725,7 +726,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
       <Modal
         isOpen={isConfigModalOpen}
         onClose={() => setIsConfigModalOpen(false)}
-        title={editingModuleId ? `Configureer ${MODULE_NAMES[editingModuleId]}` : 'Module Configuratie'}
+        title={editingModuleId ? `Configureer ${moduleNames[editingModuleId] || editingModuleId}` : 'Module Configuratie'}
       >
           <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
               
