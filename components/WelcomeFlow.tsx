@@ -11,32 +11,29 @@ import { Employee } from '../types';
 interface WelcomeFlowProps {
   employee: Employee;
   onComplete: (updatedEmployee: Employee) => Promise<void> | void;
-  customImages?: string[];
 }
 
-const DEFAULT_WELCOME_IMAGES = [
+const WELCOME_IMAGES = [
   "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=1920&q=80", // Resort Exterior
   "https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=1920&q=80", // Hotel Lobby
   "https://images.unsplash.com/photo-1600334019640-1c205ae9919b?auto=format&fit=crop&w=1920&q=80", // Wellness
 ];
 
-const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete, customImages }) => {
+const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete }) => {
   const [step, setStep] = useState(1);
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
-  
-  const activeImages = (customImages && customImages.length > 0) ? customImages : DEFAULT_WELCOME_IMAGES;
 
   // Rotate background images
   useEffect(() => {
     const interval = setInterval(() => {
-      setCurrentImageIndex((prev) => (prev + 1) % activeImages.length);
+      setCurrentImageIndex((prev) => (prev + 1) % WELCOME_IMAGES.length);
     }, 5000);
     return () => clearInterval(interval);
-  }, [activeImages.length]);
+  }, []);
 
   const handleNext = () => {
     // Validation for Password Step (Step 3)
@@ -86,7 +83,7 @@ const WelcomeFlow: React.FC<WelcomeFlowProps> = ({ employee, onComplete, customI
 
         {/* LEFT PANEL: Visuals (45%) */}
         <div className="hidden lg:block lg:w-[45%] relative overflow-hidden bg-slate-900">
-            {activeImages.map((src, index) => (
+            {WELCOME_IMAGES.map((src, index) => (
                 <div 
                     key={src}
                     className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${index === currentImageIndex ? 'opacity-70 z-10' : 'opacity-0 z-0'}`}

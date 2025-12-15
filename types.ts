@@ -1,4 +1,5 @@
 
+
 export type ViewState =
   | 'HOME'
   | 'DIRECTORY'
@@ -103,8 +104,6 @@ export interface GlobalSettings {
     hiddenForUsers: string[]; // Used in 'open' mode
     allowedUsers?: string[]; // Used in 'restricted' mode
   }>;
-  loginImages?: string[];
-  welcomeImages?: string[];
 }
 
 export type DossierEntryType = 'Sick' | 'Late' | 'Warning' | 'Recovery' | 'Compliment' | 'Note' | 'OfficialNote';

@@ -1,22 +1,40 @@
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Shield, Search, Check, AlertTriangle, User, Save, RefreshCcw, Lock, Unlock, Briefcase, Plus, X, LayoutGrid, EyeOff, CheckSquare, Square, Eye, Users, Image as ImageIcon, Upload, Trash2 } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Shield, Search, Check, AlertTriangle, User, Save, RefreshCcw, Lock, Unlock, Briefcase, Plus, X, LayoutGrid, EyeOff, CheckSquare, Square, Eye, Users } from 'lucide-react';
 import { Employee, Permission, PERMISSION_LABELS, GlobalSettings, ViewState } from '../types';
 import { ROLE_PERMISSIONS } from '../utils/permissions';
 import { Modal } from './Modal';
-import { api } from '../utils/api';
 
 interface SettingsPageProps {
   employees: Employee[];
   currentUser: Employee;
   onUpdateEmployee: (employee: Employee) => void;
   onShowToast: (message: string) => void;
-  globalSettings: GlobalSettings | null;
-  onUpdateGlobalSettings: (settings: GlobalSettings) => void;
+  globalSettings: GlobalSettings | null; // NEW
+  onUpdateGlobalSettings: (settings: GlobalSettings) => void; // NEW
 }
 
+// Readable names for modules - Updated list
+const MODULE_NAMES: Record<string, string> = {
+    [ViewState.NEWS]: 'Nieuws',
+    [ViewState.ACADEMY]: 'Academy',
+    [ViewState.KNOWLEDGE_BASE]: 'Kennisbank',
+    [ViewState.DIRECTORY]: 'Collega\'s',
+    [ViewState.HR_DOSSIER]: 'HR Dossiers', // Added
+    [ViewState.CHECKLISTS]: 'Checklists', // Added
+    [ViewState.BIKE_RENTAL]: 'Fietsverhuur',
+    [ViewState.COMPENSATION]: 'Compensatie',
+    [ViewState.ONBOARDING]: 'Onboarding',
+    [ViewState.EVALUATIONS]: 'Performance',
+    [ViewState.RECRUITMENT]: 'Recruitment',
+    [ViewState.DEBT_CONTROL]: 'Debiteuren',
+    [ViewState.LINEN_AUDIT]: 'Linnen Audit',
+    [ViewState.REPORTS]: 'Rapportages'
+    // Documents removed as it is merged into HR Dossier
+};
+
 const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onUpdateEmployee, onShowToast, globalSettings, onUpdateGlobalSettings }) => {
-  const [activeTab, setActiveTab] = useState<'users' | 'roles' | 'modules' | 'branding'>('users');
+  const [activeTab, setActiveTab] = useState<'users' | 'roles' | 'modules'>('users');
   
   // Selection State
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
@@ -44,45 +62,12 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
       allowedUsers: []
   });
 
-  // Branding State
-  const [loginImages, setLoginImages] = useState<string[]>([]);
-  const [welcomeImages, setWelcomeImages] = useState<string[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploadType, setUploadType] = useState<'login' | 'welcome' | null>(null);
-
-  // Module Names Mapping - Defined locally with string literals to prevent import order issues
-  const moduleNames: Record<string, string> = {
-      'NEWS': 'Nieuws',
-      'ACADEMY': 'Academy',
-      'KNOWLEDGE_BASE': 'Kennisbank',
-      'DIRECTORY': 'Collega\'s',
-      'HR_DOSSIER': 'HR Dossiers',
-      'CHECKLISTS': 'Checklists',
-      'BIKE_RENTAL': 'Fietsverhuur',
-      'COMPENSATION': 'Compensatie',
-      'ONBOARDING': 'Onboarding',
-      'EVALUATIONS': 'Performance',
-      'RECRUITMENT': 'Recruitment',
-      'DEBT_CONTROL': 'Debiteuren',
-      'LINEN_AUDIT': 'Linnen Audit',
-      'REPORTS': 'Rapportages',
-      'SETTINGS': 'Instellingen',
-      'SYSTEM_STATUS': 'Systeemstatus'
-  };
-
   // Initialize selection
   useEffect(() => {
       if (activeTab === 'roles' && !selectedRoleKey) {
           setSelectedRoleKey('Manager');
       }
   }, [activeTab, selectedRoleKey]);
-
-  useEffect(() => {
-      if (globalSettings) {
-          setLoginImages(globalSettings.loginImages || []);
-          setWelcomeImages(globalSettings.welcomeImages || []);
-      }
-  }, [globalSettings]);
 
   // Filtered employees for search
   const filteredEmployees = useMemo(() => {
@@ -156,7 +141,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
   const getModuleConfig = (viewId: string) => {
       const defaultConf = {
           id: viewId as ViewState,
-          name: moduleNames[viewId] || viewId,
+          name: MODULE_NAMES[viewId],
           enabled: true,
           accessMode: 'open' as const,
           hiddenForRoles: [],
@@ -173,14 +158,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
       const newConfig = { ...currentConfig, enabled };
       
       const newSettings = {
-          ...globalSettings,
           modules: {
               ...(globalSettings?.modules || {}),
               [viewId]: newConfig
           }
       };
       
-      onUpdateGlobalSettings(newSettings as GlobalSettings);
+      onUpdateGlobalSettings(newSettings);
   };
 
   const openModuleConfig = (moduleId: string) => {
@@ -200,80 +184,23 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
       if (!editingModuleId) return;
       
       const newSettings = {
-          ...globalSettings,
           modules: {
               ...(globalSettings?.modules || {}),
               [editingModuleId]: {
                   id: editingModuleId as ViewState,
-                  name: moduleNames[editingModuleId] || editingModuleId,
+                  name: MODULE_NAMES[editingModuleId],
                   ...moduleConfigForm
               }
           }
       };
 
-      onUpdateGlobalSettings(newSettings as GlobalSettings);
+      onUpdateGlobalSettings(newSettings);
       setIsConfigModalOpen(false);
       onShowToast("Module instellingen opgeslagen.");
   };
 
   const toggleArrayItem = (arr: string[], item: string) => {
       return arr.includes(item) ? arr.filter(i => i !== item) : [...arr, item];
-  };
-
-  // --- HANDLERS FOR BRANDING ---
-
-  const triggerImageUpload = (type: 'login' | 'welcome') => {
-      setUploadType(type);
-      fileInputRef.current?.click();
-  };
-
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file || !uploadType) return;
-
-      onShowToast("Afbeelding uploaden naar database...");
-      try {
-          // Explicitly use 'branding' bucket.
-          // IMPORTANT: Requires Supabase policy allowing insert to 'branding' bucket.
-          const url = await api.uploadFile(file, 'branding');
-          
-          if (url && url.startsWith('http')) {
-              let updatedSettings;
-              if (uploadType === 'login') {
-                  const updated = [...loginImages, url];
-                  setLoginImages(updated);
-                  updatedSettings = { ...globalSettings!, loginImages: updated };
-              } else {
-                  const updated = [...welcomeImages, url];
-                  setWelcomeImages(updated);
-                  updatedSettings = { ...globalSettings!, welcomeImages: updated };
-              }
-              onUpdateGlobalSettings(updatedSettings);
-              onShowToast("Afbeelding succesvol opgeslagen en toegevoegd.");
-          } else {
-              console.error("Upload returned invalid URL:", url);
-              onShowToast("Upload mislukt: Geen geldige URL ontvangen.");
-          }
-      } catch (err: any) {
-          console.error("Upload Exception:", err);
-          onShowToast(`Fout bij uploaden: ${err.message || 'Onbekende fout'}`);
-      } finally {
-          setUploadType(null);
-          if (fileInputRef.current) fileInputRef.current.value = '';
-      }
-  };
-
-  const removeImage = (type: 'login' | 'welcome', index: number) => {
-      if (type === 'login') {
-          const updated = loginImages.filter((_, i) => i !== index);
-          setLoginImages(updated);
-          onUpdateGlobalSettings({ ...globalSettings!, loginImages: updated });
-      } else {
-          const updated = welcomeImages.filter((_, i) => i !== index);
-          setWelcomeImages(updated);
-          onUpdateGlobalSettings({ ...globalSettings!, welcomeImages: updated });
-      }
-      onShowToast("Afbeelding verwijderd uit lijst.");
   };
 
   return (
@@ -286,37 +213,31 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
              <Shield className="text-teal-600" size={36} />
              Instellingen & Rechten
            </h1>
-           <p className="text-slate-500 mt-2 text-lg">Beheer toegangsrechten en systeembrede configuraties.</p>
+           <p className="text-slate-500 mt-2 text-lg">Beheer toegangsrechten en systeembrede module configuraties.</p>
         </div>
       </div>
 
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[700px]">
           
           {/* TABS */}
-          <div className="border-b border-slate-200 px-6 py-4 flex gap-4 bg-white overflow-x-auto no-scrollbar">
+          <div className="border-b border-slate-200 px-6 py-4 flex gap-4 bg-white">
               <button 
                 onClick={() => setActiveTab('users')}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'users' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'users' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                   <User size={16}/> Gebruikers
               </button>
               <button 
                 onClick={() => setActiveTab('roles')}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'roles' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'roles' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                   <Briefcase size={16}/> Rollen
               </button>
               <button 
                 onClick={() => setActiveTab('modules')}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'modules' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${activeTab === 'modules' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
               >
                   <LayoutGrid size={16}/> Modules
-              </button>
-              <button 
-                onClick={() => setActiveTab('branding')}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 whitespace-nowrap ${activeTab === 'branding' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
-              >
-                  <ImageIcon size={16}/> Huisstijl
               </button>
           </div>
 
@@ -561,7 +482,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                             <p className="text-lg mt-2">Kies een rol uit het menu om de rechten aan te passen.</p>
                         </div>
                       )
-                  ) : activeTab === 'modules' ? (
+                  ) : (
                       /* MODULES TAB */
                       <div className="max-w-6xl mx-auto animate-in fade-in">
                           <div className="flex justify-between items-center mb-6">
@@ -583,13 +504,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                                       </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-100 text-sm">
-                                      {Object.keys(moduleNames).map(viewId => {
+                                      {Object.keys(MODULE_NAMES).map(viewId => {
                                           const config = getModuleConfig(viewId);
                                           const isRestricted = config.accessMode === 'restricted';
 
                                           return (
                                               <tr key={viewId} className="hover:bg-slate-50 transition-colors">
-                                                  <td className="px-6 py-4 font-bold text-slate-900">{moduleNames[viewId]}</td>
+                                                  <td className="px-6 py-4 font-bold text-slate-900">{MODULE_NAMES[viewId]}</td>
                                                   <td className="px-6 py-4">
                                                       <button 
                                                         onClick={() => updateModuleStatus(viewId, !config.enabled)}
@@ -643,85 +564,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                               </table>
                           </div>
                       </div>
-                  ) : (
-                      /* BRANDING TAB */
-                      <div className="max-w-6xl mx-auto animate-in fade-in">
-                          <div className="flex justify-between items-center mb-8">
-                              <div>
-                                  <h2 className="text-2xl font-bold text-slate-900">Huisstijl</h2>
-                                  <p className="text-slate-500 mt-1">Beheer de achtergrondafbeeldingen van het portaal.</p>
-                              </div>
-                              <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
-                          </div>
-
-                          <div className="space-y-8">
-                              {/* Login Screen Images */}
-                              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                  <div className="flex justify-between items-center mb-6">
-                                      <h3 className="text-lg font-bold text-slate-900">Inlogscherm Slideshow</h3>
-                                      <button 
-                                        onClick={() => triggerImageUpload('login')}
-                                        className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors"
-                                      >
-                                          <Upload size={14}/> Foto Toevoegen
-                                      </button>
-                                  </div>
-                                  
-                                  {loginImages.length > 0 ? (
-                                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                          {loginImages.map((src, index) => (
-                                              <div key={index} className="relative group aspect-video rounded-xl overflow-hidden border border-slate-200">
-                                                  <img src={src} className="w-full h-full object-cover" alt="Login bg"/>
-                                                  <button 
-                                                      onClick={() => removeImage('login', index)}
-                                                      className="absolute top-2 right-2 p-1.5 bg-white/90 text-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white shadow-sm"
-                                                  >
-                                                      <Trash2 size={16}/>
-                                                  </button>
-                                              </div>
-                                          ))}
-                                      </div>
-                                  ) : (
-                                      <div className="p-8 border-2 border-dashed border-slate-200 rounded-xl text-center text-slate-400 italic text-sm">
-                                          Geen afbeeldingen ingesteld. Standaard Sanadome foto's worden gebruikt.
-                                      </div>
-                                  )}
-                              </div>
-
-                              {/* Welcome Screen Images */}
-                              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                  <div className="flex justify-between items-center mb-6">
-                                      <h3 className="text-lg font-bold text-slate-900">Welkom Module Slideshow</h3>
-                                      <button 
-                                        onClick={() => triggerImageUpload('welcome')}
-                                        className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-colors"
-                                      >
-                                          <Upload size={14}/> Foto Toevoegen
-                                      </button>
-                                  </div>
-                                  
-                                  {welcomeImages.length > 0 ? (
-                                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                          {welcomeImages.map((src, index) => (
-                                              <div key={index} className="relative group aspect-video rounded-xl overflow-hidden border border-slate-200">
-                                                  <img src={src} className="w-full h-full object-cover" alt="Welcome bg"/>
-                                                  <button 
-                                                      onClick={() => removeImage('welcome', index)}
-                                                      className="absolute top-2 right-2 p-1.5 bg-white/90 text-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white shadow-sm"
-                                                  >
-                                                      <Trash2 size={16}/>
-                                                  </button>
-                                              </div>
-                                          ))}
-                                      </div>
-                                  ) : (
-                                      <div className="p-8 border-2 border-dashed border-slate-200 rounded-xl text-center text-slate-400 italic text-sm">
-                                          Geen afbeeldingen ingesteld. Standaard Sanadome foto's worden gebruikt.
-                                      </div>
-                                  )}
-                              </div>
-                          </div>
-                      </div>
                   )}
               </div>
           </div>
@@ -731,7 +573,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
       <Modal
         isOpen={isConfigModalOpen}
         onClose={() => setIsConfigModalOpen(false)}
-        title={editingModuleId ? `Configureer ${moduleNames[editingModuleId] || editingModuleId}` : 'Module Configuratie'}
+        title={editingModuleId ? `Configureer ${MODULE_NAMES[editingModuleId]}` : 'Module Configuratie'}
       >
           <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
               

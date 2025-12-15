@@ -23,7 +23,7 @@ import BadgeManager from './components/BadgeManager';
 import AcademyPage from './components/AcademyPage'; 
 import CompensationPage from './components/CompensationPage';
 import ChecklistsPage from './components/ChecklistsPage';
-import HRDossierPage from './components/HRDossierPage'; 
+import HRDossierPage from './components/HRDossierPage'; // NEW
 import UpdateNotifier from './components/UpdateNotifier';
 import { api, isLive } from './utils/api';
 import { isModuleEnabled } from './utils/permissions';
@@ -50,25 +50,18 @@ function App() {
   // Specific Feature States
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
 
-  // Initialize Global Settings FIRST (so login screen has images)
-  useEffect(() => {
-      const loadSettings = async () => {
-          const settings = await api.getGlobalSettings();
-          if (settings) setGlobalSettings(settings);
-      };
-      loadSettings();
-  }, []);
-
-  // Initialize Data (Protected)
+  // Initialize Data
   useEffect(() => {
     const loadData = async () => {
       const emps = await api.getEmployees();
       const news = await api.getNews();
       const apps = await api.getApplicants(); 
+      const settings = await api.getGlobalSettings(); 
       
       setEmployees(emps);
       setNewsItems(news);
       setApplicants(apps);
+      setGlobalSettings(settings);
     };
 
     if (isAuthenticated) {
@@ -213,7 +206,7 @@ function App() {
   };
 
   if (!isAuthenticated) {
-      return <Login onLogin={handleLogin} customImages={globalSettings?.loginImages} />;
+      return <Login onLogin={handleLogin} />;
   }
 
   if (currentUser?.accountStatus === 'Pending') {
@@ -227,7 +220,7 @@ function App() {
           setEmployees(prev => prev.map(e => e.id === updated.id ? updated : e));
           const freshData = await api.getEmployees();
           setEmployees(freshData);
-      }} customImages={globalSettings?.welcomeImages} />;
+      }} />;
   }
 
   // Check if current view is enabled, else redirect home

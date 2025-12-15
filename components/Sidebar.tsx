@@ -38,44 +38,44 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
     {
       label: 'Algemeen',
       items: [
-        { icon: User, label: 'Mijn Profiel', id: 'HOME' },
-        { icon: Newspaper, label: 'Nieuws', id: 'NEWS' },
-        { icon: GraduationCap, label: 'Academy', id: 'ACADEMY' },
-        { icon: BookOpen, label: 'Kennisbank', id: 'KNOWLEDGE_BASE' },
-        { icon: Users, label: 'Collega\'s', id: 'DIRECTORY' },
+        { icon: User, label: 'Mijn Profiel', id: ViewState.HOME },
+        { icon: Newspaper, label: 'Nieuws', id: ViewState.NEWS },
+        { icon: GraduationCap, label: 'Academy', id: ViewState.ACADEMY },
+        { icon: BookOpen, label: 'Kennisbank', id: ViewState.KNOWLEDGE_BASE },
+        { icon: Users, label: 'Collega\'s', id: ViewState.DIRECTORY },
       ]
     },
     {
       label: 'Receptie Tools',
       items: [
-        { icon: ListTodo, label: 'Checklists', id: 'CHECKLISTS' }, 
-        { icon: Bike, label: 'Fietsverhuur', id: 'BIKE_RENTAL', permission: 'MANAGE_RENTALS' },
-        { icon: Scale, label: 'Compensatie', id: 'COMPENSATION' }, 
+        { icon: ListTodo, label: 'Checklists', id: ViewState.CHECKLISTS }, 
+        { icon: Bike, label: 'Fietsverhuur', id: ViewState.BIKE_RENTAL, permission: 'MANAGE_RENTALS' },
+        { icon: Scale, label: 'Compensatie', id: ViewState.COMPENSATION }, 
       ]
     },
     {
       label: 'HR & Team',
       items: [
-        { icon: FolderOpen, label: 'HR Dossier', id: 'HR_DOSSIER', permission: 'MANAGE_EMPLOYEES' },
-        { icon: UserCheck, label: 'Onboarding', id: 'ONBOARDING' },
-        { icon: ClipboardCheck, label: 'Performance', id: 'EVALUATIONS', permission: 'MANAGE_EVALUATIONS' },
-        { icon: UserPlus, label: 'Recruitment', id: 'RECRUITMENT', permission: 'MANAGE_RECRUITMENT' },
+        { icon: FolderOpen, label: 'HR Dossier', id: ViewState.HR_DOSSIER, permission: 'MANAGE_EMPLOYEES' },
+        { icon: UserCheck, label: 'Onboarding', id: ViewState.ONBOARDING },
+        { icon: ClipboardCheck, label: 'Performance', id: ViewState.EVALUATIONS, permission: 'MANAGE_EVALUATIONS' },
+        { icon: UserPlus, label: 'Recruitment', id: ViewState.RECRUITMENT, permission: 'MANAGE_RECRUITMENT' },
         // Documents removed and merged into HR Dossier
       ]
     },
     {
       label: 'Management Tools',
       items: [
-        { icon: Euro, label: 'Debiteuren', id: 'DEBT_CONTROL', permission: 'MANAGE_DEBTORS' },
-        { icon: Truck, label: 'Linnen Audit', id: 'LINEN_AUDIT', permission: 'MANAGE_OPERATIONS' },
-        { icon: PieChart, label: 'Rapportages', id: 'REPORTS', permission: 'VIEW_REPORTS' },
+        { icon: Euro, label: 'Debiteuren', id: ViewState.DEBT_CONTROL, permission: 'MANAGE_DEBTORS' },
+        { icon: Truck, label: 'Linnen Audit', id: ViewState.LINEN_AUDIT, permission: 'MANAGE_OPERATIONS' },
+        { icon: PieChart, label: 'Rapportages', id: ViewState.REPORTS, permission: 'VIEW_REPORTS' },
       ]
     },
     {
       label: 'Systeem',
       items: [
-        { icon: Activity, label: 'Systeemstatus', id: 'SYSTEM_STATUS', permission: 'VIEW_SYSTEM_STATUS' },
-        { icon: Shield, label: 'Instellingen', id: 'SETTINGS', permission: 'MANAGE_SETTINGS' },
+        { icon: Activity, label: 'Systeemstatus', id: ViewState.SYSTEM_STATUS, permission: 'VIEW_SYSTEM_STATUS' },
+        { icon: Shield, label: 'Instellingen', id: ViewState.SETTINGS, permission: 'MANAGE_SETTINGS' },
       ]
     }
   ];
@@ -156,8 +156,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
                   const hasPerm = !item.permission || hasPermission(user, item.permission);
                   // Check if module is enabled globally for this user
                   let moduleEnabled = true;
-                  // Cast string ID back to ViewState for checking
-                  if (isModuleEnabled) {
+                  if (Object.values(ViewState).includes(item.id as ViewState)) {
                       moduleEnabled = isModuleEnabled(item.id as ViewState, user || null, globalSettings);
                   }
                   return hasPerm && moduleEnabled;
@@ -184,7 +183,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
                           <button
                             key={item.id}
                             onClick={() => {
-                                onChangeView(item.id as ViewState);
+                                if (typeof item.id === 'string' && !Object.values(ViewState).includes(item.id as any)) {
+                                    onChangeView(item.id as any); // fallback
+                                } else {
+                                    onChangeView(item.id as ViewState);
+                                }
                                 if (window.innerWidth < 1024) onClose();
                             }}
                             className={`
