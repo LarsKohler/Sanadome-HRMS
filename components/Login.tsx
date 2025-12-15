@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { Lock, ArrowRight, AlertCircle, User, Key, ChevronLeft, Mail, UserPlus, Shield } from 'lucide-react';
 import { api } from '../utils/api';
@@ -33,6 +32,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           const settings = await api.getGlobalSettings();
           if (settings && settings.branding && settings.branding.loginImages && settings.branding.loginImages.length > 0) {
               setLoginImages(settings.branding.loginImages);
+          } else {
+              setLoginImages(DEFAULT_LOGIN_IMAGES);
           }
       };
       loadSettings();

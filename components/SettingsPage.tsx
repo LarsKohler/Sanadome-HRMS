@@ -168,7 +168,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
           modules: {
               ...(globalSettings?.modules || {}),
               [viewId]: newConfig
-          }
+          },
+          branding: globalSettings?.branding || { loginImages: [] }
       };
       
       onUpdateGlobalSettings(newSettings as GlobalSettings);
@@ -199,7 +200,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                   name: MODULE_NAMES[editingModuleId],
                   ...moduleConfigForm
               }
-          }
+          },
+          branding: globalSettings?.branding || { loginImages: [] }
       };
 
       onUpdateGlobalSettings(newSettings as GlobalSettings);
@@ -230,7 +232,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                   }
               };
               onUpdateGlobalSettings(newSettings as GlobalSettings);
-              onShowToast("Afbeelding toegevoegd. (Let op: uploads verdwijnen na refresh in demo-modus, gebruik links voor permanente opslag)");
+              onShowToast("Afbeelding toegevoegd.");
           }
       } catch (e) {
           console.error(e);
@@ -249,6 +251,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
               loginImages: [...currentImages, newImageUrl.trim()]
           }
       };
+      
       onUpdateGlobalSettings(newSettings as GlobalSettings);
       setNewImageUrl('');
       onShowToast("Afbeelding URL toegevoegd.");
@@ -265,6 +268,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
               loginImages: currentImages.filter(url => url !== urlToDelete)
           }
       };
+      
       onUpdateGlobalSettings(newSettings as GlobalSettings);
       onShowToast("Afbeelding verwijderd.");
   };
