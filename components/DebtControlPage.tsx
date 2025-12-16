@@ -1,9 +1,10 @@
 
+// ... existing imports ...
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
     Euro, Search, Filter, AlertTriangle, Clock, CheckCircle2, 
     MoreHorizontal, ChevronDown, Download, Upload, Plus, FileText, 
-    Trash2, Edit, X, RefreshCw, Printer, Sparkles, FolderOpen, Mail, Phone, Calendar, Hash, Globe, FileSpreadsheet, AlertCircle, CheckSquare, Square, Edit2, FileCheck, Send, Save
+    Trash2, Edit, X, RefreshCw, Printer, Sparkles, FolderOpen, Mail, Phone, Calendar, Hash, Globe, FileSpreadsheet, AlertCircle, CheckSquare, Square, Edit2, FileCheck, Send, Save, ArrowRight
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { Employee, Debtor, DebtorStatus, DebtorNote } from '../types';
@@ -83,9 +84,9 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   const fileInputRef = useRef<HTMLInputElement>(null);
   const tableContainerRef = useRef<HTMLDivElement>(null);
 
-  // Helper to check 2 week rule -> CHANGED TO 7 DAYS
+  // Helper to check workflow rules
   const isActionRequired = (debtor: Debtor) => {
-      if (debtor.status === 'Paid' || debtor.status === 'Correction' || debtor.status === 'Cashlist' || debtor.status === 'New') return false;
+      if (debtor.status === 'Paid' || debtor.status === 'Correction' || debtor.status === 'Cashlist') return false;
       if (!debtor.statusDate) return false; 
 
       const statusDate = new Date(debtor.statusDate);
@@ -93,7 +94,13 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       const diffTime = Math.abs(now.getTime() - statusDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       
-      // CHANGED: 14 days -> 7 days
+      // WORKFLOW RULES:
+      // Final Notice (Aanmaning) -> 14 days
+      if (debtor.status === 'Final Notice') {
+          return diffDays > 14;
+      }
+      
+      // Others (New, 1st Reminder, 2nd Reminder) -> 7 days
       return diffDays > 7;
   };
 
@@ -103,6 +110,16 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       const now = new Date();
       const diffTime = Math.abs(now.getTime() - statusDate.getTime());
       return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  const getNextLogicalStatus = (currentStatus: DebtorStatus): DebtorStatus | null => {
+      switch(currentStatus) {
+          case 'New': return '1st Reminder';
+          case '1st Reminder': return '2nd Reminder';
+          case '2nd Reminder': return 'Final Notice';
+          case 'Final Notice': return 'Cashlist';
+          default: return null;
+      }
   };
 
   const isAddressIncomplete = (debtor: Debtor) => {
@@ -206,6 +223,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
   };
 
   const processImportedData = async (data: any[]) => {
+      // ... (Same import logic) ...
       try {
           let newCount = 0;
           let skippedCount = 0;
@@ -988,11 +1006,20 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
       }
   };
 
-  const StatusOptionCard = ({ status, label, description, colorClass, onClick }: any) => (
+  const StatusOptionCard = ({ status, label, description, colorClass, onClick, recommended, dimmed }: any) => (
       <button 
         onClick={onClick}
-        className={`p-4 rounded-xl border text-left hover:shadow-lg transition-all group flex flex-col gap-2 h-full transform hover:-translate-y-1 ${colorClass}`}
+        className={`p-4 rounded-xl border text-left hover:shadow-lg transition-all group flex flex-col gap-2 h-full transform hover:-translate-y-1 relative 
+            ${colorClass} 
+            ${dimmed ? 'opacity-50 grayscale hover:opacity-100 hover:grayscale-0' : ''}
+            ${recommended ? 'ring-2 ring-teal-500 ring-offset-2' : ''}
+        `}
       >
+          {recommended && (
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-teal-600 text-white text-[10px] font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1">
+                  <Sparkles size={10} fill="currentColor"/> Aanbevolen
+              </div>
+          )}
           <div className="flex items-center justify-between w-full">
               <span className="font-bold text-sm uppercase tracking-wider">{label}</span>
               <div className="w-6 h-6 rounded-full border-2 border-current opacity-30 group-hover:opacity-100 flex items-center justify-center transition-opacity">
@@ -1002,6 +1029,96 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
           <p className="text-xs opacity-80 font-medium leading-relaxed">{description}</p>
       </button>
   );
+
+  const getModalStatusOptions = () => {
+      // Determine the recommended next step based on current status
+      const currentStatus = (statusTargetIds.length === 1) 
+          ? debtors.find(d => d.id === statusTargetIds[0])?.status 
+          : 'New'; // Fallback for bulk if mixed, but ideally handle specific cases. Assuming New for logic simplicity.
+
+      const nextStep = getNextLogicalStatus(currentStatus as DebtorStatus);
+
+      // Helper to check if a status is "too far ahead" (simplified logic)
+      const isSkipping = (target: DebtorStatus) => {
+          if (!currentStatus) return false;
+          if (target === 'Paid' || target === 'Correction' || target === 'Cashlist') return false; // Always allowed
+          
+          const order = ['New', '1st Reminder', '2nd Reminder', 'Final Notice'];
+          const currIdx = order.indexOf(currentStatus);
+          const targetIdx = order.indexOf(target);
+          
+          // If moving backwards or more than 1 step forward (and not Paid/Correction)
+          return targetIdx > currIdx + 1;
+      };
+
+      return (
+          <div className="grid grid-cols-2 gap-4">
+              <StatusOptionCard 
+                status="New" 
+                label="Nieuw" 
+                description="Nog geen actie ondernomen."
+                colorClass="bg-blue-50/50 border-blue-200 text-blue-700 hover:border-blue-400"
+                onClick={() => handleStatusSelect('New')}
+                recommended={false}
+                dimmed={false} // Always selectable to reset
+              />
+              <StatusOptionCard 
+                status="1st Reminder" 
+                label="1e Herinnering" 
+                description="Eerste mail/brief verstuurd (+7 dagen)."
+                colorClass="bg-amber-50/50 border-amber-200 text-amber-700 hover:border-amber-400"
+                onClick={() => handleStatusSelect('1st Reminder')}
+                recommended={nextStep === '1st Reminder'}
+                dimmed={isSkipping('1st Reminder')}
+              />
+              <StatusOptionCard 
+                status="2nd Reminder" 
+                label="2e Herinnering" 
+                description="Tweede waarschuwing (+7 dagen)."
+                colorClass="bg-orange-50/50 border-orange-200 text-orange-700 hover:border-orange-400"
+                onClick={() => handleStatusSelect('2nd Reminder')}
+                recommended={nextStep === '2nd Reminder'}
+                dimmed={isSkipping('2nd Reminder')}
+              />
+              <StatusOptionCard 
+                status="Final Notice" 
+                label="Aanmaning" 
+                description="Laatste waarschuwing (+14 dagen)."
+                colorClass="bg-red-50/50 border-red-200 text-red-700 hover:border-red-400"
+                onClick={() => handleStatusSelect('Final Notice')}
+                recommended={nextStep === 'Final Notice'}
+                dimmed={isSkipping('Final Notice')}
+              />
+              <StatusOptionCard 
+                status="Paid" 
+                label="Betaald" 
+                description="Dossier succesvol afgerond."
+                colorClass="bg-green-50/50 border-green-200 text-green-700 hover:border-green-400"
+                onClick={() => handleStatusSelect('Paid')}
+                recommended={false}
+                dimmed={false}
+              />
+              <StatusOptionCard 
+                status="Correction" 
+                label="Correctie" 
+                description="Administratief gecorrigeerd (0)."
+                colorClass="bg-slate-100 border-slate-300 text-slate-700 hover:border-slate-500"
+                onClick={() => handleStatusSelect('Correction')}
+                recommended={false}
+                dimmed={false}
+              />
+              <StatusOptionCard 
+                status="Cashlist" 
+                label="Cashlist" 
+                description="Alleen vooraf betalen."
+                colorClass="bg-purple-50/50 border-purple-200 text-purple-800 hover:border-purple-400"
+                onClick={() => handleStatusSelect('Cashlist')}
+                recommended={nextStep === 'Cashlist'}
+                dimmed={false}
+              />
+          </div>
+      );
+  };
 
   return (
     <div className="p-6 lg:p-10 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 min-h-[calc(100vh-80px)] pb-24 bg-slate-50">
@@ -1066,7 +1183,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                       <h3 className="font-bold text-slate-500 text-xs uppercase tracking-wider">Actie Vereist</h3>
                   </div>
                   <div className="text-3xl xl:text-4xl font-bold text-amber-600">{actionRequiredCount}</div>
-                  <p className="text-xs text-slate-400 mt-1 font-medium">Dossiers &gt; 7 dagen stil</p>
+                  <p className="text-xs text-slate-400 mt-1 font-medium">Dossiers met verlopen termijn</p>
               </div>
           </div>
 
@@ -1251,7 +1368,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                                           <span className="flex items-center gap-1.5 truncate">
                                             {debtor.status === 'Paid' && <CheckCircle2 size={12} />}
                                             {debtor.status === 'Correction' && <CheckCircle2 size={12} />}
-                                            {debtor.status}
+                                            {debtor.status === 'Final Notice' ? 'Aanmaning' : debtor.status}
                                           </span>
                                           <ChevronDown size={12} className="opacity-50"/>
                                       </button>
@@ -1259,7 +1376,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                                       {debtor.status !== 'Paid' && debtor.status !== 'Correction' && debtor.status !== 'New' && debtor.statusDate && (
                                           <div className="flex items-center gap-2 pl-1">
                                               <div className={`text-[10px] font-bold ${needsAction ? 'text-red-600 bg-red-50 px-2 py-0.5 rounded' : 'text-slate-400'}`}>
-                                                  {daysOverdue} dagen geleden
+                                                  {daysOverdue} dagen {needsAction ? '(OVER TIJD)' : '(binnen termijn)'}
                                               </div>
                                               <button 
                                                 onClick={() => openDateEdit(debtor)}
@@ -1411,57 +1528,7 @@ const DebtControlPage: React.FC<DebtControlPageProps> = ({ currentUser, onShowTo
                       </div>
                   </div>
               ) : (
-                  <div className="grid grid-cols-2 gap-4">
-                      <StatusOptionCard 
-                        status="New" 
-                        label="Nieuw" 
-                        description="Nog geen actie ondernomen."
-                        colorClass="bg-blue-50/50 border-blue-200 text-blue-700 hover:border-blue-400"
-                        onClick={() => handleStatusSelect('New')}
-                      />
-                      <StatusOptionCard 
-                        status="1st Reminder" 
-                        label="1e Herinnering" 
-                        description="Eerste mail/brief verstuurd."
-                        colorClass="bg-amber-50/50 border-amber-200 text-amber-700 hover:border-amber-400"
-                        onClick={() => handleStatusSelect('1st Reminder')}
-                      />
-                      <StatusOptionCard 
-                        status="2nd Reminder" 
-                        label="2e Herinnering" 
-                        description="Tweede waarschuwing (+7 dagen)."
-                        colorClass="bg-orange-50/50 border-orange-200 text-orange-700 hover:border-orange-400"
-                        onClick={() => handleStatusSelect('2nd Reminder')}
-                      />
-                      <StatusOptionCard 
-                        status="Final Notice" 
-                        label="Aanmaning" 
-                        description="Laatste waarschuwing."
-                        colorClass="bg-red-50/50 border-red-200 text-red-700 hover:border-red-400"
-                        onClick={() => handleStatusSelect('Final Notice')}
-                      />
-                      <StatusOptionCard 
-                        status="Paid" 
-                        label="Betaald" 
-                        description="Dossier succesvol afgerond."
-                        colorClass="bg-green-50/50 border-green-200 text-green-700 hover:border-green-400"
-                        onClick={() => handleStatusSelect('Paid')}
-                      />
-                      <StatusOptionCard 
-                        status="Correction" 
-                        label="Correctie" 
-                        description="Administratief gecorrigeerd (0)."
-                        colorClass="bg-slate-100 border-slate-300 text-slate-700 hover:border-slate-500"
-                        onClick={() => handleStatusSelect('Correction')}
-                      />
-                      <StatusOptionCard 
-                        status="Cashlist" 
-                        label="Cashlist" 
-                        description="Alleen vooraf betalen."
-                        colorClass="bg-purple-50/50 border-purple-200 text-purple-800 hover:border-purple-400"
-                        onClick={() => handleStatusSelect('Cashlist')}
-                      />
-                  </div>
+                  getModalStatusOptions()
               )}
           </div>
       </Modal>
