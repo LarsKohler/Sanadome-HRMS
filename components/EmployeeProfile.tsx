@@ -294,12 +294,12 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                   {/* RIGHT COLUMN */}
                   <div className="space-y-8">
                       {/* Badges Grid */}
-                      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
+                      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 h-full">
                           <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2 text-sm uppercase tracking-wider">
                               <Trophy size={16} className="text-amber-500"/> Mijn Badges
                           </h3>
                           <div className="grid grid-cols-2 gap-4">
-                              {combinedBadges.slice(0, 4).map((badge, idx) => {
+                              {combinedBadges.slice(0, 6).map((badge, idx) => {
                                   const Icon = BADGE_ICONS[badge.icon] || Star;
                                   return (
                                       <div key={idx} className="flex flex-col items-center p-4 rounded-2xl bg-slate-50 border border-slate-100 group hover:border-indigo-200 transition-all relative cursor-help">
@@ -319,30 +319,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                       <span className="text-[10px] font-bold uppercase mt-2">Nog geen badges</span>
                                   </div>
                               )}
-                          </div>
-                      </div>
-
-                      {/* Mentor & Info Card */}
-                      <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-8 text-white shadow-lg overflow-hidden relative">
-                          <div className="absolute top-0 right-0 p-4 opacity-10">
-                              <Shield size={100} />
-                          </div>
-                          <h3 className="font-bold text-white mb-6 text-sm uppercase tracking-wider relative z-10 flex items-center gap-2">
-                              <Info size={16} className="text-sky-400" /> Informatie
-                          </h3>
-                          <div className="space-y-4 relative z-10">
-                              <div className="flex justify-between items-center pb-3 border-b border-white/10">
-                                  <span className="text-xs text-slate-400">Mentor</span>
-                                  <span className="text-sm font-bold">{employee.mentor || 'Geen'}</span>
-                              </div>
-                              <div className="flex justify-between items-center pb-3 border-b border-white/10">
-                                  <span className="text-xs text-slate-400">In Dienst</span>
-                                  <span className="text-sm font-bold">{employee.hiredOn}</span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                  <span className="text-xs text-slate-400">Contract</span>
-                                  <span className="text-sm font-bold">{employee.employmentType}</span>
-                              </div>
                           </div>
                       </div>
                   </div>
