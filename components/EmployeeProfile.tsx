@@ -1,17 +1,17 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Briefcase, MapPin, 
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, Award as CertificateIcon, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy, Lock, Pencil, Medal, Calendar as CalendarIcon, Thermometer, FolderOpen, Info
+  TrendingUp, Award, Award as CertificateIcon, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy, Lock, Pencil, Medal, Calendar as CalendarIcon, Thermometer, FolderOpen, Info, RefreshCw, Globe, ExternalLink, BedDouble, X
 } from 'lucide-react';
 import { Employee, EmployeeNote, EmployeeDocument, ViewState, NewsPost, EvaluationCycle, BadgeIconKey, BadgeColor, AssignedBadge, AcademyCourse, AcademyProgress, Applicant, DossierEntry, Debtor } from '../types';
 import { Modal } from './Modal';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { api } from '../utils/api';
 import { hasPermission } from '../utils/permissions';
+import { GoogleGenAI } from "@google/genai";
 
 const BADGE_ICONS: Record<BadgeIconKey, React.ElementType> = {
     'Trophy': Trophy, 'Star': Star, 'Medal': Medal, 'Heart': Heart, 'Zap': Zap, 'Shield': Shield,
@@ -24,7 +24,7 @@ const BADGE_COLORS: Record<BadgeColor, string> = {
     'blue': 'bg-blue-100 text-blue-600 border-blue-200',
     'purple': 'bg-purple-100 text-purple-600 border-purple-200',
     'red': 'bg-red-100 text-red-600 border-red-200',
-    'green': 'bg-green-100 text-green-600 border-green-200',
+    'green': 'bg-green-100 text-green-700 border-green-200',
     'pink': 'bg-pink-100 text-pink-600 border-pink-200',
     'orange': 'bg-orange-100 text-orange-600 border-orange-200',
     'slate': 'bg-slate-100 text-slate-600 border-slate-200'
@@ -60,6 +60,14 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
 
   const [templateTitle, setTemplateTitle] = useState<string>('');
   const [combinedBadges, setCombinedBadges] = useState<any[]>([]);
+
+  // AI Availability State
+  const [availabilityData, setAvailabilityData] = useState<{
+      status: string;
+      level: 'low' | 'medium' | 'high';
+      lastUpdated: string;
+  } | null>(null);
+  const [isScanning, setIsScanning] = useState(false);
 
   useEffect(() => {
       const fetchTemplateName = async () => {
@@ -98,6 +106,46 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       };
       fetchBadges();
   }, [employee.id, employee.badges]);
+
+  // --- AUTOMATED ROOM SCAN LOGIC ---
+  const fetchRoomAvailability = async (silent = false) => {
+      if (!silent) setIsScanning(true);
+      try {
+          const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          const response = await ai.models.generateContent({
+              model: 'gemini-3-flash-preview',
+              contents: 'Controleer de ECHTE kamerbeschikbaarheid van Sanadome Nijmegen voor VANDAAG. Kijk op de officiële Sanadome site en Booking.com. Als er staat "geen kamers beschikbaar" of "sold out", dan is de status 100% "Volgeboekt". Wees uiterst accuraat. Reageer ENKEL met JSON: {"level": "low|medium|high", "short_status": "Status tekst"}. "high" betekent volgeboekt (Rood), "medium" is beperkt (Oranje), "low" is veel plek (Groen).',
+              config: {
+                  tools: [{ googleSearch: {} }],
+                  responseMimeType: "application/json"
+              },
+          });
+
+          const result = JSON.parse(response.text);
+          
+          setAvailabilityData({
+              status: result.short_status,
+              level: result.level,
+              lastUpdated: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+          });
+      } catch (e) {
+          console.error("Availability Scan Error:", e);
+          if (!silent) onShowToast("Kon kamerstatus niet bijwerken.");
+      } finally {
+          if (!silent) setIsScanning(false);
+      }
+  };
+
+  // Trigger scan on load and every 30 seconds
+  useEffect(() => {
+      if (isOwnProfile) {
+          fetchRoomAvailability();
+          const interval = setInterval(() => {
+              fetchRoomAvailability(true);
+          }, 30000);
+          return () => clearInterval(interval);
+      }
+  }, [isOwnProfile]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'banner') => {
     if (!isOwnProfile) return; 
@@ -156,8 +204,42 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       return (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
               {/* TOP KPI ROW */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-sky-300 transition-all">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                  
+                  {/* LIVE ROOM AVAILABILITY WIDGET (AUTO-REFRESHING) */}
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between group hover:border-teal-300 transition-all relative overflow-hidden h-32">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                            <div className={`p-1.5 rounded-lg group-hover:scale-110 transition-transform ${availabilityData?.level === 'high' ? 'bg-red-50 text-red-600' : 'bg-teal-50 text-teal-600'}`}>
+                                <BedDouble size={18} />
+                            </div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Live Bezetting</div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            {isScanning && <RefreshCw size={12} className="animate-spin text-teal-500" />}
+                            <div className="w-2 h-2 rounded-full bg-green-500" title="Systeem Online"></div>
+                        </div>
+                      </div>
+                      
+                      {availabilityData ? (
+                          <div className="flex-1 flex flex-col justify-center animate-in fade-in zoom-in-95">
+                              <div className="flex items-center gap-2">
+                                  <div className={`w-2.5 h-2.5 rounded-full ${availabilityData.level === 'low' ? 'bg-green-500' : availabilityData.level === 'medium' ? 'bg-amber-500' : 'bg-red-500'} animate-pulse`}></div>
+                                  <div className={`text-sm font-black uppercase tracking-tight ${availabilityData.level === 'high' ? 'text-red-600' : 'text-slate-900'}`}>{availabilityData.status}</div>
+                              </div>
+                              <div className="text-[9px] text-slate-400 mt-1 font-bold">Ververst om: {availabilityData.lastUpdated}</div>
+                          </div>
+                      ) : (
+                          <div className="flex-1 flex flex-col justify-center">
+                              <div className="flex items-center gap-2">
+                                  <RefreshCw size={14} className="animate-spin text-slate-300" />
+                                  <div className="text-sm font-bold text-slate-300 italic">Bezetting scannen...</div>
+                              </div>
+                          </div>
+                      )}
+                  </div>
+
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-sky-300 transition-all h-32">
                       <div className="p-3 bg-sky-50 text-sky-600 rounded-xl group-hover:scale-110 transition-transform">
                           <CertificateIcon size={24} />
                       </div>
@@ -166,7 +248,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                           <div className="text-xl font-bold text-slate-900">{avgScore ? `${avgScore}%` : 'N.v.t.'}</div>
                       </div>
                   </div>
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-indigo-300 transition-all">
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-indigo-300 transition-all h-32">
                       <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl group-hover:scale-110 transition-transform">
                           <Medal size={24} />
                       </div>
@@ -175,7 +257,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                           <div className="text-xl font-bold text-slate-900">{combinedBadges.length}</div>
                       </div>
                   </div>
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-rose-300 transition-all">
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-rose-300 transition-all h-32">
                       <div className="p-3 bg-rose-50 text-rose-600 rounded-xl group-hover:scale-110 transition-transform">
                           <Heart size={24} />
                       </div>
@@ -184,7 +266,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                           <div className="text-xl font-bold text-slate-900">{compliments.length}x</div>
                       </div>
                   </div>
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-amber-300 transition-all">
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-amber-300 transition-all h-32">
                       <div className="p-3 bg-amber-50 text-amber-600 rounded-xl group-hover:scale-110 transition-transform">
                           <Clock size={24} />
                       </div>
