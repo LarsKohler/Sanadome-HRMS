@@ -11,7 +11,7 @@ import { Modal } from './Modal';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { api } from '../utils/api';
 import { hasPermission } from '../utils/permissions';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 
 const BADGE_ICONS: Record<BadgeIconKey, React.ElementType> = {
     'Trophy': Trophy, 'Star': Star, 'Medal': Medal, 'Heart': Heart, 'Zap': Zap, 'Shield': Shield,
@@ -68,6 +68,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       status: string;
       level: 'low' | 'medium' | 'high';
       lastUpdated: string;
+      sources?: { title: string, uri: string }[];
   } | null>(null);
   const [isScanning, setIsScanning] = useState(false);
 
@@ -116,25 +117,45 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
           const response = await ai.models.generateContent({
               model: 'gemini-3-flash-preview',
-              contents: 'Controleer de ECHTE kamerbeschikbaarheid van Sanadome Nijmegen voor VANDAAG. Totaal aantal kamers is 106. Zoek op Sanadome.nl en Booking.com naar signalen van resterende kamers (bijv. "Nog 2 kamers over"). Bereken op basis daarvan hoeveel van de 106 kamers GEBOEKT zijn. Als alles vol is, reageer met 106 geboekt. Reageer ENKEL met JSON: {"booked": getal, "level": "low|medium|high", "status": "Status tekst"}. level "high" is > 95 geboekt.',
+              contents: 'Zoek de actuele kamerbeschikbaarheid voor Sanadome Hotel & Spa Nijmegen voor VANDAAG. Sanadome heeft in totaal 106 kamers. Scan de officiële website en Booking.com. Als alle kamertypes uitverkocht zijn of "sold out" staan, reageer dan met 106 geboekt. Als er nog enkele kamers zijn (bijv. "nog 2 kamers beschikbaar"), trek dit dan af van 106. Wees 100% accuraat.',
               config: {
                   tools: [{ googleSearch: {} }],
-                  responseMimeType: "application/json"
+                  responseMimeType: "application/json",
+                  responseSchema: {
+                      type: Type.OBJECT,
+                      properties: {
+                          booked: { type: Type.INTEGER, description: "Aantal geboekte kamers van de 106 totaal." },
+                          level: { type: Type.STRING, enum: ["low", "medium", "high"], description: "high betekent > 95 kamers vol." },
+                          status: { type: Type.STRING, description: "Korte status melding (bijv: Volgeboekt voor vandaag)." }
+                      },
+                      required: ["booked", "level", "status"]
+                  }
               },
           });
 
-          const result = JSON.parse(response.text);
+          const rawText = response.text;
+          if (!rawText) throw new Error("Geen respons van AI");
+
+          // Better cleaning if AI wraps JSON in markdown
+          const cleanJson = rawText.replace(/```json|```/g, '').trim();
+          const result = JSON.parse(cleanJson);
           
+          // Extract sources from grounding metadata
+          const groundingSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
+              ?.filter(chunk => chunk.web)
+              .map(chunk => ({ title: chunk.web.title, uri: chunk.web.uri })) || [];
+
           setAvailabilityData({
               booked: result.booked,
               total: 106,
               status: result.status,
               level: result.level,
-              lastUpdated: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+              lastUpdated: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
+              sources: groundingSources.slice(0, 2) // Take top 2 sources
           });
       } catch (e) {
           console.error("Availability Scan Error:", e);
-          if (!silent) onShowToast("Kon kamerstatus niet bijwerken.");
+          if (!silent) onShowToast("Kon kamerstatus niet laden.");
       } finally {
           if (!silent) setIsScanning(false);
       }
@@ -240,8 +261,25 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                     style={{ width: `${occupancyPercentage}%` }}
                                   ></div>
                               </div>
-                              <div className="text-[9px] text-slate-400 font-bold uppercase truncate">
-                                  {availabilityData.status}
+                              <div className="flex items-center justify-between gap-2 overflow-hidden">
+                                  <div className="text-[9px] text-slate-400 font-bold uppercase truncate flex-1">
+                                      {availabilityData.status}
+                                  </div>
+                                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                                      {availabilityData.sources?.map((s, idx) => (
+                                          <a 
+                                            key={idx} 
+                                            href={s.uri} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer" 
+                                            className="text-[10px] text-teal-600 hover:underline flex items-center gap-0.5 font-bold"
+                                            title={s.title}
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                              <Globe size={10}/>
+                                          </a>
+                                      ))}
+                                  </div>
                               </div>
                           </div>
                       ) : (
