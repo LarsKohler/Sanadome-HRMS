@@ -278,6 +278,25 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
     onShowToast('Document verwijderd.');
   };
 
+  const handleViewFile = (url?: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (url) window.open(url, '_blank');
+  };
+
+  const handleDownloadFile = (url?: string, name?: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (url) {
+        const downloadUrl = url.includes('?') ? `${url}&download=` : `${url}?download=`;
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.target = '_blank';
+        if (name) link.setAttribute('download', name);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+  };
+
   return (
     <div className="p-4 md:p-8 2xl:p-12 w-full animate-in fade-in duration-500 max-w-[2400px] mx-auto min-h-[calc(100vh-80px)]">
       
@@ -504,7 +523,7 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
                         </thead>
                         <tbody className="divide-y divide-slate-50">
                             {(selectedEmployee.documents || []).map(doc => (
-                                <tr key={doc.id} className="hover:bg-slate-50 transition-colors group">
+                                <tr key={doc.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={(e) => handleViewFile(doc.url, e)}>
                                     <td className="px-6 py-4">
                                         <div className="flex items-center gap-3">
                                             <div className="p-2 bg-slate-100 text-slate-500 rounded-lg group-hover:bg-teal-50 group-hover:text-teal-600 transition-colors">
@@ -523,17 +542,14 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
                                             {doc.url && (
                                                 <>
                                                     <button 
-                                                        onClick={() => window.open(doc.url, '_blank')}
+                                                        onClick={(e) => handleViewFile(doc.url, e)}
                                                         className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
                                                         title="Bekijken"
                                                     >
                                                         <Eye size={16}/>
                                                     </button>
                                                     <button 
-                                                        onClick={() => {
-                                                            const url = doc.url!.includes('?') ? `${doc.url}&download=` : `${doc.url}?download=`;
-                                                            window.open(url, '_blank');
-                                                        }}
+                                                        onClick={(e) => handleDownloadFile(doc.url, doc.name, e)}
                                                         className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
                                                         title="Downloaden"
                                                     >
@@ -542,7 +558,7 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
                                                 </>
                                             )}
                                             {canDeleteDocs && (
-                                                <button onClick={() => handleOpenDeleteDoc(doc)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                                                <button onClick={(e) => { e.stopPropagation(); handleOpenDeleteDoc(doc); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
                                             )}
                                         </div>
                                     </td>
@@ -628,7 +644,7 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
                                 onClick={() => setNoteScore(score)}
                                 className={`w-8 h-8 rounded-full font-bold text-sm flex items-center justify-center transition-all ${
                                     noteScore === score 
-                                    ? (noteImpact === 'Positive' ? 'bg-green-500 text-white' : 'bg-rose-500 text-white') 
+                                    ? (noteImpact === 'Positive' ? 'bg-green-50 text-white' : 'bg-rose-500 text-white') 
                                     : 'bg-white border border-slate-200 text-slate-400'
                                 }`}
                               >

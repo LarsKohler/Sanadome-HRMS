@@ -54,7 +54,6 @@ const isEvaluationUnlockable = (dateStr?: string) => {
     // Parse NL Date (dd-mm-yyyy)
     const plannedDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
     const unlockDate = new Date(plannedDate);
-    /* Fixed typo: setDates is not a method on Date, should be setDate */
     unlockDate.setDate(unlockDate.getDate() - 14); // 2 weeks before
     
     return new Date() >= unlockDate;
@@ -257,6 +256,25 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
     }
   };
 
+  const handleViewFile = (url?: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (url) window.open(url, '_blank');
+  };
+
+  const handleDownloadFile = (url?: string, name?: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    if (url) {
+        const downloadUrl = url.includes('?') ? `${url}&download=` : `${url}?download=`;
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.target = '_blank';
+        if (name) link.setAttribute('download', name);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+  };
+
   const handleAddSickLeave = async (e: React.FormEvent) => {
       e.preventDefault();
       const newEntry: DossierEntry = {
@@ -387,7 +405,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                               </h3>
                               <div className="relative border-l-2 border-slate-100 ml-2 space-y-6 pl-6">
                                   {employee.documents?.slice(0, 2).map((doc, i) => (
-                                      <div key={i} className="relative group">
+                                      <div key={i} className="relative group cursor-pointer" onClick={(e) => handleViewFile(doc.url, e)}>
                                           <div className="absolute -left-[31px] top-0 w-3 h-3 bg-blue-500 rounded-full ring-4 ring-white group-hover:scale-125 transition-transform"></div>
                                           <p className="text-xs text-slate-400 font-bold mb-0.5">{doc.date}</p>
                                           <div className="flex justify-between items-center pr-4">
@@ -396,7 +414,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                                   <p className="text-xs text-slate-500">{doc.category}</p>
                                               </div>
                                               {doc.url && (
-                                                <button onClick={() => window.open(doc.url, '_blank')} className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors">
+                                                <button onClick={(e) => handleDownloadFile(doc.url, doc.name, e)} className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors">
                                                     <Download size={14} />
                                                 </button>
                                               )}
@@ -425,7 +443,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
        <div className="divide-y divide-slate-100">
           {employee.documents && employee.documents.length > 0 ? (
             employee.documents.slice(0, 5).map(doc => (
-              <div key={doc.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors group">
+              <div key={doc.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors group cursor-pointer" onClick={(e) => handleViewFile(doc.url, e)}>
                  <div className="flex items-center gap-4">
                     <div className="p-2 bg-slate-100 text-slate-500 rounded-lg group-hover:bg-white group-hover:text-teal-600 group-hover:shadow-sm transition-all"><FileText size={20} /></div>
                     <div>
@@ -435,7 +453,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                  </div>
                  {doc.url && (
                     <button 
-                        onClick={() => window.open(doc.url, '_blank')}
+                        onClick={(e) => handleDownloadFile(doc.url, doc.name, e)}
                         className="p-2 text-slate-300 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
                     >
                         <Download size={18} />

@@ -271,7 +271,8 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
         }
     };
 
-    const handleDeleteDocument = async (docId: string) => {
+    const handleDeleteDocument = async (docId: string, e: React.MouseEvent) => {
+        e.stopPropagation();
         if (!confirm("Document verwijderen?")) return;
         
         const docToDelete = employee.documents?.find(d => d.id === docId);
@@ -286,6 +287,27 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
         const updatedDocs = (employee.documents || []).filter(d => d.id !== docId);
         onUpdate({ ...employee, documents: updatedDocs });
         onShowToast("Document verwijderd.");
+    };
+
+    const handleViewFile = (url?: string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        if (url) {
+            window.open(url, '_blank');
+        }
+    };
+
+    const handleDownloadFile = (url?: string, name?: string, e?: React.MouseEvent) => {
+        if (e) e.stopPropagation();
+        if (url) {
+            const downloadUrl = url.includes('?') ? `${url}&download=` : `${url}?download=`;
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.target = '_blank';
+            if (name) link.setAttribute('download', name);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
     };
 
     // --- RENDERERS ---
@@ -624,12 +646,12 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {employee.documents?.map(doc => (
-                                        <div key={doc.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-colors cursor-pointer group relative">
+                                        <div key={doc.id} className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm hover:border-indigo-300 transition-colors cursor-pointer group relative" onClick={() => handleViewFile(doc.url)}>
                                             <div className="flex items-start justify-between mb-3">
                                                 <div className="p-2 bg-slate-50 rounded-lg text-slate-500 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
                                                     <FileText size={20}/>
                                                 </div>
-                                                <button onClick={() => handleDeleteDocument(doc.id)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={(e) => handleDeleteDocument(doc.id, e)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <Trash2 size={16}/>
                                                 </button>
                                             </div>
@@ -637,21 +659,16 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                                             <p className="text-xs text-slate-500">{doc.date} • {doc.size}</p>
                                             <div className="mt-3 flex gap-2">
                                                 <button 
-                                                    onClick={() => doc.url && window.open(doc.url, '_blank')}
+                                                    onClick={(e) => handleViewFile(doc.url, e)}
                                                     className="flex-1 py-1.5 bg-slate-50 text-slate-600 rounded text-xs font-bold hover:bg-slate-100 flex items-center justify-center gap-1"
                                                 >
                                                     <Eye size={12}/> Bekijk
                                                 </button>
                                                 <button 
-                                                    onClick={() => {
-                                                        if (doc.url) {
-                                                            const url = doc.url.includes('?') ? `${doc.url}&download=` : `${doc.url}?download=`;
-                                                            window.open(url, '_blank');
-                                                        }
-                                                    }}
+                                                    onClick={(e) => handleDownloadFile(doc.url, doc.name, e)}
                                                     className="flex-1 py-1.5 bg-slate-50 text-slate-600 rounded text-xs font-bold hover:bg-slate-100 flex items-center justify-center gap-1"
                                                 >
-                                                    <Download size={12}/>
+                                                    <Download size={12}/> Download
                                                 </button>
                                             </div>
                                         </div>
