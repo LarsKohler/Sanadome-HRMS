@@ -52,13 +52,11 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   onChangeView,
   onBack
 }) => {
-  const [activeTab, setActiveTab] = useState('Overzicht');
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
   const isOwnProfile = employee.id === currentUser.id;
   const isManager = hasPermission(currentUser, 'MANAGE_EMPLOYEES');
-  const canViewDossier = isManager; 
 
   const [templateTitle, setTemplateTitle] = useState<string>('');
   const [combinedBadges, setCombinedBadges] = useState<any[]>([]);
@@ -210,7 +208,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                           {openActions.map((action, i) => (
                               <button 
                                 key={i}
-                                onClick={() => action.type === 'Evaluation' ? setActiveTab('Evaluatie') : setActiveTab('Onboarding')}
+                                onClick={() => action.type === 'Evaluation' ? onChangeView(ViewState.EVALUATIONS) : onChangeView(ViewState.ONBOARDING)}
                                 className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-2xl hover:border-sky-400 hover:shadow-md transition-all text-left group"
                               >
                                   <div className="flex items-center gap-4">
@@ -252,7 +250,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                 <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden mb-8 shadow-inner">
                                     <div className="h-full bg-gradient-to-r from-sky-400 to-sky-600 rounded-full transition-all duration-1000" style={{ width: `${obProgress}%` }}></div>
                                 </div>
-                                <button onClick={() => setActiveTab('Onboarding')} className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-all flex items-center gap-2">
+                                <button onClick={() => onChangeView(ViewState.ONBOARDING)} className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-all flex items-center gap-2">
                                     Verder met inwerken <ArrowRight size={16}/>
                                 </button>
                             </div>
@@ -303,7 +301,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                   const Icon = BADGE_ICONS[badge.icon] || Star;
                                   return (
                                       <div key={idx} className="flex flex-col items-center p-4 rounded-2xl bg-slate-50 border border-slate-100 group hover:border-indigo-200 transition-all relative cursor-help">
-                                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 border-2 transition-transform group-hover:rotate-12 ${BADGE_COLORS[badge.color] || 'bg-slate-100 text-slate-500'}`}>
+                                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 border-2 transition-transform group-hover:rotate-12 ${BADGE_COLORS[badge.color] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
                                               <Icon size={24} />
                                           </div>
                                           <div className="text-[11px] font-bold text-slate-900 text-center leading-tight line-clamp-1">{badge.name}</div>
@@ -326,37 +324,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
           </div>
       );
   };
-
-  const renderHRDossier = () => (
-      <div className="p-8 text-center text-slate-400 italic">Gedetailleerd HR dossier inzien via het hoofdmenu.</div>
-  );
-
-  const renderDocumentsContent = () => (
-    <div className="p-8 text-center text-slate-400 italic">Documenten overzicht beschikbaar via het hoofdmenu.</div>
-  );
-
-  const handleViewFile = (url?: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    if (url) window.open(url, '_blank');
-  };
-
-  const handleDownloadFile = (url?: string, name?: string, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
-    if (url) {
-        const downloadUrl = url.includes('?') ? `${url}&download=` : `${url}?download=`;
-        const link = document.createElement('a');
-        link.href = downloadUrl;
-        link.target = '_blank';
-        if (name) link.setAttribute('download', name);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
-  };
-
-  const renderPerformanceReport = () => (<div className="p-8 text-center text-slate-400 italic">Evaluatie overzicht beschikbaar onder tabblad Evaluatie.</div>);
-  const renderCareerDetails = () => (<div className="p-8 text-center text-slate-400 italic">Carrière details overzicht.</div>);
-  const renderOnboardingContent = () => (<div className="p-8 text-center text-slate-400 italic">Gedetailleerde onboarding weergave.</div>);
 
   return (
     <div className="p-4 md:p-8 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
@@ -389,21 +356,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
         </div>
       </div>
 
-      {activeTab !== 'Overzicht' && (
-          <button 
-            onClick={() => setActiveTab('Overzicht')} 
-            className="mb-6 flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold text-sm transition-colors"
-          >
-              <ArrowLeft size={18} /> Terug naar overzicht
-          </button>
-      )}
-
-      {activeTab === 'Overzicht' && renderDashboardOverview()}
-      {activeTab === 'Carrière' && renderCareerDetails()}
-      {activeTab === 'Documenten' && renderDocumentsContent()}
-      {activeTab === 'Evaluatie' && renderPerformanceReport()}
-      {activeTab === 'Onboarding' && renderOnboardingContent()}
-      {activeTab === 'HR Dossier' && canViewDossier && renderHRDossier()}
+      {renderDashboardOverview()}
     </div>
   );
 };
