@@ -63,6 +63,8 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
 
   // AI Availability State
   const [availabilityData, setAvailabilityData] = useState<{
+      booked: number;
+      total: number;
       status: string;
       level: 'low' | 'medium' | 'high';
       lastUpdated: string;
@@ -114,7 +116,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
           const response = await ai.models.generateContent({
               model: 'gemini-3-flash-preview',
-              contents: 'Controleer de ECHTE kamerbeschikbaarheid van Sanadome Nijmegen voor VANDAAG. Kijk op de officiële Sanadome site en Booking.com. Als er staat "geen kamers beschikbaar" of "sold out", dan is de status 100% "Volgeboekt". Wees uiterst accuraat. Reageer ENKEL met JSON: {"level": "low|medium|high", "short_status": "Status tekst"}. "high" betekent volgeboekt (Rood), "medium" is beperkt (Oranje), "low" is veel plek (Groen).',
+              contents: 'Controleer de ECHTE kamerbeschikbaarheid van Sanadome Nijmegen voor VANDAAG. Totaal aantal kamers is 106. Zoek op Sanadome.nl en Booking.com naar signalen van resterende kamers (bijv. "Nog 2 kamers over"). Bereken op basis daarvan hoeveel van de 106 kamers GEBOEKT zijn. Als alles vol is, reageer met 106 geboekt. Reageer ENKEL met JSON: {"booked": getal, "level": "low|medium|high", "status": "Status tekst"}. level "high" is > 95 geboekt.',
               config: {
                   tools: [{ googleSearch: {} }],
                   responseMimeType: "application/json"
@@ -124,7 +126,9 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
           const result = JSON.parse(response.text);
           
           setAvailabilityData({
-              status: result.short_status,
+              booked: result.booked,
+              total: 106,
+              status: result.status,
               level: result.level,
               lastUpdated: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
           });
@@ -201,39 +205,50 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       const diffYears = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 365.25));
       const diffMonths = Math.floor((diffTime % (1000 * 60 * 60 * 24 * 365.25)) / (1000 * 60 * 60 * 24 * 30.44));
 
+      const occupancyPercentage = availabilityData ? Math.round((availabilityData.booked / availabilityData.total) * 100) : 0;
+
       return (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
               {/* TOP KPI ROW */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                   
-                  {/* LIVE ROOM AVAILABILITY WIDGET (AUTO-REFRESHING) */}
+                  {/* LIVE ROOM AVAILABILITY WIDGET (DETAILED) */}
                   <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between group hover:border-teal-300 transition-all relative overflow-hidden h-32">
-                      <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center justify-between mb-1">
                         <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded-lg group-hover:scale-110 transition-transform ${availabilityData?.level === 'high' ? 'bg-red-50 text-red-600' : 'bg-teal-50 text-teal-600'}`}>
+                            <div className={`p-1.5 rounded-lg group-hover:scale-110 transition-transform ${availabilityData?.booked && availabilityData.booked >= 100 ? 'bg-red-50 text-red-600' : 'bg-teal-50 text-teal-600'}`}>
                                 <BedDouble size={18} />
                             </div>
-                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Live Bezetting</div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kamer Bezetting</div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            {isScanning && <RefreshCw size={12} className="animate-spin text-teal-500" />}
-                            <div className="w-2 h-2 rounded-full bg-green-500" title="Systeem Online"></div>
-                        </div>
+                        {isScanning && <RefreshCw size={12} className="animate-spin text-teal-500" />}
                       </div>
                       
                       {availabilityData ? (
-                          <div className="flex-1 flex flex-col justify-center animate-in fade-in zoom-in-95">
-                              <div className="flex items-center gap-2">
-                                  <div className={`w-2.5 h-2.5 rounded-full ${availabilityData.level === 'low' ? 'bg-green-500' : availabilityData.level === 'medium' ? 'bg-amber-500' : 'bg-red-500'} animate-pulse`}></div>
-                                  <div className={`text-sm font-black uppercase tracking-tight ${availabilityData.level === 'high' ? 'text-red-600' : 'text-slate-900'}`}>{availabilityData.status}</div>
+                          <div className="flex-1 flex flex-col justify-end animate-in fade-in zoom-in-95">
+                              <div className="flex items-baseline justify-between mb-1">
+                                  <div className="text-xl font-black text-slate-900 leading-none">
+                                      {availabilityData.booked}<span className="text-slate-300 text-sm font-bold">/106</span>
+                                  </div>
+                                  <div className={`text-[10px] font-black px-1.5 py-0.5 rounded ${availabilityData.level === 'high' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                      {occupancyPercentage}%
+                                  </div>
                               </div>
-                              <div className="text-[9px] text-slate-400 mt-1 font-bold">Ververst om: {availabilityData.lastUpdated}</div>
+                              <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden mb-2">
+                                  <div 
+                                    className={`h-full transition-all duration-1000 ${availabilityData.level === 'high' ? 'bg-red-500' : availabilityData.level === 'medium' ? 'bg-amber-500' : 'bg-teal-500'}`} 
+                                    style={{ width: `${occupancyPercentage}%` }}
+                                  ></div>
+                              </div>
+                              <div className="text-[9px] text-slate-400 font-bold uppercase truncate">
+                                  {availabilityData.status}
+                              </div>
                           </div>
                       ) : (
                           <div className="flex-1 flex flex-col justify-center">
                               <div className="flex items-center gap-2">
                                   <RefreshCw size={14} className="animate-spin text-slate-300" />
-                                  <div className="text-sm font-bold text-slate-300 italic">Bezetting scannen...</div>
+                                  <div className="text-sm font-bold text-slate-300 italic">Data ophalen...</div>
                               </div>
                           </div>
                       )}
