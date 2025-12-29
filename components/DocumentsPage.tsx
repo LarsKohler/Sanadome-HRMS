@@ -1,5 +1,4 @@
 
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   Search, FileText, Upload, Plus, File, Download, StickyNote, 
@@ -210,7 +209,8 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
               category: docCategory,
               date: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
               size: fileSize,
-              uploadedBy: currentUser.name
+              uploadedBy: currentUser.name,
+              url: publicUrl
             };
 
             const updatedEmployee = {
@@ -235,7 +235,6 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
   const handleOpenEditDoc = (doc: EmployeeDocument) => {
     setSelectedDoc(doc);
     setDocName(doc.name);
-    /* Added type cast to fix literal type mismatch error */
     setDocCategory(doc.category as any);
     setIsEditDocModalOpen(true);
     setActiveDropdownId(null);
@@ -262,8 +261,16 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
     setActiveDropdownId(null);
   };
 
-  const handleDeleteDoc = () => {
+  const handleDeleteDoc = async () => {
     if (!selectedEmployee || !selectedDoc) return;
+
+    if (selectedDoc.url) {
+        try {
+            await api.deleteFile(selectedDoc.url);
+        } catch (e) {
+            console.error("Storage delete failed", e);
+        }
+    }
 
     const updatedDocs = (selectedEmployee.documents || []).filter(d => d.id !== selectedDoc.id);
     onUpdateEmployee({ ...selectedEmployee, documents: updatedDocs });
@@ -391,18 +398,18 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
              {activeTab === 'notes' && (
                  <div className="max-w-4xl mx-auto space-y-8">
                     {visibleNotes.length > 0 ? (
-                        <div className="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
+                        <div className="relative space-y-8 before:absolute before:inset-0 before:ml-5 before:-translate-x-px before:h-full before:w-0.5 before:bg-gradient-to-b before:from-transparent before:via-slate-200 before:to-transparent">
                             {visibleNotes.map(note => (
-                                <div key={note.id} className="relative flex items-center justify-between md:justify-normal md:odd:flex-row-reverse group is-active">
+                                <div key={note.id} className="relative flex items-center justify-between md:justify-normal group is-active">
                                     {/* Icon/Dot */}
-                                    <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-slate-100 shadow shrink-0 md:order-1 md:group-odd:-translate-x-1/2 md:group-even:translate-x-1/2 z-10 text-slate-500">
+                                    <div className="flex items-center justify-center w-10 h-10 rounded-full border-4 border-white bg-slate-100 shadow shrink-0 z-10 text-slate-500">
                                         {note.category === 'Verzuim' ? <Clock size={18} className="text-red-500"/> :
                                          note.category === 'Performance' ? <User size={18} className="text-purple-500"/> :
                                          <StickyNote size={18} className="text-teal-500"/>}
                                     </div>
                                     
                                     {/* Card */}
-                                    <div className={`w-[calc(100%-4rem)] md:w-[calc(50%-2.5rem)] bg-white p-5 rounded-2xl border shadow-sm hover:shadow-md transition-shadow ${
+                                    <div className={`w-[calc(100%-4rem)] ml-6 bg-white p-5 rounded-2xl border shadow-sm hover:shadow-md transition-shadow ${
                                         note.impact === 'Positive' ? 'border-green-100 bg-green-50/30' : 
                                         note.impact === 'Negative' ? 'border-rose-100 bg-rose-50/30' : 
                                         'border-slate-200'
@@ -513,7 +520,27 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
                                     <td className="px-6 py-4 text-sm text-slate-500">{doc.size}</td>
                                     <td className="px-6 py-4 text-right">
                                         <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"><Download size={16}/></button>
+                                            {doc.url && (
+                                                <>
+                                                    <button 
+                                                        onClick={() => window.open(doc.url, '_blank')}
+                                                        className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                                                        title="Bekijken"
+                                                    >
+                                                        <Eye size={16}/>
+                                                    </button>
+                                                    <button 
+                                                        onClick={() => {
+                                                            const url = doc.url!.includes('?') ? `${doc.url}&download=` : `${doc.url}?download=`;
+                                                            window.open(url, '_blank');
+                                                        }}
+                                                        className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                                                        title="Downloaden"
+                                                    >
+                                                        <Download size={16}/>
+                                                    </button>
+                                                </>
+                                            )}
                                             {canDeleteDocs && (
                                                 <button onClick={() => handleOpenDeleteDoc(doc)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
                                             )}
@@ -705,9 +732,40 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
          </form>
       </Modal>
 
+      <Modal isOpen={isDeleteDocModalOpen} onClose={() => setIsDeleteDocModalOpen(false)} title="Document verwijderen">
+        <div className="space-y-6 py-2">
+            <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-start gap-3">
+                <div className="p-2 bg-red-100 rounded-full text-red-600 mt-0.5">
+                    <Trash2 size={20} />
+                </div>
+                <div>
+                    <h4 className="text-sm font-bold text-red-900">Bestand Verwijderen</h4>
+                    <p className="text-sm text-red-800 mt-1">
+                        Weet u zeker dat u <strong>{selectedDoc?.name}</strong> wilt verwijderen? 
+                        Het bestand wordt ook definitief verwijderd uit de cloud opslag.
+                    </p>
+                </div>
+            </div>
+            <div className="flex justify-end gap-3">
+                <button 
+                    type="button"
+                    onClick={() => setIsDeleteDocModalOpen(false)}
+                    className="px-6 py-3 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+                >
+                    Annuleren
+                </button>
+                <button 
+                    onClick={handleDeleteDoc}
+                    className="px-6 py-3 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-all shadow-sm"
+                >
+                    Verwijderen
+                </button>
+            </div>
+        </div>
+      </Modal>
+
     </div>
   );
 };
 
 export default DocumentsPage;
-

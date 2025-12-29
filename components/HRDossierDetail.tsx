@@ -258,7 +258,8 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                     category: 'Dossier',
                     date: new Date().toLocaleDateString('nl-NL'),
                     size: (file.size / 1024).toFixed(0) + ' KB',
-                    uploadedBy: currentUser.name
+                    uploadedBy: currentUser.name,
+                    url: url
                 };
                 const updatedEmployee = { ...employee, documents: [newDoc, ...(employee.documents || [])] };
                 onUpdate(updatedEmployee);
@@ -270,8 +271,18 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
         }
     };
 
-    const handleDeleteDocument = (docId: string) => {
+    const handleDeleteDocument = async (docId: string) => {
         if (!confirm("Document verwijderen?")) return;
+        
+        const docToDelete = employee.documents?.find(d => d.id === docId);
+        if (docToDelete?.url) {
+            try {
+                await api.deleteFile(docToDelete.url);
+            } catch (e) {
+                console.error("Storage delete failed", e);
+            }
+        }
+
         const updatedDocs = (employee.documents || []).filter(d => d.id !== docId);
         onUpdate({ ...employee, documents: updatedDocs });
         onShowToast("Document verwijderd.");
@@ -625,10 +636,21 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                                             <h4 className="font-bold text-slate-900 text-sm mb-1 truncate">{doc.name}</h4>
                                             <p className="text-xs text-slate-500">{doc.date} • {doc.size}</p>
                                             <div className="mt-3 flex gap-2">
-                                                <button className="flex-1 py-1.5 bg-slate-50 text-slate-600 rounded text-xs font-bold hover:bg-slate-100 flex items-center justify-center gap-1">
+                                                <button 
+                                                    onClick={() => doc.url && window.open(doc.url, '_blank')}
+                                                    className="flex-1 py-1.5 bg-slate-50 text-slate-600 rounded text-xs font-bold hover:bg-slate-100 flex items-center justify-center gap-1"
+                                                >
                                                     <Eye size={12}/> Bekijk
                                                 </button>
-                                                <button className="flex-1 py-1.5 bg-slate-50 text-slate-600 rounded text-xs font-bold hover:bg-slate-100 flex items-center justify-center gap-1">
+                                                <button 
+                                                    onClick={() => {
+                                                        if (doc.url) {
+                                                            const url = doc.url.includes('?') ? `${doc.url}&download=` : `${doc.url}?download=`;
+                                                            window.open(url, '_blank');
+                                                        }
+                                                    }}
+                                                    className="flex-1 py-1.5 bg-slate-50 text-slate-600 rounded text-xs font-bold hover:bg-slate-100 flex items-center justify-center gap-1"
+                                                >
                                                     <Download size={12}/>
                                                 </button>
                                             </div>

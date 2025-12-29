@@ -1,5 +1,4 @@
 
-
 export type ViewState =
   | 'HOME'
   | 'DIRECTORY'
@@ -154,6 +153,7 @@ export interface EmployeeDocument {
   date: string;
   size: string;
   uploadedBy: string;
+  url?: string;
 }
 
 export interface Employee {
@@ -178,7 +178,6 @@ export interface Employee {
   onboardingTasks?: OnboardingTask[];
   onboardingWeeks?: OnboardingWeekData[];
   onboardingWeekTitles?: Record<number, string>;
-  onboardingWeekCount?: number;
   onboardingWeekCount?: number;
   onboardingHistory?: OnboardingHistoryEntry[];
   activeTemplateId?: string;
@@ -683,4 +682,3 @@ export interface SurveyResponse {
   answers: Record<string, any>;
   completedAt: string;
 }
-
