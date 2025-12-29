@@ -164,6 +164,8 @@ export interface Employee {
   email: string;
   phone?: string;
   avatar?: string;
+  /* Added banner property */
+  banner?: string;
   linkedin?: string;
   hiredOn: string;
   employmentType: string;
@@ -176,6 +178,7 @@ export interface Employee {
   onboardingTasks?: OnboardingTask[];
   onboardingWeeks?: OnboardingWeekData[];
   onboardingWeekTitles?: Record<number, string>;
+  onboardingWeekCount?: number;
   onboardingWeekCount?: number;
   onboardingHistory?: OnboardingHistoryEntry[];
   activeTemplateId?: string;
@@ -358,6 +361,8 @@ export interface Applicant {
   appliedDate: string;
   resumeUrl?: string;
   motivationUrl?: string;
+  /* Added avatar property */
+  avatar?: string;
   rating?: number;
   skills?: string[];
   matchScore?: number;
@@ -678,3 +683,4 @@ export interface SurveyResponse {
   answers: Record<string, any>;
   completedAt: string;
 }
+

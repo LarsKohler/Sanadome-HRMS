@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
     ListTodo, Plus, Trash2, Edit2, Save, X, CheckSquare, 
@@ -428,7 +429,7 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
                                         
                                         {item.type !== 'header' && (
                                             <input 
-                                                className="w-full bg-transparent text-xs text-slate-500 border-none p-0 focus:ring-0 placeholder:text-slate-300 pl-10"
+                                                className="w-full bg-transparent text-xs text-slate-500 border-none p-0 focus:ring-0 placeholder:text-slate-300 font-medium pl-10"
                                                 value={item.description || ''}
                                                 onChange={e => updateTemplateItem(item.id, { description: e.target.value })}
                                                 placeholder="Voeg hier een beschrijving of instructie toe..."
@@ -871,7 +872,8 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
                                                 <div className="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center hover:bg-slate-50 transition-all relative hover:border-teal-400 group">
                                                     <input 
                                                         type="file" 
-                                                        ref={el => fileInputRefs.current[item.id] = el}
+                                                        /* Fix: Corrected ref syntax to correctly handle ref callback */
+                                                        ref={el => { fileInputRefs.current[item.id] = el; }}
                                                         className="hidden"
                                                         accept="image/*"
                                                         onChange={(e) => e.target.files && e.target.files[0] && handleFileUpload(item.id, e.target.files[0])}
@@ -1162,3 +1164,4 @@ const ChecklistsPage: React.FC<ChecklistsPageProps> = ({ currentUser, onShowToas
 };
 
 export default ChecklistsPage;
+

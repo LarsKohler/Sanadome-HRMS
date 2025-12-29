@@ -1,8 +1,7 @@
 
 
-
 import React, { useState, useEffect } from 'react';
-import { Employee, ViewState, NewsPost, GlobalSettings, Applicant } from './types';
+import { Employee, ViewState, NewsPost, GlobalSettings, Applicant, Notification } from './types';
 import Sidebar from './components/Sidebar';
 import TopNav from './components/TopNav';
 import EmployeeDirectory from './components/EmployeeDirectory';
@@ -148,6 +147,11 @@ function App() {
   const handleDeleteEmployee = (id: string) => {
       api.deleteEmployee(id);
       setEmployees(prev => prev.filter(e => e.id !== id));
+  };
+
+  /* Added handleAddNotification */
+  const handleAddNotification = async (notification: Notification) => {
+    await api.saveNotification(notification);
   };
 
   // --- NEWS HANDLERS ---
@@ -334,6 +338,8 @@ function App() {
                   currentUser={currentUser!}
                   employees={employees}
                   onUpdateEmployee={handleUpdateEmployee}
+                  /* Passed onAddNotification to EvaluationsPage */
+                  onAddNotification={handleAddNotification}
                   onShowToast={handleShowToast}
               />;
           case ViewState.RECRUITMENT:
@@ -342,6 +348,8 @@ function App() {
                   employees={employees} 
                   applicants={applicants}
                   onShowToast={handleShowToast}
+                  /* Passed onAddNotification to RecruitmentPage */
+                  onAddNotification={handleAddNotification}
                   onHireCandidate={async (applicant) => {
                       const newId = crypto.randomUUID();
                       const newEmployee: Employee = {
@@ -351,6 +359,7 @@ function App() {
                           departments: ['Front Office'],
                           email: applicant.email,
                           phone: applicant.phone,
+                          /* Fix: Applicant property avatar used correctly after type update */
                           avatar: applicant.avatar || `https://ui-avatars.com/api/?name=${applicant.firstName}+${applicant.lastName}&background=random`,
                           linkedin: `${applicant.firstName} ${applicant.lastName}`,
                           hiredOn: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -417,3 +426,4 @@ function App() {
 }
 
 export default App;
+

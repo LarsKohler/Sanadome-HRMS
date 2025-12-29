@@ -1,11 +1,8 @@
 
 
-
-
-
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, Ticket, ChecklistTemplate, ChecklistSubmission, ShiftHandoverItem } from '../types';
+import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, Ticket, ChecklistTemplate, ChecklistSubmission, ShiftHandoverItem } from '../types';
 import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_EVALUATION_TEMPLATES, MOCK_BIKE_SETTINGS, MOCK_BIKE_RESERVATIONS, MOCK_ACADEMY_COURSES, MOCK_ACADEMY_PROGRESS, MOCK_TICKETS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
@@ -537,6 +534,16 @@ export const api = {
       }
   },
 
+  /* Added saveNotification method */
+  saveNotification: async (notification: Notification) => {
+    if (isLive && supabase) {
+        await supabase.from('notifications').upsert({ id: notification.id, data: notification });
+    } else {
+        const current = storage.getNotifications();
+        storage.saveNotifications([...current, notification]);
+    }
+  },
+
   // --- Realtime Subscription ---
   subscribe: (
     onEmployees: (data: Employee[]) => void,
@@ -800,3 +807,4 @@ export const api = {
       localStorage.setItem('hrms_badges', JSON.stringify(current.filter(b => b.id !== id)));
   }
 };
+

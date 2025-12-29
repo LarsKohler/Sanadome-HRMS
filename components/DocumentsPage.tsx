@@ -235,7 +235,8 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
   const handleOpenEditDoc = (doc: EmployeeDocument) => {
     setSelectedDoc(doc);
     setDocName(doc.name);
-    setDocCategory(doc.category);
+    /* Added type cast to fix literal type mismatch error */
+    setDocCategory(doc.category as any);
     setIsEditDocModalOpen(true);
     setActiveDropdownId(null);
   };
@@ -709,3 +710,4 @@ const DocumentsPage: React.FC<DocumentsPageProps> = ({
 };
 
 export default DocumentsPage;
+
