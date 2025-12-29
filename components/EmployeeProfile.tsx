@@ -5,7 +5,7 @@ import {
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy, Lock, Pencil, Medal, Calendar as CalendarIcon, Thermometer, FolderOpen, Info
+  TrendingUp, Award, Award as CertificateIcon, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy, Lock, Pencil, Medal, Calendar as CalendarIcon, Thermometer, FolderOpen, Info
 } from 'lucide-react';
 import { Employee, EmployeeNote, EmployeeDocument, ViewState, NewsPost, EvaluationCycle, BadgeIconKey, BadgeColor, AssignedBadge, AcademyCourse, AcademyProgress, Applicant, DossierEntry, Debtor } from '../types';
 import { Modal } from './Modal';
@@ -13,7 +13,6 @@ import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, XAx
 import { api } from '../utils/api';
 import { hasPermission } from '../utils/permissions';
 
-// ... (Existing Constants BADGE_ICONS, BADGE_COLORS) ...
 const BADGE_ICONS: Record<BadgeIconKey, React.ElementType> = {
     'Trophy': Trophy, 'Star': Star, 'Medal': Medal, 'Heart': Heart, 'Zap': Zap, 'Shield': Shield,
     'Rocket': Rocket, 'Crown': Crown, 'ThumbsUp': ThumbsUp, 'Lightbulb': Lightbulb, 'Flame': Flame,
@@ -32,78 +31,38 @@ const BADGE_COLORS: Record<BadgeColor, string> = {
 };
 
 interface EmployeeProfileProps {
-  employee: Employee; // The profile being viewed
-  currentUser: Employee; // The person viewing the profile
-  applicants?: Applicant[]; // NEW
+  employee: Employee;
+  currentUser: Employee;
+  applicants?: Applicant[];
   onNext: () => void;
   onPrevious: () => void;
   onChangeView: (view: ViewState) => void;
   onUpdateEmployee: (updatedEmployee: Employee) => void;
   onShowToast: (message: string) => void;
-  onBack?: () => void; // Function to go back to directory or home
+  onBack?: () => void;
   managers: Employee[];
   latestNews?: NewsPost | null;
 }
 
-// Helper to check if a planned evaluation is within 14 days
-const isEvaluationUnlockable = (dateStr?: string) => {
-    if (!dateStr) return false;
-    const parts = dateStr.split('-');
-    if (parts.length !== 3) return false;
-    
-    // Parse NL Date (dd-mm-yyyy)
-    const plannedDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
-    const unlockDate = new Date(plannedDate);
-    unlockDate.setDate(unlockDate.getDate() - 14); // 2 weeks before
-    
-    return new Date() >= unlockDate;
-};
-
 const EmployeeProfile: React.FC<EmployeeProfileProps> = ({ 
   employee, 
   currentUser,
-  applicants,
-  onNext, 
-  onPrevious,
-  onChangeView,
   onUpdateEmployee,
   onShowToast,
-  onBack,
-  managers,
-  latestNews
+  onChangeView,
+  onBack
 }) => {
   const [activeTab, setActiveTab] = useState('Overzicht');
-  
-  // NEW: HR Dossier States
-  const [isSickModalOpen, setIsSickModalOpen] = useState(false);
-  const [isLateModalOpen, setIsLateModalOpen] = useState(false);
-  const [isWarningModalOpen, setIsWarningModalOpen] = useState(false);
-  const [isRecoveryModalOpen, setIsRecoveryModalOpen] = useState(false); // NEW for Recovery
-  
-  const [sickForm, setSickForm] = useState({ duration: '', tasksHandedOver: false, type: 'Kort' as 'Kort'|'Lang'|'Frequent', notes: '' });
-  const [lateForm, setLateForm] = useState({ minutes: 0, reason: '', date: new Date().toISOString().split('T')[0] });
-  const [warningForm, setWarningForm] = useState({ title: '', description: '', severity: 'Low' as 'Low'|'Medium'|'High' });
-  const [recoveryDate, setRecoveryDate] = useState(new Date().toISOString().split('T')[0]); // NEW
-
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
-  // Security Check
   const isOwnProfile = employee.id === currentUser.id;
   const isManager = hasPermission(currentUser, 'MANAGE_EMPLOYEES');
-  const canEdit = isOwnProfile || isManager;
   const canViewDossier = isManager; 
 
-  // Onboarding Template State
   const [templateTitle, setTemplateTitle] = useState<string>('');
+  const [combinedBadges, setCombinedBadges] = useState<any[]>([]);
 
-  // Debt Control State (for Dashboard)
-  const [urgentDebtCount, setUrgentDebtCount] = useState(0);
-  
-  // Badges State
-  const [combinedBadges, setCombinedBadges] = useState<any[]>([]); // Mixed type for display
-
-  // Load Template Name
   useEffect(() => {
       const fetchTemplateName = async () => {
           if (employee.activeTemplateId) {
@@ -111,126 +70,36 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                   const templates = await api.getTemplates();
                   const found = templates.find(t => t.id === employee.activeTemplateId);
                   if (found) setTemplateTitle(found.title);
-                  else setTemplateTitle('Maatwerk Traject');
               } catch (e) {
-                  setTemplateTitle('Onboarding Traject');
+                  setTemplateTitle('Inwerktraject');
               }
-          } else if (employee.onboardingTasks && employee.onboardingTasks.length > 0) {
-              setTemplateTitle('Maatwerk Traject');
-          } else {
-              setTemplateTitle('');
           }
       };
-      
-      if (employee.onboardingStatus === 'Active' && (isOwnProfile || isManager)) {
-          fetchTemplateName();
-      }
-  }, [employee.activeTemplateId, employee.onboardingStatus, employee.onboardingTasks, isOwnProfile, isManager]);
+      if (employee.onboardingStatus === 'Active') fetchTemplateName();
+  }, [employee.activeTemplateId, employee.onboardingStatus]);
 
-  // Load Combined Badges
   useEffect(() => {
       const fetchBadges = async () => {
           const manualBadges = employee.badges || [];
           let displayBadges: any[] = [];
-
-          // 1. Process Manual Badges
           const badgeDefinitions = await api.getBadges(); 
-          
           manualBadges.forEach(b => {
               const def = badgeDefinitions.find(d => d.id === b.badgeId);
-              if (def) {
-                  displayBadges.push({
-                      id: b.id,
-                      name: def.name,
-                      description: def.description,
-                      icon: def.icon,
-                      color: def.color,
-                      date: b.assignedAt,
-                      source: b.assignedBy || 'Systeem'
-                  });
-              }
+              if (def) displayBadges.push({ ...def, date: b.assignedAt });
           });
-
-          // 2. Process Academy Badges
           const progress = await api.getAcademyProgress();
           const courses = await api.getAcademyCourses();
-          
           const myProgress = progress.filter(p => p.employeeId === employee.id && p.isBadgeEarned);
-          
           myProgress.forEach(p => {
               const course = courses.find(c => c.id === p.courseId);
-              if (course && course.badgeConfig && course.badgeConfig.enabled) {
-                  displayBadges.push({
-                      id: `academy-${p.id}`,
-                      name: course.badgeConfig.name,
-                      description: `Behaald via cursus: ${course.title}`,
-                      icon: course.badgeConfig.icon,
-                      color: course.badgeConfig.color,
-                      date: p.completedDate || new Date().toLocaleDateString('nl-NL'),
-                      source: 'SanaLearn'
-                  });
+              if (course?.badgeConfig?.enabled) {
+                  displayBadges.push({ ...course.badgeConfig, date: p.completedDate });
               }
           });
-
           setCombinedBadges(displayBadges);
       };
-
       fetchBadges();
-  }, [employee]);
-
-  // Fetch Data for Dashboard
-  useEffect(() => {
-      const loadDashboardData = async () => {
-          if (isOwnProfile && hasPermission(employee, 'MANAGE_DEBTORS')) {
-              try {
-                  const debtors = await api.getDebtors();
-                  const urgent = debtors.filter(d => {
-                      if (d.status === 'Paid' || d.status === 'Correction' || d.status === 'Cashlist') return false;
-                      if (!d.statusDate) return false;
-                      const statusDate = new Date(d.statusDate);
-                      const now = new Date();
-                      const diffTime = Math.abs(now.getTime() - statusDate.getTime());
-                      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                      if (d.status === 'Final Notice') return diffDays > 14;
-                      return diffDays > 7;
-                  });
-                  setUrgentDebtCount(urgent.length);
-              } catch (e) {
-                  console.error("Failed to fetch dashboard debt stats", e);
-              }
-          }
-      };
-      loadDashboardData();
-  }, [employee, isOwnProfile]);
-
-  const tabs = useMemo(() => {
-    const availableTabs = ['Overzicht'];
-    if (isOwnProfile || isManager) {
-        availableTabs.push('Carrière');
-        availableTabs.push('Evaluatie');
-        const hasActiveTasks = employee.onboardingTasks && employee.onboardingTasks.length > 0;
-        const isStatusActive = employee.onboardingStatus === 'Active';
-        const hasActive = isStatusActive && hasActiveTasks;
-        const hasHistory = employee.onboardingHistory && employee.onboardingHistory.length > 0;
-        if (hasActive || hasHistory) {
-            availableTabs.push('Onboarding');
-        }
-        availableTabs.push('Documenten');
-    }
-    if (canViewDossier) {
-        availableTabs.push('HR Dossier');
-    }
-    if (!isOwnProfile && !isManager) {
-        availableTabs.push('Contact');
-    }
-    return availableTabs;
-  }, [employee.onboardingStatus, employee.onboardingHistory, employee.onboardingTasks, isOwnProfile, isManager, canViewDossier]);
-
-  useEffect(() => {
-      if (!tabs.includes(activeTab)) {
-          setActiveTab(tabs[0]);
-      }
-  }, [tabs, activeTab]);
+  }, [employee.id, employee.badges]);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'banner') => {
     if (!isOwnProfile) return; 
@@ -238,23 +107,257 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
     if (!file) return;
     onShowToast(`${type === 'avatar' ? 'Profielfoto' : 'Banner'} uploaden...`);
     try {
-        const oldUrl = type === 'avatar' ? employee.avatar : employee.banner;
-        if (oldUrl && oldUrl.includes('supabase')) {
-             await api.deleteFile(oldUrl);
-        }
         const publicUrl = await api.uploadFile(file);
         if (publicUrl) {
-            const updatedEmployee = { ...employee, [type]: publicUrl };
-            onUpdateEmployee(updatedEmployee);
-            onShowToast(`${type === 'avatar' ? 'Profielfoto' : 'Banner'} succesvol bijgewerkt.`);
-        } else {
-             onShowToast('Uploaden mislukt. Probeer het opnieuw.');
+            onUpdateEmployee({ ...employee, [type]: publicUrl });
+            onShowToast(`${type === 'avatar' ? 'Profielfoto' : 'Banner'} bijgewerkt.`);
         }
     } catch (error) {
-        console.error("Upload error", error);
-        onShowToast('Er is een fout opgetreden bij het uploaden.');
+        onShowToast('Fout bij uploaden.');
     }
   };
+
+  const renderDashboardOverview = () => {
+      // Data calculations
+      const evaluations = employee.evaluations || [];
+      const signedEvals = evaluations.filter(e => e.status === 'Signed');
+      const avgScore = signedEvals.length > 0 
+        ? Math.round(signedEvals.reduce((acc, ev) => {
+            const total = ev.scores.reduce((sAcc, s) => sAcc + (s.managerScore || 0), 0);
+            const max = ev.scores.length * 5;
+            return acc + (total / max * 100);
+          }, 0) / signedEvals.length)
+        : null;
+
+      const obTasks = employee.onboardingTasks || [];
+      const obProgress = obTasks.length > 0 ? Math.round((obTasks.filter(t => t.score === 100).length / obTasks.length) * 100) : null;
+      const compliments = employee.dossier?.filter(d => d.type === 'Compliment').sort((a,b) => b.date.localeCompare(a.date)) || [];
+
+      // Open Actions Logic
+      const openActions = [];
+      evaluations.forEach(ev => {
+          if (isOwnProfile && ev.status === 'EmployeeInput') {
+              openActions.push({ title: 'Zelfreflectie invullen', desc: `Evaluatie: ${ev.type}`, type: 'Evaluation', date: ev.plannedDate });
+          }
+          if (isOwnProfile && ev.status === 'Review') {
+              openActions.push({ title: 'Gesprek voorbereiden', desc: `Bespreking gepland op ${ev.plannedDate}`, type: 'Evaluation', date: ev.plannedDate });
+          }
+      });
+      if (isOwnProfile && employee.onboardingStatus === 'Active') {
+          const pendingTasks = obTasks.filter(t => !t.completed).length;
+          if (pendingTasks > 0) {
+              openActions.push({ title: 'Onboarding taken', desc: `Nog ${pendingTasks} taken te doen deze week`, type: 'Onboarding' });
+          }
+      }
+
+      const hiredDate = new Date(employee.hiredOn.split('-').reverse().join('-'));
+      const diffTime = Math.abs(new Date().getTime() - hiredDate.getTime());
+      const diffYears = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 365.25));
+      const diffMonths = Math.floor((diffTime % (1000 * 60 * 60 * 24 * 365.25)) / (1000 * 60 * 60 * 24 * 30.44));
+
+      return (
+          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
+              {/* TOP KPI ROW */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-sky-300 transition-all">
+                      <div className="p-3 bg-sky-50 text-sky-600 rounded-xl group-hover:scale-110 transition-transform">
+                          <CertificateIcon size={24} />
+                      </div>
+                      <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Performance</div>
+                          <div className="text-xl font-bold text-slate-900">{avgScore ? `${avgScore}%` : 'N.v.t.'}</div>
+                      </div>
+                  </div>
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-indigo-300 transition-all">
+                      <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl group-hover:scale-110 transition-transform">
+                          <Medal size={24} />
+                      </div>
+                      <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Badges</div>
+                          <div className="text-xl font-bold text-slate-900">{combinedBadges.length}</div>
+                      </div>
+                  </div>
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-rose-300 transition-all">
+                      <div className="p-3 bg-rose-50 text-rose-600 rounded-xl group-hover:scale-110 transition-transform">
+                          <Heart size={24} />
+                      </div>
+                      <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Complimenten</div>
+                          <div className="text-xl font-bold text-slate-900">{compliments.length}x</div>
+                      </div>
+                  </div>
+                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-amber-300 transition-all">
+                      <div className="p-3 bg-amber-50 text-amber-600 rounded-xl group-hover:scale-110 transition-transform">
+                          <Clock size={24} />
+                      </div>
+                      <div>
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dienstverband</div>
+                          <div className="text-xl font-bold text-slate-900">
+                             {diffYears > 0 ? `${diffYears}j ${diffMonths}m` : `${diffMonths}m`}
+                          </div>
+                      </div>
+                  </div>
+              </div>
+
+              {/* OPEN ACTIONS (DYNAMISCH) */}
+              {openActions.length > 0 && (
+                  <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                      <div className="px-8 py-4 border-b border-slate-100 bg-amber-50/30 flex items-center gap-2">
+                          <AlertCircle size={18} className="text-amber-600" />
+                          <h3 className="font-bold text-slate-900 text-sm uppercase tracking-wider">Openstaande Acties</h3>
+                      </div>
+                      <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {openActions.map((action, i) => (
+                              <button 
+                                key={i}
+                                onClick={() => action.type === 'Evaluation' ? setActiveTab('Evaluatie') : setActiveTab('Onboarding')}
+                                className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-2xl hover:border-sky-400 hover:shadow-md transition-all text-left group"
+                              >
+                                  <div className="flex items-center gap-4">
+                                      <div className={`p-2 rounded-xl ${action.type === 'Evaluation' ? 'bg-purple-50 text-purple-600' : 'bg-sky-50 text-sky-600'}`}>
+                                          {action.type === 'Evaluation' ? <ClipboardCheck size={20}/> : <ListTodo size={20}/>}
+                                      </div>
+                                      <div>
+                                          <div className="font-bold text-slate-900 text-sm">{action.title}</div>
+                                          <div className="text-xs text-slate-500">{action.desc}</div>
+                                      </div>
+                                  </div>
+                                  <ChevronRight size={18} className="text-slate-300 group-hover:text-sky-600 group-hover:translate-x-1 transition-all" />
+                              </button>
+                          ))}
+                      </div>
+                  </div>
+              )}
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  {/* LEFT COLUMN */}
+                  <div className="lg:col-span-2 space-y-8">
+                      {/* Onboarding Card */}
+                      {employee.onboardingStatus === 'Active' && (
+                        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 overflow-hidden relative">
+                            <div className="absolute top-0 right-0 p-8 opacity-10 text-sky-600">
+                                <GraduationCap size={120} />
+                            </div>
+                            <div className="relative z-10">
+                                <div className="flex justify-between items-start mb-6">
+                                    <div>
+                                        <h3 className="text-xl font-bold text-slate-900 mb-1">Mijn Inwerktraject</h3>
+                                        <p className="text-sm text-slate-500">{templateTitle || 'Onboarding'}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <div className="text-3xl font-black text-sky-600">{obProgress}%</div>
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase">Voortgang</div>
+                                    </div>
+                                </div>
+                                <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden mb-8 shadow-inner">
+                                    <div className="h-full bg-gradient-to-r from-sky-400 to-sky-600 rounded-full transition-all duration-1000" style={{ width: `${obProgress}%` }}></div>
+                                </div>
+                                <button onClick={() => setActiveTab('Onboarding')} className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-all flex items-center gap-2">
+                                    Verder met inwerken <ArrowRight size={16}/>
+                                </button>
+                            </div>
+                        </div>
+                      )}
+
+                      {/* Compliments Timeline */}
+                      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+                          <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                              <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                                  <Sparkles className="text-rose-500" size={18}/> Successen & Complimenten
+                              </h3>
+                          </div>
+                          <div className="p-8 space-y-6">
+                              {compliments.length > 0 ? (
+                                compliments.slice(0, 3).map((comp, idx) => (
+                                    <div key={idx} className="relative pl-8 group">
+                                        <div className="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-rose-100 border-2 border-rose-500 z-10"></div>
+                                        <div className="absolute left-[7px] top-4 bottom-[-24px] w-0.5 bg-slate-100 group-last:hidden"></div>
+                                        <div className="bg-rose-50/20 p-5 rounded-2xl border border-rose-100/50">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <h4 className="font-bold text-rose-900 text-sm">{comp.title}</h4>
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase">{comp.date}</span>
+                                            </div>
+                                            <p className="text-sm text-slate-700 leading-relaxed italic">"{comp.description}"</p>
+                                        </div>
+                                    </div>
+                                ))
+                              ) : (
+                                  <div className="py-12 text-center">
+                                      <Heart className="mx-auto text-slate-200 mb-4" size={48} strokeWidth={1} />
+                                      <p className="text-slate-400 italic text-sm">Zodra je complimenten ontvangt in je dossier, verschijnen ze hier.</p>
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+                  </div>
+
+                  {/* RIGHT COLUMN */}
+                  <div className="space-y-8">
+                      {/* Badges Grid */}
+                      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8">
+                          <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2 text-sm uppercase tracking-wider">
+                              <Trophy size={16} className="text-amber-500"/> Mijn Badges
+                          </h3>
+                          <div className="grid grid-cols-2 gap-4">
+                              {combinedBadges.slice(0, 4).map((badge, idx) => {
+                                  const Icon = BADGE_ICONS[badge.icon] || Star;
+                                  return (
+                                      <div key={idx} className="flex flex-col items-center p-4 rounded-2xl bg-slate-50 border border-slate-100 group hover:border-indigo-200 transition-all relative cursor-help">
+                                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 border-2 transition-transform group-hover:rotate-12 ${BADGE_COLORS[badge.color] || 'bg-slate-100 text-slate-500'}`}>
+                                              <Icon size={24} />
+                                          </div>
+                                          <div className="text-[11px] font-bold text-slate-900 text-center leading-tight line-clamp-1">{badge.name}</div>
+                                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-900 text-white text-[10px] p-2 rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20">
+                                              {badge.description}
+                                          </div>
+                                      </div>
+                                  );
+                              })}
+                              {combinedBadges.length === 0 && (
+                                  <div className="col-span-2 py-8 border-2 border-dashed border-slate-100 rounded-2xl flex flex-col items-center justify-center text-slate-300">
+                                      <Award size={32} strokeWidth={1} />
+                                      <span className="text-[10px] font-bold uppercase mt-2">Nog geen badges</span>
+                                  </div>
+                              )}
+                          </div>
+                      </div>
+
+                      {/* Mentor & Info Card */}
+                      <div className="bg-gradient-to-br from-slate-900 to-slate-800 rounded-3xl p-8 text-white shadow-lg overflow-hidden relative">
+                          <div className="absolute top-0 right-0 p-4 opacity-10">
+                              <Shield size={100} />
+                          </div>
+                          <h3 className="font-bold text-white mb-6 text-sm uppercase tracking-wider relative z-10 flex items-center gap-2">
+                              <Info size={16} className="text-sky-400" /> Informatie
+                          </h3>
+                          <div className="space-y-4 relative z-10">
+                              <div className="flex justify-between items-center pb-3 border-b border-white/10">
+                                  <span className="text-xs text-slate-400">Mentor</span>
+                                  <span className="text-sm font-bold">{employee.mentor || 'Geen'}</span>
+                              </div>
+                              <div className="flex justify-between items-center pb-3 border-b border-white/10">
+                                  <span className="text-xs text-slate-400">In Dienst</span>
+                                  <span className="text-sm font-bold">{employee.hiredOn}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                  <span className="text-xs text-slate-400">Contract</span>
+                                  <span className="text-sm font-bold">{employee.employmentType}</span>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
+  const renderHRDossier = () => (
+      <div className="p-8 text-center text-slate-400 italic">Gedetailleerd HR dossier inzien via het hoofdmenu.</div>
+  );
+
+  const renderDocumentsContent = () => (
+    <div className="p-8 text-center text-slate-400 italic">Documenten overzicht beschikbaar via het hoofdmenu.</div>
+  );
 
   const handleViewFile = (url?: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
@@ -275,206 +378,12 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
     }
   };
 
-  const handleAddSickLeave = async (e: React.FormEvent) => {
-      e.preventDefault();
-      const newEntry: DossierEntry = {
-          id: Math.random().toString(36).substr(2, 9),
-          type: 'Sick',
-          date: new Date().toLocaleDateString('nl-NL'),
-          title: 'Ziekmelding',
-          description: sickForm.notes || 'Geen toelichting',
-          loggedBy: currentUser.name,
-          meta: {
-              sickType: sickForm.type,
-              tasksHandedOver: sickForm.tasksHandedOver,
-              nextActionDate: new Date(Date.now() + 86400000 * 2).toLocaleDateString('nl-NL')
-          }
-      };
-      const updatedDossier = [newEntry, ...(employee.dossier || [])];
-      onUpdateEmployee({ ...employee, dossier: updatedDossier });
-      setIsSickModalOpen(false);
-      setSickForm({ duration: '', tasksHandedOver: false, type: 'Kort', notes: '' });
-      onShowToast("Ziekmelding geregistreerd.");
-  };
-
-  const handleReportRecovery = async (e: React.FormEvent) => {
-      e.preventDefault();
-      const activeSickEntry = employee.dossier?.find(e => e.type === 'Sick' && !e.endDate);
-      if (activeSickEntry) {
-          const formattedRecoveryDate = new Date(recoveryDate).toLocaleDateString('nl-NL');
-          const updatedDossier = (employee.dossier || []).map(entry => {
-              if (entry.id === activeSickEntry.id) {
-                  return { ...entry, endDate: formattedRecoveryDate };
-              }
-              return entry;
-          });
-          const recoveryEntry: DossierEntry = {
-              id: Math.random().toString(36).substr(2, 9),
-              type: 'Recovery',
-              date: formattedRecoveryDate,
-              title: 'Hersteld gemeld',
-              description: `Medewerker is weer beter gemeld. Ziekteperiode afgesloten.`,
-              loggedBy: currentUser.name
-          };
-          const finalDossier = [recoveryEntry, ...updatedDossier];
-          onUpdateEmployee({ ...employee, dossier: finalDossier });
-          setIsRecoveryModalOpen(false);
-          onShowToast("Medewerker beter gemeld.");
-      }
-  };
-
-  const handleAddLateness = async (e: React.FormEvent) => {
-      e.preventDefault();
-      const newEntry: DossierEntry = {
-          id: Math.random().toString(36).substr(2, 9),
-          type: 'Late',
-          date: new Date(lateForm.date).toLocaleDateString('nl-NL'),
-          title: 'Te Laat',
-          description: lateForm.reason,
-          loggedBy: currentUser.name,
-          meta: {
-              minutesLate: lateForm.minutes,
-              severity: lateForm.minutes > 30 ? 'Medium' : 'Low'
-          }
-      };
-      const updatedDossier = [newEntry, ...(employee.dossier || [])];
-      onUpdateEmployee({ ...employee, dossier: updatedDossier });
-      setIsLateModalOpen(false);
-      setLateForm({ minutes: 0, reason: '', date: new Date().toISOString().split('T')[0] });
-      onShowToast("Te laat melding geregistreerd.");
-  };
-
-  const handleAddWarning = async (e: React.FormEvent) => {
-      e.preventDefault();
-      const newEntry: DossierEntry = {
-          id: Math.random().toString(36).substr(2, 9),
-          type: 'Warning',
-          date: new Date().toLocaleDateString('nl-NL'),
-          title: warningForm.title,
-          description: warningForm.description,
-          loggedBy: currentUser.name,
-          meta: { severity: warningForm.severity }
-      };
-      const updatedDossier = [newEntry, ...(employee.dossier || [])];
-      onUpdateEmployee({ ...employee, dossier: updatedDossier });
-      setIsWarningModalOpen(false);
-      setWarningForm({ title: '', description: '', severity: 'Low' });
-      onShowToast("Officiële waarschuwing vastgelegd.");
-  };
-
-  const renderDashboardOverview = () => {
-      const hiredDate = new Date(employee.hiredOn);
-      const now = new Date();
-      const diffTime = Math.abs(now.getTime() - hiredDate.getTime());
-      const diffYears = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 365));
-      const diffMonths = Math.floor((diffTime % (1000 * 60 * 60 * 24 * 365)) / (1000 * 60 * 60 * 24 * 30));
-      const totalActions = (employee.onboardingTasks?.filter(t => t.score !== 100).length || 0) + (employee.evaluations?.filter(ev => ev.status === 'EmployeeInput' || ev.status === 'ManagerInput').length || 0) + urgentDebtCount;
-
-      return (
-          <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
-              {(isOwnProfile || isManager) && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-                          <div className={`p-3 rounded-lg ${totalActions > 0 ? 'bg-amber-50 text-amber-600' : 'bg-slate-50 text-slate-600'}`}>
-                              <ListTodo size={22} />
-                          </div>
-                          <div>
-                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Open Taken</div>
-                              <div className="text-lg font-bold text-slate-900">{totalActions}</div>
-                          </div>
-                      </div>
-                      <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-                          <div className="p-3 bg-blue-50 text-blue-600 rounded-lg">
-                              <Award size={22} />
-                          </div>
-                          <div>
-                              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dienstverband</div>
-                              <div className="text-lg font-bold text-slate-900">
-                                  {diffYears > 0 ? `${diffYears}j, ${diffMonths}m` : `${diffMonths} Mnd`}
-                              </div>
-                          </div>
-                      </div>
-                  </div>
-              )}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                  <div className="lg:col-span-2 space-y-6">
-                      {(isOwnProfile || isManager) && (
-                          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                              <h3 className="font-bold text-slate-900 mb-4 text-sm uppercase tracking-wider flex items-center gap-2">
-                                  <FileText size={16}/> Recente Bestanden
-                              </h3>
-                              <div className="relative border-l-2 border-slate-100 ml-2 space-y-6 pl-6">
-                                  {employee.documents?.slice(0, 2).map((doc, i) => (
-                                      <div key={i} className="relative group cursor-pointer" onClick={(e) => handleViewFile(doc.url, e)}>
-                                          <div className="absolute -left-[31px] top-0 w-3 h-3 bg-blue-500 rounded-full ring-4 ring-white group-hover:scale-125 transition-transform"></div>
-                                          <p className="text-xs text-slate-400 font-bold mb-0.5">{doc.date}</p>
-                                          <div className="flex justify-between items-center pr-4">
-                                              <div>
-                                                  <p className="text-sm font-bold text-slate-800">{doc.name}</p>
-                                                  <p className="text-xs text-slate-500">{doc.category}</p>
-                                              </div>
-                                              {doc.url && (
-                                                <button onClick={(e) => handleDownloadFile(doc.url, doc.name, e)} className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors">
-                                                    <Download size={14} />
-                                                </button>
-                                              )}
-                                          </div>
-                                      </div>
-                                  ))}
-                              </div>
-                          </div>
-                      )}
-                  </div>
-              </div>
-          </div>
-      );
-  };
-
-  const renderHRDossier = () => (
-      <div className="p-8 text-center text-slate-400">Gebruik de tab 'HR Dossier' in het hoofdmenu voor de volledige slide-out ervaring.</div>
-  );
-
-  const renderDocumentsContent = () => (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-       <div className="px-6 py-5 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
-          <h3 className="font-bold text-slate-900">Personeelsdossier</h3>
-          <button onClick={() => onChangeView(ViewState.HR_DOSSIER)} className="text-sm font-bold text-teal-600 hover:text-teal-700 hover:bg-teal-50 px-3 py-1.5 rounded-lg transition-colors">Dossier Beheren</button>
-       </div>
-       <div className="divide-y divide-slate-100">
-          {employee.documents && employee.documents.length > 0 ? (
-            employee.documents.slice(0, 5).map(doc => (
-              <div key={doc.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors group cursor-pointer" onClick={(e) => handleViewFile(doc.url, e)}>
-                 <div className="flex items-center gap-4">
-                    <div className="p-2 bg-slate-100 text-slate-500 rounded-lg group-hover:bg-white group-hover:text-teal-600 group-hover:shadow-sm transition-all"><FileText size={20} /></div>
-                    <div>
-                       <div className="font-bold text-slate-800 text-sm">{doc.name}</div>
-                       <div className="text-xs text-slate-500 mt-0.5 flex items-center gap-2"><span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] uppercase font-bold tracking-wide">{doc.category}</span><span>• {doc.date}</span></div>
-                    </div>
-                 </div>
-                 {doc.url && (
-                    <button 
-                        onClick={(e) => handleDownloadFile(doc.url, doc.name, e)}
-                        className="p-2 text-slate-300 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
-                    >
-                        <Download size={18} />
-                    </button>
-                 )}
-              </div>
-            ))
-          ) : (
-            <div className="p-8 text-center text-slate-400 italic">Geen documenten in dossier.</div>
-          )}
-       </div>
-    </div>
-  );
-
-  const renderPerformanceReport = () => (<div className="p-8 text-center text-slate-400 italic">Evaluatie overzicht</div>);
-  const renderCareerDetails = () => (<div className="p-8 text-center text-slate-400 italic">Carrière details</div>);
-  const renderOnboardingContent = () => (<div className="p-8 text-center text-slate-400">Onboarding weergave</div>);
-  const renderContactContent = () => (<div className="p-8 text-center text-slate-400">Contact weergave</div>);
+  const renderPerformanceReport = () => (<div className="p-8 text-center text-slate-400 italic">Evaluatie overzicht beschikbaar onder tabblad Evaluatie.</div>);
+  const renderCareerDetails = () => (<div className="p-8 text-center text-slate-400 italic">Carrière details overzicht.</div>);
+  const renderOnboardingContent = () => (<div className="p-8 text-center text-slate-400 italic">Gedetailleerde onboarding weergave.</div>);
 
   return (
-    <div className="p-6 lg:p-8 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
+    <div className="p-4 md:p-8 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
       <input type="file" ref={bannerInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'banner')} />
       <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'avatar')} />
       {!isOwnProfile && onBack && (<button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold text-sm mb-6 transition-colors"><ArrowLeft size={18} />Terug naar overzicht</button>)}
@@ -484,8 +393,8 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
           <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent"></div>
           {isOwnProfile && (<button onClick={() => bannerInputRef.current?.click()} className="absolute top-4 right-4 px-4 py-2 bg-white/80 hover:bg-white backdrop-blur-md text-slate-700 text-xs font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all flex items-center gap-2 opacity-0 group-hover/header:opacity-100"><ImageIcon size={14} /><span className="hidden sm:inline">Cover Wijzigen</span></button>)}
         </div>
-        <div className="px-6 md:px-10 pb-0 relative">
-          <div className="flex flex-col md:flex-row items-center md:items-end -mt-20 mb-6 md:mb-8">
+        <div className="px-6 md:px-10 pb-6 relative">
+          <div className="flex flex-col md:flex-row items-center md:items-end -mt-20 mb-2">
             <div className="relative md:mr-8 mb-4 md:mb-0 group">
               <div className="relative rounded-2xl border-[6px] border-white shadow-xl overflow-hidden bg-white">
                   <img src={employee.avatar} alt={employee.name} className="w-32 h-32 md:w-40 md:h-40 object-cover" />
@@ -501,20 +410,23 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2 md:gap-4 overflow-x-auto no-scrollbar pb-4 md:pb-0 border-t border-slate-100 md:border-none pt-4 md:pt-0">
-            {tabs.map(tab => (
-              <button key={tab} onClick={() => setActiveTab(tab)} className={`px-5 py-2.5 text-sm font-bold rounded-full transition-all whitespace-nowrap ${activeTab === tab ? 'bg-slate-900 text-white shadow-md' : 'bg-white text-slate-500 hover:bg-slate-50 hover:text-slate-900'}`}>{tab}</button>
-            ))}
-          </div>
         </div>
-        <div className="h-6 md:h-8"></div>
       </div>
+
+      {activeTab !== 'Overzicht' && (
+          <button 
+            onClick={() => setActiveTab('Overzicht')} 
+            className="mb-6 flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold text-sm transition-colors"
+          >
+              <ArrowLeft size={18} /> Terug naar overzicht
+          </button>
+      )}
+
       {activeTab === 'Overzicht' && renderDashboardOverview()}
       {activeTab === 'Carrière' && renderCareerDetails()}
       {activeTab === 'Documenten' && renderDocumentsContent()}
       {activeTab === 'Evaluatie' && renderPerformanceReport()}
       {activeTab === 'Onboarding' && renderOnboardingContent()}
-      {activeTab === 'Contact' && renderContactContent()}
       {activeTab === 'HR Dossier' && canViewDossier && renderHRDossier()}
     </div>
   );
