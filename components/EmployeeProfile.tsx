@@ -71,6 +71,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       sources?: { title: string, uri: string }[];
   } | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [scanningStep, setScanningStep] = useState<string>('');
 
   useEffect(() => {
       const fetchTemplateName = async () => {
@@ -110,37 +111,45 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       fetchBadges();
   }, [employee.id, employee.badges]);
 
-  // --- AUTOMATED ROOM SCAN LOGIC ---
+  // --- AUTOMATED ROOM SCAN LOGIC (OPTIMIZED FOR SPEED) ---
   const fetchRoomAvailability = async (silent = false) => {
       if (!silent) setIsScanning(true);
+      setScanningStep('Browsing Sanadome...');
+      
       try {
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+          
+          // Step tracking simulation for UI
+          const stepTimer = setTimeout(() => setScanningStep('Analyse voorraad...'), 1500);
+          const finalTimer = setTimeout(() => setScanningStep('Berekenen...'), 3500);
+
           const response = await ai.models.generateContent({
               model: 'gemini-3-flash-preview',
-              contents: 'Zoek de actuele kamerbeschikbaarheid voor Sanadome Hotel & Spa Nijmegen voor VANDAAG. Sanadome heeft in totaal 106 kamers. Scan de officiële website en Booking.com. Als alle kamertypes uitverkocht zijn of "sold out" staan, reageer dan met 106 geboekt. Als er nog enkele kamers zijn (bijv. "nog 2 kamers beschikbaar"), trek dit dan af van 106. Wees 100% accuraat.',
+              contents: 'SNELHEID PRIORITEIT. Scan Sanadome.nl en Booking.com voor de kamerbeschikbaarheid van VANDAAG. Sanadome heeft 106 kamers in totaal. Zoek getallen zoals "Nog 3 over" of "Sold out". Gebruik dit om het exacte aantal GEBOEKTE kamers (van de 106) te bepalen. Reageer direct met JSON.',
               config: {
                   tools: [{ googleSearch: {} }],
                   responseMimeType: "application/json",
                   responseSchema: {
                       type: Type.OBJECT,
                       properties: {
-                          booked: { type: Type.INTEGER, description: "Aantal geboekte kamers van de 106 totaal." },
-                          level: { type: Type.STRING, enum: ["low", "medium", "high"], description: "high betekent > 95 kamers vol." },
-                          status: { type: Type.STRING, description: "Korte status melding (bijv: Volgeboekt voor vandaag)." }
+                          booked: { type: Type.INTEGER, description: "Totaal geboekt (0-106)" },
+                          level: { type: Type.STRING, enum: ["low", "medium", "high"] },
+                          status: { type: Type.STRING, description: "Korte tekstuele status" }
                       },
                       required: ["booked", "level", "status"]
                   }
               },
           });
 
-          const rawText = response.text;
-          if (!rawText) throw new Error("Geen respons van AI");
+          clearTimeout(stepTimer);
+          clearTimeout(finalTimer);
 
-          // Better cleaning if AI wraps JSON in markdown
+          const rawText = response.text;
+          if (!rawText) throw new Error("Lege AI respons");
+
           const cleanJson = rawText.replace(/```json|```/g, '').trim();
           const result = JSON.parse(cleanJson);
           
-          // Extract sources from grounding metadata
           const groundingSources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
               ?.filter(chunk => chunk.web)
               .map(chunk => ({ title: chunk.web.title, uri: chunk.web.uri })) || [];
@@ -151,17 +160,16 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
               status: result.status,
               level: result.level,
               lastUpdated: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
-              sources: groundingSources.slice(0, 2) // Take top 2 sources
+              sources: groundingSources.slice(0, 2)
           });
       } catch (e) {
           console.error("Availability Scan Error:", e);
-          if (!silent) onShowToast("Kon kamerstatus niet laden.");
       } finally {
-          if (!silent) setIsScanning(false);
+          setIsScanning(false);
+          setScanningStep('');
       }
   };
 
-  // Trigger scan on load and every 30 seconds
   useEffect(() => {
       if (isOwnProfile) {
           fetchRoomAvailability();
@@ -189,7 +197,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   };
 
   const renderDashboardOverview = () => {
-      // Data calculations
       const evaluations = employee.evaluations || [];
       const signedEvals = evaluations.filter(e => e.status === 'Signed');
       const avgScore = signedEvals.length > 0 
@@ -204,7 +211,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       const obProgress = obTasks.length > 0 ? Math.round((obTasks.filter(t => t.score === 100).length / obTasks.length) * 100) : null;
       const compliments = employee.dossier?.filter(d => d.type === 'Compliment').sort((a,b) => b.date.localeCompare(a.date)) || [];
 
-      // Open Actions Logic
       const openActions = [];
       evaluations.forEach(ev => {
           if (isOwnProfile && ev.status === 'EmployeeInput') {
@@ -245,7 +251,13 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                         {isScanning && <RefreshCw size={12} className="animate-spin text-teal-500" />}
                       </div>
                       
-                      {availabilityData ? (
+                      {isScanning && !availabilityData ? (
+                          <div className="flex-1 flex flex-col justify-end animate-pulse">
+                              <div className="h-6 bg-slate-100 rounded w-1/3 mb-2"></div>
+                              <div className="h-1.5 bg-slate-100 rounded-full w-full mb-2"></div>
+                              <div className="text-[9px] text-teal-500 font-bold uppercase tracking-widest">{scanningStep}</div>
+                          </div>
+                      ) : availabilityData ? (
                           <div className="flex-1 flex flex-col justify-end animate-in fade-in zoom-in-95">
                               <div className="flex items-baseline justify-between mb-1">
                                   <div className="text-xl font-black text-slate-900 leading-none">
@@ -263,23 +275,25 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                               </div>
                               <div className="flex items-center justify-between gap-2 overflow-hidden">
                                   <div className="text-[9px] text-slate-400 font-bold uppercase truncate flex-1">
-                                      {availabilityData.status}
+                                      {isScanning ? <span className="text-teal-500 italic">{scanningStep}</span> : availabilityData.status}
                                   </div>
-                                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                                      {availabilityData.sources?.map((s, idx) => (
-                                          <a 
-                                            key={idx} 
-                                            href={s.uri} 
-                                            target="_blank" 
-                                            rel="noopener noreferrer" 
-                                            className="text-[10px] text-teal-600 hover:underline flex items-center gap-0.5 font-bold"
-                                            title={s.title}
-                                            onClick={(e) => e.stopPropagation()}
-                                          >
-                                              <Globe size={10}/>
-                                          </a>
-                                      ))}
-                                  </div>
+                                  {!isScanning && (
+                                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                                        {availabilityData.sources?.map((s, idx) => (
+                                            <a 
+                                                key={idx} 
+                                                href={s.uri} 
+                                                target="_blank" 
+                                                rel="noopener noreferrer" 
+                                                className="text-[10px] text-teal-600 hover:underline flex items-center gap-0.5 font-bold"
+                                                title={s.title}
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                <Globe size={10}/>
+                                            </a>
+                                        ))}
+                                    </div>
+                                  )}
                               </div>
                           </div>
                       ) : (
