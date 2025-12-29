@@ -61,9 +61,7 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
             return true;
         });
 
-        // Sync back to storage if some were deleted
         if (validTasks.length !== data.length) {
-            // For each actually removed task, we should delete it from DB
             const removed = data.filter(t => !validTasks.includes(t));
             for (const r of removed) {
                 await api.deleteTask(r.id);
@@ -133,7 +131,6 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
             completedAt: newStatus === 'Completed' ? new Date().toISOString() : undefined
         };
 
-        // Add activity log
         const updateLog: TaskUpdate = {
             id: crypto.randomUUID(),
             author: currentUser.name,
@@ -274,7 +271,7 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
                         </div>
                         Mijn Taken
                     </h1>
-                    <p className="text-slate-500 mt-2 text-lg">Productiviteit en delegatie voor het hele team.</p>
+                    <p className="text-slate-500 mt-2 text-lg">Beheer je werkdruk en werk samen met je team.</p>
                 </div>
                 
                 <button 
@@ -393,7 +390,6 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
                             </p>
                         )}
 
-                        {/* Progress Bar for Subtasks */}
                         {progress !== null && (
                             <div className="mb-4">
                                 <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase mb-1">
@@ -461,7 +457,7 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
                 )}
             </div>
 
-            {/* ENHANCED DETAIL MODAL (Slide-out Style) */}
+            {/* ENHANCED DETAIL MODAL - INFO AT TOP */}
             <Modal
                 isOpen={isDetailModalOpen}
                 onClose={() => setIsDetailModalOpen(false)}
@@ -469,8 +465,8 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
             >
                 {selectedTask && (
                     <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-4 duration-300">
-                        {/* Status Bar */}
-                        <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl mb-8 border border-slate-100">
+                        {/* 1. Header & Actions */}
+                        <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
                             <div className="flex items-center gap-3">
                                 <button 
                                     onClick={() => handleToggleStatus(selectedTask)}
@@ -482,8 +478,8 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
                                 >
                                     {selectedTask.status === 'Completed' ? <><CheckCircle2 size={18}/> Voltooid</> : <><Circle size={18}/> Markeren als Klaar</>}
                                 </button>
-                                <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider border ${PRIORITY_COLORS[selectedTask.priority]}`}>
-                                    {selectedTask.priority} Priority
+                                <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider border ${PRIORITY_COLORS[selectedTask.priority]}`}>
+                                    {selectedTask.priority} Prioriteit
                                 </span>
                             </div>
                             <div className="flex gap-2">
@@ -492,184 +488,178 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 flex-1">
-                            {/* Main Info Column */}
-                            <div className="lg:col-span-2 space-y-10">
-                                <div>
-                                    <h2 className="text-3xl font-black text-slate-900 leading-tight mb-4">{selectedTask.title}</h2>
-                                    <p className="text-slate-500 text-lg leading-relaxed whitespace-pre-wrap">{selectedTask.description || 'Geen uitgebreide omschrijving.'}</p>
-                                </div>
-
-                                {/* Subtasks Section */}
-                                <div>
-                                    <div className="flex items-center justify-between mb-4">
-                                        <h3 className="font-bold text-slate-900 flex items-center gap-2 text-lg">
-                                            <ListChecks size={22} className="text-blue-600"/> 
-                                            Subtaken 
-                                            <span className="text-slate-400 font-medium text-sm ml-1">
-                                                ({selectedTask.subtasks?.filter(s=>s.completed).length}/{selectedTask.subtasks?.length || 0})
-                                            </span>
-                                        </h3>
-                                        {getTaskProgress(selectedTask) !== null && (
-                                            <span className="text-blue-600 font-bold text-sm bg-blue-50 px-2 py-0.5 rounded-full">{getTaskProgress(selectedTask)}%</span>
-                                        )}
-                                    </div>
-
-                                    <div className="space-y-2 bg-slate-50 p-4 rounded-3xl border border-slate-100">
-                                        {(selectedTask.subtasks || []).map(st => (
-                                            <div 
-                                                key={st.id} 
-                                                onClick={() => handleToggleSubtask(st.id)}
-                                                className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all bg-white ${
-                                                    st.completed ? 'border-transparent opacity-60' : 'border-white hover:border-blue-200 shadow-sm'
-                                                }`}
-                                            >
-                                                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${st.completed ? 'bg-blue-500 border-blue-500 text-white' : 'bg-white border-slate-200 group-hover:border-blue-300'}`}>
-                                                    {st.completed && <Check size={14} strokeWidth={4}/>}
-                                                </div>
-                                                <span className={`text-sm font-bold flex-1 ${st.completed ? 'line-through text-slate-400' : 'text-slate-700'}`}>{st.title}</span>
-                                            </div>
-                                        ))}
-                                        
-                                        <form onSubmit={handleAddSubtask} className="flex gap-2 pt-2">
-                                            <input 
-                                                type="text" 
-                                                value={newSubtaskTitle}
-                                                onChange={(e) => setNewSubtaskTitle(e.target.value)}
-                                                placeholder="Voeg een stap toe..."
-                                                className="flex-1 p-4 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none shadow-sm"
-                                            />
-                                            <button 
-                                                disabled={!newSubtaskTitle.trim()} 
-                                                className="bg-slate-900 text-white px-6 rounded-2xl hover:bg-slate-800 disabled:opacity-50 transition-all font-bold"
-                                            >
-                                                <Plus size={20}/>
-                                            </button>
-                                        </form>
-                                    </div>
-                                </div>
-
-                                {/* Updates Section (Activity Feed) */}
-                                <div>
-                                    <h3 className="font-bold text-slate-900 flex items-center gap-2 text-lg mb-6">
-                                        <MessageSquare size={22} className="text-blue-600"/> 
-                                        Updates & Feed
-                                    </h3>
-                                    
-                                    <div className="space-y-4">
-                                        {/* Input field at top of feed */}
-                                        <div className="flex gap-4 items-start bg-blue-50/50 p-4 rounded-3xl border border-blue-100 mb-8 focus-within:ring-2 focus-within:ring-blue-500/20 transition-all">
-                                            <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-sm">{currentUser.name.charAt(0)}</div>
-                                            <div className="flex-1 space-y-3">
-                                                <textarea 
-                                                    value={newUpdateText}
-                                                    onChange={(e) => setNewUpdateText(e.target.value)}
-                                                    placeholder="Deel een update of plaats een opmerking..."
-                                                    rows={3}
-                                                    className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm font-medium text-slate-700 placeholder:text-slate-400 resize-none"
-                                                />
-                                                <div className="flex justify-end pt-2 border-t border-blue-100">
-                                                    <button 
-                                                        onClick={handleAddUpdate}
-                                                        disabled={!newUpdateText.trim()}
-                                                        className="bg-blue-600 text-white px-5 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-all text-xs font-bold flex items-center gap-2"
-                                                    >
-                                                        <Send size={14}/> Versturen
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div className="space-y-6">
-                                            {(selectedTask.updates || []).length > 0 ? (
-                                                selectedTask.updates?.map(update => (
-                                                    <div key={update.id} className="relative flex gap-4 animate-in slide-in-from-bottom-2">
-                                                        <div className="flex flex-col items-center flex-shrink-0">
-                                                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border ${update.author === currentUser.name ? 'bg-blue-100 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                                                                {update.author.charAt(0)}
-                                                            </div>
-                                                            <div className="w-0.5 flex-1 bg-slate-100 mt-2"></div>
-                                                        </div>
-                                                        <div className="pb-6 flex-1">
-                                                            <div className="flex justify-between items-center mb-1">
-                                                                <span className="text-xs font-bold text-slate-900">{update.author}</span>
-                                                                <span className="text-[10px] text-slate-400 font-bold">{new Date(update.createdAt).toLocaleString('nl-NL', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'})}</span>
-                                                            </div>
-                                                            <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">{update.content}</p>
-                                                        </div>
-                                                    </div>
-                                                ))
-                                            ) : (
-                                                <div className="text-center py-10 bg-slate-50 rounded-3xl border border-dashed border-slate-200">
-                                                    <Info size={32} className="mx-auto text-slate-300 mb-3 opacity-50"/>
-                                                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Nog geen updates</p>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
+                        {/* 2. Main Info Banner */}
+                        <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 mb-8">
+                            <div className="mb-4">
+                                <h2 className="text-3xl font-black text-slate-900 leading-tight mb-2">{selectedTask.title}</h2>
+                                <p className="text-slate-500 text-base leading-relaxed whitespace-pre-wrap">{selectedTask.description || 'Geen uitgebreide omschrijving.'}</p>
                             </div>
 
-                            {/* Sidebar Column (Metadata) */}
-                            <div className="space-y-6">
-                                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-6">
-                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                                        <Info size={14}/> Informatie
-                                    </h4>
-                                    
-                                    <div className="space-y-4">
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm border border-slate-100"><User size={20}/></div>
-                                            <div>
-                                                <div className="text-[10px] font-bold text-slate-400 uppercase">Eigenaar</div>
-                                                <div className="text-sm font-bold text-slate-800">{selectedTask.createdBy}</div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-indigo-600 shadow-sm border border-slate-100"><Users size={20}/></div>
-                                            <div>
-                                                <div className="text-[10px] font-bold text-slate-400 uppercase">Toegewezen</div>
-                                                <div className="text-sm font-bold text-slate-800">{selectedTask.assigneeName || 'Algemeen'}</div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-amber-600 shadow-sm border border-slate-100"><Calendar size={20}/></div>
-                                            <div>
-                                                <div className="text-[10px] font-bold text-slate-400 uppercase">Deadline</div>
-                                                <div className="text-sm font-bold text-slate-800">{selectedTask.dueDate || 'Geen datum'}</div>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-400 shadow-sm border border-slate-100"><Clock size={20}/></div>
-                                            <div>
-                                                <div className="text-[10px] font-bold text-slate-400 uppercase">Aangemaakt</div>
-                                                <div className="text-sm font-bold text-slate-800">{new Date(selectedTask.createdAt).toLocaleDateString()}</div>
-                                            </div>
-                                        </div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 pt-6 border-t border-slate-200/50">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center text-blue-600 shadow-sm border border-slate-100"><User size={18}/></div>
+                                    <div>
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Eigenaar</div>
+                                        <div className="text-xs font-bold text-slate-800">{selectedTask.createdBy}</div>
                                     </div>
                                 </div>
 
-                                {selectedTask.shareWithTeam && (
-                                    <div className="bg-blue-600 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden group">
-                                        <Share2 className="absolute -right-2 -bottom-2 opacity-10 group-hover:scale-110 transition-transform" size={80}/>
-                                        <h4 className="text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-2"><Globe size={14}/> Team Taak</h4>
-                                        <p className="text-sm text-blue-100 font-medium">Deze taak is zichtbaar voor alle Managers en Seniors in de gedeelde lijst.</p>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center text-indigo-600 shadow-sm border border-slate-100"><Users size={18}/></div>
+                                    <div>
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Toegewezen aan</div>
+                                        <div className="text-xs font-bold text-slate-800">{selectedTask.assigneeName || 'Iedereen (Algemeen)'}</div>
                                     </div>
-                                )}
+                                </div>
 
-                                {selectedTask.status === 'Completed' && selectedTask.completedAt && (
-                                    <div className="bg-green-600 p-6 rounded-3xl text-white shadow-lg relative overflow-hidden group">
-                                        <CheckCircle2 className="absolute -right-2 -bottom-2 opacity-10 group-hover:scale-110 transition-transform" size={80}/>
-                                        <h4 className="text-xs font-bold uppercase tracking-widest mb-2 flex items-center gap-2"><Check size={14}/> Voltooid</h4>
-                                        <p className="text-sm text-green-100 font-medium">Voltooid op {new Date(selectedTask.completedAt).toLocaleDateString()}.</p>
-                                        <p className="text-[10px] text-green-200 mt-4 uppercase font-black">Verwijdering over {Math.max(1, 7 - Math.floor((new Date().getTime() - new Date(selectedTask.completedAt).getTime()) / (1000 * 60 * 60 * 24)))} dagen</p>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center text-amber-600 shadow-sm border border-slate-100"><Calendar size={18}/></div>
+                                    <div>
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Deadline</div>
+                                        <div className="text-xs font-bold text-slate-800">{selectedTask.dueDate || 'Geen datum'}</div>
                                     </div>
-                                )}
+                                </div>
+
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center text-slate-400 shadow-sm border border-slate-100"><Clock size={18}/></div>
+                                    <div>
+                                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Gemaakt op</div>
+                                        <div className="text-xs font-bold text-slate-800">{new Date(selectedTask.createdAt).toLocaleDateString()}</div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
+
+                        {/* 3. Columns Section */}
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 flex-1">
+                            {/* Subtasks Section */}
+                            <div className="space-y-6">
+                                <div className="flex items-center justify-between">
+                                    <h3 className="font-bold text-slate-900 flex items-center gap-2 text-lg">
+                                        <ListChecks size={22} className="text-blue-600"/> 
+                                        Subtaken 
+                                        <span className="text-slate-400 font-medium text-sm ml-1">
+                                            ({selectedTask.subtasks?.filter(s=>s.completed).length}/{selectedTask.subtasks?.length || 0})
+                                        </span>
+                                    </h3>
+                                    {getTaskProgress(selectedTask) !== null && (
+                                        <span className="text-blue-600 font-bold text-sm bg-blue-50 px-2 py-0.5 rounded-full">{getTaskProgress(selectedTask)}%</span>
+                                    )}
+                                </div>
+
+                                <div className="space-y-2 bg-slate-50 p-4 rounded-3xl border border-slate-100">
+                                    {(selectedTask.subtasks || []).map(st => (
+                                        <div 
+                                            key={st.id} 
+                                            onClick={() => handleToggleSubtask(st.id)}
+                                            className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all bg-white ${
+                                                st.completed ? 'border-transparent opacity-60' : 'border-white hover:border-blue-200 shadow-sm'
+                                            }`}
+                                        >
+                                            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${st.completed ? 'bg-blue-500 border-blue-500 text-white' : 'bg-white border-slate-200'}`}>
+                                                {st.completed && <Check size={14} strokeWidth={4}/>}
+                                            </div>
+                                            <span className={`text-sm font-bold flex-1 ${st.completed ? 'line-through text-slate-400' : 'text-slate-700'}`}>{st.title}</span>
+                                        </div>
+                                    ))}
+                                    
+                                    <form onSubmit={handleAddSubtask} className="flex gap-2 pt-2">
+                                        <input 
+                                            type="text" 
+                                            value={newSubtaskTitle}
+                                            onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                                            placeholder="Voeg een stap toe..."
+                                            className="flex-1 p-4 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none shadow-sm"
+                                        />
+                                        <button 
+                                            disabled={!newSubtaskTitle.trim()} 
+                                            className="bg-slate-900 text-white px-6 rounded-2xl hover:bg-slate-800 disabled:opacity-50 transition-all font-bold"
+                                        >
+                                            <Plus size={20}/>
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            {/* Updates Section (Activity Feed) */}
+                            <div className="space-y-6">
+                                <h3 className="font-bold text-slate-900 flex items-center gap-2 text-lg">
+                                    <MessageSquare size={22} className="text-blue-600"/> 
+                                    Activity & Updates
+                                </h3>
+                                
+                                <div className="space-y-4">
+                                    {/* Quick Reply Form */}
+                                    <div className="flex gap-4 items-start bg-blue-50/50 p-4 rounded-3xl border border-blue-100 mb-6">
+                                        <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold shadow-sm">{currentUser.name.charAt(0)}</div>
+                                        <div className="flex-1 space-y-3">
+                                            <textarea 
+                                                value={newUpdateText}
+                                                onChange={(e) => setNewUpdateText(e.target.value)}
+                                                placeholder="Plaats een update of reageer..."
+                                                rows={2}
+                                                className="w-full bg-transparent border-none focus:ring-0 p-0 text-sm font-medium text-slate-700 placeholder:text-slate-400 resize-none"
+                                            />
+                                            <div className="flex justify-end pt-2 border-t border-blue-100">
+                                                <button 
+                                                    onClick={handleAddUpdate}
+                                                    disabled={!newUpdateText.trim()}
+                                                    className="bg-blue-600 text-white px-5 py-2 rounded-xl hover:bg-blue-700 disabled:opacity-50 transition-all text-xs font-bold flex items-center gap-2"
+                                                >
+                                                    <Send size={14}/> Versturen
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Tijdlijn van updates */}
+                                    <div className="space-y-6 relative before:absolute before:inset-0 before:left-5 before:w-0.5 before:bg-slate-100">
+                                        {(selectedTask.updates || []).length > 0 ? (
+                                            selectedTask.updates?.map(update => (
+                                                <div key={update.id} className="relative flex gap-4 animate-in slide-in-from-bottom-2">
+                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs border z-10 ${update.author === currentUser.name ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-500 border-slate-200'}`}>
+                                                        {update.author.charAt(0)}
+                                                    </div>
+                                                    <div className="pb-4 flex-1">
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <span className="text-xs font-bold text-slate-900">{update.author}</span>
+                                                            <span className="text-[10px] text-slate-400 font-bold">{new Date(update.createdAt).toLocaleString('nl-NL', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'})}</span>
+                                                        </div>
+                                                        <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">{update.content}</p>
+                                                    </div>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <div className="text-center py-10 bg-slate-50 rounded-3xl border border-dashed border-slate-200 ml-10">
+                                                <Info size={32} className="mx-auto text-slate-300 mb-3 opacity-50"/>
+                                                <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Nog geen activiteiten</p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Archive Information (Only if completed) */}
+                        {selectedTask.status === 'Completed' && selectedTask.completedAt && (
+                            <div className="mt-10 p-6 bg-green-50 border border-green-100 rounded-3xl flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center shadow-inner">
+                                        <Archive size={24}/>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-green-900">Deze taak is gearchiveerd</h4>
+                                        <p className="text-sm text-green-700">Voltooid op {new Date(selectedTask.completedAt).toLocaleDateString('nl-NL', {day:'numeric', month:'long'})}.</p>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-[10px] font-black text-green-400 uppercase tracking-widest mb-1">Automatische Verwijdering</div>
+                                    <div className="text-sm font-bold text-green-600 bg-white px-3 py-1 rounded-full shadow-sm">
+                                        Over {Math.max(1, 7 - Math.floor((new Date().getTime() - new Date(selectedTask.completedAt).getTime()) / (1000 * 60 * 60 * 24)))} dagen
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
             </Modal>
