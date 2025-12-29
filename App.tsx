@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { Employee, ViewState, NewsPost, GlobalSettings, Applicant, Notification } from './types';
 import Sidebar from './components/Sidebar';
@@ -26,6 +25,7 @@ import CompensationPage from './components/CompensationPage';
 import ChecklistsPage from './components/ChecklistsPage';
 import HRDossierPage from './components/HRDossierPage'; 
 import ShiftHandoverPage from './components/ShiftHandoverPage'; // NEW
+import TodoListPage from './components/TodoListPage'; // NEW
 import UpdateNotifier from './components/UpdateNotifier';
 import { api, isLive } from './utils/api';
 import { isModuleEnabled } from './utils/permissions';
@@ -383,6 +383,8 @@ function App() {
               return <ChecklistsPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           case ViewState.SHIFT_HANDOVER: // NEW
               return <ShiftHandoverPage currentUser={currentUser!} onShowToast={handleShowToast} />;
+          case ViewState.TODO_LIST: // NEW
+              return <TodoListPage currentUser={currentUser!} employees={employees} onShowToast={handleShowToast} />;
           default:
               return <div className="p-10">Pagina niet gevonden of in ontwikkeling.</div>;
       }
@@ -426,4 +428,3 @@ function App() {
 }
 
 export default App;
-

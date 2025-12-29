@@ -1,31 +1,20 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
   UserPlus, FileText, PieChart, 
-  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Medal, BookOpen, Truck, ChevronDown, ChevronRight, Bike, GraduationCap, Scale, ListTodo, FolderOpen, ArrowRightLeft
+  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Medal, BookOpen, Truck, ChevronDown, ChevronRight, Bike, GraduationCap, Scale, ListTodo, FolderOpen, ArrowRightLeft, LogOut
 } from 'lucide-react';
 import { ViewState, Employee, Permission, GlobalSettings } from '../types';
 import { hasPermission, isModuleEnabled } from '../utils/permissions';
 
-interface SidebarProps {
-  currentView: ViewState;
-  onChangeView: (view: ViewState) => void;
-  user?: Employee; 
-  isOpen: boolean;
-  onClose: () => void;
-  systemVersion?: string;
-  globalSettings: GlobalSettings | null; // NEW PROP
-}
-
+// Added missing interfaces for Sidebar structure
 interface SidebarItem {
   icon: React.ElementType;
   label: string;
-  id: string | ViewState;
-  badge?: number | string;
+  id: ViewState;
   permission?: Permission;
+  badge?: string;
 }
 
 interface SidebarSection {
@@ -33,7 +22,18 @@ interface SidebarSection {
   items: SidebarItem[];
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOpen, onClose, systemVersion = 'v1.0', globalSettings }) => {
+interface SidebarProps {
+  currentView: ViewState;
+  onChangeView: (view: ViewState) => void;
+  user?: Employee; 
+  isOpen: boolean;
+  onClose: () => void;
+  onLogout?: () => void; // Added onLogout prop
+  systemVersion?: string;
+  globalSettings: GlobalSettings | null;
+}
+
+const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOpen, onClose, onLogout, systemVersion = 'v1.0', globalSettings }) => {
   
   // Sections configuration
   const sections: SidebarSection[] = [
@@ -63,12 +63,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
         { icon: UserCheck, label: 'Onboarding', id: ViewState.ONBOARDING },
         { icon: ClipboardCheck, label: 'Performance', id: ViewState.EVALUATIONS, permission: 'MANAGE_EVALUATIONS' },
         { icon: UserPlus, label: 'Recruitment', id: ViewState.RECRUITMENT, permission: 'MANAGE_RECRUITMENT' },
-        // Documents removed and merged into HR Dossier
       ]
     },
     {
       label: 'Management Tools',
       items: [
+        { icon: CheckSquare, label: 'Takenlijst', id: ViewState.TODO_LIST },
         { icon: Euro, label: 'Debiteuren', id: ViewState.DEBT_CONTROL, permission: 'MANAGE_DEBTORS' },
         { icon: Truck, label: 'Linnen Audit', id: ViewState.LINEN_AUDIT, permission: 'MANAGE_OPERATIONS' },
         { icon: PieChart, label: 'Rapportages', id: ViewState.REPORTS, permission: 'VIEW_REPORTS' },
@@ -153,11 +153,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
           {/* Navigation Items */}
           <nav className="space-y-4">
             {sections.map((section) => {
-              // 1. Check Permissions
-              // 2. Check Global Module Settings (Deactivation)
               const visibleItems = section.items.filter(item => {
                   const hasPerm = !item.permission || hasPermission(user, item.permission);
-                  // Check if module is enabled globally for this user
                   let moduleEnabled = true;
                   if (Object.values(ViewState).includes(item.id as ViewState)) {
                       moduleEnabled = isModuleEnabled(item.id as ViewState, user || null, globalSettings);
@@ -187,7 +184,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
                             key={item.id}
                             onClick={() => {
                                 if (typeof item.id === 'string' && !Object.values(ViewState).includes(item.id as any)) {
-                                    onChangeView(item.id as any); // fallback
+                                    onChangeView(item.id as any);
                                 } else {
                                     onChangeView(item.id as ViewState);
                                 }
@@ -220,9 +217,18 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
           </nav>
         </div>
 
-        {/* Footer / Version */}
-        <div className="p-4 border-t border-slate-200 bg-slate-50/50">
-            <div className="flex items-center justify-between px-2 text-xs font-bold text-slate-400">
+        {/* Footer / Logout / Version */}
+        <div className="p-4 border-t border-slate-200 bg-slate-50/50 space-y-4">
+            {onLogout && (
+              <button 
+                onClick={onLogout}
+                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-slate-500 hover:bg-red-50 hover:text-red-600 transition-all font-bold text-sm group"
+              >
+                <LogOut size={18} className="text-slate-400 group-hover:text-red-500" />
+                Uitloggen
+              </button>
+            )}
+            <div className="flex items-center justify-between px-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                 <span>Versie {systemVersion}</span>
                 <span>© {new Date().getFullYear()}</span>
             </div>

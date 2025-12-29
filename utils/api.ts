@@ -1,8 +1,7 @@
 
-
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, Ticket, ChecklistTemplate, ChecklistSubmission, ShiftHandoverItem } from '../types';
+import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, Ticket, ChecklistTemplate, ChecklistSubmission, ShiftHandoverItem, Task } from '../types';
 import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_EVALUATION_TEMPLATES, MOCK_BIKE_SETTINGS, MOCK_BIKE_RESERVATIONS, MOCK_ACADEMY_COURSES, MOCK_ACADEMY_PROGRESS, MOCK_TICKETS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
@@ -70,6 +69,47 @@ export const api = {
           }
       } else {
           localStorage.setItem('hrms_global_settings', JSON.stringify(settings));
+      }
+  },
+
+  // --- TASKS ---
+  getTasks: async (): Promise<Task[]> => {
+      if (isLive && supabase) {
+          try {
+              const { data, error } = await supabase.from('tasks').select('data');
+              if (!error && data) return data.map((row: any) => row.data);
+              return [];
+          } catch (e) {
+              return [];
+          }
+      }
+      const local = localStorage.getItem('hrms_tasks');
+      return local ? JSON.parse(local) : [];
+  },
+
+  saveTask: async (task: Task) => {
+      if (isLive && supabase) {
+          await supabase.from('tasks').upsert({ 
+              id: task.id, 
+              assignee_id: task.assigneeId || null,
+              is_general: task.isGeneral,
+              data: task 
+          });
+      } else {
+          const current = await api.getTasks();
+          const index = current.findIndex(t => t.id === task.id);
+          if (index >= 0) current[index] = task;
+          else current.push(task);
+          localStorage.setItem('hrms_tasks', JSON.stringify(current));
+      }
+  },
+
+  deleteTask: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('tasks').delete().eq('id', id);
+      } else {
+          const current = await api.getTasks();
+          localStorage.setItem('hrms_tasks', JSON.stringify(current.filter(t => t.id !== id)));
       }
   },
 
@@ -807,4 +847,3 @@ export const api = {
       localStorage.setItem('hrms_badges', JSON.stringify(current.filter(b => b.id !== id)));
   }
 };
-

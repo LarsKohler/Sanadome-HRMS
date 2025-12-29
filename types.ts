@@ -19,7 +19,8 @@ export type ViewState =
   | 'COMPENSATION'
   | 'CHECKLISTS'
   | 'ACADEMY'
-  | 'SHIFT_HANDOVER';
+  | 'SHIFT_HANDOVER'
+  | 'TODO_LIST';
 
 export const ViewState = {
   HOME: 'HOME',
@@ -42,6 +43,7 @@ export const ViewState = {
   CHECKLISTS: 'CHECKLISTS',
   ACADEMY: 'ACADEMY',
   SHIFT_HANDOVER: 'SHIFT_HANDOVER',
+  TODO_LIST: 'TODO_LIST',
 } as const;
 
 export type Permission =
@@ -68,7 +70,8 @@ export type Permission =
   | 'DELETE_COMPENSATION'
   | 'MANAGE_TICKETS'
   | 'MANAGE_CHECKLISTS'
-  | 'MANAGE_HANDOVER';
+  | 'MANAGE_HANDOVER'
+  | 'MANAGE_TASKS';
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   VIEW_REPORTS: 'Rapportages Inzien',
@@ -95,7 +98,28 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   MANAGE_TICKETS: 'Tickets Beheren',
   MANAGE_CHECKLISTS: 'Checklists Beheren',
   MANAGE_HANDOVER: 'Shift Overdracht Beheren',
+  MANAGE_TASKS: 'Takenlijst Beheren',
 };
+
+export type TaskStatus = 'Pending' | 'In Progress' | 'Completed' | 'Archived';
+export type TaskPriority = 'Low' | 'Medium' | 'High';
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueDate?: string;
+  assigneeId?: string;
+  assigneeName?: string;
+  isGeneral: boolean;
+  createdBy: string;
+  createdById: string;
+  createdAt: string;
+  completedAt?: string;
+  shareWithTeam?: boolean;
+}
 
 export interface GlobalSettings {
   modules: Record<string, {
