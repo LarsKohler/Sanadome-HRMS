@@ -4,7 +4,7 @@ import {
   Mail, Linkedin, Phone, 
   Camera, Image as ImageIcon,
   Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, Award as CertificateIcon, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy, Lock, Pencil, Medal, Calendar as CalendarIcon, Thermometer, FolderOpen, Info, RefreshCw, Globe, ExternalLink, BedDouble, X
+  TrendingUp, Award, Award as CertificateIcon, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy, Lock, Pencil, Medal, Calendar as CalendarIcon, Thermometer, FolderOpen, Info, RefreshCw, Globe, ExternalLink, BedDouble, X, Activity, Search as SearchIcon
 } from 'lucide-react';
 import { Employee, EmployeeNote, EmployeeDocument, ViewState, NewsPost, EvaluationCycle, BadgeIconKey, BadgeColor, AssignedBadge, AcademyCourse, AcademyProgress, Applicant, DossierEntry, Debtor } from '../types';
 import { Modal } from './Modal';
@@ -56,7 +56,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   const bannerInputRef = useRef<HTMLInputElement>(null);
 
   const isOwnProfile = employee.id === currentUser.id;
-  const isManager = hasPermission(currentUser, 'MANAGE_EMPLOYEES');
 
   const [templateTitle, setTemplateTitle] = useState<string>('');
   const [combinedBadges, setCombinedBadges] = useState<any[]>([]);
@@ -72,6 +71,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   } | null>(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanningStep, setScanningStep] = useState<string>('');
+  const [scanError, setScanError] = useState(false);
 
   useEffect(() => {
       const fetchTemplateName = async () => {
@@ -111,41 +111,49 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       fetchBadges();
   }, [employee.id, employee.badges]);
 
-  // --- AUTOMATED ROOM SCAN LOGIC (OPTIMIZED FOR SPEED) ---
+  // --- AUTOMATED ROOM SCAN LOGIC (HIGH SPEED OPTIMIZED) ---
   const fetchRoomAvailability = async (silent = false) => {
-      if (!silent) setIsScanning(true);
-      setScanningStep('Browsing Sanadome...');
+      if (!isOwnProfile) return;
+      if (!silent) {
+          setIsScanning(true);
+          setScanError(false);
+      }
+      
+      const today = new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' });
       
       try {
+          setScanningStep('Radar opstarten...');
           const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
           
-          // Step tracking simulation for UI
-          const stepTimer = setTimeout(() => setScanningStep('Analyse voorraad...'), 1500);
-          const finalTimer = setTimeout(() => setScanningStep('Berekenen...'), 3500);
+          // Parallel UI feedback steps
+          const timer1 = setTimeout(() => setScanningStep('Sanadome.nl scannen...'), 1200);
+          const timer2 = setTimeout(() => setScanningStep('Live voorraad checken...'), 3500);
+          const timer3 = setTimeout(() => setScanningStep('Data verifiëren...'), 6000);
 
           const response = await ai.models.generateContent({
               model: 'gemini-3-flash-preview',
-              contents: 'SNELHEID PRIORITEIT. Scan Sanadome.nl en Booking.com voor de kamerbeschikbaarheid van VANDAAG. Sanadome heeft 106 kamers in totaal. Zoek getallen zoals "Nog 3 over" of "Sold out". Gebruik dit om het exacte aantal GEBOEKTE kamers (van de 106) te bepalen. Reageer direct met JSON.',
+              contents: `SNELHEID PRIORITEIT. Scan Sanadome Nijmegen beschikbaarheid voor VANDAAG (${today}). Totaal kamers: 106. Zoek specifiek naar "Sold Out" of "Nog X kamers". Als sold out, booked = 106. Als bijv. "Nog 2 kamers beschikbaar", booked = 104. Reageer direct met schone JSON.`,
               config: {
                   tools: [{ googleSearch: {} }],
                   responseMimeType: "application/json",
                   responseSchema: {
                       type: Type.OBJECT,
                       properties: {
-                          booked: { type: Type.INTEGER, description: "Totaal geboekt (0-106)" },
+                          booked: { type: Type.INTEGER, description: "Aantal bezette kamers (0-106)" },
                           level: { type: Type.STRING, enum: ["low", "medium", "high"] },
-                          status: { type: Type.STRING, description: "Korte tekstuele status" }
+                          status: { type: Type.STRING, description: "Korte status (bv: Bijna volgeboekt)" }
                       },
                       required: ["booked", "level", "status"]
                   }
               },
           });
 
-          clearTimeout(stepTimer);
-          clearTimeout(finalTimer);
+          clearTimeout(timer1);
+          clearTimeout(timer2);
+          clearTimeout(timer3);
 
           const rawText = response.text;
-          if (!rawText) throw new Error("Lege AI respons");
+          if (!rawText) throw new Error("Geen respons");
 
           const cleanJson = rawText.replace(/```json|```/g, '').trim();
           const result = JSON.parse(cleanJson);
@@ -155,15 +163,17 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
               .map(chunk => ({ title: chunk.web.title, uri: chunk.web.uri })) || [];
 
           setAvailabilityData({
-              booked: result.booked,
+              booked: result.booked > 106 ? 106 : result.booked,
               total: 106,
               status: result.status,
               level: result.level,
               lastUpdated: new Date().toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' }),
               sources: groundingSources.slice(0, 2)
           });
+          setScanError(false);
       } catch (e) {
           console.error("Availability Scan Error:", e);
+          if (!silent) setScanError(true);
       } finally {
           setIsScanning(false);
           setScanningStep('');
@@ -173,9 +183,8 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   useEffect(() => {
       if (isOwnProfile) {
           fetchRoomAvailability();
-          const interval = setInterval(() => {
-              fetchRoomAvailability(true);
-          }, 30000);
+          // Elke 5 minuten verversen is genoeg voor kamers, verhoogt betrouwbaarheid
+          const interval = setInterval(() => fetchRoomAvailability(true), 300000);
           return () => clearInterval(interval);
       }
   }, [isOwnProfile]);
@@ -216,14 +225,11 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
           if (isOwnProfile && ev.status === 'EmployeeInput') {
               openActions.push({ title: 'Zelfreflectie invullen', desc: `Evaluatie: ${ev.type}`, type: 'Evaluation', date: ev.plannedDate });
           }
-          if (isOwnProfile && ev.status === 'Review') {
-              openActions.push({ title: 'Gesprek voorbereiden', desc: `Bespreking gepland op ${ev.plannedDate}`, type: 'Evaluation', date: ev.plannedDate });
-          }
       });
       if (isOwnProfile && employee.onboardingStatus === 'Active') {
           const pendingTasks = obTasks.filter(t => !t.completed).length;
           if (pendingTasks > 0) {
-              openActions.push({ title: 'Onboarding taken', desc: `Nog ${pendingTasks} taken te doen deze week`, type: 'Onboarding' });
+              openActions.push({ title: 'Onboarding taken', desc: `Nog ${pendingTasks} taken deze week`, type: 'Onboarding' });
           }
       }
 
@@ -239,23 +245,39 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
               {/* TOP KPI ROW */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                   
-                  {/* LIVE ROOM AVAILABILITY WIDGET (DETAILED) */}
+                  {/* LIVE ROOM AVAILABILITY WIDGET (REMASTERED) */}
                   <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-between group hover:border-teal-300 transition-all relative overflow-hidden h-32">
-                      <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center justify-between mb-1 relative z-10">
                         <div className="flex items-center gap-2">
-                            <div className={`p-1.5 rounded-lg group-hover:scale-110 transition-transform ${availabilityData?.booked && availabilityData.booked >= 100 ? 'bg-red-50 text-red-600' : 'bg-teal-50 text-teal-600'}`}>
+                            <div className={`p-1.5 rounded-lg group-hover:scale-110 transition-transform ${isScanning ? 'bg-teal-500 text-white animate-pulse' : availabilityData?.booked && availabilityData.booked >= 100 ? 'bg-red-50 text-red-600' : 'bg-teal-50 text-teal-600'}`}>
                                 <BedDouble size={18} />
                             </div>
-                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Kamer Bezetting</div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                                Kamer Bezetting
+                                {isScanning && <span className="flex h-1.5 w-1.5 rounded-full bg-teal-500 animate-ping"></span>}
+                            </div>
                         </div>
-                        {isScanning && <RefreshCw size={12} className="animate-spin text-teal-500" />}
+                        {isScanning && <Activity size={12} className="text-teal-500 animate-pulse" />}
                       </div>
                       
                       {isScanning && !availabilityData ? (
-                          <div className="flex-1 flex flex-col justify-end animate-pulse">
-                              <div className="h-6 bg-slate-100 rounded w-1/3 mb-2"></div>
-                              <div className="h-1.5 bg-slate-100 rounded-full w-full mb-2"></div>
-                              <div className="text-[9px] text-teal-500 font-bold uppercase tracking-widest">{scanningStep}</div>
+                          <div className="flex-1 flex flex-col justify-end py-1">
+                              <div className="flex items-center gap-2 mb-2">
+                                  <RefreshCw size={14} className="animate-spin text-teal-500" />
+                                  <span className="text-[11px] font-black text-slate-700 uppercase tracking-tight">{scanningStep}</span>
+                              </div>
+                              <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                                  <div className="h-full bg-teal-200 animate-shimmer" style={{ width: '40%', background: 'linear-gradient(90deg, #f1f5f9 0%, #2dd4bf 50%, #f1f5f9 100%)', backgroundSize: '200% 100%' }}></div>
+                              </div>
+                          </div>
+                      ) : scanError ? (
+                          <div className="flex-1 flex flex-col justify-end">
+                              <div className="text-red-500 flex items-center gap-1.5 text-xs font-bold mb-1">
+                                  <AlertCircle size={14}/> Connectie Fout
+                              </div>
+                              <button onClick={() => fetchRoomAvailability()} className="text-[10px] font-bold text-slate-400 hover:text-teal-600 flex items-center gap-1 uppercase tracking-widest">
+                                  <RefreshCw size={10}/> Probeer Opnieuw
+                              </button>
                           </div>
                       ) : availabilityData ? (
                           <div className="flex-1 flex flex-col justify-end animate-in fade-in zoom-in-95">
@@ -275,20 +297,12 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                               </div>
                               <div className="flex items-center justify-between gap-2 overflow-hidden">
                                   <div className="text-[9px] text-slate-400 font-bold uppercase truncate flex-1">
-                                      {isScanning ? <span className="text-teal-500 italic">{scanningStep}</span> : availabilityData.status}
+                                      {isScanning ? <span className="text-teal-500 italic">Verversen...</span> : availabilityData.status}
                                   </div>
                                   {!isScanning && (
                                     <div className="flex items-center gap-1.5 flex-shrink-0">
                                         {availabilityData.sources?.map((s, idx) => (
-                                            <a 
-                                                key={idx} 
-                                                href={s.uri} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer" 
-                                                className="text-[10px] text-teal-600 hover:underline flex items-center gap-0.5 font-bold"
-                                                title={s.title}
-                                                onClick={(e) => e.stopPropagation()}
-                                            >
+                                            <a key={idx} href={s.uri} target="_blank" rel="noopener noreferrer" className="text-[10px] text-teal-600 hover:underline flex items-center gap-0.5 font-bold" title={s.title} onClick={(e) => e.stopPropagation()}>
                                                 <Globe size={10}/>
                                             </a>
                                         ))}
@@ -297,11 +311,9 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                               </div>
                           </div>
                       ) : (
-                          <div className="flex-1 flex flex-col justify-center">
-                              <div className="flex items-center gap-2">
-                                  <RefreshCw size={14} className="animate-spin text-slate-300" />
-                                  <div className="text-sm font-bold text-slate-300 italic">Data ophalen...</div>
-                              </div>
+                          <div className="flex-1 flex flex-col justify-end">
+                               <div className="h-6 w-24 bg-slate-100 rounded animate-pulse mb-2"></div>
+                               <div className="h-1.5 w-full bg-slate-100 rounded animate-pulse"></div>
                           </div>
                       )}
                   </div>
@@ -346,7 +358,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                   </div>
               </div>
 
-              {/* OPEN ACTIONS (DYNAMISCH) */}
+              {/* OPEN ACTIONS */}
               {openActions.length > 0 && (
                   <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
                       <div className="px-8 py-4 border-b border-slate-100 bg-amber-50/30 flex items-center gap-2">
@@ -377,9 +389,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
               )}
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  {/* LEFT COLUMN */}
                   <div className="lg:col-span-2 space-y-8">
-                      {/* Onboarding Card */}
                       {employee.onboardingStatus === 'Active' && (
                         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 overflow-hidden relative">
                             <div className="absolute top-0 right-0 p-8 opacity-10 text-sky-600">
@@ -406,7 +416,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                         </div>
                       )}
 
-                      {/* Compliments Timeline */}
                       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
                           <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                               <h3 className="font-bold text-slate-900 flex items-center gap-2">
@@ -438,9 +447,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                       </div>
                   </div>
 
-                  {/* RIGHT COLUMN */}
                   <div className="space-y-8">
-                      {/* Badges Grid */}
                       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 h-full">
                           <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2 text-sm uppercase tracking-wider">
                               <Trophy size={16} className="text-amber-500"/> Mijn Badges
