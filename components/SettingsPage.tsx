@@ -21,17 +21,17 @@ const MODULE_NAMES: Record<string, string> = {
     [ViewState.ACADEMY]: 'Academy',
     [ViewState.KNOWLEDGE_BASE]: 'Kennisbank',
     [ViewState.DIRECTORY]: 'Collega\'s',
-    [ViewState.HR_DOSSIER]: 'HR Dossiers', // Added
-    [ViewState.CHECKLISTS]: 'Checklists', // Added
+    [ViewState.HR_DOSSIER]: 'HR Dossiers',
+    [ViewState.CHECKLISTS]: 'Checklists',
     [ViewState.BIKE_RENTAL]: 'Fietsverhuur',
     [ViewState.COMPENSATION]: 'Compensatie',
     [ViewState.ONBOARDING]: 'Onboarding',
     [ViewState.EVALUATIONS]: 'Performance',
     [ViewState.RECRUITMENT]: 'Recruitment',
+    [ViewState.TODO_LIST]: 'Takenlijst', // Added
     [ViewState.DEBT_CONTROL]: 'Debiteuren',
     [ViewState.LINEN_AUDIT]: 'Linnen Audit',
     [ViewState.REPORTS]: 'Rapportages'
-    // Documents removed as it is merged into HR Dossier
 };
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onUpdateEmployee, onShowToast, globalSettings, onUpdateGlobalSettings }) => {

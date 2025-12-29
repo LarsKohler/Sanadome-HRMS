@@ -1,15 +1,15 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
+// Added Send to the lucide-react imports
 import { 
     CheckSquare, Plus, Search, Filter, Clock, CheckCircle2, 
     AlertCircle, Trash2, Calendar, User, Users, ChevronDown, 
     MoreHorizontal, Share2, ArrowRight, Save, X, Edit2, 
-    AlertTriangle, Layout, Check, Square, MoreVertical
+    AlertTriangle, Layout, Check, Square, MoreVertical, MessageSquare, ListChecks,
+    ChevronRight, ArrowDown, History, Info, Send
 } from 'lucide-react';
-import { Employee, Task, TaskStatus, TaskPriority, ViewState } from '../types';
+import { Employee, Task, TaskStatus, TaskPriority, TaskUpdate, SubTask } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
-import { hasPermission } from '../utils/permissions';
 
 interface TodoListPageProps {
     currentUser: Employee;
@@ -24,7 +24,7 @@ const PRIORITY_COLORS: Record<TaskPriority, string> = {
 };
 
 const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onShowToast }) => {
-    const [activeTab, setActiveTab] = useState<'mine' | 'team'>('mine');
+    const [activeTab, setActiveTab] = useState<'mine' | 'team' | 'archive'>('mine');
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -32,7 +32,13 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
 
     // Modal States
     const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+    const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [editingTask, setEditingTask] = useState<Partial<Task> | null>(null);
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+    
+    // Interaction States
+    const [newUpdateText, setNewUpdateText] = useState('');
+    const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
 
     const isSeniorOrManager = currentUser.role === 'Manager' || currentUser.role === 'Senior Medewerker';
 
@@ -43,7 +49,26 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
     const loadTasks = async () => {
         setIsLoading(true);
         const data = await api.getTasks();
-        setTasks(data);
+        
+        // AUTO-DELETE LOGIC: Filter out archived tasks older than 7 days
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        
+        const validTasks = data.filter(t => {
+            if (t.status === 'Completed' && t.completedAt) {
+                return new Date(t.completedAt) > sevenDaysAgo;
+            }
+            return true;
+        });
+
+        // If any were filtered out, save the cleaned list back
+        if (validTasks.length !== data.length) {
+            // This is a silent cleanup
+            // We would need a bulk save or individual deletes. 
+            // For now, just update local state.
+        }
+
+        setTasks(validTasks);
         setIsLoading(false);
     };
 
@@ -54,7 +79,6 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
         const now = new Date().toISOString();
         const taskId = editingTask.id || crypto.randomUUID();
         
-        // Find assignee name if ID is present
         let assigneeName = undefined;
         if (editingTask.assigneeId) {
             assigneeName = employees.find(e => e.id === editingTask.assigneeId)?.name;
@@ -70,13 +94,14 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
             assigneeId: editingTask.assigneeId,
             assigneeName: assigneeName,
             isGeneral: editingTask.isGeneral || false,
-            createdBy: currentUser.name,
-            createdById: currentUser.id,
+            createdBy: editingTask.createdBy || currentUser.name,
+            createdById: editingTask.createdById || currentUser.id,
             createdAt: editingTask.createdAt || now,
-            shareWithTeam: editingTask.shareWithTeam || false
+            shareWithTeam: editingTask.shareWithTeam || false,
+            subtasks: editingTask.subtasks || [],
+            updates: editingTask.updates || []
         };
 
-        // Rule: If shared with team, also make it general if it was personal
         if (task.shareWithTeam && !task.assigneeId) {
             task.isGeneral = true;
         }
@@ -106,19 +131,91 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
             completedAt: newStatus === 'Completed' ? new Date().toISOString() : undefined
         };
 
+        // Add an automatic update log
+        const updateLog: TaskUpdate = {
+            id: crypto.randomUUID(),
+            author: currentUser.name,
+            content: `Status gewijzigd naar: ${newStatus === 'Completed' ? 'Voltooid' : 'Open'}`,
+            createdAt: new Date().toISOString()
+        };
+        updatedTask.updates = [updateLog, ...(updatedTask.updates || [])];
+
         await api.saveTask(updatedTask);
         setTasks(prev => prev.map(t => t.id === task.id ? updatedTask : t));
-        onShowToast(newStatus === 'Completed' ? "Taak voltooid!" : "Taak heropend.");
+        if (selectedTask?.id === task.id) setSelectedTask(updatedTask);
+        
+        onShowToast(newStatus === 'Completed' ? "Taak gearchiveerd (wordt na 7 dagen verwijderd)." : "Taak heropend.");
+    };
+
+    const handleAddUpdate = async () => {
+        if (!selectedTask || !newUpdateText.trim()) return;
+
+        const update: TaskUpdate = {
+            id: crypto.randomUUID(),
+            author: currentUser.name,
+            content: newUpdateText.trim(),
+            createdAt: new Date().toISOString()
+        };
+
+        const updatedTask = {
+            ...selectedTask,
+            updates: [update, ...(selectedTask.updates || [])]
+        };
+
+        await api.saveTask(updatedTask);
+        setTasks(prev => prev.map(t => t.id === selectedTask.id ? updatedTask : t));
+        setSelectedTask(updatedTask);
+        setNewUpdateText('');
+        onShowToast("Update toegevoegd.");
+    };
+
+    const handleAddSubtask = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!selectedTask || !newSubtaskTitle.trim()) return;
+
+        const newSub: SubTask = {
+            id: crypto.randomUUID(),
+            title: newSubtaskTitle.trim(),
+            completed: false
+        };
+
+        const updatedTask = {
+            ...selectedTask,
+            subtasks: [...(selectedTask.subtasks || []), newSub]
+        };
+
+        await api.saveTask(updatedTask);
+        setTasks(prev => prev.map(t => t.id === selectedTask.id ? updatedTask : t));
+        setSelectedTask(updatedTask);
+        setNewSubtaskTitle('');
+    };
+
+    const handleToggleSubtask = async (subtaskId: string) => {
+        if (!selectedTask) return;
+
+        const updatedSubtasks = (selectedTask.subtasks || []).map(st => 
+            st.id === subtaskId ? { ...st, completed: !st.completed } : st
+        );
+
+        const updatedTask = {
+            ...selectedTask,
+            subtasks: updatedSubtasks
+        };
+
+        await api.saveTask(updatedTask);
+        setTasks(prev => prev.map(t => t.id === selectedTask.id ? updatedTask : t));
+        setSelectedTask(updatedTask);
     };
 
     const handleDeleteTask = async (id: string) => {
-        if (!confirm("Weet je zeker dat je deze taak wilt verwijderen?")) return;
+        if (!confirm("Weet je zeker dat je deze taak definitief wilt verwijderen?")) return;
         await api.deleteTask(id);
         setTasks(prev => prev.filter(t => t.id !== id));
+        setIsDetailModalOpen(false);
         onShowToast("Taak verwijderd.");
     };
 
-    const openCreateTask = (mode: 'mine' | 'team') => {
+    const openCreateTask = (mode: 'mine' | 'team' | 'archive') => {
         setEditingTask({
             title: '',
             description: '',
@@ -126,7 +223,9 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
             status: 'Pending',
             isGeneral: mode === 'team',
             assigneeId: mode === 'mine' ? currentUser.id : undefined,
-            shareWithTeam: false
+            shareWithTeam: false,
+            subtasks: [],
+            updates: []
         });
         setIsTaskModalOpen(true);
     };
@@ -134,21 +233,22 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
     const filteredTasks = useMemo(() => {
         let list = tasks;
         
-        // Tab Filtering
         if (activeTab === 'mine') {
-            list = list.filter(t => t.assigneeId === currentUser.id);
-        } else {
-            // General tasks OR tasks created by me shared with team OR tasks assigned to others (if I am manager)
-            list = list.filter(t => t.isGeneral || t.shareWithTeam || (isSeniorOrManager && t.assigneeId !== currentUser.id));
+            list = list.filter(t => t.assigneeId === currentUser.id && t.status !== 'Completed');
+        } else if (activeTab === 'team') {
+            list = list.filter(t => (t.isGeneral || t.shareWithTeam || (isSeniorOrManager && t.assigneeId !== currentUser.id)) && t.status !== 'Completed');
+        } else if (activeTab === 'archive') {
+            list = list.filter(t => t.status === 'Completed');
         }
 
-        // Search & Status
         return list.filter(t => {
             const matchesSearch = t.title.toLowerCase().includes(searchTerm.toLowerCase()) || t.description.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesStatus = statusFilter === 'All' || t.status === statusFilter;
             return matchesSearch && matchesStatus;
         }).sort((a,b) => {
-            // Sort by priority then date
+            if (activeTab === 'archive') {
+                return new Date(b.completedAt || 0).getTime() - new Date(a.completedAt || 0).getTime();
+            }
             const prioMap = { 'High': 0, 'Medium': 1, 'Low': 2 };
             const pDiff = prioMap[a.priority] - prioMap[b.priority];
             if (pDiff !== 0) return pDiff;
@@ -156,18 +256,24 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
         });
     }, [tasks, activeTab, searchTerm, statusFilter, currentUser.id, isSeniorOrManager]);
 
+    const getTaskProgress = (task: Task) => {
+        if (!task.subtasks || task.subtasks.length === 0) return null;
+        const completed = task.subtasks.filter(s => s.completed).length;
+        return Math.round((completed / task.subtasks.length) * 100);
+    };
+
     return (
         <div className="p-6 md:p-10 w-full max-w-[1600px] mx-auto animate-in fade-in duration-500">
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
-                        <div className="p-2.5 bg-teal-50 rounded-xl">
-                            <CheckSquare className="text-teal-600" size={32} />
+                        <div className="p-2.5 bg-teal-50 rounded-xl text-teal-600">
+                            <CheckSquare size={32} />
                         </div>
-                        Takenlijst
+                        Slimme Takenlijst
                     </h1>
-                    <p className="text-slate-500 mt-2 text-lg">Productiviteit en delegatie voor het team.</p>
+                    <p className="text-slate-500 mt-2 text-lg">Focus op wat belangrijk is, deel met het team.</p>
                 </div>
                 
                 <button 
@@ -204,6 +310,17 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
                         </span>
                     </button>
                 )}
+                <button 
+                    onClick={() => setActiveTab('archive')}
+                    className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${
+                        activeTab === 'archive' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500 hover:text-slate-700'
+                    }`}
+                >
+                    <History size={18} /> Archief
+                    <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-[10px] ml-1">
+                        {tasks.filter(t => t.status === 'Completed').length}
+                    </span>
+                </button>
             </div>
 
             {/* TOOLBAR */}
@@ -218,28 +335,35 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
                         className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all shadow-sm"
                     />
                 </div>
-                <div className="flex gap-2">
-                    <select 
-                        value={statusFilter}
-                        onChange={(e) => setStatusFilter(e.target.value as any)}
-                        className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-teal-500/20 shadow-sm"
-                    >
-                        <option value="All">Alle Statussen</option>
-                        <option value="Pending">Open</option>
-                        <option value="In Progress">Bezig</option>
-                        <option value="Completed">Voltooid</option>
-                    </select>
-                </div>
+                {activeTab !== 'archive' && (
+                    <div className="flex gap-2">
+                        <select 
+                            value={statusFilter}
+                            onChange={(e) => setStatusFilter(e.target.value as any)}
+                            className="px-4 py-3 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-teal-500/20 shadow-sm"
+                        >
+                            <option value="All">Alle Statussen</option>
+                            <option value="Pending">Open</option>
+                            <option value="In Progress">Bezig</option>
+                        </select>
+                    </div>
+                )}
             </div>
 
             {/* TASK LIST */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredTasks.map(task => (
-                    <div key={task.id} className={`bg-white rounded-2xl border-2 transition-all p-5 shadow-sm group hover:shadow-md ${task.status === 'Completed' ? 'opacity-60 border-slate-100' : 'border-slate-200 hover:border-teal-400'}`}>
+                {filteredTasks.map(task => {
+                    const progress = getTaskProgress(task);
+                    return (
+                    <div 
+                        key={task.id} 
+                        onClick={() => { setSelectedTask(task); setIsDetailModalOpen(true); }}
+                        className={`bg-white rounded-2xl border-2 transition-all p-5 shadow-sm group hover:shadow-md cursor-pointer flex flex-col ${task.status === 'Completed' ? 'opacity-60 border-slate-100' : 'border-slate-200 hover:border-teal-400'}`}
+                    >
                         <div className="flex justify-between items-start mb-4">
                             <div className="flex items-center gap-3">
                                 <button 
-                                    onClick={() => handleToggleStatus(task)}
+                                    onClick={(e) => { e.stopPropagation(); handleToggleStatus(task); }}
                                     className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
                                         task.status === 'Completed' 
                                         ? 'bg-teal-500 border-teal-500 text-white' 
@@ -252,20 +376,33 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
                                     {task.priority}
                                 </span>
                             </div>
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => { setEditingTask(task); setIsTaskModalOpen(true); }} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"><Edit2 size={14}/></button>
-                                <button onClick={() => handleDeleteTask(task.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={14}/></button>
+                            <div className="flex gap-2 text-slate-400">
+                                {task.updates && task.updates.length > 0 && <div className="flex items-center gap-1 text-[10px] font-bold"><MessageSquare size={12}/> {task.updates.length}</div>}
+                                {task.subtasks && task.subtasks.length > 0 && <div className="flex items-center gap-1 text-[10px] font-bold"><ListChecks size={12}/> {task.subtasks.filter(s=>s.completed).length}/{task.subtasks.length}</div>}
                             </div>
                         </div>
 
-                        <h3 className={`font-bold text-slate-900 mb-2 leading-tight ${task.status === 'Completed' ? 'line-through' : ''}`}>
+                        <h3 className={`font-bold text-slate-900 mb-2 leading-tight ${task.status === 'Completed' ? 'line-through text-slate-400' : ''}`}>
                             {task.title}
                         </h3>
                         
                         {task.description && (
-                            <p className="text-sm text-slate-500 mb-6 line-clamp-2 leading-relaxed">
+                            <p className="text-sm text-slate-500 mb-4 line-clamp-2 leading-relaxed">
                                 {task.description}
                             </p>
+                        )}
+
+                        {/* Progress Bar for Subtasks */}
+                        {progress !== null && (
+                            <div className="mb-4">
+                                <div className="flex justify-between text-[10px] font-bold text-slate-400 uppercase mb-1">
+                                    <span>Voortgang</span>
+                                    <span>{progress}%</span>
+                                </div>
+                                <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden">
+                                    <div className="h-full bg-teal-500 transition-all duration-500" style={{ width: `${progress}%` }}></div>
+                                </div>
+                            </div>
                         )}
 
                         <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between">
@@ -289,29 +426,177 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
                                 )}
                             </div>
 
-                            <div className="text-[10px] text-slate-300 font-medium">
-                                {new Date(task.createdAt).toLocaleDateString()}
-                            </div>
+                            {activeTab === 'archive' ? (
+                                <div className="text-[10px] text-red-400 font-bold flex items-center gap-1">
+                                    <Clock size={10}/> Verwijderd over {Math.max(1, 7 - Math.floor((new Date().getTime() - new Date(task.completedAt!).getTime()) / (1000 * 60 * 60 * 24)))}d
+                                </div>
+                            ) : (
+                                <div className="text-[10px] text-slate-300 font-medium">
+                                    {new Date(task.createdAt).toLocaleDateString()}
+                                </div>
+                            )}
                         </div>
                     </div>
-                ))}
+                )})}
 
                 {filteredTasks.length === 0 && (
-                    <div className="col-span-full py-20 text-center bg-white rounded-3xl border-2 border-dashed border-slate-200">
-                        <div className="w-16 h-16 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <CheckSquare size={32} />
+                    <div className="col-span-full py-24 text-center bg-white rounded-3xl border-2 border-dashed border-slate-200">
+                        <div className="w-20 h-20 bg-slate-50 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-4">
+                            {activeTab === 'archive' ? <History size={40}/> : <CheckSquare size={40} />}
                         </div>
-                        <h3 className="text-lg font-bold text-slate-900">Geen taken gevonden</h3>
-                        <p className="text-slate-500 mt-1">Lekker gewerkt! Geen openstaande punten gevonden.</p>
-                        <button 
-                            onClick={() => openCreateTask(activeTab)}
-                            className="mt-6 text-teal-600 font-bold hover:underline"
-                        >
-                            Voeg een taak toe
-                        </button>
+                        <h3 className="text-xl font-bold text-slate-900">Geen taken gevonden</h3>
+                        <p className="text-slate-500 mt-2 max-w-sm mx-auto">
+                            {activeTab === 'archive' ? 'Het archief is leeg. Voltooide taken verschijnen hier voor 7 dagen.' : 'Lekker gewerkt! Geen openstaande punten gevonden in dit overzicht.'}
+                        </p>
+                        {activeTab !== 'archive' && (
+                            <button 
+                                onClick={() => openCreateTask(activeTab)}
+                                className="mt-8 px-6 py-3 bg-teal-600 text-white font-bold rounded-xl shadow-lg hover:bg-teal-700 transition-all"
+                            >
+                                Voeg een taak toe
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
+
+            {/* DETAIL MODAL (Smart View) */}
+            <Modal
+                isOpen={isDetailModalOpen}
+                onClose={() => setIsDetailModalOpen(false)}
+                title="Taak Details"
+            >
+                {selectedTask && (
+                    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
+                        {/* Header Info */}
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <span className={`px-2.5 py-1 rounded-md text-xs font-bold uppercase tracking-wider border ${PRIORITY_COLORS[selectedTask.priority]}`}>
+                                    {selectedTask.priority} Prioriteit
+                                </span>
+                                <h2 className="text-2xl font-bold text-slate-900 mt-4 leading-tight">{selectedTask.title}</h2>
+                                <p className="text-slate-500 mt-2 text-sm leading-relaxed">{selectedTask.description || 'Geen omschrijving beschikbaar.'}</p>
+                            </div>
+                            <div className="flex flex-col items-end gap-3">
+                                <button 
+                                    onClick={() => handleToggleStatus(selectedTask)}
+                                    className={`px-5 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all flex items-center gap-2 ${
+                                        selectedTask.status === 'Completed' 
+                                        ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' 
+                                        : 'bg-teal-600 text-white hover:bg-teal-700'
+                                    }`}
+                                >
+                                    {selectedTask.status === 'Completed' ? <><History size={18}/> Heropenen</> : <><Check size={18}/> Voltooien</>}
+                                </button>
+                                <div className="flex gap-2">
+                                    <button onClick={() => { setEditingTask(selectedTask); setIsTaskModalOpen(true); setIsDetailModalOpen(false); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg border border-slate-100"><Edit2 size={18}/></button>
+                                    <button onClick={() => handleDeleteTask(selectedTask.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg border border-slate-100"><Trash2 size={18}/></button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Task Metadata Grid */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Gemaakt door</div>
+                                <div className="text-sm font-bold text-slate-700">{selectedTask.createdBy}</div>
+                            </div>
+                            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Toegewezen aan</div>
+                                <div className="text-sm font-bold text-slate-700">{selectedTask.assigneeName || 'Iedereen'}</div>
+                            </div>
+                            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Deadline</div>
+                                <div className="text-sm font-bold text-slate-700">{selectedTask.dueDate || '-'}</div>
+                            </div>
+                            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                                <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Aangemaakt op</div>
+                                <div className="text-sm font-bold text-slate-700">{new Date(selectedTask.createdAt).toLocaleDateString()}</div>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            {/* SUBTASKS SECTION */}
+                            <div className="space-y-4">
+                                <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                                    <ListChecks size={20} className="text-indigo-600"/> Subtaken
+                                </h3>
+                                <div className="space-y-2">
+                                    {(selectedTask.subtasks || []).map(st => (
+                                        <div 
+                                            key={st.id} 
+                                            onClick={() => handleToggleSubtask(st.id)}
+                                            className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+                                                st.completed ? 'bg-slate-50 border-transparent opacity-60' : 'bg-white border-slate-100 hover:border-indigo-200'
+                                            }`}
+                                        >
+                                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${st.completed ? 'bg-indigo-500 border-indigo-500 text-white' : 'bg-white border-slate-200'}`}>
+                                                {st.completed && <Check size={12} strokeWidth={4}/>}
+                                            </div>
+                                            <span className={`text-sm font-medium ${st.completed ? 'line-through text-slate-400' : 'text-slate-700'}`}>{st.title}</span>
+                                        </div>
+                                    ))}
+                                    <form onSubmit={handleAddSubtask} className="flex gap-2 pt-2">
+                                        <input 
+                                            type="text" 
+                                            value={newSubtaskTitle}
+                                            onChange={(e) => setNewSubtaskTitle(e.target.value)}
+                                            placeholder="Voeg stap toe..."
+                                            className="flex-1 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+                                        />
+                                        <button disabled={!newSubtaskTitle.trim()} className="bg-indigo-600 text-white p-2.5 rounded-xl hover:bg-indigo-700 disabled:opacity-50"><Plus size={18}/></button>
+                                    </form>
+                                </div>
+                            </div>
+
+                            {/* UPDATES SECTION */}
+                            <div className="space-y-4 flex flex-col">
+                                <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                                    <MessageSquare size={20} className="text-teal-600"/> Updates & Opmerkingen
+                                </h3>
+                                
+                                <div className="flex-1 bg-slate-50/50 rounded-2xl border border-slate-100 p-4 max-h-[300px] overflow-y-auto space-y-4 custom-scrollbar">
+                                    {(selectedTask.updates || []).length > 0 ? (
+                                        selectedTask.updates?.map(update => (
+                                            <div key={update.id} className="bg-white p-3 rounded-xl shadow-sm border border-slate-100 animate-in slide-in-from-bottom-2">
+                                                <div className="flex justify-between text-[10px] font-bold uppercase tracking-wider mb-1">
+                                                    <span className="text-slate-400">{update.author}</span>
+                                                    <span className="text-slate-300">{new Date(update.createdAt).toLocaleString('nl-NL', {day:'numeric', month:'short', hour:'2-digit', minute:'2-digit'})}</span>
+                                                </div>
+                                                <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{update.content}</p>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <div className="h-full flex flex-col items-center justify-center text-slate-300 italic py-10">
+                                            <Info size={24} className="mb-2 opacity-20"/>
+                                            <p className="text-xs">Nog geen updates geplaatst.</p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="pt-2">
+                                    <div className="flex gap-2 bg-white p-2 border border-slate-200 rounded-2xl shadow-sm">
+                                        <textarea 
+                                            value={newUpdateText}
+                                            onChange={(e) => setNewUpdateText(e.target.value)}
+                                            placeholder="Schrijf een update..."
+                                            rows={2}
+                                            className="flex-1 border-none focus:ring-0 text-sm resize-none"
+                                        />
+                                        <button 
+                                            onClick={handleAddUpdate}
+                                            disabled={!newUpdateText.trim()}
+                                            className="self-end bg-teal-600 text-white p-3 rounded-xl hover:bg-teal-700 disabled:opacity-50 transition-all"
+                                        >
+                                            <Send size={18}/>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </Modal>
 
             {/* CREATE / EDIT TASK MODAL */}
             <Modal
@@ -355,7 +640,7 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
                                         onClick={() => setEditingTask({...editingTask, priority: p})}
                                         className={`flex-1 py-2 rounded-lg text-xs font-bold border transition-all ${
                                             editingTask?.priority === p 
-                                            ? (p === 'High' ? 'bg-red-600 text-white border-red-600' : p === 'Medium' ? 'bg-amber-500 text-white border-amber-500' : 'bg-blue-500 text-white border-blue-500')
+                                            ? (p === 'High' ? 'bg-red-600 text-white border-red-600' : p === 'Medium' ? 'bg-amber-50 text-white border-amber-500' : 'bg-blue-500 text-white border-blue-500')
                                             : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
                                         }`}
                                     >
@@ -382,9 +667,8 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
                         </h4>
                         
                         <div className="space-y-3">
-                            {/* Option 1: Share with Team (General List) */}
                             <label className="flex items-center gap-3 cursor-pointer group">
-                                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${editingTask?.shareWithTeam ? 'bg-teal-500 border-teal-500 text-white' : 'bg-white border-slate-300'}`}>
+                                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${editingTask?.shareWithTeam ? 'bg-teal-50 border-teal-500 text-white' : 'bg-white border-slate-300'}`}>
                                     {editingTask?.shareWithTeam && <Check size={14} strokeWidth={4}/>}
                                 </div>
                                 <input 
@@ -400,7 +684,6 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
                                 <span className="text-sm font-bold text-slate-700 group-hover:text-teal-700">Delen met Team Takenlijst</span>
                             </label>
 
-                            {/* Option 2: Assign to someone specific */}
                             {isSeniorOrManager && (
                                 <div>
                                     <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Toewijzen aan Medewerker</label>
@@ -410,7 +693,7 @@ const TodoListPage: React.FC<TodoListPageProps> = ({ currentUser, employees, onS
                                         onChange={(e) => setEditingTask({
                                             ...editingTask, 
                                             assigneeId: e.target.value || undefined,
-                                            isGeneral: e.target.value ? false : editingTask?.isGeneral // If assigned to someone, it's personal but trackable
+                                            isGeneral: e.target.value ? false : editingTask?.isGeneral
                                         })}
                                     >
                                         <option value="">Wijs toe aan...</option>

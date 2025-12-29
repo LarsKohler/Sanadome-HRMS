@@ -104,6 +104,13 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
 export type TaskStatus = 'Pending' | 'In Progress' | 'Completed' | 'Archived';
 export type TaskPriority = 'Low' | 'Medium' | 'High';
 
+export interface TaskUpdate {
+  id: string;
+  author: string;
+  content: string;
+  createdAt: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -119,6 +126,8 @@ export interface Task {
   createdAt: string;
   completedAt?: string;
   shareWithTeam?: boolean;
+  subtasks?: SubTask[];
+  updates?: TaskUpdate[];
 }
 
 export interface GlobalSettings {
