@@ -30,6 +30,10 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
     const [actionType, setActionType] = useState<DossierEntryType | 'Note'>('Note');
     const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
     const [editingSource, setEditingSource] = useState<'dossier' | 'note' | null>(null);
+
+    // Delete Document Modal State
+    const [isDeleteDocModalOpen, setIsDeleteDocModalOpen] = useState(false);
+    const [docToDelete, setDocToDelete] = useState<EmployeeDocument | null>(null);
     
     // Form States
     const [noteForm, setNoteForm] = useState({ title: '', content: '', date: new Date().toISOString().split('T')[0] });
@@ -271,12 +275,16 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
         }
     };
 
-    const handleDeleteDocument = async (docId: string, e: React.MouseEvent) => {
+    const handleDeleteDocument = (doc: EmployeeDocument, e: React.MouseEvent) => {
         e.stopPropagation();
-        if (!confirm("Document verwijderen?")) return;
+        setDocToDelete(doc);
+        setIsDeleteDocModalOpen(true);
+    };
+
+    const confirmDeleteDocument = async () => {
+        if (!docToDelete) return;
         
-        const docToDelete = employee.documents?.find(d => d.id === docId);
-        if (docToDelete?.url) {
+        if (docToDelete.url) {
             try {
                 await api.deleteFile(docToDelete.url);
             } catch (e) {
@@ -284,8 +292,11 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
             }
         }
 
-        const updatedDocs = (employee.documents || []).filter(d => d.id !== docId);
+        const updatedDocs = (employee.documents || []).filter(d => d.id !== docToDelete.id);
         onUpdate({ ...employee, documents: updatedDocs });
+        
+        setIsDeleteDocModalOpen(false);
+        setDocToDelete(null);
         onShowToast("Document verwijderd.");
     };
 
@@ -651,7 +662,7 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                                                 <div className="p-2 bg-slate-50 rounded-lg text-slate-500 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
                                                     <FileText size={20}/>
                                                 </div>
-                                                <button onClick={(e) => handleDeleteDocument(doc.id, e)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button onClick={(e) => handleDeleteDocument(doc, e)} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
                                                     <Trash2 size={16}/>
                                                 </button>
                                             </div>
@@ -786,6 +797,43 @@ const HRDossierDetail: React.FC<HRDossierDetailProps> = ({ employee, currentUser
                         </button>
                     </div>
                 </form>
+            </Modal>
+
+            {/* DELETE DOCUMENT MODAL */}
+            <Modal
+                isOpen={isDeleteDocModalOpen}
+                onClose={() => { setIsDeleteDocModalOpen(false); setDocToDelete(null); }}
+                title="Document Verwijderen"
+            >
+                <div className="space-y-6 py-2">
+                    <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-start gap-3">
+                        <div className="p-2 bg-red-100 rounded-full text-red-600 mt-0.5">
+                            <Trash2 size={20} />
+                        </div>
+                        <div>
+                            <h4 className="text-sm font-bold text-red-900">Let op!</h4>
+                            <p className="text-sm text-red-800 mt-1">
+                                Weet u zeker dat u <strong>{docToDelete?.name}</strong> wilt verwijderen? 
+                                Het bestand wordt ook definitief verwijderd uit de cloud opslag.
+                            </p>
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-3">
+                        <button 
+                            type="button"
+                            onClick={() => { setIsDeleteDocModalOpen(false); setDocToDelete(null); }}
+                            className="px-6 py-3 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+                        >
+                            Annuleren
+                        </button>
+                        <button 
+                            onClick={confirmDeleteDocument}
+                            className="px-6 py-3 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-all shadow-sm"
+                        >
+                            Verwijderen
+                        </button>
+                    </div>
+                </div>
             </Modal>
         </div>
     );
