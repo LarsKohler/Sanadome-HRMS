@@ -386,8 +386,17 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                 className="group cursor-pointer hover:bg-slate-50 p-3 rounded-xl transition-colors -mx-3"
                               >
                                   {news.image && (
-                                      <div className="h-32 w-full rounded-lg overflow-hidden mb-3 bg-slate-100">
-                                          <img src={news.image} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" alt={news.title}/>
+                                      <div className="h-32 w-full rounded-lg overflow-hidden mb-3 bg-slate-100 relative">
+                                          <img 
+                                            src={news.image} 
+                                            className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" 
+                                            alt={news.title}
+                                            onError={(e) => {
+                                                const target = e.target as HTMLImageElement;
+                                                target.onerror = null;
+                                                target.src = 'https://images.unsplash.com/photo-1585829365295-ab7cd400c167?w=800&auto=format&fit=crop&q=60';
+                                            }}
+                                          />
                                       </div>
                                   )}
                                   <div className="flex items-center gap-2 mb-1">

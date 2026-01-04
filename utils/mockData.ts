@@ -1,5 +1,6 @@
 
 
+
 import { Employee, NewsPost, OnboardingTemplate, SystemUpdateLog, KnowledgeArticle, Applicant, Ticket, Vacancy, EvaluationTemplate, BikeSettings, BikeReservation, AcademyCourse, AcademyProgress } from '../types';
 
 export const MOCK_EMPLOYEES: Employee[] = [
@@ -52,7 +53,8 @@ export const MOCK_NEWS: NewsPost[] = [
     authorRole: 'Manager',
     authorAvatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80',
     date: '12 Juni 2023',
-    readBy: ['2']
+    readBy: ['2'],
+    image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=800&q=80'
   }
 ];
 
