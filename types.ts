@@ -20,7 +20,8 @@ export type ViewState =
   | 'CHECKLISTS'
   | 'ACADEMY'
   | 'SHIFT_HANDOVER'
-  | 'TODO_LIST';
+  | 'TODO_LIST'
+  | 'COMPLAINTS'; // NEW
 
 export const ViewState = {
   HOME: 'HOME',
@@ -44,6 +45,7 @@ export const ViewState = {
   ACADEMY: 'ACADEMY',
   SHIFT_HANDOVER: 'SHIFT_HANDOVER',
   TODO_LIST: 'TODO_LIST',
+  COMPLAINTS: 'COMPLAINTS', // NEW
 } as const;
 
 export type Permission =
@@ -71,7 +73,8 @@ export type Permission =
   | 'MANAGE_TICKETS'
   | 'MANAGE_CHECKLISTS'
   | 'MANAGE_HANDOVER'
-  | 'MANAGE_TASKS';
+  | 'MANAGE_TASKS'
+  | 'MANAGE_COMPLAINTS'; // NEW
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   VIEW_REPORTS: 'Rapportages Inzien',
@@ -99,7 +102,10 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   MANAGE_CHECKLISTS: 'Checklists Beheren',
   MANAGE_HANDOVER: 'Shift Overdracht Beheren',
   MANAGE_TASKS: 'Takenlijst Beheren',
+  MANAGE_COMPLAINTS: 'Klachten Beheren', // NEW
 };
+
+// ... existing types ...
 
 export type TaskStatus = 'Pending' | 'In Progress' | 'Completed' | 'Archived';
 export type TaskPriority = 'Low' | 'Medium' | 'High';
@@ -492,6 +498,7 @@ export interface AssignedBadge {
   assignedBy: string;
   assignedById: string;
   assignedAt: string;
+  reason?: string;
 }
 
 export interface AcademyCourse {
@@ -714,4 +721,39 @@ export interface SurveyResponse {
   employeeId: string;
   answers: Record<string, any>;
   completedAt: string;
+}
+
+// --- NEW COMPLAINT TYPES ---
+
+export type ComplaintCategory = 'Room' | 'Food' | 'Service' | 'Noise' | 'Technical' | 'Other';
+export type ComplaintStatus = 'Open' | 'In Progress' | 'Resolved' | 'Closed';
+export type ComplaintSeverity = 'Low' | 'Medium' | 'High' | 'Critical';
+
+export interface ComplaintTimelineItem {
+    id: string;
+    date: string;
+    author: string;
+    action: string; // e.g. "Status changed", "Note added", "Offer made"
+    note?: string;
+}
+
+export interface Complaint {
+    id: string;
+    reservationNumber: string;
+    guestName: string;
+    roomNumber?: string;
+    category: ComplaintCategory;
+    severity: ComplaintSeverity;
+    status: ComplaintStatus;
+    description: string;
+    compensationDetails: {
+        offered: string;
+        cost?: number;
+        guestAccepted?: boolean | null; // null = pending, true = accepted, false = rejected
+    };
+    assignedTo?: string; // Employee ID
+    createdBy: string;
+    createdAt: string;
+    updatedAt: string;
+    timeline: ComplaintTimelineItem[];
 }

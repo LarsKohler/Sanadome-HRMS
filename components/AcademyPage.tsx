@@ -9,18 +9,21 @@ import {
     Map, Target, Zap, Timer, MousePointer2, ArrowRight as ArrowIcon,
     Bold, Italic, List, Heading1, Link as LinkIcon, Upload, Calendar, Medal, Star, Heart, Trophy, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Award as CertificateIcon, Check
 } from 'lucide-react';
-import { Employee, AcademyCourse, AcademyProgress, AcademyModule, AcademyLesson, LearningBlock, BlockType, HotspotItem, BadgeIconKey, BadgeColor } from '../types';
+import { Employee, AcademyCourse, AcademyProgress, AcademyModule, AcademyLesson, LearningBlock, BlockType, HotspotItem, BadgeIconKey, BadgeColor, Notification } from '../types';
 import { api } from '../utils/api';
 import AcademySidebar from './AcademySidebar';
 import { Modal } from './Modal';
 import { hasPermission } from '../utils/permissions';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart as RePieChart, Pie, Cell, Legend, LineChart, Line, CartesianGrid } from 'recharts';
+import BadgeManager from './BadgeManager';
 
 interface AcademyPageProps {
     currentUser: Employee;
     employees: Employee[];
     onShowToast: (message: string) => void;
     onExit: () => void;
+    onUpdateEmployee: (employee: Employee) => void;
+    onAddNotification: (notification: Notification) => void;
 }
 
 const BADGE_ICONS: Record<BadgeIconKey, React.ElementType> = {
@@ -82,8 +85,8 @@ const RichTextEditor = ({ value, onChange }: { value: string, onChange: (val: st
     );
 };
 
-const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onShowToast, onExit }) => {
-    const [view, setView] = useState<'dashboard' | 'catalog' | 'player' | 'builder' | 'certificates' | 'manage-courses' | 'manage-students' | 'manage-analytics'>('dashboard');
+const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onShowToast, onExit, onUpdateEmployee, onAddNotification }) => {
+    const [view, setView] = useState<'dashboard' | 'catalog' | 'player' | 'builder' | 'certificates' | 'manage-courses' | 'manage-students' | 'manage-analytics' | 'manage-badges'>('dashboard');
     const [courses, setCourses] = useState<AcademyCourse[]>([]);
     const [userProgress, setUserProgress] = useState<AcademyProgress[]>([]);
     const [allProgress, setAllProgress] = useState<AcademyProgress[]>([]);
@@ -1933,6 +1936,15 @@ const AcademyPage: React.FC<AcademyPageProps> = ({ currentUser, employees, onSho
                 {view === 'manage-courses' && renderManageCourses()}
                 {view === 'manage-students' && renderManageStudents()}
                 {view === 'manage-analytics' && renderAnalytics()}
+                {view === 'manage-badges' && (
+                    <BadgeManager 
+                        currentUser={currentUser}
+                        employees={employees}
+                        onUpdateEmployee={onUpdateEmployee}
+                        onShowToast={onShowToast}
+                        onAddNotification={onAddNotification}
+                    />
+                )}
             </main>
         </div>
     );

@@ -1,7 +1,9 @@
 
 
 
-import { Employee, NewsPost, OnboardingTemplate, SystemUpdateLog, KnowledgeArticle, Applicant, Ticket, Vacancy, EvaluationTemplate, BikeSettings, BikeReservation, AcademyCourse, AcademyProgress } from '../types';
+
+
+import { Employee, NewsPost, OnboardingTemplate, SystemUpdateLog, KnowledgeArticle, Applicant, Ticket, Vacancy, EvaluationTemplate, BikeSettings, BikeReservation, AcademyCourse, AcademyProgress, Complaint } from '../types';
 
 export const MOCK_EMPLOYEES: Employee[] = [
   {
@@ -405,5 +407,29 @@ export const MOCK_ACADEMY_PROGRESS: AcademyProgress[] = [
             'b3': { before: 'Ik hoop beter te leren omgaan met lastige gasten.' }
         },
         startDate: '01-02-2023'
+    }
+];
+
+export const MOCK_COMPLAINTS: Complaint[] = [
+    {
+        id: 'cmp1',
+        reservationNumber: '102394',
+        guestName: 'Dhr. van der Meulen',
+        roomNumber: '104',
+        category: 'Noise',
+        severity: 'High',
+        status: 'Open',
+        description: 'Gast heeft last van bouwwerkzaamheden naast de kamer. Vraagt om compensatie.',
+        compensationDetails: {
+            offered: '',
+            guestAccepted: null
+        },
+        assignedTo: '2',
+        createdBy: 'Lars Kohler',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        timeline: [
+            { id: 't1', date: new Date().toISOString(), author: 'Lars Kohler', action: 'Created', note: 'Gast kwam boos naar receptie.' }
+        ]
     }
 ];

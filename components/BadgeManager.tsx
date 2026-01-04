@@ -58,6 +58,7 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
     const [newBadge, setNewBadge] = useState<Partial<BadgeDefinition>>({ icon: 'Star', color: 'blue' });
     const [selectedBadgeId, setSelectedBadgeId] = useState<string | null>(null);
     const [targetEmployeeId, setTargetEmployeeId] = useState<string>('');
+    const [assignReason, setAssignReason] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
 
     // Confirmation States
@@ -128,7 +129,8 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
             badgeId: selectedBadgeId,
             assignedBy: currentUser.name,
             assignedById: currentUser.id,
-            assignedAt: new Date().toLocaleDateString('nl-NL')
+            assignedAt: new Date().toLocaleDateString('nl-NL'),
+            reason: assignReason
         };
 
         const updatedEmployee = {
@@ -146,7 +148,7 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
             senderName: currentUser.name,
             type: 'Badge',
             title: 'Nieuwe Badge Ontvangen!',
-            message: `Gefeliciteerd! Je hebt de "${badgeDef.name}" badge ontvangen van ${currentUser.name}.`,
+            message: `Gefeliciteerd! Je hebt de "${badgeDef.name}" badge ontvangen van ${currentUser.name}. ${assignReason ? `Reden: ${assignReason}` : ''}`,
             date: 'Zojuist',
             read: false,
             targetView: ViewState.HOME, // Profile page
@@ -156,6 +158,7 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
 
         setIsAssignModalOpen(false);
         setTargetEmployeeId('');
+        setAssignReason('');
         onShowToast(`Badge uitgereikt aan ${targetEmployee.name}!`);
     };
 
@@ -177,6 +180,7 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
 
     const openAssignModal = (badgeId: string) => {
         setSelectedBadgeId(badgeId);
+        setAssignReason('');
         setIsAssignModalOpen(true);
     };
 
@@ -302,7 +306,7 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
                                         const Icon = BADGE_ICONS[def.icon];
 
                                         return (
-                                            <div key={assigned.id} className="flex items-center gap-3 p-2 rounded-xl bg-slate-50 border border-slate-100 group">
+                                            <div key={assigned.id} className="flex items-center gap-3 p-2 rounded-xl bg-slate-50 border border-slate-100 group relative">
                                                 <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${BADGE_COLORS[def.color]}`}>
                                                     <Icon size={16} />
                                                 </div>
@@ -311,10 +315,15 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
                                                     <div className="text-[10px] text-slate-400">
                                                         {assigned.assignedAt} • {assigned.assignedBy}
                                                     </div>
+                                                    {assigned.reason && (
+                                                        <div className="text-[10px] text-slate-500 italic truncate" title={assigned.reason}>
+                                                            "{assigned.reason}"
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <button 
                                                     onClick={() => setRevokeBadgeData({ empId: emp.id, badgeId: assigned.id })}
-                                                    className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
+                                                    className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100 absolute top-2 right-2"
                                                     title="Badge intrekken"
                                                 >
                                                     <X size={16} />
@@ -448,7 +457,7 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        <div className="max-h-60 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100">
+                        <div className="max-h-40 overflow-y-auto border border-slate-200 rounded-xl divide-y divide-slate-100 mb-4">
                             {filteredEmployees.map(emp => (
                                 <button
                                     key={emp.id}
@@ -463,6 +472,17 @@ const BadgeManager: React.FC<BadgeManagerProps> = ({ currentUser, employees, onU
                                     {targetEmployeeId === emp.id && <Check size={16} className="text-teal-600" />}
                                 </button>
                             ))}
+                        </div>
+                        
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Reden van uitreiking (Optioneel)</label>
+                            <textarea 
+                                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-teal-500 outline-none"
+                                rows={2}
+                                placeholder="Waarom verdient deze persoon de badge?"
+                                value={assignReason}
+                                onChange={(e) => setAssignReason(e.target.value)}
+                            />
                         </div>
                     </div>
 

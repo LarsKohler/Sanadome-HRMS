@@ -1,8 +1,10 @@
 
+
+
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, Ticket, ChecklistTemplate, ChecklistSubmission, ShiftHandoverItem, Task } from '../types';
-import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_EVALUATION_TEMPLATES, MOCK_BIKE_SETTINGS, MOCK_BIKE_RESERVATIONS, MOCK_ACADEMY_COURSES, MOCK_ACADEMY_PROGRESS, MOCK_TICKETS } from './mockData';
+import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, Ticket, ChecklistTemplate, ChecklistSubmission, ShiftHandoverItem, Task, Complaint } from '../types';
+import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_EVALUATION_TEMPLATES, MOCK_BIKE_SETTINGS, MOCK_BIKE_RESERVATIONS, MOCK_ACADEMY_COURSES, MOCK_ACADEMY_PROGRESS, MOCK_TICKETS, MOCK_COMPLAINTS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
 export const isLive = !!supabase;
@@ -69,6 +71,75 @@ export const api = {
           }
       } else {
           localStorage.setItem('hrms_global_settings', JSON.stringify(settings));
+      }
+  },
+
+  // --- COMPLAINTS (NEW) ---
+  getComplaints: async (): Promise<Complaint[]> => {
+      if (isLive && supabase) {
+          try {
+              const { data, error } = await supabase.from('complaints').select('*');
+              if (!error && data) {
+                  return data.map((row: any) => ({
+                      id: row.id,
+                      reservationNumber: row.reservation_number,
+                      guestName: row.guest_name,
+                      roomNumber: row.room_number, // Map snake_case to camelCase
+                      category: row.category,
+                      severity: row.severity,
+                      status: row.status,
+                      description: row.description,
+                      compensationDetails: row.compensation_details || { offered: '', guestAccepted: null },
+                      assignedTo: row.assigned_to,
+                      createdBy: row.created_by,
+                      createdAt: row.created_at,
+                      updatedAt: row.updated_at,
+                      timeline: row.timeline || []
+                  }));
+              }
+              return MOCK_COMPLAINTS;
+          } catch (e) {
+              return MOCK_COMPLAINTS;
+          }
+      }
+      const local = localStorage.getItem('hrms_complaints');
+      return local ? JSON.parse(local) : MOCK_COMPLAINTS;
+  },
+
+  saveComplaint: async (complaint: Complaint) => {
+      if (isLive && supabase) {
+          const payload = {
+              id: complaint.id,
+              reservation_number: complaint.reservationNumber,
+              guest_name: complaint.guestName,
+              room_number: complaint.roomNumber,
+              category: complaint.category,
+              severity: complaint.severity,
+              status: complaint.status,
+              description: complaint.description,
+              compensation_details: complaint.compensationDetails,
+              assigned_to: complaint.assignedTo,
+              created_by: complaint.createdBy,
+              created_at: complaint.createdAt,
+              updated_at: new Date().toISOString(), // Always update timestamp
+              timeline: complaint.timeline
+          };
+          await supabase.from('complaints').upsert(payload);
+      } else {
+          const current = await api.getComplaints();
+          const idx = current.findIndex(c => c.id === complaint.id);
+          if (idx >= 0) current[idx] = complaint;
+          else current.unshift(complaint);
+          localStorage.setItem('hrms_complaints', JSON.stringify(current));
+      }
+  },
+
+  deleteComplaint: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('complaints').delete().eq('id', id);
+      } else {
+          const current = await api.getComplaints();
+          localStorage.setItem('hrms_complaints', JSON.stringify(current.filter(c => c.id !== id)));
       }
   },
 

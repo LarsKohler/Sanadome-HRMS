@@ -65,7 +65,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
           const badgeDefinitions = await api.getBadges(); 
           manualBadges.forEach(b => {
               const def = badgeDefinitions.find(d => d.id === b.badgeId);
-              if (def) displayBadges.push({ ...def, date: b.assignedAt });
+              if (def) displayBadges.push({ ...def, date: b.assignedAt, reason: b.reason });
           });
           const progress = await api.getAcademyProgress();
           const courses = await api.getAcademyCourses();
@@ -73,7 +73,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
           myProgress.forEach(p => {
               const course = courses.find(c => c.id === p.courseId);
               if (course?.badgeConfig?.enabled) {
-                  displayBadges.push({ ...course.badgeConfig, date: p.completedDate });
+                  displayBadges.push({ ...course.badgeConfig, date: p.completedDate, reason: 'Cursus voltooid' });
               }
           });
           setCombinedBadges(displayBadges);
@@ -258,7 +258,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
               </div>
 
               {/* Stats Grid */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-3 gap-4">
                   <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center items-center text-center">
                       <div className="text-2xl font-bold text-slate-900 mb-1">{tenureString.split(' ')[0]}</div>
                       <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dienstjaren</div>
@@ -270,10 +270,6 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                   <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center items-center text-center">
                       <div className="text-2xl font-bold text-slate-900 mb-1">{compliments.length}</div>
                       <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Complimenten</div>
-                  </div>
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center items-center text-center">
-                      <div className="text-2xl font-bold text-slate-900 mb-1">25</div>
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Verlofuren</div>
                   </div>
               </div>
           </div>
@@ -354,7 +350,9 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                                       <span className="text-[10px] text-slate-400">{item.date}</span>
                                   </div>
                                   <p className="text-xs text-slate-600 leading-relaxed">
-                                      {item.type === 'badge' ? `Badge behaald: ${item.description}` : `"${item.description}"`}
+                                      {item.type === 'badge' 
+                                        ? (item.reason ? `Badge behaald: ${item.reason}` : `Badge behaald: ${item.description}`) 
+                                        : `"${item.description}"`}
                                   </p>
                               </div>
                           </div>

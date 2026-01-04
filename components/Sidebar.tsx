@@ -1,9 +1,11 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
   UserPlus, FileText, PieChart, 
-  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Medal, BookOpen, Truck, ChevronDown, ChevronRight, Bike, GraduationCap, Scale, ListTodo, FolderOpen, ArrowRightLeft, LogOut
+  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Medal, BookOpen, Truck, ChevronDown, ChevronRight, Bike, GraduationCap, Scale, ListTodo, FolderOpen, ArrowRightLeft, LogOut, MessageCircleWarning
 } from 'lucide-react';
 import { ViewState, Employee, Permission, GlobalSettings } from '../types';
 import { hasPermission, isModuleEnabled } from '../utils/permissions';
@@ -69,6 +71,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
       label: 'Management Tools',
       items: [
         { icon: CheckSquare, label: 'Takenlijst', id: ViewState.TODO_LIST },
+        { icon: MessageCircleWarning, label: 'Klachten', id: ViewState.COMPLAINTS, permission: 'MANAGE_COMPLAINTS' },
         { icon: Euro, label: 'Debiteuren', id: ViewState.DEBT_CONTROL, permission: 'MANAGE_DEBTORS' },
         { icon: Truck, label: 'Linnen Audit', id: ViewState.LINEN_AUDIT, permission: 'MANAGE_OPERATIONS' },
         { icon: PieChart, label: 'Rapportages', id: ViewState.REPORTS, permission: 'VIEW_REPORTS' },
@@ -146,7 +149,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
                   <h1 className="text-xl font-bold tracking-tight text-slate-900 leading-none">
                     Mijn<span className="text-teal-600">Sanadome</span>
                   </h1>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Medewerkers</p>
+                  <p className="text--[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Medewerkers</p>
               </div>
           </div>
 

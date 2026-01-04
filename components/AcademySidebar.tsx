@@ -3,7 +3,7 @@ import React from 'react';
 import { 
     LayoutDashboard, BookOpen, Trophy, PenTool, 
     LogOut, ChevronRight, GraduationCap, Users, BarChart3, Settings,
-    User, Shield, CheckCircle
+    User, Shield, CheckCircle, Medal
 } from 'lucide-react';
 import { Employee } from '../types';
 import { hasPermission } from '../utils/permissions';
@@ -29,6 +29,7 @@ const AcademySidebar: React.FC<AcademySidebarProps> = ({ activeView, onChangeVie
         { id: 'manage-courses', label: 'Cursus Beheer', icon: PenTool },
         { id: 'manage-students', label: 'Studenten & Voortgang', icon: Users },
         { id: 'manage-analytics', label: 'Rapportages', icon: BarChart3 },
+        { id: 'manage-badges', label: 'Badges & Waardering', icon: Medal },
     ];
 
     return (
