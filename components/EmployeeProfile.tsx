@@ -169,7 +169,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
               {/* Banner Area */}
               <div className="h-48 md:h-80 relative group/banner">
                   {employee.banner ? (
-                      <img src={employee.banner} className="w-full h-full object-cover transition-transform duration-700 group-hover/banner:scale-105" alt="Banner"/>
+                      <img src={employee.banner} className="w-full h-full object-cover" alt="Banner"/>
                   ) : (
                       <div className="w-full h-full bg-gradient-to-r from-slate-200 to-slate-300"></div>
                   )}
@@ -282,27 +282,29 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
           <div className="space-y-6">
               {/* ACTION CENTER */}
               {actions.length > 0 && (
-                  <div className="space-y-4 animate-in slide-in-from-bottom-4 fade-in">
-                      <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm animate-in slide-in-from-bottom-4 fade-in">
+                      <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
                           <Bell size={18} className="text-amber-500 fill-amber-500"/> Openstaande Acties
                       </h3>
-                      {actions.map(action => (
-                          <div key={action.id} className={`p-4 rounded-2xl border flex items-start gap-4 shadow-sm transition-all hover:shadow-md ${action.color}`}>
-                              <div className="p-2 bg-white rounded-xl shadow-sm bg-opacity-60">
-                                  <action.icon size={20} />
+                      <div className="space-y-4">
+                          {actions.map(action => (
+                              <div key={action.id} className={`p-4 rounded-2xl border flex items-start gap-4 shadow-sm transition-all hover:shadow-md ${action.color}`}>
+                                  <div className="p-2 bg-white rounded-xl shadow-sm bg-opacity-60">
+                                      <action.icon size={20} />
+                                  </div>
+                                  <div className="flex-1">
+                                      <h4 className="font-bold text-sm mb-1">{action.title}</h4>
+                                      <p className="text-xs opacity-80 mb-3">{action.description}</p>
+                                      <button 
+                                        onClick={action.action}
+                                        className="bg-white bg-opacity-80 hover:bg-opacity-100 text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition-all flex items-center gap-2"
+                                      >
+                                          Actie Ondernemen <ArrowRight size={12}/>
+                                      </button>
+                                  </div>
                               </div>
-                              <div className="flex-1">
-                                  <h4 className="font-bold text-sm mb-1">{action.title}</h4>
-                                  <p className="text-xs opacity-80 mb-3">{action.description}</p>
-                                  <button 
-                                    onClick={action.action}
-                                    className="bg-white bg-opacity-80 hover:bg-opacity-100 text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition-all flex items-center gap-2"
-                                  >
-                                      Actie Ondernemen <ArrowRight size={12}/>
-                                  </button>
-                              </div>
-                          </div>
-                      ))}
+                          ))}
+                      </div>
                   </div>
               )}
 
