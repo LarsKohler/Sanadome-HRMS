@@ -1,21 +1,19 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Briefcase, MapPin, 
-  Mail, Linkedin, Phone, 
-  Camera, Image as ImageIcon,
-  Calendar, Clock, AlertCircle, FileText, Download, CheckCircle2,
-  TrendingUp, Award, Award as CertificateIcon, ChevronRight, Flag, Target, ArrowUpRight, History, Layers, Check, PlayCircle, Map, User, Sparkles, Zap, LayoutDashboard, Building2, Users, GraduationCap, MessageSquare, ListTodo, Euro, AlertTriangle, HeartPulse, Plane, ClipboardCheck, Circle, Newspaper, Heart, Shield, Rocket, Crown, ThumbsUp, Lightbulb, Flame, Star, Eye, ArrowLeft, ArrowRight, BookOpen, PenTool, CheckCircle, BarChart3, Save, Trophy, Lock, Pencil, Medal, Calendar as CalendarIcon, Thermometer, FolderOpen, Info, RefreshCw, Globe, ExternalLink, X, Activity, Search as SearchIcon
+  Briefcase, MapPin, Mail, Phone, Camera, Image as ImageIcon,
+  Calendar, Clock, AlertCircle, CheckCircle2, TrendingUp, ChevronRight, 
+  ArrowRight, Heart, Star, Trophy, ArrowLeft, Building2,
+  Newspaper, LayoutDashboard, ClipboardCheck, ListTodo,
+  ExternalLink, Bell, AlertTriangle, User, Medal
 } from 'lucide-react';
-import { Employee, EmployeeNote, EmployeeDocument, ViewState, NewsPost, EvaluationCycle, BadgeIconKey, BadgeColor, AssignedBadge, AcademyCourse, AcademyProgress, Applicant, DossierEntry, Debtor } from '../types';
-import { Modal } from './Modal';
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, LineChart, Line, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { Employee, ViewState, NewsPost, BadgeIconKey, BadgeColor } from '../types';
 import { api } from '../utils/api';
-import { hasPermission } from '../utils/permissions';
 
 const BADGE_ICONS: Record<BadgeIconKey, React.ElementType> = {
-    'Trophy': Trophy, 'Star': Star, 'Medal': Medal, 'Heart': Heart, 'Zap': Zap, 'Shield': Shield,
-    'Rocket': Rocket, 'Crown': Crown, 'ThumbsUp': ThumbsUp, 'Lightbulb': Lightbulb, 'Flame': Flame,
-    'Target': Target, 'Users': Users, 'Eye': Eye
+    'Trophy': Trophy, 'Star': Star, 'Medal': Trophy, 'Heart': Heart, 'Zap': TrendingUp, 'Shield': CheckCircle2,
+    'Rocket': ArrowRight, 'Crown': Trophy, 'ThumbsUp': Heart, 'Lightbulb': Star, 'Flame': TrendingUp,
+    'Target': CheckCircle2, 'Users': Heart, 'Eye': Star
 };
 
 const BADGE_COLORS: Record<BadgeColor, string> = {
@@ -32,7 +30,7 @@ const BADGE_COLORS: Record<BadgeColor, string> = {
 interface EmployeeProfileProps {
   employee: Employee;
   currentUser: Employee;
-  applicants?: Applicant[];
+  applicants?: any[];
   onNext: () => void;
   onPrevious: () => void;
   onChangeView: (view: ViewState) => void;
@@ -40,7 +38,8 @@ interface EmployeeProfileProps {
   onShowToast: (message: string) => void;
   onBack?: () => void;
   managers: Employee[];
-  latestNews?: NewsPost | null;
+  recentNews?: NewsPost[]; 
+  latestNews?: NewsPost | null; 
 }
 
 const EmployeeProfile: React.FC<EmployeeProfileProps> = ({ 
@@ -49,31 +48,16 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
   onUpdateEmployee,
   onShowToast,
   onChangeView,
-  onBack
+  onBack,
+  recentNews
 }) => {
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
-
   const isOwnProfile = employee.id === currentUser.id;
 
-  const [templateTitle, setTemplateTitle] = useState<string>('');
   const [combinedBadges, setCombinedBadges] = useState<any[]>([]);
 
-  useEffect(() => {
-      const fetchTemplateName = async () => {
-          if (employee.activeTemplateId) {
-              try {
-                  const templates = await api.getTemplates();
-                  const found = templates.find(t => t.id === employee.activeTemplateId);
-                  if (found) setTemplateTitle(found.title);
-              } catch (e) {
-                  setTemplateTitle('Inwerktraject');
-              }
-          }
-      };
-      if (employee.onboardingStatus === 'Active') fetchTemplateName();
-  }, [employee.activeTemplateId, employee.onboardingStatus]);
-
+  // Load Badges logic
   useEffect(() => {
       const fetchBadges = async () => {
           const manualBadges = employee.badges || [];
@@ -97,6 +81,7 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
       fetchBadges();
   }, [employee.id, employee.badges]);
 
+  // Image Upload Handlers
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'avatar' | 'banner') => {
     if (!isOwnProfile) return; 
     const file = e.target.files?.[0];
@@ -113,238 +98,336 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
     }
   };
 
-  const renderDashboardOverview = () => {
-      const evaluations = employee.evaluations || [];
-      const signedEvals = evaluations.filter(e => e.status === 'Signed');
-      const avgScore = signedEvals.length > 0 
-        ? Math.round(signedEvals.reduce((acc, ev) => {
-            const total = ev.scores.reduce((sAcc, s) => sAcc + (s.managerScore || 0), 0);
-            const max = ev.scores.length * 5;
-            return acc + (total / max * 100);
-          }, 0) / signedEvals.length)
-        : null;
-
-      const obTasks = employee.onboardingTasks || [];
-      const obProgress = obTasks.length > 0 ? Math.round((obTasks.filter(t => t.score === 100).length / obTasks.length) * 100) : null;
-      const compliments = employee.dossier?.filter(d => d.type === 'Compliment').sort((a,b) => b.date.localeCompare(a.date)) || [];
-
-      const openActions = [];
-      evaluations.forEach(ev => {
-          if (isOwnProfile && ev.status === 'EmployeeInput') {
-              openActions.push({ title: 'Zelfreflectie invullen', desc: `Evaluatie: ${ev.type}`, type: 'Evaluation', date: ev.plannedDate });
-          }
-      });
-      if (isOwnProfile && employee.onboardingStatus === 'Active') {
-          const pendingTasks = obTasks.filter(t => !t.completed).length;
-          if (pendingTasks > 0) {
-              openActions.push({ title: 'Onboarding taken', desc: `Nog ${pendingTasks} taken deze week`, type: 'Onboarding' });
-          }
+  // --- ACTIONS LOGIC ---
+  const actions = [];
+  
+  // 1. Onboarding
+  if (employee.onboardingStatus === 'Active') {
+      const incompleteTasks = employee.onboardingTasks?.filter(t => !t.completed).length || 0;
+      if (incompleteTasks > 0) {
+          actions.push({
+              id: 'onboarding',
+              type: 'urgent',
+              title: 'Onboarding Hervatten',
+              description: `Je hebt nog ${incompleteTasks} openstaande taken.`,
+              icon: LayoutDashboard,
+              action: () => onChangeView(ViewState.ONBOARDING),
+              color: 'bg-teal-50 text-teal-700 border-teal-200'
+          });
       }
+  }
 
-      const hiredDate = new Date(employee.hiredOn.split('-').reverse().join('-'));
-      const diffTime = Math.abs(new Date().getTime() - hiredDate.getTime());
-      const diffYears = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 365.25));
-      const diffMonths = Math.floor((diffTime % (1000 * 60 * 60 * 24 * 365.25)) / (1000 * 60 * 60 * 24 * 30.44));
+  // 2. Evaluations
+  const openEval = employee.evaluations?.find(e => e.status === 'EmployeeInput');
+  if (openEval) {
+      actions.push({
+          id: 'evaluation',
+          type: 'urgent',
+          title: 'Zelfreflectie Vereist',
+          description: `Jouw input wordt verwacht voor "${openEval.type}".`,
+          icon: ClipboardCheck,
+          action: () => onChangeView(ViewState.EVALUATIONS),
+          color: 'bg-purple-50 text-purple-700 border-purple-200'
+      });
+  }
 
-      return (
-          <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-12">
-              {/* TOP KPI ROW */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-sky-300 transition-all h-32">
-                      <div className="p-3 bg-sky-50 text-sky-600 rounded-xl group-hover:scale-110 transition-transform">
-                          <CertificateIcon size={24} />
+  // 3. Profile Completion (Gamification)
+  if (!employee.phone) {
+      actions.push({
+          id: 'profile-phone',
+          type: 'info',
+          title: 'Profiel Completeren',
+          description: 'Voeg je telefoonnummer toe voor betere bereikbaarheid.',
+          icon: Phone,
+          action: () => alert('Ga naar Instellingen om je profiel te bewerken (Demo)'),
+          color: 'bg-amber-50 text-amber-700 border-amber-200'
+      });
+  }
+
+  // --- CALCULATIONS ---
+  const hiredDate = new Date(employee.hiredOn.split('-').reverse().join('-'));
+  const diffTime = Math.abs(new Date().getTime() - hiredDate.getTime());
+  const diffYears = Math.floor(diffTime / (1000 * 60 * 60 * 24 * 365.25));
+  const diffMonths = Math.floor((diffTime % (1000 * 60 * 60 * 24 * 365.25)) / (1000 * 60 * 60 * 24 * 30.44));
+  const tenureString = diffYears > 0 ? `${diffYears}j ${diffMonths}m` : `${diffMonths} maanden`;
+
+  const obTasks = employee.onboardingTasks || [];
+  const obProgress = obTasks.length > 0 ? Math.round((obTasks.filter(t => t.score === 100).length / obTasks.length) * 100) : 0;
+
+  const compliments = employee.dossier?.filter(d => d.type === 'Compliment').sort((a,b) => b.date.localeCompare(a.date)) || [];
+
+  return (
+    <div className="p-4 md:p-8 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 pb-20">
+      
+      {/* Hidden Inputs for Upload */}
+      <input type="file" ref={bannerInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'banner')} />
+      <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'avatar')} />
+
+      {/* HEADER / BANNER */}
+      <div className="relative mb-8">
+          <div className="relative rounded-3xl overflow-hidden shadow-sm border border-slate-200 bg-white">
+              {/* Banner Area */}
+              <div className="h-48 md:h-80 relative group/banner">
+                  {employee.banner ? (
+                      <img src={employee.banner} className="w-full h-full object-cover transition-transform duration-700 group-hover/banner:scale-105" alt="Banner"/>
+                  ) : (
+                      <div className="w-full h-full bg-gradient-to-r from-slate-200 to-slate-300"></div>
+                  )}
+                  <div className="absolute inset-0 bg-black/5 group-hover/banner:bg-black/10 transition-colors"></div>
+                  
+                  {isOwnProfile && (
+                      <button 
+                        onClick={() => bannerInputRef.current?.click()}
+                        className="absolute top-4 right-4 bg-white/20 hover:bg-white/40 backdrop-blur-md text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all opacity-0 group-hover/banner:opacity-100"
+                      >
+                          <ImageIcon size={16}/> Wijzig Cover
+                      </button>
+                  )}
+
+                  {onBack && !isOwnProfile && (
+                      <button onClick={onBack} className="absolute top-4 left-4 bg-white/80 hover:bg-white backdrop-blur text-slate-800 px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all">
+                          <ArrowLeft size={16}/> Terug
+                      </button>
+                  )}
+              </div>
+
+              {/* Profile Info Bar */}
+              <div className="px-6 md:px-10 pb-6">
+                  <div className="flex flex-col md:flex-row items-end -mt-12 md:-mt-16 gap-6">
+                      
+                      {/* Avatar */}
+                      <div className="relative group/avatar flex-shrink-0">
+                          <div className="w-32 h-32 md:w-40 md:h-40 rounded-3xl border-[6px] border-white shadow-lg overflow-hidden bg-white">
+                              <img src={employee.avatar} className="w-full h-full object-cover" alt={employee.name}/>
+                          </div>
+                          {isOwnProfile && (
+                              <button 
+                                onClick={() => avatarInputRef.current?.click()}
+                                className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/avatar:opacity-100 transition-opacity rounded-3xl m-1.5"
+                              >
+                                  <Camera className="text-white" size={24}/>
+                              </button>
+                          )}
                       </div>
-                      <div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Performance</div>
-                          <div className="text-xl font-bold text-slate-900">{avgScore ? `${avgScore}%` : 'N.v.t.'}</div>
-                      </div>
-                  </div>
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-indigo-300 transition-all h-32">
-                      <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl group-hover:scale-110 transition-transform">
-                          <Medal size={24} />
-                      </div>
-                      <div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Badges</div>
-                          <div className="text-xl font-bold text-slate-900">{combinedBadges.length}</div>
-                      </div>
-                  </div>
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-rose-300 transition-all h-32">
-                      <div className="p-3 bg-rose-50 text-rose-600 rounded-xl group-hover:scale-110 transition-transform">
-                          <Heart size={24} />
-                      </div>
-                      <div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Complimenten</div>
-                          <div className="text-xl font-bold text-slate-900">{compliments.length}x</div>
-                      </div>
-                  </div>
-                  <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 group hover:border-amber-300 transition-all h-32">
-                      <div className="p-3 bg-amber-50 text-amber-600 rounded-xl group-hover:scale-110 transition-transform">
-                          <Clock size={24} />
-                      </div>
-                      <div>
-                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dienstverband</div>
-                          <div className="text-xl font-bold text-slate-900">
-                             {diffYears > 0 ? `${diffYears}j ${diffMonths}m` : `${diffMonths}m`}
+
+                      {/* Text Info */}
+                      <div className="flex-1 pb-2 w-full">
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                              <div>
+                                  <h1 className="text-3xl md:text-4xl font-bold text-slate-900">{employee.name}</h1>
+                                  <p className="text-lg text-slate-500 font-medium flex items-center gap-2 mt-1">
+                                      {employee.role}
+                                      <span className="text-slate-300">•</span>
+                                      <span className="text-slate-400 text-base">{employee.departments?.[0]}</span>
+                                  </p>
+                              </div>
                           </div>
                       </div>
                   </div>
               </div>
+          </div>
+      </div>
 
-              {/* OPEN ACTIONS */}
-              {openActions.length > 0 && (
-                  <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                      <div className="px-8 py-4 border-b border-slate-100 bg-amber-50/30 flex items-center gap-2">
-                          <AlertCircle size={18} className="text-amber-600" />
-                          <h3 className="font-bold text-slate-900 text-sm uppercase tracking-wider">Openstaande Acties</h3>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* LEFT COLUMN: INFO & STATS */}
+          <div className="space-y-6">
+              {/* Personal Info Card */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                      <User size={18} className="text-teal-600"/> Persoonlijk
+                  </h3>
+                  <div className="space-y-3 text-sm">
+                      <div className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors">
+                          <Mail size={16} className="text-slate-400"/>
+                          <span className="text-slate-600 truncate">{employee.email}</span>
                       </div>
-                      <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                          {openActions.map((action, i) => (
-                              <button 
-                                key={i}
-                                onClick={() => action.type === 'Evaluation' ? onChangeView(ViewState.EVALUATIONS) : onChangeView(ViewState.ONBOARDING)}
-                                className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-2xl hover:border-sky-400 hover:shadow-md transition-all text-left group"
-                              >
-                                  <div className="flex items-center gap-4">
-                                      <div className={`p-2 rounded-xl ${action.type === 'Evaluation' ? 'bg-purple-50 text-purple-600' : 'bg-sky-50 text-sky-600'}`}>
-                                          {action.type === 'Evaluation' ? <ClipboardCheck size={20}/> : <ListTodo size={20}/>}
-                                      </div>
-                                      <div>
-                                          <div className="font-bold text-slate-900 text-sm">{action.title}</div>
-                                          <div className="text-xs text-slate-500">{action.desc}</div>
-                                      </div>
-                                  </div>
-                                  <ChevronRight size={18} className="text-slate-300 group-hover:text-sky-600 group-hover:translate-x-1 transition-all" />
-                              </button>
-                          ))}
+                      <div className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors">
+                          <Phone size={16} className="text-slate-400"/>
+                          <span className="text-slate-600">{employee.phone || 'Geen nummer'}</span>
                       </div>
+                      <div className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors">
+                          <Building2 size={16} className="text-slate-400"/>
+                          <span className="text-slate-600">{employee.departments.join(', ')}</span>
+                      </div>
+                      <div className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors">
+                          <MapPin size={16} className="text-slate-400"/>
+                          <span className="text-slate-600">Nijmegen, NL</span>
+                      </div>
+                  </div>
+              </div>
+
+              {/* Stats Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center items-center text-center">
+                      <div className="text-2xl font-bold text-slate-900 mb-1">{tenureString.split(' ')[0]}</div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dienstjaren</div>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center items-center text-center">
+                      <div className="text-2xl font-bold text-slate-900 mb-1">{combinedBadges.length}</div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Badges</div>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center items-center text-center">
+                      <div className="text-2xl font-bold text-slate-900 mb-1">{compliments.length}</div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Complimenten</div>
+                  </div>
+                  <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col justify-center items-center text-center">
+                      <div className="text-2xl font-bold text-slate-900 mb-1">25</div>
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Verlofuren</div>
+                  </div>
+              </div>
+          </div>
+
+          {/* CENTER COLUMN: ACTIONS & PROGRESS */}
+          <div className="space-y-6">
+              {/* ACTION CENTER */}
+              {actions.length > 0 && (
+                  <div className="space-y-4 animate-in slide-in-from-bottom-4 fade-in">
+                      <h3 className="font-bold text-slate-900 flex items-center gap-2">
+                          <Bell size={18} className="text-amber-500 fill-amber-500"/> Openstaande Acties
+                      </h3>
+                      {actions.map(action => (
+                          <div key={action.id} className={`p-4 rounded-2xl border flex items-start gap-4 shadow-sm transition-all hover:shadow-md ${action.color}`}>
+                              <div className="p-2 bg-white rounded-xl shadow-sm bg-opacity-60">
+                                  <action.icon size={20} />
+                              </div>
+                              <div className="flex-1">
+                                  <h4 className="font-bold text-sm mb-1">{action.title}</h4>
+                                  <p className="text-xs opacity-80 mb-3">{action.description}</p>
+                                  <button 
+                                    onClick={action.action}
+                                    className="bg-white bg-opacity-80 hover:bg-opacity-100 text-xs font-bold px-4 py-2 rounded-lg shadow-sm transition-all flex items-center gap-2"
+                                  >
+                                      Actie Ondernemen <ArrowRight size={12}/>
+                                  </button>
+                              </div>
+                          </div>
+                      ))}
                   </div>
               )}
 
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                  <div className="lg:col-span-2 space-y-8">
-                      {employee.onboardingStatus === 'Active' && (
-                        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 overflow-hidden relative">
-                            <div className="absolute top-0 right-0 p-8 opacity-10 text-sky-600">
-                                <GraduationCap size={120} />
-                            </div>
-                            <div className="relative z-10">
-                                <div className="flex justify-between items-start mb-6">
-                                    <div>
-                                        <h3 className="text-xl font-bold text-slate-900 mb-1">Mijn Inwerktraject</h3>
-                                        <p className="text-sm text-slate-500">{templateTitle || 'Onboarding'}</p>
-                                    </div>
-                                    <div className="text-right">
-                                        <div className="text-3xl font-black text-sky-600">{obProgress}%</div>
-                                        <div className="text-[10px] font-bold text-slate-400 uppercase">Voortgang</div>
-                                    </div>
-                                </div>
-                                <div className="h-4 w-full bg-slate-100 rounded-full overflow-hidden mb-8 shadow-inner">
-                                    <div className="h-full bg-gradient-to-r from-sky-400 to-sky-600 rounded-full transition-all duration-1000" style={{ width: `${obProgress}%` }}></div>
-                                </div>
-                                <button onClick={() => onChangeView(ViewState.ONBOARDING)} className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition-all flex items-center gap-2">
-                                    Verder met inwerken <ArrowRight size={16}/>
-                                </button>
-                            </div>
-                        </div>
+              {/* ONBOARDING PROGRESS */}
+              {employee.onboardingStatus === 'Active' && (
+                  <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                      <div className="flex justify-between items-end mb-4">
+                          <div>
+                              <h3 className="font-bold text-slate-900">Onboarding</h3>
+                              <p className="text-xs text-slate-500">Je bent goed op weg!</p>
+                          </div>
+                          <span className="text-2xl font-bold text-teal-600">{obProgress}%</span>
+                      </div>
+                      <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden mb-4">
+                          <div className="h-full bg-gradient-to-r from-teal-400 to-teal-600 rounded-full transition-all duration-1000 ease-out" style={{ width: `${obProgress}%` }}></div>
+                      </div>
+                      <button 
+                        onClick={() => onChangeView(ViewState.ONBOARDING)}
+                        className="w-full py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
+                      >
+                          Ga naar taken <ArrowRight size={14}/>
+                      </button>
+                  </div>
+              )}
+
+              {/* TIMELINE / COMPLIMENTS */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
+                      <Heart size={18} className="text-rose-500"/> Complimenten & Badges
+                  </h3>
+                  
+                  <div className="space-y-6 relative before:absolute before:inset-0 before:left-3.5 before:w-0.5 before:bg-slate-100">
+                      {/* Combine Badges and Compliments into a single feed */}
+                      {[
+                          ...combinedBadges.map(b => ({ ...b, type: 'badge' })),
+                          ...compliments.map(c => ({ ...c, type: 'compliment' }))
+                      ].sort((a,b) => new Date(b.date || '').getTime() - new Date(a.date || '').getTime())
+                       .slice(0, 5) // Show top 5
+                       .map((item, idx) => (
+                          <div key={idx} className="relative pl-10">
+                              <div className={`absolute left-0 top-0 w-8 h-8 rounded-full border-4 border-white flex items-center justify-center shadow-sm z-10 ${item.type === 'badge' ? 'bg-indigo-100 text-indigo-600' : 'bg-rose-100 text-rose-600'}`}>
+                                  {item.type === 'badge' ? <Medal size={14}/> : <Heart size={14} fill="currentColor"/>}
+                              </div>
+                              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                  <div className="flex justify-between items-start mb-1">
+                                      <span className="text-xs font-bold text-slate-800">{item.type === 'badge' ? item.name : 'Compliment'}</span>
+                                      <span className="text-[10px] text-slate-400">{item.date}</span>
+                                  </div>
+                                  <p className="text-xs text-slate-600 leading-relaxed">
+                                      {item.type === 'badge' ? `Badge behaald: ${item.description}` : `"${item.description}"`}
+                                  </p>
+                              </div>
+                          </div>
+                      ))}
+                      
+                      {[...combinedBadges, ...compliments].length === 0 && (
+                          <div className="text-center py-8 pl-0">
+                              <p className="text-xs text-slate-400 italic">Nog geen activiteiten.</p>
+                          </div>
                       )}
-
-                      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-                          <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                              <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                                  <Sparkles className="text-rose-500" size={18}/> Successen & Complimenten
-                              </h3>
-                          </div>
-                          <div className="p-8 space-y-6">
-                              {compliments.length > 0 ? (
-                                compliments.slice(0, 3).map((comp, idx) => (
-                                    <div key={idx} className="relative pl-8 group">
-                                        <div className="absolute left-0 top-1.5 w-4 h-4 rounded-full bg-rose-100 border-2 border-rose-500 z-10"></div>
-                                        <div className="absolute left-[7px] top-4 bottom-[-24px] w-0.5 bg-slate-100 group-last:hidden"></div>
-                                        <div className="bg-rose-50/20 p-5 rounded-2xl border border-rose-100/50">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <h4 className="font-bold text-rose-900 text-sm">{comp.title}</h4>
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase">{comp.date}</span>
-                                            </div>
-                                            <p className="text-sm text-slate-700 leading-relaxed italic">"{comp.description}"</p>
-                                        </div>
-                                    </div>
-                                ))
-                              ) : (
-                                  <div className="py-12 text-center">
-                                      <Heart className="mx-auto text-slate-200 mb-4" size={48} strokeWidth={1} />
-                                      <p className="text-slate-400 italic text-sm">Zodra je complimenten ontvangt in je dossier, verschijnen ze hier.</p>
-                                  </div>
-                              )}
-                          </div>
-                      </div>
                   </div>
+              </div>
+          </div>
 
-                  <div className="space-y-8">
-                      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 h-full">
-                          <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2 text-sm uppercase tracking-wider">
-                              <Trophy size={16} className="text-amber-500"/> Mijn Badges
-                          </h3>
-                          <div className="grid grid-cols-2 gap-4">
-                              {combinedBadges.slice(0, 6).map((badge, idx) => {
-                                  const Icon = BADGE_ICONS[badge.icon] || Star;
-                                  return (
-                                      <div key={idx} className="flex flex-col items-center p-4 rounded-2xl bg-slate-50 border border-slate-100 group hover:border-indigo-200 transition-all relative cursor-help">
-                                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-3 border-2 transition-transform group-hover:rotate-12 ${BADGE_COLORS[badge.color] || 'bg-slate-100 text-slate-600 border-slate-200'}`}>
-                                              <Icon size={24} />
-                                          </div>
-                                          <div className="text-[11px] font-bold text-slate-900 text-center leading-tight line-clamp-1">{badge.name}</div>
-                                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-slate-900 text-white text-[10px] p-2 rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-20">
-                                              {badge.description}
-                                          </div>
+          {/* RIGHT COLUMN: NEWS & UPDATES */}
+          <div className="space-y-6">
+              {/* News Feed */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                  <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
+                      <Newspaper size={18} className="text-blue-600"/> Laatste Nieuws
+                  </h3>
+                  
+                  <div className="space-y-4">
+                      {recentNews && recentNews.length > 0 ? (
+                          recentNews.map(news => (
+                              <div 
+                                key={news.id} 
+                                onClick={() => onChangeView(ViewState.NEWS)}
+                                className="group cursor-pointer hover:bg-slate-50 p-3 rounded-xl transition-colors -mx-3"
+                              >
+                                  {news.image && (
+                                      <div className="h-32 w-full rounded-lg overflow-hidden mb-3 bg-slate-100">
+                                          <img src={news.image} className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-500" alt={news.title}/>
                                       </div>
-                                  );
-                              })}
-                              {combinedBadges.length === 0 && (
-                                  <div className="col-span-2 py-8 border-2 border-dashed border-slate-100 rounded-2xl flex flex-col items-center justify-center text-slate-300">
-                                      <Award size={32} strokeWidth={1} />
-                                      <span className="text-[10px] font-bold uppercase mt-2">Nog geen badges</span>
+                                  )}
+                                  <div className="flex items-center gap-2 mb-1">
+                                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{news.date}</span>
+                                      {news.isPinned && <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>}
                                   </div>
-                              )}
-                          </div>
-                      </div>
+                                  <h4 className="font-bold text-slate-800 text-sm mb-1 line-clamp-2 group-hover:text-blue-600 transition-colors">{news.title}</h4>
+                                  <p className="text-xs text-slate-500 line-clamp-2">{news.shortDescription}</p>
+                              </div>
+                          ))
+                      ) : (
+                          <div className="text-center py-8 text-slate-400 text-xs italic">Geen nieuwsberichten.</div>
+                      )}
                   </div>
+                  
+                  <button 
+                    onClick={() => onChangeView(ViewState.NEWS)}
+                    className="w-full mt-4 py-2 border border-slate-200 text-slate-600 rounded-xl text-xs font-bold hover:bg-slate-50 transition-colors"
+                  >
+                      Alle Nieuwsberichten
+                  </button>
               </div>
-          </div>
-      );
-  };
 
-  return (
-    <div className="p-4 md:p-8 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
-      <input type="file" ref={bannerInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'banner')} />
-      <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={(e) => handleImageUpload(e, 'avatar')} />
-      {!isOwnProfile && onBack && (<button onClick={onBack} className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold text-sm mb-6 transition-colors"><ArrowLeft size={18} />Terug naar overzicht</button>)}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden mb-8 relative group/header">
-        <div className="h-48 md:h-64 relative overflow-hidden bg-slate-100">
-          {employee.banner ? (<img src={employee.banner} alt="Banner" className="w-full h-full object-cover opacity-90 transition-transform duration-1000 group-hover/header:scale-105" />) : (<div className="w-full h-full bg-slate-200 relative overflow-hidden"><div className="absolute top-0 right-0 w-full h-full bg-gradient-to-br from-slate-100 to-slate-200"></div></div>)}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent"></div>
-          {isOwnProfile && (<button onClick={() => bannerInputRef.current?.click()} className="absolute top-4 right-4 px-4 py-2 bg-white/80 hover:bg-white backdrop-blur-md text-slate-700 text-xs font-bold uppercase tracking-wider rounded-lg shadow-sm transition-all flex items-center gap-2 opacity-0 group-hover/header:opacity-100"><ImageIcon size={14} /><span className="hidden sm:inline">Cover Wijzigen</span></button>)}
-        </div>
-        <div className="px-6 md:px-10 pb-6 relative">
-          <div className="flex flex-col md:flex-row items-center md:items-end -mt-20 mb-2">
-            <div className="relative md:mr-8 mb-4 md:mb-0 group">
-              <div className="relative rounded-2xl border-[6px] border-white shadow-xl overflow-hidden bg-white">
-                  <img src={employee.avatar} alt={employee.name} className="w-32 h-32 md:w-40 md:h-40 object-cover" />
-                  {isOwnProfile && (<div onClick={() => avatarInputRef.current?.click()} className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 cursor-pointer"><Camera className="text-white" size={28} /></div>)}
+              {/* Quick Links / Help */}
+              <div className="bg-indigo-900 text-white p-6 rounded-2xl shadow-md relative overflow-hidden">
+                  <div className="absolute top-0 right-0 p-4 opacity-10">
+                      <Trophy size={80}/>
+                  </div>
+                  <h3 className="font-bold text-lg mb-2 relative z-10">SanaLearn Academy</h3>
+                  <p className="text-indigo-200 text-xs mb-4 relative z-10 leading-relaxed max-w-[200px]">
+                      Ontwikkel je vaardigheden en verdien badges.
+                  </p>
+                  <button 
+                    onClick={() => onChangeView(ViewState.ACADEMY)}
+                    className="bg-white text-indigo-900 px-4 py-2 rounded-lg text-xs font-bold hover:bg-indigo-50 transition-colors relative z-10 flex items-center gap-2"
+                  >
+                      Naar Academy <ExternalLink size={12}/>
+                  </button>
               </div>
-            </div>
-            <div className="flex-1 text-center md:text-left mb-2">
-              <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-slate-900 mb-2">{employee.name}</h1>
-              <div className="flex flex-wrap justify-center md:justify-start items-center gap-4 text-sm font-medium text-slate-600">
-                <div className="flex items-center gap-2"><Briefcase size={16} className="text-slate-400" /><span>{employee.role}</span></div>
-                <div className="flex items-center gap-2"><Building2 size={16} className="text-slate-400" /><span>{employee.departments ? employee.departments.join(', ') : 'Geen afdeling'}</span></div>
-                {employee.id === currentUser.id && (<span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs font-bold rounded-full">Jij</span>)}
-              </div>
-            </div>
           </div>
-        </div>
+
       </div>
-
-      {renderDashboardOverview()}
     </div>
   );
 };

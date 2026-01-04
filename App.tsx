@@ -267,7 +267,7 @@ function App() {
                   onShowToast={handleShowToast}
                   onNext={() => {}} onPrevious={() => {}}
                   managers={employees.filter(e => e.role === 'Manager')}
-                  latestNews={newsItems[0]}
+                  recentNews={newsItems.slice(0, 3)}
               />;
           case ViewState.DIRECTORY:
               return <EmployeeDirectory 
