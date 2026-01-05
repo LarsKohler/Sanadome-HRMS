@@ -18,15 +18,14 @@ import LinenAuditPage from './components/LinenAuditPage';
 import KnowledgeBasePage from './components/KnowledgeBasePage';
 import EvaluationsPage from './components/EvaluationsPage';
 import RecruitmentPage from './components/RecruitmentPage';
-import BikeRentalPage from './components/BikeRentalPage'; 
 import BadgeManager from './components/BadgeManager';
 import AcademyPage from './components/AcademyPage'; 
 import CompensationPage from './components/CompensationPage';
 import ChecklistsPage from './components/ChecklistsPage';
 import HRDossierPage from './components/HRDossierPage'; 
-import ShiftHandoverPage from './components/ShiftHandoverPage'; 
 import TodoListPage from './components/TodoListPage'; 
 import ComplaintsPage from './components/ComplaintsPage'; // NEW
+import DataAuditPage from './components/DataAuditPage'; // NEW
 import UpdateNotifier from './components/UpdateNotifier';
 import { api, isLive } from './utils/api';
 import { isModuleEnabled } from './utils/permissions';
@@ -334,6 +333,8 @@ function App() {
               return <DebtControlPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           case ViewState.LINEN_AUDIT:
               return <LinenAuditPage currentUser={currentUser!} onShowToast={handleShowToast} />;
+          case ViewState.DATA_AUDIT: // NEW
+              return <DataAuditPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           case ViewState.KNOWLEDGE_BASE:
               return <KnowledgeBasePage currentUser={currentUser!} onShowToast={handleShowToast} />;
           case ViewState.EVALUATIONS:
@@ -378,14 +379,10 @@ function App() {
                       setCurrentView(ViewState.DIRECTORY);
                   }}
               />;
-          case ViewState.BIKE_RENTAL:
-              return <BikeRentalPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           case ViewState.COMPENSATION:
               return <CompensationPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           case ViewState.CHECKLISTS: 
               return <ChecklistsPage currentUser={currentUser!} onShowToast={handleShowToast} />;
-          case ViewState.SHIFT_HANDOVER: 
-              return <ShiftHandoverPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           case ViewState.TODO_LIST: 
               return <TodoListPage currentUser={currentUser!} employees={employees} onShowToast={handleShowToast} />;
           case ViewState.COMPLAINTS: // NEW

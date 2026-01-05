@@ -23,15 +23,17 @@ const MODULE_NAMES: Record<string, string> = {
     [ViewState.DIRECTORY]: 'Collega\'s',
     [ViewState.HR_DOSSIER]: 'HR Dossiers',
     [ViewState.CHECKLISTS]: 'Checklists',
-    [ViewState.BIKE_RENTAL]: 'Fietsverhuur',
     [ViewState.COMPENSATION]: 'Compensatie',
+    [ViewState.COMPLAINTS]: 'Klachten',
     [ViewState.ONBOARDING]: 'Onboarding',
     [ViewState.EVALUATIONS]: 'Performance',
     [ViewState.RECRUITMENT]: 'Recruitment',
-    [ViewState.TODO_LIST]: 'Takenlijst', // Added
+    [ViewState.TODO_LIST]: 'Takenlijst', 
     [ViewState.DEBT_CONTROL]: 'Debiteuren',
     [ViewState.LINEN_AUDIT]: 'Linnen Audit',
-    [ViewState.REPORTS]: 'Rapportages'
+    [ViewState.DATA_AUDIT]: 'Data Audit', // NEW
+    [ViewState.REPORTS]: 'Rapportages',
+    [ViewState.SYSTEM_STATUS]: 'Systeemstatus'
 };
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onUpdateEmployee, onShowToast, globalSettings, onUpdateGlobalSettings }) => {

@@ -1,9 +1,5 @@
 
-
-
-
-
-import { Employee, NewsPost, OnboardingTemplate, SystemUpdateLog, KnowledgeArticle, Applicant, Ticket, Vacancy, EvaluationTemplate, BikeSettings, BikeReservation, AcademyCourse, AcademyProgress, Complaint } from '../types';
+import { Employee, NewsPost, OnboardingTemplate, SystemUpdateLog, KnowledgeArticle, Applicant, Ticket, Vacancy, EvaluationTemplate, AcademyCourse, AcademyProgress, Complaint } from '../types';
 
 export const MOCK_EMPLOYEES: Employee[] = [
   {
@@ -223,48 +219,6 @@ export const EVALUATION_TEMPLATES = {
         { category: 'Soft Skills', topic: 'Punctualiteit', employeeScore: 0, managerScore: 0 }
     ]
 };
-
-// --- BIKE RENTAL MOCKS ---
-export const MOCK_BIKE_SETTINGS: BikeSettings = {
-    inventory: {
-        'City Bike Men': 4, // Matches H9-H12
-        'City Bike Women': 6, // Matches D1-D6
-        'E-Bike': 7 // Matches E401-E408 (skipping one maybe in list?)
-    },
-    inMaintenance: [],
-    termsAndConditions: "1. De huurder is aansprakelijk voor schade aan de fiets.\n2. De fiets dient voor 22:00 uur ingeleverd te worden.\n3. Bij diefstal dient de huurder direct aangifte te doen en de sleutel te overhandigen.\n4. Het gebruik van de fiets is op eigen risico."
-};
-
-export const MOCK_BIKE_RESERVATIONS: BikeReservation[] = [
-    {
-        id: 'br1',
-        guestName: 'Dhr. Jansen',
-        roomNumber: '102',
-        bikeType: 'City Bike Men',
-        bikeId: 'H9',
-        amount: 1,
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date().toISOString().split('T')[0],
-        status: 'Active',
-        termsAccepted: true,
-        createdAt: new Date().toISOString(),
-        createdBy: 'Lars Kohler'
-    },
-    {
-        id: 'br2',
-        guestName: 'Mw. de Vries',
-        roomNumber: '205',
-        bikeType: 'E-Bike',
-        bikeId: 'E401',
-        amount: 1,
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date().toISOString().split('T')[0],
-        status: 'Completed',
-        termsAccepted: true,
-        createdAt: new Date(Date.now() - 86400000).toISOString(),
-        createdBy: 'Janique Vink'
-    }
-];
 
 // --- ACADEMY MOCKS ---
 export const MOCK_ACADEMY_COURSES: AcademyCourse[] = [

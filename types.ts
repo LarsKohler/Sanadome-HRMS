@@ -12,16 +12,15 @@ export type ViewState =
   | 'SETTINGS'
   | 'DEBT_CONTROL'
   | 'LINEN_AUDIT'
+  | 'DATA_AUDIT'
   | 'KNOWLEDGE_BASE'
   | 'EVALUATIONS'
   | 'RECRUITMENT'
-  | 'BIKE_RENTAL'
   | 'COMPENSATION'
   | 'CHECKLISTS'
   | 'ACADEMY'
-  | 'SHIFT_HANDOVER'
   | 'TODO_LIST'
-  | 'COMPLAINTS'; // NEW
+  | 'COMPLAINTS'; 
 
 export const ViewState = {
   HOME: 'HOME',
@@ -36,16 +35,15 @@ export const ViewState = {
   SETTINGS: 'SETTINGS',
   DEBT_CONTROL: 'DEBT_CONTROL',
   LINEN_AUDIT: 'LINEN_AUDIT',
+  DATA_AUDIT: 'DATA_AUDIT',
   KNOWLEDGE_BASE: 'KNOWLEDGE_BASE',
   EVALUATIONS: 'EVALUATIONS',
   RECRUITMENT: 'RECRUITMENT',
-  BIKE_RENTAL: 'BIKE_RENTAL',
   COMPENSATION: 'COMPENSATION',
   CHECKLISTS: 'CHECKLISTS',
   ACADEMY: 'ACADEMY',
-  SHIFT_HANDOVER: 'SHIFT_HANDOVER',
   TODO_LIST: 'TODO_LIST',
-  COMPLAINTS: 'COMPLAINTS', // NEW
+  COMPLAINTS: 'COMPLAINTS',
 } as const;
 
 export type Permission =
@@ -66,15 +64,13 @@ export type Permission =
   | 'MANAGE_RECRUITMENT'
   | 'MANAGE_KNOWLEDGE'
   | 'MANAGE_OPERATIONS'
-  | 'MANAGE_RENTALS'
   | 'MANAGE_ACADEMY'
   | 'MANAGE_COMPENSATION'
   | 'DELETE_COMPENSATION'
   | 'MANAGE_TICKETS'
   | 'MANAGE_CHECKLISTS'
-  | 'MANAGE_HANDOVER'
   | 'MANAGE_TASKS'
-  | 'MANAGE_COMPLAINTS'; // NEW
+  | 'MANAGE_COMPLAINTS';
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   VIEW_REPORTS: 'Rapportages Inzien',
@@ -94,15 +90,13 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   MANAGE_RECRUITMENT: 'Recruitment Beheren',
   MANAGE_KNOWLEDGE: 'Kennisbank Beheren',
   MANAGE_OPERATIONS: 'Operatie Beheren',
-  MANAGE_RENTALS: 'Verhuur Beheren',
   MANAGE_ACADEMY: 'Academy Beheren',
   MANAGE_COMPENSATION: 'Compensatie Beheren',
   DELETE_COMPENSATION: 'Compensatie Verwijderen',
   MANAGE_TICKETS: 'Tickets Beheren',
   MANAGE_CHECKLISTS: 'Checklists Beheren',
-  MANAGE_HANDOVER: 'Shift Overdracht Beheren',
   MANAGE_TASKS: 'Takenlijst Beheren',
-  MANAGE_COMPLAINTS: 'Klachten Beheren', // NEW
+  MANAGE_COMPLAINTS: 'Klachten Beheren', 
 };
 
 // ... existing types ...
@@ -141,10 +135,10 @@ export interface GlobalSettings {
     id: ViewState;
     name: string;
     enabled: boolean;
-    accessMode?: 'open' | 'restricted'; // 'open' = blacklist (hiddenFor...), 'restricted' = whitelist (allowedUsers)
-    hiddenForRoles: string[]; // Used in 'open' mode
-    hiddenForUsers: string[]; // Used in 'open' mode
-    allowedUsers?: string[]; // Used in 'restricted' mode
+    accessMode?: 'open' | 'restricted';
+    hiddenForRoles: string[];
+    hiddenForUsers: string[];
+    allowedUsers?: string[];
   }>;
   branding?: {
     loginImages: string[];
@@ -203,7 +197,6 @@ export interface Employee {
   email: string;
   phone?: string;
   avatar?: string;
-  /* Added banner property */
   banner?: string;
   linkedin?: string;
   hiredOn: string;
@@ -254,7 +247,7 @@ export interface OnboardingTask {
   title: string;
   description: string;
   completed: boolean;
-  score?: number; // 0, 25, 50, 75, 100
+  score?: number;
   completedBy?: string;
   completedDate?: string;
   notes?: string;
@@ -399,7 +392,6 @@ export interface Applicant {
   appliedDate: string;
   resumeUrl?: string;
   motivationUrl?: string;
-  /* Added avatar property */
   avatar?: string;
   rating?: number;
   skills?: string[];
@@ -449,35 +441,6 @@ export interface EvaluationTemplate {
   }[];
   createdAt: string;
   updatedAt: string;
-}
-
-export interface BikeSettings {
-  inventory: Record<string, number>;
-  inMaintenance: string[];
-  termsAndConditions: string;
-  maintenanceReasons?: Record<string, string>;
-}
-
-export type BikeType = 'City Bike Men' | 'City Bike Women' | 'E-Bike';
-
-export interface BikeReservation {
-  id: string;
-  groupId?: string;
-  guestName: string;
-  roomNumber: string;
-  bikeType: BikeType;
-  bikeId?: string;
-  amount: number;
-  startDate: string;
-  endDate: string;
-  startTime?: string;
-  endTime?: string;
-  status: 'Pending' | 'Active' | 'Completed' | 'Cancelled';
-  termsAccepted: boolean;
-  signatureUrl?: string;
-  damageReport?: string;
-  createdAt: string;
-  createdBy: string;
 }
 
 export type BadgeIconKey = 'Trophy' | 'Star' | 'Medal' | 'Heart' | 'Zap' | 'Shield' | 'Rocket' | 'Crown' | 'ThumbsUp' | 'Lightbulb' | 'Flame' | 'Target' | 'Users' | 'Eye';
@@ -545,7 +508,7 @@ export interface HotspotItem {
 export interface LearningBlock {
   id: string;
   type: BlockType;
-  content: any; // Flexible content based on type
+  content: any;
 }
 
 export interface AcademyLesson {
@@ -606,10 +569,10 @@ export interface ChecklistItem {
   description?: string;
   required: boolean;
   isCritical?: boolean;
-  options?: string[]; // for select, multi_select, yes_no (as labels)
-  explanationRequiredOn?: 'yes' | 'no' | null; // for yes_no
+  options?: string[];
+  explanationRequiredOn?: 'yes' | 'no' | null;
   explanationLabel?: string;
-  includeTime?: boolean; // for date
+  includeTime?: boolean;
 }
 
 export interface ChecklistTemplate {
@@ -634,18 +597,6 @@ export interface ChecklistSubmission {
   responses: Record<string, any>;
   startedAt: string;
   completedAt?: string;
-}
-
-export interface ShiftHandoverItem {
-  id: string;
-  date: string;
-  content: string;
-  category: 'General' | 'Specific';
-  target?: string;
-  authorName: string;
-  priority?: 'High' | 'Normal';
-  createdAt: string;
-  expiryDate?: string; // New field for persistence until deletion
 }
 
 export interface Notification {
@@ -733,7 +684,7 @@ export interface ComplaintTimelineItem {
     id: string;
     date: string;
     author: string;
-    action: string; // e.g. "Status changed", "Note added", "Offer made"
+    action: string;
     note?: string;
 }
 
@@ -743,9 +694,11 @@ export interface Complaint {
     guestName: string;
     roomNumber?: string;
     category: ComplaintCategory;
+    department?: string; // NEW: Responsible department
     severity: ComplaintSeverity;
     status: ComplaintStatus;
     description: string;
+    images?: string[]; // NEW: Evidence photos
     compensationDetails: {
         offered: string;
         cost?: number;
@@ -756,4 +709,54 @@ export interface Complaint {
     createdAt: string;
     updatedAt: string;
     timeline: ComplaintTimelineItem[];
+}
+
+// --- NEW BIKE RENTAL TYPES ---
+
+export type BikeType = 'City Bike Men' | 'City Bike Women' | 'E-Bike';
+
+export interface BikeSettings {
+  inventory: Record<BikeType, number>;
+  inMaintenance: string[];
+  termsAndConditions: string;
+  maintenanceReasons: Record<string, string>;
+}
+
+export type BikeReservationStatus = 'Pending' | 'Active' | 'Completed' | 'Cancelled';
+
+export interface BikeReservation {
+  id: string;
+  groupId?: string;
+  guestName: string;
+  roomNumber: string;
+  bikeType: BikeType;
+  bikeId?: string;
+  amount: number;
+  startDate: string;
+  endDate: string;
+  startTime?: string;
+  endTime?: string;
+  status: BikeReservationStatus;
+  termsAccepted: boolean;
+  signatureUrl?: string;
+  damageReport?: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+// --- NEW SHIFT HANDOVER TYPES ---
+
+export type ShiftHandoverCategory = 'General' | 'Specific';
+export type ShiftHandoverPriority = 'High' | 'Normal';
+
+export interface ShiftHandoverItem {
+  id: string;
+  date: string;
+  content: string;
+  category: ShiftHandoverCategory;
+  target?: string;
+  authorName: string;
+  priority: ShiftHandoverPriority;
+  createdAt: string;
+  expiryDate?: string;
 }

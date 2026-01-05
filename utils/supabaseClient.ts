@@ -1,6 +1,4 @@
 
-
-
 import { createClient } from '@supabase/supabase-js';
 
 // --- SQL INSTRUCTIES VOOR SUPABASE ---
@@ -76,26 +74,58 @@ import { createClient } from '@supabase/supabase-js';
     started_at timestamptz,
     completed_at timestamptz
   );
-  
-  -- Shift Overdracht
-  -- UPDATED: Added expiry_date column for history retention
-  CREATE TABLE IF NOT EXISTS shift_handover_items (
-    id text PRIMARY KEY,
-    date date NOT NULL, 
-    content text NOT NULL,
-    category text NOT NULL, 
-    target text, 
-    author_name text NOT NULL,
-    priority text DEFAULT 'Normal',
-    created_at timestamptz DEFAULT now(),
-    expiry_date date
-  );
 
   -- Global Settings
   CREATE TABLE IF NOT EXISTS global_settings (
     id text PRIMARY KEY,
     modules jsonb,
+    branding jsonb,
     updated_at timestamptz DEFAULT now()
+  );
+
+  -- Complaints
+  CREATE TABLE IF NOT EXISTS complaints (
+    id text PRIMARY KEY,
+    reservation_number text,
+    guest_name text,
+    room_number text,
+    category text,
+    department text,
+    severity text,
+    status text,
+    description text,
+    images jsonb,
+    compensation_details jsonb,
+    assigned_to text,
+    created_by text,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now(),
+    timeline jsonb
+  );
+
+  -- Tasks
+  CREATE TABLE IF NOT EXISTS tasks (
+    id text PRIMARY KEY,
+    assignee_id text,
+    is_general boolean,
+    data jsonb
+  );
+
+  -- Bike Rental
+  CREATE TABLE IF NOT EXISTS bike_settings (
+    id text PRIMARY KEY,
+    data jsonb
+  );
+
+  CREATE TABLE IF NOT EXISTS bike_reservations (
+    id text PRIMARY KEY,
+    data jsonb
+  );
+
+  -- Shift Handover
+  CREATE TABLE IF NOT EXISTS shift_handover (
+    id text PRIMARY KEY,
+    data jsonb
   );
 
   -- ================================================================
@@ -118,8 +148,12 @@ import { createClient } from '@supabase/supabase-js';
   ALTER TABLE compensation_logs ENABLE ROW LEVEL SECURITY;
   ALTER TABLE checklist_templates ENABLE ROW LEVEL SECURITY;
   ALTER TABLE checklist_submissions ENABLE ROW LEVEL SECURITY;
-  ALTER TABLE shift_handover_items ENABLE ROW LEVEL SECURITY;
   ALTER TABLE global_settings ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE complaints ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE tasks ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE bike_settings ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE bike_reservations ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE shift_handover ENABLE ROW LEVEL SECURITY;
 
   -- ================================================================
   -- DEEL 3: FUNCTIES & POLICIES (Reset & Recreate)
@@ -243,22 +277,40 @@ import { createClient } from '@supabase/supabase-js';
   DROP POLICY IF EXISTS "Checklist Sub: Iedereen lezen/schrijven" ON checklist_submissions;
   CREATE POLICY "Checklist Sub: Iedereen lezen/schrijven" ON checklist_submissions FOR ALL USING ( true );
 
-  -- Shift Handover (Logbook)
-  DROP POLICY IF EXISTS "Shift: Iedereen lezen" ON shift_handover_items;
-  CREATE POLICY "Shift: Iedereen lezen" ON shift_handover_items FOR SELECT USING ( true );
-  DROP POLICY IF EXISTS "Shift: Iedereen schrijven" ON shift_handover_items;
-  CREATE POLICY "Shift: Iedereen schrijven" ON shift_handover_items FOR INSERT WITH CHECK ( true );
-  DROP POLICY IF EXISTS "Shift: Iedereen updaten" ON shift_handover_items;
-  CREATE POLICY "Shift: Iedereen updaten" ON shift_handover_items FOR UPDATE USING ( true );
-  DROP POLICY IF EXISTS "Shift: Iedereen verwijderen" ON shift_handover_items;
-  CREATE POLICY "Shift: Iedereen verwijderen" ON shift_handover_items FOR DELETE USING ( true );
-
   -- Global Settings
   DROP POLICY IF EXISTS "Settings: Iedereen lezen" ON global_settings;
   CREATE POLICY "Settings: Iedereen lezen" ON global_settings FOR SELECT USING ( true );
   
   DROP POLICY IF EXISTS "Settings: Managers schrijven" ON global_settings;
   CREATE POLICY "Settings: Managers schrijven" ON global_settings FOR ALL USING ( is_manager() );
+
+  -- Complaints
+  DROP POLICY IF EXISTS "Complaints: Iedereen lezen" ON complaints;
+  CREATE POLICY "Complaints: Iedereen lezen" ON complaints FOR SELECT USING ( true );
+  
+  DROP POLICY IF EXISTS "Complaints: Iedereen schrijven" ON complaints;
+  CREATE POLICY "Complaints: Iedereen schrijven" ON complaints FOR INSERT WITH CHECK ( true );
+  
+  DROP POLICY IF EXISTS "Complaints: Managers beheren" ON complaints;
+  CREATE POLICY "Complaints: Managers beheren" ON complaints FOR ALL USING ( is_manager() );
+
+  -- Tasks
+  DROP POLICY IF EXISTS "Tasks: Iedereen lezen/schrijven" ON tasks;
+  CREATE POLICY "Tasks: Iedereen lezen/schrijven" ON tasks FOR ALL USING ( true );
+
+  -- Bike Rental
+  DROP POLICY IF EXISTS "Bike: Iedereen lezen" ON bike_settings;
+  CREATE POLICY "Bike: Iedereen lezen" ON bike_settings FOR SELECT USING ( true );
+  
+  DROP POLICY IF EXISTS "Bike: Managers beheren" ON bike_settings;
+  CREATE POLICY "Bike: Managers beheren" ON bike_settings FOR ALL USING ( is_manager() );
+  
+  DROP POLICY IF EXISTS "Bike Res: Iedereen lezen/schrijven" ON bike_reservations;
+  CREATE POLICY "Bike Res: Iedereen lezen/schrijven" ON bike_reservations FOR ALL USING ( true );
+
+  -- Shift Handover
+  DROP POLICY IF EXISTS "Shift: Iedereen lezen/schrijven" ON shift_handover;
+  CREATE POLICY "Shift: Iedereen lezen/schrijven" ON shift_handover FOR ALL USING ( true );
 
   -- ================================================================
   -- DEEL 4: REALTIME AANZETTEN
@@ -274,9 +326,13 @@ import { createClient } from '@supabase/supabase-js';
     academy_courses,
     academy_progress,
     checklist_submissions,
-    shift_handover_items,
     compensation_logs,
-    global_settings;
+    global_settings,
+    complaints,
+    tasks,
+    bike_reservations,
+    bike_settings,
+    shift_handover;
 */
 
 // Veilig ophalen van env vars, met fallback naar de door jou opgegeven keys

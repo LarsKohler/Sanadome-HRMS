@@ -1,10 +1,8 @@
 
-
-
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BikeSettings, BikeReservation, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, Ticket, ChecklistTemplate, ChecklistSubmission, ShiftHandoverItem, Task, Complaint } from '../types';
-import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_EVALUATION_TEMPLATES, MOCK_BIKE_SETTINGS, MOCK_BIKE_RESERVATIONS, MOCK_ACADEMY_COURSES, MOCK_ACADEMY_PROGRESS, MOCK_TICKETS, MOCK_COMPLAINTS } from './mockData';
+import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, Ticket, ChecklistTemplate, ChecklistSubmission, Task, Complaint, BikeSettings, BikeReservation, ShiftHandoverItem } from '../types';
+import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_EVALUATION_TEMPLATES, MOCK_ACADEMY_COURSES, MOCK_ACADEMY_PROGRESS, MOCK_TICKETS, MOCK_COMPLAINTS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
 export const isLive = !!supabase;
@@ -86,9 +84,11 @@ export const api = {
                       guestName: row.guest_name,
                       roomNumber: row.room_number, // Map snake_case to camelCase
                       category: row.category,
+                      department: row.department, // Map new field
                       severity: row.severity,
                       status: row.status,
                       description: row.description,
+                      images: row.images || [], // Map new field
                       compensationDetails: row.compensation_details || { offered: '', guestAccepted: null },
                       assignedTo: row.assigned_to,
                       createdBy: row.created_by,
@@ -114,9 +114,11 @@ export const api = {
               guest_name: complaint.guestName,
               room_number: complaint.roomNumber,
               category: complaint.category,
+              department: complaint.department, // NEW
               severity: complaint.severity,
               status: complaint.status,
               description: complaint.description,
+              images: complaint.images, // NEW
               compensation_details: complaint.compensationDetails,
               assigned_to: complaint.assignedTo,
               created_by: complaint.createdBy,
@@ -181,84 +183,6 @@ export const api = {
       } else {
           const current = await api.getTasks();
           localStorage.setItem('hrms_tasks', JSON.stringify(current.filter(t => t.id !== id)));
-      }
-  },
-
-  // --- SHIFT HANDOVER ---
-  getShiftHandoverItems: async (date: string): Promise<ShiftHandoverItem[]> => {
-      if (isLive && supabase) {
-          try {
-              // Fetch items created ON or BEFORE the selected date
-              // The logic is: Item is visible if created <= date AND (not expired OR expired > date)
-              const { data, error } = await supabase
-                  .from('shift_handover_items')
-                  .select('*')
-                  .lte('date', date);
-
-              if (!error && data) {
-                  return data
-                      .filter((d: any) => {
-                          // JS Filter for expiry logic (simple inequality string comparison works for ISO dates)
-                          return !d.expiry_date || d.expiry_date > date;
-                      })
-                      .map((d: any) => ({
-                          id: d.id,
-                          date: d.date,
-                          content: d.content,
-                          category: d.category,
-                          target: d.target,
-                          authorName: d.author_name,
-                          priority: d.priority,
-                          createdAt: d.created_at,
-                          expiryDate: d.expiry_date
-                      }));
-              }
-              return [];
-          } catch (e) {
-              return [];
-          }
-      }
-      const local = localStorage.getItem('hrms_handover_items');
-      const all: ShiftHandoverItem[] = local ? JSON.parse(local) : [];
-      
-      // Local filtering: start date <= current AND (no expiry OR expiry > current)
-      return all.filter(item => 
-          item.date <= date && (!item.expiryDate || item.expiryDate > date)
-      );
-  },
-
-  saveShiftHandoverItem: async (item: ShiftHandoverItem) => {
-      if (isLive && supabase) {
-          await supabase.from('shift_handover_items').upsert({
-              id: item.id,
-              date: item.date,
-              content: item.content,
-              category: item.category,
-              target: item.target,
-              author_name: item.authorName,
-              priority: item.priority,
-              expiry_date: item.expiryDate // Ensure this is saved if present
-          });
-      } else {
-          const local = localStorage.getItem('hrms_handover_items');
-          const current: ShiftHandoverItem[] = local ? JSON.parse(local) : [];
-          const idx = current.findIndex(i => i.id === item.id);
-          if (idx >= 0) current[idx] = item;
-          else current.push(item);
-          localStorage.setItem('hrms_handover_items', JSON.stringify(current));
-      }
-  },
-
-  deleteShiftHandoverItem: async (id: string, date: string) => {
-      // Soft Delete: Set expiry_date to the current view date
-      // This means it stops showing *after* this date.
-      if (isLive && supabase) {
-          await supabase.from('shift_handover_items').update({ expiry_date: date }).eq('id', id);
-      } else {
-          const local = localStorage.getItem('hrms_handover_items');
-          const current: ShiftHandoverItem[] = local ? JSON.parse(local) : [];
-          const updated = current.map(i => i.id === id ? { ...i, expiryDate: date } : i);
-          localStorage.setItem('hrms_handover_items', JSON.stringify(updated));
       }
   },
 
@@ -726,7 +650,7 @@ export const api = {
       }
   },
 
-  // ... (Debtors, KB, System Logs, Evaluations, Bike Settings - unchanged logic) ...
+  // ... (Debtors, KB, System Logs, Evaluations - unchanged logic) ...
   getDebtors: async (): Promise<Debtor[]> => {
       if (isLive && supabase) {
           const { data } = await supabase.from('debtors').select('data');
@@ -876,29 +800,6 @@ export const api = {
       // TODO: Implement
   },
 
-  // Bike Rental
-  getBikeSettings: async (): Promise<BikeSettings> => {
-      const local = localStorage.getItem('hrms_bike_settings');
-      return local ? JSON.parse(local) : MOCK_BIKE_SETTINGS;
-  },
-
-  saveBikeSettings: async (settings: BikeSettings) => {
-      localStorage.setItem('hrms_bike_settings', JSON.stringify(settings));
-  },
-
-  getBikeReservations: async (): Promise<BikeReservation[]> => {
-      const local = localStorage.getItem('hrms_bike_reservations');
-      return local ? JSON.parse(local) : MOCK_BIKE_RESERVATIONS;
-  },
-
-  saveBikeReservation: async (res: BikeReservation) => {
-      const current = await api.getBikeReservations();
-      const idx = current.findIndex(r => r.id === res.id);
-      if (idx >= 0) current[idx] = res;
-      else current.push(res);
-      localStorage.setItem('hrms_bike_reservations', JSON.stringify(current));
-  },
-
   // Badges
   getBadges: async (): Promise<BadgeDefinition[]> => {
       const local = localStorage.getItem('hrms_badges');
@@ -916,5 +817,102 @@ export const api = {
   deleteBadge: async (id: string) => {
       const current = await api.getBadges();
       localStorage.setItem('hrms_badges', JSON.stringify(current.filter(b => b.id !== id)));
+  },
+
+  // --- BIKE RENTAL ---
+  getBikeSettings: async (): Promise<BikeSettings> => {
+      if (isLive && supabase) {
+          try {
+              const { data } = await supabase.from('bike_settings').select('*').eq('id', 'main').single();
+              if (data) return data.data; // Assuming structure similar to global_settings
+          } catch (e) {
+              console.error(e);
+          }
+      }
+      const local = localStorage.getItem('hrms_bike_settings');
+      return local ? JSON.parse(local) : {
+          inventory: { 'City Bike Men': 0, 'City Bike Women': 0, 'E-Bike': 0 }, 
+          inMaintenance: [],
+          termsAndConditions: '',
+          maintenanceReasons: {}
+      };
+  },
+
+  saveBikeSettings: async (settings: BikeSettings) => {
+      if (isLive && supabase) {
+          await supabase.from('bike_settings').upsert({ id: 'main', data: settings });
+      } else {
+          localStorage.setItem('hrms_bike_settings', JSON.stringify(settings));
+      }
+  },
+
+  getBikeReservations: async (): Promise<BikeReservation[]> => {
+      if (isLive && supabase) {
+          try {
+              const { data } = await supabase.from('bike_reservations').select('data');
+              if (data) return data.map((r: any) => r.data);
+          } catch (e) { console.error(e); }
+          return [];
+      }
+      const local = localStorage.getItem('hrms_bike_reservations');
+      return local ? JSON.parse(local) : [];
+  },
+
+  saveBikeReservation: async (reservation: BikeReservation) => {
+      if (isLive && supabase) {
+          await supabase.from('bike_reservations').upsert({ id: reservation.id, data: reservation });
+      } else {
+          const current = await api.getBikeReservations();
+          const index = current.findIndex(r => r.id === reservation.id);
+          if (index >= 0) current[index] = reservation;
+          else current.push(reservation);
+          localStorage.setItem('hrms_bike_reservations', JSON.stringify(current));
+      }
+  },
+
+  // --- SHIFT HANDOVER ---
+  getShiftHandoverItems: async (date: string): Promise<ShiftHandoverItem[]> => {
+      if (isLive && supabase) {
+          try {
+              // In a real DB we might query by date range, but here we stick to JSON blob pattern mostly or simple rows
+              // Let's assume we fetch relevant items. For 'General', we might fetch active ones.
+              // For simplicity in this demo architecture where we store data in JSON mostly or flat rows:
+              const { data } = await supabase.from('shift_handover').select('data');
+              // Filter in memory for demo consistency with other modules
+              if (data) {
+                  const all = data.map((r: any) => r.data as ShiftHandoverItem);
+                  return all.filter(i => i.date === date || (i.category === 'General' && (!i.expiryDate || i.expiryDate >= date)));
+              }
+          } catch (e) { console.error(e); }
+          return [];
+      }
+      const local = localStorage.getItem('hrms_shift_handover');
+      const all = local ? JSON.parse(local) as ShiftHandoverItem[] : [];
+      // Filter: Specific for date OR General that hasn't expired
+      return all.filter(i => i.date === date || (i.category === 'General' && (!i.expiryDate || i.expiryDate >= date)));
+  },
+
+  saveShiftHandoverItem: async (item: ShiftHandoverItem) => {
+      if (isLive && supabase) {
+          await supabase.from('shift_handover').upsert({ id: item.id, data: item });
+      } else {
+          const local = localStorage.getItem('hrms_shift_handover');
+          const all = local ? JSON.parse(local) as ShiftHandoverItem[] : [];
+          const index = all.findIndex(i => i.id === item.id);
+          if (index >= 0) all[index] = item;
+          else all.push(item);
+          localStorage.setItem('hrms_shift_handover', JSON.stringify(all));
+      }
+  },
+
+  deleteShiftHandoverItem: async (id: string, date: string) => { // Date passed to handle 'soft delete' logic for recurring items if needed
+      if (isLive && supabase) {
+          await supabase.from('shift_handover').delete().eq('id', id);
+      } else {
+          const local = localStorage.getItem('hrms_shift_handover');
+          const all = local ? JSON.parse(local) as ShiftHandoverItem[] : [];
+          const updated = all.filter(i => i.id !== id);
+          localStorage.setItem('hrms_shift_handover', JSON.stringify(updated));
+      }
   }
 };

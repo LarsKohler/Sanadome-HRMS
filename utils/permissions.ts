@@ -1,6 +1,4 @@
 
-
-
 import { Employee, Permission, ViewState, GlobalSettings } from '../types';
 
 // Define default permissions per role
@@ -23,13 +21,12 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'MANAGE_RECRUITMENT',
     'MANAGE_KNOWLEDGE',
     'MANAGE_OPERATIONS',
-    'MANAGE_RENTALS',
     'MANAGE_ACADEMY',
     'MANAGE_COMPENSATION',
     'DELETE_COMPENSATION', // Specific
     'MANAGE_TICKETS',
     'MANAGE_CHECKLISTS',
-    'MANAGE_HANDOVER',
+    'MANAGE_TASKS',
     'MANAGE_COMPLAINTS' // Added
   ],
   'Senior Medewerker': [
@@ -40,16 +37,13 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'MANAGE_DEBTORS',
     'MANAGE_RECRUITMENT',
     'MANAGE_OPERATIONS',
-    'MANAGE_RENTALS',
     'MANAGE_ACADEMY',
     'MANAGE_COMPENSATION',
     'MANAGE_CHECKLISTS',
-    'MANAGE_HANDOVER',
     'MANAGE_COMPLAINTS' // Added
   ],
   'Medewerker': [
-    'MANAGE_RENTALS',
-    'MANAGE_HANDOVER'
+    // Removed specific permissions for Medewerker related to removed features
   ]
 };
 

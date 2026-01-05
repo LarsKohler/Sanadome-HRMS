@@ -1,15 +1,16 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
     MessageCircleWarning, Search, Filter, Plus, AlertTriangle, 
     CheckCircle2, Clock, X, MessageSquare, Euro, 
     ChevronRight, Save, ThumbsUp, ThumbsDown, User, Calendar, 
-    ArrowRight, History, MoreHorizontal, Trash2
+    ArrowRight, History, MoreHorizontal, Trash2, Printer, Gift, Image as ImageIcon, Upload, Building2,
+    Ticket, BedDouble, Tag, CreditCard
 } from 'lucide-react';
 import { Employee, Complaint, ComplaintStatus, ComplaintCategory, ComplaintSeverity, ComplaintTimelineItem } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
+import { hasPermission } from '../utils/permissions';
 
 interface ComplaintsPageProps {
     currentUser: Employee;
@@ -17,18 +18,21 @@ interface ComplaintsPageProps {
 }
 
 const STATUS_COLORS: Record<ComplaintStatus, string> = {
-    'Open': 'bg-red-100 text-red-700 border-red-200',
-    'In Progress': 'bg-amber-100 text-amber-700 border-amber-200',
-    'Resolved': 'bg-green-100 text-green-700 border-green-200',
-    'Closed': 'bg-slate-100 text-slate-600 border-slate-200'
+    'Open': 'bg-red-100 text-red-700',
+    'In Progress': 'bg-amber-100 text-amber-700',
+    'Resolved': 'bg-green-100 text-green-700',
+    'Closed': 'bg-slate-100 text-slate-700'
 };
 
 const SEVERITY_ICONS: Record<ComplaintSeverity, React.ReactNode> = {
-    'Low': <span className="w-2 h-2 rounded-full bg-blue-400"></span>,
-    'Medium': <span className="w-2 h-2 rounded-full bg-amber-400"></span>,
-    'High': <span className="w-2 h-2 rounded-full bg-orange-500"></span>,
-    'Critical': <AlertTriangle size={14} className="text-red-500"/>
+    'Low': <div className="w-2 h-2 rounded-full bg-blue-500"></div>,
+    'Medium': <div className="w-2 h-2 rounded-full bg-amber-500"></div>,
+    'High': <div className="w-2 h-2 rounded-full bg-orange-500"></div>,
+    'Critical': <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
 };
+
+// Removed old QUICK_SOLUTIONS constant in favor of dynamic logic
+const DEPARTMENTS = ['Front Office', 'Huishouding', 'Technische Dienst', 'F&B Service', 'Keuken', 'Wellness', 'Reserveringen', 'Management'];
 
 const ComplaintsPage: React.FC<ComplaintsPageProps> = ({ currentUser, onShowToast }) => {
     const [complaints, setComplaints] = useState<Complaint[]>([]);
@@ -46,10 +50,39 @@ const ComplaintsPage: React.FC<ComplaintsPageProps> = ({ currentUser, onShowToas
     // Detail Drawer
     const [selectedComplaint, setSelectedComplaint] = useState<Complaint | null>(null);
     const [newTimelineNote, setNewTimelineNote] = useState('');
+    
+    // Local State for Edit Mode in Drawer
+    const [draftProposal, setDraftProposal] = useState('');
+    const [draftCost, setDraftCost] = useState<string>('');
+    const [draftDepartment, setDraftDepartment] = useState('');
+    
+    // --- SMART SOLUTION STATE ---
+    const [isSolutionModalOpen, setIsSolutionModalOpen] = useState(false);
+    const [solutionType, setSolutionType] = useState<'DayEntry' | 'FreeStay' | 'AdjustedRate' | 'Refund' | null>(null);
+    
+    // Solution Inputs
+    const [solQuantity, setSolQuantity] = useState(1); // For DayEntry
+    const [solAmount, setSolAmount] = useState(''); // For Rate/Refund
+    const [solContext, setSolContext] = useState('Overnachting'); // For Rate
+    const [solPackage, setSolPackage] = useState('Logies & Ontbijt'); // For FreeStay
+    const [solCustomPackage, setSolCustomPackage] = useState(''); // For FreeStay "Anders"
+
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const canManage = hasPermission(currentUser, 'MANAGE_COMPLAINTS');
 
     useEffect(() => {
         loadComplaints();
     }, []);
+
+    // Sync local state when selected complaint changes
+    useEffect(() => {
+        if (selectedComplaint) {
+            setDraftProposal(selectedComplaint.compensationDetails.offered);
+            setDraftCost(selectedComplaint.compensationDetails.cost ? selectedComplaint.compensationDetails.cost.toString() : '');
+            setDraftDepartment(selectedComplaint.department || 'Front Office');
+        }
+    }, [selectedComplaint]);
 
     const loadComplaints = async () => {
         setIsLoading(true);
@@ -98,6 +131,7 @@ const ComplaintsPage: React.FC<ComplaintsPageProps> = ({ currentUser, onShowToas
             status: 'Open',
             severity: 'Low',
             category: 'Other',
+            department: 'Front Office',
             compensationDetails: { offered: '', guestAccepted: null },
             timeline: []
         });
@@ -111,8 +145,6 @@ const ComplaintsPage: React.FC<ComplaintsPageProps> = ({ currentUser, onShowToas
         }
 
         const now = new Date().toISOString();
-        
-        // If creating new
         const isNew = !complaints.find(c => c.id === editingComplaint.id);
         
         const complaint: Complaint = {
@@ -121,6 +153,7 @@ const ComplaintsPage: React.FC<ComplaintsPageProps> = ({ currentUser, onShowToas
             guestName: editingComplaint.guestName!,
             roomNumber: editingComplaint.roomNumber,
             category: editingComplaint.category as ComplaintCategory || 'Other',
+            department: editingComplaint.department || 'Front Office',
             severity: editingComplaint.severity as ComplaintSeverity || 'Low',
             status: editingComplaint.status as ComplaintStatus || 'Open',
             description: editingComplaint.description!,
@@ -217,27 +250,179 @@ const ComplaintsPage: React.FC<ComplaintsPageProps> = ({ currentUser, onShowToas
         onShowToast(`Status gewijzigd naar ${newStatus}`);
     };
 
-    const updateCompensation = async (offered: string, cost: number, accepted: boolean | null) => {
+    const handleSaveCompensation = async (accepted: boolean | null = null) => {
         if (!selectedComplaint) return;
+
+        // Check if anything changed to avoid spamming timeline
+        const hasChanged = 
+            draftProposal !== selectedComplaint.compensationDetails.offered || 
+            parseFloat(draftCost || '0') !== (selectedComplaint.compensationDetails.cost || 0) ||
+            draftDepartment !== selectedComplaint.department;
+
+        const isAcceptanceChange = accepted !== selectedComplaint.compensationDetails.guestAccepted;
+
+        if (!hasChanged && !isAcceptanceChange) {
+            onShowToast("Geen wijzigingen om op te slaan.");
+            return;
+        }
+
+        const costVal = parseFloat(draftCost || '0');
+        let noteText = '';
+        
+        if (isAcceptanceChange) {
+             noteText = `Gast heeft voorstel ${accepted ? 'geaccepteerd' : 'geweigerd'}.`;
+        } else {
+             noteText = `Dossier bijgewerkt. Voorstel: ${draftProposal} (€${costVal}). Afdeling: ${draftDepartment}`;
+        }
 
         const newItem: ComplaintTimelineItem = {
             id: crypto.randomUUID(),
             date: new Date().toISOString(),
             author: currentUser.name,
-            action: 'Compensation Update',
-            note: `Compensatie aangepast: €${cost} - ${offered} (Akkoord: ${accepted === null ? '?' : accepted ? 'Ja' : 'Nee'})`
+            action: 'Update',
+            note: noteText
         };
 
         const updated = {
             ...selectedComplaint,
-            compensationDetails: { offered, cost, guestAccepted: accepted },
+            department: draftDepartment,
+            compensationDetails: { 
+                offered: draftProposal, 
+                cost: costVal, 
+                guestAccepted: accepted !== null ? accepted : selectedComplaint.compensationDetails.guestAccepted // Only update if passed explicitly
+            },
             timeline: [newItem, ...selectedComplaint.timeline]
         };
 
         await api.saveComplaint(updated);
         setComplaints(prev => prev.map(c => c.id === updated.id ? updated : c));
         setSelectedComplaint(updated);
-        onShowToast("Compensatie opgeslagen.");
+        onShowToast("Wijzigingen opgeslagen.");
+    };
+
+    // --- SMART SOLUTION LOGIC ---
+
+    const openSmartSolution = (type: 'DayEntry' | 'FreeStay' | 'AdjustedRate' | 'Refund') => {
+        setSolutionType(type);
+        // Reset defaults
+        setSolQuantity(1);
+        setSolAmount('');
+        setSolContext('Overnachting');
+        setSolPackage('Logies & Ontbijt');
+        setSolCustomPackage('');
+        setIsSolutionModalOpen(true);
+    };
+
+    const applySmartSolution = () => {
+        let textToAdd = '';
+        let costToAdd = 0;
+
+        switch (solutionType) {
+            case 'DayEntry':
+                costToAdd = solQuantity * 49.50;
+                textToAdd = `Aangeboden: ${solQuantity}x Dagentree Thermen.`;
+                break;
+            case 'AdjustedRate':
+                costToAdd = parseFloat(solAmount) || 0;
+                textToAdd = `Aangeboden: Aangepast tarief (€${costToAdd.toFixed(2)} korting op ${solContext}).`;
+                break;
+            case 'FreeStay':
+                costToAdd = 0; // Usually internal cost, can be adjusted manually later
+                const packageText = solPackage === 'Anders' ? solCustomPackage : solPackage;
+                textToAdd = `Aangeboden: Voucher voor gratis overnachting (${packageText}).`;
+                break;
+            case 'Refund':
+                costToAdd = parseFloat(solAmount) || 0;
+                textToAdd = `Aangeboden: Terugbetaling t.w.v. €${costToAdd.toFixed(2)}.`;
+                break;
+        }
+
+        setDraftProposal(prev => prev ? `${prev}\n${textToAdd}` : textToAdd);
+        
+        // If there's already a cost, add to it? Or replace? Usually replace or add if user wants. 
+        // For simplicity, let's set it if empty, or ask user to verify. 
+        // Let's just set/overwrite for now as it's a "Quick Action".
+        // Better UX: If existing cost > 0, add to it.
+        const currentCost = parseFloat(draftCost || '0');
+        setDraftCost((currentCost + costToAdd).toFixed(2));
+        
+        setIsSolutionModalOpen(false);
+    };
+
+    const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!selectedComplaint || !e.target.files || !e.target.files[0]) return;
+        const file = e.target.files[0];
+        
+        onShowToast("Foto uploaden...");
+        try {
+            const url = await api.uploadFile(file);
+            if(url) {
+                const updated = {
+                    ...selectedComplaint,
+                    images: [...(selectedComplaint.images || []), url]
+                };
+                await api.saveComplaint(updated);
+                setComplaints(prev => prev.map(c => c.id === updated.id ? updated : c));
+                setSelectedComplaint(updated);
+                onShowToast("Foto toegevoegd.");
+            }
+        } catch(err) {
+            onShowToast("Upload mislukt.");
+        }
+    };
+
+    const handlePrintLetter = () => {
+        if (!selectedComplaint) return;
+        const printWindow = window.open('', '_blank');
+        if (printWindow) {
+            printWindow.document.write(`
+                <html>
+                <head>
+                    <title>Excuusbrief - ${selectedComplaint.guestName}</title>
+                    <style>
+                        body { font-family: 'Times New Roman', serif; padding: 40px; max-width: 800px; margin: 0 auto; line-height: 1.6; }
+                        .header { margin-bottom: 40px; }
+                        .logo { font-size: 24px; font-weight: bold; margin-bottom: 20px; }
+                        .meta { margin-bottom: 40px; text-align: right; }
+                        .content { margin-bottom: 60px; }
+                        .signature { margin-top: 40px; }
+                    </style>
+                </head>
+                <body>
+                    <div class="header">
+                        <div class="logo">Sanadome Hotel & Spa</div>
+                        <div>Weg door Jonkerbos 90</div>
+                        <div>6532 SZ Nijmegen</div>
+                    </div>
+                    <div class="meta">
+                        Nijmegen, ${new Date().toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </div>
+                    <div>
+                        <strong>Betreft:</strong> Uw verblijf / Reservering #${selectedComplaint.reservationNumber}
+                    </div>
+                    <br/><br/>
+                    <div>
+                        Geachte gast, beste ${selectedComplaint.guestName},
+                    </div>
+                    <div class="content">
+                        <p>Naar aanleiding van uw melding tijdens uw verblijf, willen wij u via deze weg nogmaals onze excuses aanbieden voor het ongemak.</p>
+                        <p>Wij streven naar de hoogste kwaliteit en service, en het spijt ons te horen dat uw ervaring niet aan de verwachtingen voldeed. Uw feedback is besproken met de afdeling <strong>${draftDepartment}</strong> om herhaling in de toekomst te voorkomen.</p>
+                        ${draftProposal ? `<p>Als gebaar van goede wil hebben wij het volgende voor u geregeld:<br/><strong>${draftProposal}</strong></p>` : ''}
+                        <p>Wij hopen u in de toekomst opnieuw te mogen verwelkomen, zodat wij u de ware Sanadome ervaring kunnen bieden.</p>
+                    </div>
+                    <div class="signature">
+                        Met gastvrije groet,<br/><br/>
+                        <strong>${currentUser.name}</strong><br/>
+                        ${currentUser.role}<br/>
+                        Sanadome Hotel & Spa
+                    </div>
+                </body>
+                </html>
+            `);
+            printWindow.document.close();
+            printWindow.focus();
+            setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
+        }
     };
 
     // --- RENDER ---
@@ -358,6 +543,7 @@ const ComplaintsPage: React.FC<ComplaintsPageProps> = ({ currentUser, onShowToas
                                     </td>
                                     <td className="px-6 py-4 max-w-md">
                                         <p className="text-slate-600 line-clamp-2">{complaint.description}</p>
+                                        {complaint.department && <span className="text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded mt-1 inline-block">{complaint.department}</span>}
                                     </td>
                                     <td className="px-6 py-4">
                                         {complaint.compensationDetails.cost ? (
@@ -411,6 +597,13 @@ const ComplaintsPage: React.FC<ComplaintsPageProps> = ({ currentUser, onShowToas
                             </div>
                             <div className="flex gap-2">
                                 <button 
+                                    onClick={handlePrintLetter}
+                                    className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-50 rounded-lg transition-colors border border-slate-200"
+                                    title="Excuusbrief printen"
+                                >
+                                    <Printer size={20}/>
+                                </button>
+                                <button 
                                     onClick={() => handleDelete(selectedComplaint.id)}
                                     className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                 >
@@ -435,7 +628,34 @@ const ComplaintsPage: React.FC<ComplaintsPageProps> = ({ currentUser, onShowToas
                                         <div className="bg-slate-50 p-4 rounded-xl text-slate-700 leading-relaxed text-sm whitespace-pre-wrap border border-slate-100">
                                             {selectedComplaint.description}
                                         </div>
-                                        <div className="flex gap-4 mt-4 text-xs font-bold text-slate-500">
+                                        
+                                        {selectedComplaint.images && selectedComplaint.images.length > 0 && (
+                                            <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
+                                                {selectedComplaint.images.map((url, idx) => (
+                                                    <a key={idx} href={url} target="_blank" rel="noreferrer">
+                                                        <img src={url} className="h-20 w-20 object-cover rounded-lg border border-slate-200 hover:opacity-80 transition-opacity" alt="Evidence" />
+                                                    </a>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div className="flex flex-wrap gap-2 mt-4">
+                                             <input 
+                                                type="file" 
+                                                ref={fileInputRef} 
+                                                className="hidden" 
+                                                accept="image/*"
+                                                onChange={handleImageUpload}
+                                             />
+                                             <button 
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="text-xs bg-white border border-slate-200 text-slate-600 px-3 py-1.5 rounded-lg font-bold hover:bg-slate-50 flex items-center gap-1"
+                                             >
+                                                 <ImageIcon size={12}/> Foto Toevoegen
+                                             </button>
+                                        </div>
+
+                                        <div className="flex gap-4 mt-4 text-xs font-bold text-slate-500 pt-4 border-t border-slate-100">
                                             <span className="bg-slate-100 px-2 py-1 rounded">Categorie: {selectedComplaint.category}</span>
                                             <span className="bg-slate-100 px-2 py-1 rounded flex items-center gap-1">Ernst: {SEVERITY_ICONS[selectedComplaint.severity]} {selectedComplaint.severity}</span>
                                             <span className="bg-slate-100 px-2 py-1 rounded">Aangenomen door: {selectedComplaint.createdBy}</span>
@@ -444,31 +664,69 @@ const ComplaintsPage: React.FC<ComplaintsPageProps> = ({ currentUser, onShowToas
 
                                     {/* COMPENSATION NEGOTIATION */}
                                     <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                                        <h3 className="font-bold text-slate-900 mb-6 flex items-center gap-2">
+                                        <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
                                             <Euro size={18} className="text-teal-600"/> Compensatie & Afhandeling
                                         </h3>
                                         
+                                        <div className="mb-4">
+                                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2 flex items-center gap-1"><Building2 size={12}/> Verantwoordelijke Afdeling</label>
+                                            <div className="flex flex-wrap gap-2">
+                                                {DEPARTMENTS.map(dept => (
+                                                    <button
+                                                        key={dept}
+                                                        onClick={() => setDraftDepartment(dept)}
+                                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-all ${
+                                                            draftDepartment === dept 
+                                                            ? 'bg-slate-800 text-white border-slate-800' 
+                                                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                                                        }`}
+                                                    >
+                                                        {dept}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
                                         <div className="bg-teal-50/50 border border-teal-100 p-5 rounded-xl mb-6">
-                                            <label className="block text-xs font-bold text-teal-800 uppercase mb-2">Aangeboden Oplossing</label>
+                                            <div className="flex justify-between items-center mb-2">
+                                                <label className="block text-xs font-bold text-teal-800 uppercase">Slimme Oplossingen</label>
+                                            </div>
+                                            
+                                            <div className="flex gap-2 flex-wrap mb-4">
+                                                <button onClick={() => openSmartSolution('DayEntry')} className="flex items-center gap-1.5 px-3 py-2 bg-white border border-teal-200 text-teal-700 rounded-lg text-xs font-bold hover:bg-teal-50 shadow-sm transition-all"><Ticket size={14}/> Dagentree</button>
+                                                <button onClick={() => openSmartSolution('FreeStay')} className="flex items-center gap-1.5 px-3 py-2 bg-white border border-teal-200 text-teal-700 rounded-lg text-xs font-bold hover:bg-teal-50 shadow-sm transition-all"><BedDouble size={14}/> Gratis Overnachting</button>
+                                                <button onClick={() => openSmartSolution('AdjustedRate')} className="flex items-center gap-1.5 px-3 py-2 bg-white border border-teal-200 text-teal-700 rounded-lg text-xs font-bold hover:bg-teal-50 shadow-sm transition-all"><Tag size={14}/> Aangepast Tarief</button>
+                                                <button onClick={() => openSmartSolution('Refund')} className="flex items-center gap-1.5 px-3 py-2 bg-white border border-teal-200 text-teal-700 rounded-lg text-xs font-bold hover:bg-teal-50 shadow-sm transition-all"><CreditCard size={14}/> Terugbetaling</button>
+                                            </div>
+
+                                            <label className="block text-xs font-bold text-teal-800 uppercase mb-2">Aangeboden Oplossing (Tekst)</label>
                                             <textarea 
-                                                className="w-full p-3 border border-teal-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 mb-3"
-                                                rows={2}
+                                                className="w-full p-3 border border-teal-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 mb-3 min-h-[100px]"
+                                                rows={4}
                                                 placeholder="Wat bieden we aan?"
-                                                value={selectedComplaint.compensationDetails.offered}
-                                                onChange={(e) => updateCompensation(e.target.value, selectedComplaint.compensationDetails.cost || 0, selectedComplaint.compensationDetails.guestAccepted || null)}
+                                                value={draftProposal}
+                                                onChange={(e) => setDraftProposal(e.target.value)}
                                             />
-                                            <div className="flex items-center gap-4">
-                                                <div className="relative w-32">
-                                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">€</span>
-                                                    <input 
-                                                        type="number" 
-                                                        className="w-full pl-6 pr-3 py-2 border border-teal-200 rounded-lg text-sm font-bold bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
-                                                        value={selectedComplaint.compensationDetails.cost || ''}
-                                                        placeholder="0.00"
-                                                        onChange={(e) => updateCompensation(selectedComplaint.compensationDetails.offered, parseFloat(e.target.value), selectedComplaint.compensationDetails.guestAccepted || null)}
-                                                    />
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-4">
+                                                    <div className="relative w-32">
+                                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">€</span>
+                                                        <input 
+                                                            type="number" 
+                                                            className="w-full pl-6 pr-3 py-2 border border-teal-200 rounded-lg text-sm font-bold bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                                            value={draftCost}
+                                                            placeholder="0.00"
+                                                            onChange={(e) => setDraftCost(e.target.value)}
+                                                        />
+                                                    </div>
+                                                    <span className="text-xs text-teal-600 font-medium hidden sm:inline">Financiële waarde</span>
                                                 </div>
-                                                <span className="text-xs text-teal-600 font-medium">Financiële waarde (indien van toepassing)</span>
+                                                <button 
+                                                    onClick={() => handleSaveCompensation()}
+                                                    className="bg-teal-600 text-white px-4 py-2 rounded-lg text-xs font-bold hover:bg-teal-700 transition-colors shadow-sm flex items-center gap-1"
+                                                >
+                                                    <Save size={14}/> Wijzigingen Opslaan
+                                                </button>
                                             </div>
                                         </div>
 
@@ -476,7 +734,7 @@ const ComplaintsPage: React.FC<ComplaintsPageProps> = ({ currentUser, onShowToas
                                             <h4 className="text-sm font-bold text-slate-700">Reactie Gast</h4>
                                             <div className="flex gap-3">
                                                 <button 
-                                                    onClick={() => updateCompensation(selectedComplaint.compensationDetails.offered, selectedComplaint.compensationDetails.cost || 0, true)}
+                                                    onClick={() => handleSaveCompensation(true)}
                                                     className={`flex-1 py-3 rounded-xl border-2 font-bold text-sm flex items-center justify-center gap-2 transition-all ${
                                                         selectedComplaint.compensationDetails.guestAccepted === true
                                                         ? 'bg-green-50 border-green-500 text-green-700 shadow-sm'
@@ -486,7 +744,7 @@ const ComplaintsPage: React.FC<ComplaintsPageProps> = ({ currentUser, onShowToas
                                                     <ThumbsUp size={16}/> Akkoord
                                                 </button>
                                                 <button 
-                                                    onClick={() => updateCompensation(selectedComplaint.compensationDetails.offered, selectedComplaint.compensationDetails.cost || 0, false)}
+                                                    onClick={() => handleSaveCompensation(false)}
                                                     className={`flex-1 py-3 rounded-xl border-2 font-bold text-sm flex items-center justify-center gap-2 transition-all ${
                                                         selectedComplaint.compensationDetails.guestAccepted === false
                                                         ? 'bg-red-50 border-red-500 text-red-700 shadow-sm'
@@ -628,6 +886,17 @@ const ComplaintsPage: React.FC<ComplaintsPageProps> = ({ currentUser, onShowToas
                             </select>
                         </div>
                     </div>
+                    
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Betrokken Afdeling</label>
+                        <select 
+                            className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-white"
+                            value={editingComplaint.department || 'Front Office'}
+                            onChange={e => setEditingComplaint({...editingComplaint, department: e.target.value})}
+                        >
+                            {DEPARTMENTS.map(d => <option key={d} value={d}>{d}</option>)}
+                        </select>
+                    </div>
 
                     <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Omschrijving</label>
@@ -647,6 +916,108 @@ const ComplaintsPage: React.FC<ComplaintsPageProps> = ({ currentUser, onShowToas
                         </button>
                     </div>
                 </form>
+            </Modal>
+
+            {/* SMART SOLUTION MODAL */}
+            <Modal
+                isOpen={isSolutionModalOpen}
+                onClose={() => setIsSolutionModalOpen(false)}
+                title={
+                    solutionType === 'DayEntry' ? 'Dagentree Toekennen' :
+                    solutionType === 'FreeStay' ? 'Gratis Overnachting' :
+                    solutionType === 'AdjustedRate' ? 'Aangepast Tarief' : 'Terugbetaling'
+                }
+            >
+                <div className="space-y-4">
+                    {solutionType === 'DayEntry' && (
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Aantal Personen</label>
+                            <input 
+                                type="number"
+                                className="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold"
+                                min={1}
+                                value={solQuantity}
+                                onChange={(e) => setSolQuantity(parseInt(e.target.value) || 1)}
+                            />
+                            <p className="text-xs text-slate-400 mt-1">Waarde: €49.50 per persoon</p>
+                        </div>
+                    )}
+
+                    {solutionType === 'FreeStay' && (
+                        <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Arrangement</label>
+                            <select 
+                                className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-white"
+                                value={solPackage}
+                                onChange={(e) => setSolPackage(e.target.value)}
+                            >
+                                <option value="Logies & Ontbijt">Logies & Ontbijt</option>
+                                <option value="Half Pension">Half Pension</option>
+                                <option value="Anti Stress">Anti Stress</option>
+                                <option value="Anders">Anders</option>
+                            </select>
+                            
+                            {solPackage === 'Anders' && (
+                                <input 
+                                    className="w-full p-3 mt-2 border border-slate-200 rounded-xl text-sm bg-white animate-in fade-in slide-in-from-top-1"
+                                    placeholder="Omschrijf het arrangement..."
+                                    value={solCustomPackage}
+                                    onChange={(e) => setSolCustomPackage(e.target.value)}
+                                    autoFocus
+                                />
+                            )}
+                        </div>
+                    )}
+
+                    {solutionType === 'AdjustedRate' && (
+                        <>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Korting Bedrag (€)</label>
+                                <input 
+                                    type="number"
+                                    className="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold"
+                                    placeholder="0.00"
+                                    value={solAmount}
+                                    onChange={(e) => setSolAmount(e.target.value)}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Korting Op</label>
+                                <select 
+                                    className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-white"
+                                    value={solContext}
+                                    onChange={(e) => setSolContext(e.target.value)}
+                                >
+                                    <option value="Overnachting">Overnachting</option>
+                                    <option value="Dagentree">Dagentree</option>
+                                    <option value="Behandeling">Behandeling</option>
+                                    <option value="Horeca">Horeca</option>
+                                    <option value="Anders">Anders</option>
+                                </select>
+                            </div>
+                        </>
+                    )}
+
+                    {solutionType === 'Refund' && (
+                         <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Terug te betalen bedrag (€)</label>
+                            <input 
+                                type="number"
+                                className="w-full p-3 border border-slate-200 rounded-xl text-sm font-bold"
+                                placeholder="0.00"
+                                value={solAmount}
+                                onChange={(e) => setSolAmount(e.target.value)}
+                            />
+                        </div>
+                    )}
+
+                    <button 
+                        onClick={applySmartSolution}
+                        className="w-full py-3 bg-teal-600 text-white font-bold rounded-xl shadow-md hover:bg-teal-700 transition-colors mt-4"
+                    >
+                        Toevoegen aan Voorstel
+                    </button>
+                </div>
             </Modal>
 
         </div>
