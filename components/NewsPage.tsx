@@ -1,5 +1,4 @@
 
-
 import React, { useState, useRef, useMemo } from 'react';
 import { 
     Send, Image as ImageIcon, X, 
@@ -26,7 +25,7 @@ const HeroPost: React.FC<{ post: NewsPost, onClick: () => void, isRead: boolean 
     return (
         <div 
             onClick={onClick}
-            className="relative w-full h-[400px] md:h-[450px] rounded-2xl overflow-hidden cursor-pointer group shadow-md mb-8 border border-slate-200"
+            className="relative w-full h-[400px] md:h-[450px] rounded-2xl overflow-hidden cursor-pointer group shadow-md mb-8 border border-slate-200 dark:border-slate-700"
         >
             <div className="absolute inset-0 bg-slate-900">
                 {post.image ? (
@@ -88,9 +87,9 @@ const NewsCard: React.FC<{ post: NewsPost, onClick: () => void, isRead: boolean 
     return (
         <div 
             onClick={onClick}
-            className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:border-slate-300 transition-all duration-300 flex flex-col h-full cursor-pointer group overflow-hidden"
+            className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-lg hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-300 flex flex-col h-full cursor-pointer group overflow-hidden"
         >
-            <div className="relative h-48 w-full overflow-hidden bg-slate-100">
+            <div className="relative h-48 w-full overflow-hidden bg-slate-100 dark:bg-slate-900">
                 {post.image ? (
                     <img 
                         src={post.image} 
@@ -98,13 +97,13 @@ const NewsCard: React.FC<{ post: NewsPost, onClick: () => void, isRead: boolean 
                         className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" 
                     />
                 ) : (
-                    <div className="w-full h-full flex items-center justify-center text-slate-300 bg-slate-50">
+                    <div className="w-full h-full flex items-center justify-center text-slate-300 dark:text-slate-600 bg-slate-50 dark:bg-slate-800">
                         <ImageIcon size={40} className="opacity-20" />
                     </div>
                 )}
                 <div className="absolute top-3 left-3 flex gap-2">
                     {post.isPinned && (
-                        <div className="bg-white/90 backdrop-blur-sm text-slate-900 px-2 py-1 rounded-md text-[10px] font-bold shadow-sm flex items-center gap-1 uppercase tracking-wide">
+                        <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm text-slate-900 dark:text-white px-2 py-1 rounded-md text-[10px] font-bold shadow-sm flex items-center gap-1 uppercase tracking-wide">
                             <Pin size={10} fill="currentColor" /> Vastgezet
                         </div>
                     )}
@@ -121,20 +120,20 @@ const NewsCard: React.FC<{ post: NewsPost, onClick: () => void, isRead: boolean 
                     <Calendar size={12} /> {post.date}
                 </div>
                 
-                <h3 className="text-lg font-bold text-slate-900 mb-2 leading-snug group-hover:text-teal-600 transition-colors">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 leading-snug group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
                     {post.title}
                 </h3>
                 
-                <p className="text-slate-500 text-sm leading-relaxed mb-4 flex-1 line-clamp-3">
+                <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed mb-4 flex-1 line-clamp-3">
                    {post.shortDescription}
                 </p>
 
-                <div className="flex items-center pt-4 border-t border-slate-50 mt-auto">
-                    <img src={post.authorAvatar} alt={post.authorName} className="w-6 h-6 rounded-full object-cover border border-slate-100" />
+                <div className="flex items-center pt-4 border-t border-slate-50 dark:border-slate-700 mt-auto">
+                    <img src={post.authorAvatar} alt={post.authorName} className="w-6 h-6 rounded-full object-cover border border-slate-100 dark:border-slate-700" />
                     <div className="ml-2">
-                        <p className="text-xs font-bold text-slate-700">{post.authorName}</p>
+                        <p className="text-xs font-bold text-slate-700 dark:text-slate-300">{post.authorName}</p>
                     </div>
-                    <ArrowRight size={16} className="ml-auto text-slate-300 group-hover:text-teal-600 transition-colors" />
+                    <ArrowRight size={16} className="ml-auto text-slate-300 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors" />
                 </div>
             </div>
         </div>
@@ -280,14 +279,14 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
   const renderFormattedText = (text: string) => {
     return text.split('\n').map((line, i) => {
       if (line.trim().startsWith('- ')) {
-        return <li key={i} className="ml-6 list-disc text-slate-700 mb-2 pl-2">{parseInline(line.substring(2))}</li>;
+        return <li key={i} className="ml-6 list-disc text-slate-700 dark:text-slate-300 mb-2 pl-2">{parseInline(line.substring(2))}</li>;
       }
       if (line.trim().startsWith('## ')) {
-          return <h3 key={i} className="text-xl font-bold text-slate-900 mt-6 mb-3">{parseInline(line.substring(3))}</h3>;
+          return <h3 key={i} className="text-xl font-bold text-slate-900 dark:text-white mt-6 mb-3">{parseInline(line.substring(3))}</h3>;
       }
       if (line.trim() === '') return <div key={i} className="h-4"></div>;
       
-      return <p key={i} className="mb-4 leading-relaxed text-base text-slate-700">{parseInline(line)}</p>;
+      return <p key={i} className="mb-4 leading-relaxed text-base text-slate-700 dark:text-slate-300">{parseInline(line)}</p>;
     });
   };
 
@@ -295,10 +294,10 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
     const parts = text.split(/(\*\*.*?\*\*|\*.*?\*)/g);
     return parts.map((part, index) => {
       if (part.startsWith('**') && part.endsWith('**')) {
-        return <strong key={index} className="font-bold text-slate-900">{part.slice(2, -2)}</strong>;
+        return <strong key={index} className="font-bold text-slate-900 dark:text-white">{part.slice(2, -2)}</strong>;
       }
       if (part.startsWith('*') && part.endsWith('*')) {
-        return <em key={index} className="italic text-slate-800">{part.slice(1, -1)}</em>;
+        return <em key={index} className="italic text-slate-800 dark:text-slate-200">{part.slice(1, -1)}</em>;
       }
       return part;
     });
@@ -341,7 +340,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
               <div className="flex items-center justify-between mb-6">
                   <button 
                     onClick={() => setSelectedPost(null)}
-                    className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold text-sm bg-white border border-slate-200 px-4 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-md"
+                    className="flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-bold text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2.5 rounded-xl transition-all shadow-sm hover:shadow-md"
                   >
                       <ArrowLeft size={18}/> Terug naar overzicht
                   </button>
@@ -350,11 +349,11 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                   <div className="flex gap-2">
                         {(canPost && (selectedPost.authorName === currentUser.name || canDelete)) && (
                             <>
-                                <button onClick={() => handleOpenEdit(selectedPost)} className="p-2.5 bg-white border border-slate-200 text-slate-500 hover:text-teal-600 hover:border-teal-200 rounded-xl transition-all shadow-sm">
+                                <button onClick={() => handleOpenEdit(selectedPost)} className="p-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-teal-600 hover:border-teal-200 rounded-xl transition-all shadow-sm">
                                     <Edit2 size={18}/>
                                 </button>
                                 {canDelete && (
-                                    <button onClick={() => setConfirmDeleteId(selectedPost.id)} className="p-2.5 bg-white border border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-200 rounded-xl transition-all shadow-sm">
+                                    <button onClick={() => setConfirmDeleteId(selectedPost.id)} className="p-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-red-600 hover:border-red-200 rounded-xl transition-all shadow-sm">
                                         <Trash2 size={18}/>
                                     </button>
                                 )}
@@ -363,7 +362,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                   </div>
               </div>
 
-              <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden max-w-5xl mx-auto">
+              <div className="bg-white dark:bg-slate-800 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-700 overflow-hidden max-w-5xl mx-auto">
                   {/* Article Header Image */}
                   {selectedPost.image && (
                       <div className="h-[300px] md:h-[400px] w-full relative">
@@ -388,49 +387,49 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                       {/* Title & Author */}
                       {!selectedPost.image && (
                           <div className="flex items-center gap-3 mb-4">
-                                <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-md text-xs font-bold border border-slate-200">
+                                <span className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 px-3 py-1 rounded-md text-xs font-bold border border-slate-200 dark:border-slate-600">
                                     {selectedPost.date}
                                 </span>
                                 {selectedPost.isPinned && (
-                                    <span className="bg-teal-50 text-teal-700 px-3 py-1 rounded-md text-xs font-bold flex items-center gap-1 border border-teal-100">
+                                    <span className="bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 px-3 py-1 rounded-md text-xs font-bold flex items-center gap-1 border border-teal-100 dark:border-teal-800">
                                         <Pin size={12} fill="currentColor"/> Uitgelicht
                                     </span>
                                 )}
                           </div>
                       )}
                       
-                      <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6 leading-tight">
+                      <h1 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">
                           {selectedPost.title}
                       </h1>
 
-                      <div className="flex items-center gap-4 mb-10 border-b border-slate-100 pb-8">
-                            <img src={selectedPost.authorAvatar} className="w-12 h-12 rounded-full border border-slate-100" alt="Author"/>
+                      <div className="flex items-center gap-4 mb-10 border-b border-slate-100 dark:border-slate-700 pb-8">
+                            <img src={selectedPost.authorAvatar} className="w-12 h-12 rounded-full border border-slate-100 dark:border-slate-700" alt="Author"/>
                             <div>
-                                <div className="font-bold text-slate-900 text-base">{selectedPost.authorName}</div>
-                                <div className="text-slate-500 text-xs">{selectedPost.authorRole}</div>
+                                <div className="font-bold text-slate-900 dark:text-white text-base">{selectedPost.authorName}</div>
+                                <div className="text-slate-500 dark:text-slate-400 text-xs">{selectedPost.authorRole}</div>
                             </div>
                       </div>
 
                       {/* Content */}
-                      <article className="prose prose-slate prose-lg max-w-none text-slate-700 leading-loose">
+                      <article className="prose prose-slate dark:prose-invert prose-lg max-w-none text-slate-700 dark:text-slate-300 leading-loose">
                             {renderFormattedText(selectedPost.content)}
                       </article>
 
                       {/* Read Confirmation Footer */}
                       {selectedPost.isPinned && !selectedPost.readBy?.includes(currentUser.id) ? (
-                          <div className="mt-12 pt-8 border-t border-slate-100 flex flex-col items-center justify-center text-center bg-slate-50 rounded-2xl p-8 border border-slate-200">
-                              <h4 className="font-bold text-slate-900 mb-2">Heb je dit bericht gelezen?</h4>
-                              <p className="text-slate-500 text-sm mb-4">Dit is een belangrijk bericht. Bevestig a.u.b. dat je het hebt gelezen.</p>
+                          <div className="mt-12 pt-8 border-t border-slate-100 dark:border-slate-700 flex flex-col items-center justify-center text-center bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-8 border border-slate-200 dark:border-slate-700">
+                              <h4 className="font-bold text-slate-900 dark:text-white mb-2">Heb je dit bericht gelezen?</h4>
+                              <p className="text-slate-500 dark:text-slate-400 text-sm mb-4">Dit is een belangrijk bericht. Bevestig a.u.b. dat je het hebt gelezen.</p>
                               <button 
                                 onClick={() => onMarkRead(selectedPost.id)}
-                                className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg hover:bg-slate-800 transition-all flex items-center gap-2 transform hover:-translate-y-1"
+                                className="bg-slate-900 dark:bg-slate-700 text-white px-8 py-3 rounded-xl font-bold text-sm shadow-lg hover:bg-slate-800 dark:hover:bg-slate-600 transition-all flex items-center gap-2 transform hover:-translate-y-1"
                               >
                                   <CheckCircle2 size={18}/> Ik heb dit gelezen
                               </button>
                           </div>
                       ) : selectedPost.readBy?.includes(currentUser.id) && selectedPost.isPinned ? (
-                          <div className="mt-12 pt-6 border-t border-slate-100 flex items-center justify-center">
-                              <div className="flex items-center gap-2 text-green-600 font-bold bg-green-50 px-6 py-3 rounded-xl border border-green-100">
+                          <div className="mt-12 pt-6 border-t border-slate-100 dark:border-slate-700 flex items-center justify-center">
+                              <div className="flex items-center gap-2 text-green-600 dark:text-green-400 font-bold bg-green-50 dark:bg-green-900/20 px-6 py-3 rounded-xl border border-green-100 dark:border-green-800">
                                   <CheckCircle2 size={18}/> Gelezen op {new Date().toLocaleDateString('nl-NL')}
                               </div>
                           </div>
@@ -445,14 +444,14 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
             {/* Header */}
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
               <div>
-                  <h1 className="text-3xl font-bold tracking-tight text-slate-900">Nieuws & Updates</h1>
-                  <p className="text-slate-500 mt-2 text-lg">Blijf op de hoogte van de laatste ontwikkelingen binnen Sanadome.</p>
+                  <h1 className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Nieuws & Updates</h1>
+                  <p className="text-slate-500 dark:text-slate-400 mt-2 text-lg">Blijf op de hoogte van de laatste ontwikkelingen binnen Sanadome.</p>
               </div>
               
               {canPost && (
                 <button 
                   onClick={handleOpenCreate}
-                  className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all w-full md:w-auto justify-center"
+                  className="flex items-center gap-2 px-6 py-3 bg-slate-900 dark:bg-slate-700 hover:bg-slate-800 dark:hover:bg-slate-600 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all w-full md:w-auto justify-center"
                 >
                   <Send size={18} />
                   Nieuw Artikel
@@ -483,14 +482,14 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                 </div>
             ) : (
                 !heroPost && (
-                  <div className="text-center py-24 bg-white rounded-3xl border border-slate-200 border-dashed max-w-2xl mx-auto">
-                      <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-50 text-slate-300 mb-6">
+                  <div className="text-center py-24 bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 border-dashed max-w-2xl mx-auto">
+                      <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-slate-50 dark:bg-slate-700 text-slate-300 dark:text-slate-500 mb-6">
                           <Layout size={40} />
                       </div>
-                      <h3 className="text-xl font-bold text-slate-900 mb-2">Nog geen nieuws</h3>
-                      <p className="text-slate-500">Er zijn nog geen nieuwsberichten geplaatst in de organisatie.</p>
+                      <h3 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Nog geen nieuws</h3>
+                      <p className="text-slate-500 dark:text-slate-400">Er zijn nog geen nieuwsberichten geplaatst in de organisatie.</p>
                       {canPost && (
-                          <button onClick={handleOpenCreate} className="mt-6 text-teal-600 font-bold hover:underline">
+                          <button onClick={handleOpenCreate} className="mt-6 text-teal-600 dark:text-teal-400 font-bold hover:underline">
                               Plaats het eerste bericht
                           </button>
                       )}
@@ -509,36 +508,36 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
         <form onSubmit={handleSubmit} className="space-y-6 font-sans">
           <div className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Titel</label>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Titel</label>
                 <input 
                   type="text" 
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-4 py-3 text-lg font-bold focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all dark:text-white"
                   placeholder="Een pakkende kop..."
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Korte samenvatting</label>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2">Korte samenvatting</label>
                 <textarea 
                   required
                   rows={2}
                   value={shortDescription}
                   onChange={(e) => setShortDescription(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-medium resize-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-medium resize-none dark:text-white"
                   placeholder="Teaser voor het overzicht..."
                 />
               </div>
 
               <div>
                  <div className="flex justify-between items-end mb-2">
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">Inhoud</label>
-                    <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 border border-slate-200">
-                       <button type="button" onClick={() => insertFormatting('bold')} className="p-1.5 hover:bg-white rounded text-slate-600 hover:text-slate-900 transition-colors" title="Vet"><Bold size={14}/></button>
-                       <button type="button" onClick={() => insertFormatting('italic')} className="p-1.5 hover:bg-white rounded text-slate-600 hover:text-slate-900 transition-colors" title="Cursief"><Italic size={14}/></button>
-                       <button type="button" onClick={() => insertFormatting('list')} className="p-1.5 hover:bg-white rounded text-slate-600 hover:text-slate-900 transition-colors" title="Lijst"><List size={14}/></button>
+                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Inhoud</label>
+                    <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-700 rounded-lg p-1 border border-slate-200 dark:border-slate-600">
+                       <button type="button" onClick={() => insertFormatting('bold')} className="p-1.5 hover:bg-white dark:hover:bg-slate-600 rounded text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors" title="Vet"><Bold size={14}/></button>
+                       <button type="button" onClick={() => insertFormatting('italic')} className="p-1.5 hover:bg-white dark:hover:bg-slate-600 rounded text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors" title="Cursief"><Italic size={14}/></button>
+                       <button type="button" onClick={() => insertFormatting('list')} className="p-1.5 hover:bg-white dark:hover:bg-slate-600 rounded text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors" title="Lijst"><List size={14}/></button>
                     </div>
                  </div>
                 <textarea 
@@ -547,16 +546,16 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                   rows={10}
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-medium leading-relaxed resize-none"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 font-medium leading-relaxed resize-none dark:text-white"
                   placeholder="Schrijf hier het volledige artikel..."
                 />
               </div>
 
-              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Instellingen</label>
+              <div className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-3">Instellingen</label>
                 
                 <div className="flex items-start gap-4 mb-4">
-                    <div className="relative w-32 h-20 bg-white border-2 border-dashed border-slate-300 rounded-lg overflow-hidden flex items-center justify-center cursor-pointer hover:border-teal-500 transition-colors group">
+                    <div className="relative w-32 h-20 bg-white dark:bg-slate-800 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-lg overflow-hidden flex items-center justify-center cursor-pointer hover:border-teal-500 transition-colors group">
                         <input type="file" ref={fileInputRef} accept="image/*" onChange={handleImageUpload} className="hidden" />
                         {imageUrl ? (
                             <>
@@ -567,46 +566,46 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                             </>
                         ) : (
                             <div className="text-center" onClick={() => !isUploading && fileInputRef.current?.click()}>
-                                {isUploading ? <div className="animate-spin w-5 h-5 border-2 border-teal-500 border-t-transparent rounded-full mx-auto"></div> : <ImageIcon size={20} className="text-slate-400 mx-auto"/>}
+                                {isUploading ? <div className="animate-spin w-5 h-5 border-2 border-teal-500 border-t-transparent rounded-full mx-auto"></div> : <ImageIcon size={20} className="text-slate-400 dark:text-slate-500 mx-auto"/>}
                             </div>
                         )}
                     </div>
                     <div className="flex-1">
-                        <p className="text-sm font-bold text-slate-700 mb-1">Omslagfoto</p>
-                        <p className="text-xs text-slate-500 mb-2">Wordt gebruikt als banner en in de kaartweergave.</p>
-                        <button type="button" onClick={() => fileInputRef.current?.click()} className="text-xs font-bold text-teal-600 hover:underline">
+                        <p className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-1">Omslagfoto</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mb-2">Wordt gebruikt als banner en in de kaartweergave.</p>
+                        <button type="button" onClick={() => fileInputRef.current?.click()} className="text-xs font-bold text-teal-600 dark:text-teal-400 hover:underline">
                             {imageUrl ? 'Wijzigen' : 'Uploaden'}
                         </button>
                     </div>
                 </div>
 
-                <div className="flex items-center gap-3 pt-4 border-t border-slate-200">
+                <div className="flex items-center gap-3 pt-4 border-t border-slate-200 dark:border-slate-700">
                     <input 
                         type="checkbox" 
                         id="isPinned" 
                         checked={isPinned} 
                         onChange={(e) => setIsPinned(e.target.checked)}
-                        className="w-5 h-5 rounded text-teal-600 focus:ring-teal-500 border-slate-300"
+                        className="w-5 h-5 rounded text-teal-600 focus:ring-teal-500 border-slate-300 dark:border-slate-600 dark:bg-slate-800"
                     />
-                    <label htmlFor="isPinned" className="text-sm font-bold text-slate-700 cursor-pointer select-none">
+                    <label htmlFor="isPinned" className="text-sm font-bold text-slate-700 dark:text-slate-300 cursor-pointer select-none">
                         Belangrijk / Vastzetten
                     </label>
                 </div>
               </div>
           </div>
 
-          <div className="pt-6 flex justify-end gap-3 border-t border-slate-100 mt-6">
+          <div className="pt-6 flex justify-end gap-3 border-t border-slate-100 dark:border-slate-700 mt-6">
             <button 
               type="button"
               onClick={() => setIsCreateModalOpen(false)}
-              className="px-6 py-3 text-sm font-bold text-slate-600 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
+              className="px-6 py-3 text-sm font-bold text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
             >
               Annuleren
             </button>
             <button 
               type="submit"
               disabled={isUploading || isSaving}
-              className="px-8 py-3 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-all shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-8 py-3 text-sm font-bold text-white bg-slate-900 dark:bg-slate-700 rounded-xl hover:bg-slate-800 dark:hover:bg-slate-600 transition-all shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSaving ? 'Opslaan...' : (editingId ? 'Bijwerken' : 'Publiceren')} <Send size={16} />
             </button>
@@ -621,7 +620,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
         title="Bericht Verwijderen"
       >
          <div className="space-y-4">
-            <div className="bg-red-50 p-4 rounded-xl border border-red-100 flex items-start gap-3 text-red-800">
+            <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-100 dark:border-red-800 flex items-start gap-3 text-red-800 dark:text-red-300">
                 <AlertCircle className="shrink-0 mt-0.5" size={20}/>
                 <p className="text-sm font-medium">Weet je zeker dat je dit nieuwsbericht wilt verwijderen? Dit kan niet ongedaan worden gemaakt.</p>
             </div>
@@ -629,7 +628,7 @@ const NewsPage: React.FC<NewsPageProps> = ({ currentUser, newsItems, onAddNews, 
                <button 
                  onClick={() => setConfirmDeleteId(null)} 
                  disabled={isDeleting}
-                 className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors"
+                 className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
                >
                  Annuleren
                </button>
