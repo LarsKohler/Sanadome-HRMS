@@ -66,7 +66,17 @@ const DataAuditPage: React.FC<DataAuditPageProps> = ({ currentUser, onShowToast 
                 try {
                     const data = e.target?.result;
                     const workbook = XLSX.read(data, { type: 'array' });
-                    const sheetName = workbook.SheetNames[0];
+                    
+                    // FIX: Prioritize sheet named 'Reservations' (case insensitive)
+                    // If not found, fallback to the first sheet.
+                    let sheetName = workbook.SheetNames.find(n => n.toLowerCase().includes('reservation'));
+                    
+                    if (!sheetName) {
+                        sheetName = workbook.SheetNames[0];
+                    }
+
+                    console.log(`Data Audit: Using Excel sheet '${sheetName}'`);
+
                     const sheet = workbook.Sheets[sheetName];
                     // header: 1 returns an array of arrays
                     const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) as any[][];
@@ -140,8 +150,8 @@ const DataAuditPage: React.FC<DataAuditPageProps> = ({ currentUser, onShowToast 
                 telephone: ['telephone', 'phone', 'telefoon', 'mobiel']
             };
 
-            // Search first 20 rows
-            for (let i = 0; i < Math.min(rawRows.length, 20); i++) {
+            // Search first 50 rows (increased from 20)
+            for (let i = 0; i < Math.min(rawRows.length, 50); i++) {
                 const row = rawRows[i].map(c => String(c).trim().toLowerCase());
                 
                 // Check if this row contains 'number' AND 'email' (Telephone is sometimes optional in export settings?)
@@ -156,8 +166,18 @@ const DataAuditPage: React.FC<DataAuditPageProps> = ({ currentUser, onShowToast 
             }
 
             if (headerRowIndex === -1) {
-                // Last ditch effort: Look for just "Number" if the others are missing? No, safer to fail.
-                throw new Error("Kon de kolomkoppen (Number, Email) niet vinden in de eerste 20 regels van het Excel bestand. Controleer of het bestand de juiste kolommen bevat.");
+                // Look for just "Number" as a fallback if Email header is oddly named
+                for (let i = 0; i < Math.min(rawRows.length, 50); i++) {
+                    const row = rawRows[i].map(c => String(c).trim().toLowerCase());
+                    if (row.some(cell => targetHeaders.number.includes(cell))) {
+                        headerRowIndex = i;
+                        break;
+                    }
+                }
+            }
+
+            if (headerRowIndex === -1) {
+                throw new Error("Kon de kolomkoppen (Number, Email) niet vinden in het tabblad 'Reservations'. Controleer het exportformaat.");
             }
 
             const headerRow = rawRows[headerRowIndex].map(h => String(h).trim().toLowerCase());
