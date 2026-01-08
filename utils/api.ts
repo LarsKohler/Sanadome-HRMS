@@ -569,7 +569,6 @@ export const api = {
       }
   },
 
-  /* Added saveNotification method */
   saveNotification: async (notification: Notification) => {
     if (isLive && supabase) {
         await supabase.from('notifications').upsert({ id: notification.id, data: notification });
@@ -640,7 +639,13 @@ export const api = {
               return publicUrl.publicUrl;
           }
       }
-      return URL.createObjectURL(file); // Fallback for demo
+      // FIXED: Use FileReader to convert to Base64 so it persists in LocalStorage
+      return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = error => reject(error);
+      });
   },
 
   deleteFile: async (path: string) => {
