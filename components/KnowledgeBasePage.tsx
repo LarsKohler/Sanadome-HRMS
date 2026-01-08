@@ -84,7 +84,7 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
         if (!text) return null;
         
         // 1. Images
-        let html = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="w-full rounded-xl my-4 border border-slate-200" />');
+        let html = text.replace(/!\[(.*?)\]\((.*?)\)/g, '<img src="$2" alt="$1" class="w-full rounded-xl my-4 border border-slate-200 dark:border-slate-700" />');
         
         // 2. Bold
         html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -93,14 +93,14 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
         html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
         
         // 4. Headers
-        html = html.replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold text-slate-900 mt-6 mb-3">$1</h1>');
-        html = html.replace(/^## (.*$)/gm, '<h2 class="text-xl font-bold text-slate-800 mt-5 mb-2">$1</h2>');
+        html = html.replace(/^# (.*$)/gm, '<h1 class="text-2xl font-bold text-slate-900 dark:text-white mt-6 mb-3">$1</h1>');
+        html = html.replace(/^## (.*$)/gm, '<h2 class="text-xl font-bold text-slate-800 dark:text-slate-200 mt-5 mb-2">$1</h2>');
         
         // 5. Lists (Simple)
         html = html.replace(/^- (.*$)/gm, '<li class="ml-4 list-disc">$1</li>');
         
         // 6. Links
-        html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="text-teal-600 hover:underline font-medium">$1</a>');
+        html = html.replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" class="text-teal-600 dark:text-teal-400 hover:underline font-medium">$1</a>');
 
         // 7. Line Breaks
         html = html.replace(/\n/g, '<br />');
@@ -268,17 +268,17 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
         return (
             <div className="p-4 md:p-8 w-full max-w-[1200px] mx-auto animate-in fade-in duration-300">
                 <div className="flex items-center justify-between mb-6">
-                    <button onClick={() => setView('list')} className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold text-sm">
+                    <button onClick={() => setView('list')} className="flex items-center gap-2 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white font-bold text-sm">
                         <ArrowLeft size={18}/> Annuleren
                     </button>
                     <div className="flex items-center gap-3">
                         <button 
                             onClick={() => setIsPreviewMode(!isPreviewMode)}
-                            className={`px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 border ${isPreviewMode ? 'bg-teal-50 text-teal-700 border-teal-200' : 'bg-white text-slate-600 border-slate-200'}`}
+                            className={`px-4 py-2 rounded-xl font-bold text-sm flex items-center gap-2 border ${isPreviewMode ? 'bg-teal-50 text-teal-700 border-teal-200 dark:bg-teal-900/30 dark:text-teal-400 dark:border-teal-800' : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'}`}
                         >
                             <Eye size={18}/> {isPreviewMode ? 'Bewerk Modus' : 'Voorbeeld'}
                         </button>
-                        <button onClick={handleSave} className="bg-slate-900 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg hover:bg-slate-800 transition-colors flex items-center gap-2">
+                        <button onClick={handleSave} className="bg-slate-900 dark:bg-slate-700 text-white px-6 py-2.5 rounded-xl font-bold text-sm shadow-lg hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors flex items-center gap-2">
                             <Save size={18}/> Opslaan
                         </button>
                     </div>
@@ -287,14 +287,14 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                     {/* Main Editor */}
                     <div className="lg:col-span-2 space-y-6">
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm min-h-[600px] flex flex-col">
+                        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm min-h-[600px] flex flex-col">
                             
                             {/* Title Input */}
                             <div className="mb-6">
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Titel</label>
+                                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2">Titel</label>
                                 <input 
                                     type="text" 
-                                    className="w-full text-2xl font-bold border-b-2 border-slate-100 py-2 focus:outline-none focus:border-teal-500 transition-colors placeholder:text-slate-300"
+                                    className="w-full text-2xl font-bold border-b-2 border-slate-100 dark:border-slate-700 py-2 focus:outline-none focus:border-teal-500 transition-colors placeholder:text-slate-300 bg-transparent dark:text-white"
                                     placeholder="Titel van het artikel..."
                                     value={editForm.title}
                                     onChange={e => setEditForm({...editForm, title: e.target.value})}
@@ -303,18 +303,18 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
 
                             {/* Toolbar */}
                             {!isPreviewMode && (
-                                <div className="flex items-center gap-1 mb-4 p-2 bg-slate-50 rounded-xl border border-slate-200 flex-wrap">
-                                    <button onClick={() => insertText('**', '**')} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-colors" title="Dikgedrukt"><Bold size={18}/></button>
-                                    <button onClick={() => insertText('*', '*')} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-colors" title="Cursief"><Italic size={18}/></button>
-                                    <div className="w-px h-6 bg-slate-200 mx-1"></div>
-                                    <button onClick={() => insertText('# ')} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-colors" title="Kop 1"><Heading1 size={18}/></button>
-                                    <button onClick={() => insertText('## ')} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-colors" title="Kop 2"><Heading2 size={18}/></button>
-                                    <div className="w-px h-6 bg-slate-200 mx-1"></div>
-                                    <button onClick={() => insertText('- ')} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-colors" title="Lijst"><List size={18}/></button>
-                                    <button onClick={() => insertText('[Link tekst](url)')} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-colors" title="Link"><Link size={18}/></button>
+                                <div className="flex items-center gap-1 mb-4 p-2 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-700 flex-wrap">
+                                    <button onClick={() => insertText('**', '**')} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors" title="Dikgedrukt"><Bold size={18}/></button>
+                                    <button onClick={() => insertText('*', '*')} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors" title="Cursief"><Italic size={18}/></button>
+                                    <div className="w-px h-6 bg-slate-200 dark:bg-slate-600 mx-1"></div>
+                                    <button onClick={() => insertText('# ')} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors" title="Kop 1"><Heading1 size={18}/></button>
+                                    <button onClick={() => insertText('## ')} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors" title="Kop 2"><Heading2 size={18}/></button>
+                                    <div className="w-px h-6 bg-slate-200 dark:bg-slate-600 mx-1"></div>
+                                    <button onClick={() => insertText('- ')} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors" title="Lijst"><List size={18}/></button>
+                                    <button onClick={() => insertText('[Link tekst](url)')} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors" title="Link"><Link size={18}/></button>
                                     
                                     <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleImageUpload} />
-                                    <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-white rounded-lg text-slate-600 hover:text-slate-900 transition-colors" title="Afbeelding toevoegen"><ImageIcon size={18}/></button>
+                                    <button onClick={() => fileInputRef.current?.click()} className="p-2 hover:bg-white dark:hover:bg-slate-600 rounded-lg text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-colors" title="Afbeelding toevoegen"><ImageIcon size={18}/></button>
                                     
                                     <div className="ml-auto">
                                         <button 
@@ -330,13 +330,13 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                             {/* Editor / Preview Area */}
                             <div className="flex-1 relative">
                                 {isPreviewMode ? (
-                                    <div className="prose prose-slate max-w-none p-4 h-full overflow-y-auto bg-slate-50/30 rounded-xl border border-transparent">
+                                    <div className="prose prose-slate dark:prose-invert max-w-none p-4 h-full overflow-y-auto bg-slate-50/30 dark:bg-slate-900/30 rounded-xl border border-transparent">
                                         {renderMarkdown(editForm.content || '*Nog geen inhoud...*')}
                                     </div>
                                 ) : (
                                     <textarea 
                                         ref={textareaRef}
-                                        className="w-full h-full p-4 bg-white focus:outline-none focus:ring-0 font-medium text-slate-700 leading-relaxed resize-none font-mono text-sm"
+                                        className="w-full h-full p-4 bg-white dark:bg-slate-800 focus:outline-none focus:ring-0 font-medium text-slate-700 dark:text-slate-300 leading-relaxed resize-none font-mono text-sm"
                                         placeholder="Schrijf hier de inhoud... Gebruik Markdown voor opmaak."
                                         value={editForm.content}
                                         onChange={e => setEditForm({...editForm, content: e.target.value})}
@@ -344,7 +344,7 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                                 )}
                             </div>
 
-                            <div className="mt-4 pt-4 border-t border-slate-100 flex justify-between text-xs text-slate-400 font-medium">
+                            <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700 flex justify-between text-xs text-slate-400 font-medium">
                                 <span>Markdown ondersteund</span>
                                 <span>{getReadTime(editForm.content || '')}</span>
                             </div>
@@ -355,39 +355,39 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                     <div className="space-y-6">
                         
                         {/* Meta */}
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                            <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-                                <Layout size={18} className="text-teal-600"/> Metadata
+                        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                                <Layout size={18} className="text-teal-600 dark:text-teal-400"/> Metadata
                             </h3>
                             
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Categorie</label>
+                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Categorie</label>
                                     <input 
                                         type="text" 
-                                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium"
+                                        className="w-full p-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium dark:text-white"
                                         placeholder="bv. Front Office"
                                         value={editForm.category}
                                         onChange={e => setEditForm({...editForm, category: e.target.value})}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Tags</label>
+                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Tags</label>
                                     <input 
                                         type="text" 
-                                        className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium"
+                                        className="w-full p-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium dark:text-white"
                                         placeholder="bv. kassa, veiligheid"
                                         value={editForm.tags?.join(', ')}
                                         onChange={e => setEditForm({...editForm, tags: e.target.value.split(',').map(t => t.trim())})}
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Review Datum</label>
+                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Review Datum</label>
                                     <div className="relative">
                                         <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                                         <input 
                                             type="date" 
-                                            className="w-full pl-9 pr-2 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium"
+                                            className="w-full pl-9 pr-2 py-2 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-600 rounded-lg text-sm font-medium dark:text-white dark:[color-scheme:dark]"
                                             value={editForm.reviewDate || ''}
                                             onChange={e => setEditForm({...editForm, reviewDate: e.target.value})}
                                         />
@@ -400,22 +400,22 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                                         id="pinned"
                                         checked={editForm.isPinned}
                                         onChange={e => setEditForm({...editForm, isPinned: e.target.checked})}
-                                        className="rounded text-teal-600 focus:ring-teal-500"
+                                        className="rounded text-teal-600 focus:ring-teal-500 border-slate-300 dark:border-slate-600 dark:bg-slate-700"
                                     />
-                                    <label htmlFor="pinned" className="text-sm font-bold text-slate-700">Vastzetten als belangrijk</label>
+                                    <label htmlFor="pinned" className="text-sm font-bold text-slate-700 dark:text-slate-300">Vastzetten als belangrijk</label>
                                 </div>
                             </div>
                         </div>
 
                         {/* Permissions */}
-                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-                            <h3 className="font-bold text-slate-900 mb-4 flex items-center gap-2">
-                                <Shield size={18} className="text-teal-600"/> Zichtbaarheid
+                        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <h3 className="font-bold text-slate-900 dark:text-white mb-4 flex items-center gap-2">
+                                <Shield size={18} className="text-teal-600 dark:text-teal-400"/> Zichtbaarheid
                             </h3>
                             
                             <div className="space-y-4">
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Rollen</label>
+                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2">Rollen</label>
                                     <div className="space-y-2">
                                         {['All', 'Manager', 'Senior Medewerker', 'Medewerker'].map(role => (
                                             <label key={role} className="flex items-center gap-2 cursor-pointer">
@@ -423,15 +423,15 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                                                     type="checkbox" 
                                                     checked={editForm.allowedRoles?.includes(role)}
                                                     onChange={() => toggleArrayItem('allowedRoles', role)}
-                                                    className="rounded text-teal-600 focus:ring-teal-500"
+                                                    className="rounded text-teal-600 focus:ring-teal-500 border-slate-300 dark:border-slate-600 dark:bg-slate-700"
                                                 />
-                                                <span className="text-sm text-slate-700">{role === 'All' ? 'Iedereen' : role}</span>
+                                                <span className="text-sm text-slate-700 dark:text-slate-300">{role === 'All' ? 'Iedereen' : role}</span>
                                             </label>
                                         ))}
                                     </div>
                                 </div>
-                                <div className="pt-2 border-t border-slate-100">
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-2 mt-2">Afdelingen</label>
+                                <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
+                                    <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 mt-2">Afdelingen</label>
                                     <div className="space-y-2">
                                         {['All', 'Front Office', 'Reserveringen', 'F&B', 'Management', 'Huishouding'].map(dept => (
                                             <label key={dept} className="flex items-center gap-2 cursor-pointer">
@@ -439,9 +439,9 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                                                     type="checkbox" 
                                                     checked={editForm.allowedDepartments?.includes(dept)}
                                                     onChange={() => toggleArrayItem('allowedDepartments', dept)}
-                                                    className="rounded text-teal-600 focus:ring-teal-500"
+                                                    className="rounded text-teal-600 focus:ring-teal-500 border-slate-300 dark:border-slate-600 dark:bg-slate-700"
                                                 />
-                                                <span className="text-sm text-slate-700">{dept === 'All' ? 'Alle Afdelingen' : dept}</span>
+                                                <span className="text-sm text-slate-700 dark:text-slate-300">{dept === 'All' ? 'Alle Afdelingen' : dept}</span>
                                             </label>
                                         ))}
                                     </div>
@@ -458,10 +458,10 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                     title="Smart Assist"
                 >
                     <div className="space-y-4">
-                        <p className="text-sm text-slate-600">Je hebt al tekst in het artikel staan. Wil je deze overschrijven met het sjabloon?</p>
+                        <p className="text-sm text-slate-600 dark:text-slate-300">Je hebt al tekst in het artikel staan. Wil je deze overschrijven met het sjabloon?</p>
                         <div className="flex justify-end gap-3 pt-2">
-                            <button onClick={() => setShowMagicConfirm(false)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors">Annuleren</button>
-                            <button onClick={applyMagicTemplate} className="px-4 py-2 bg-slate-900 text-white rounded-lg font-bold text-sm shadow-sm hover:bg-slate-800 transition-colors">Overschrijven</button>
+                            <button onClick={() => setShowMagicConfirm(false)} className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Annuleren</button>
+                            <button onClick={applyMagicTemplate} className="px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white rounded-lg font-bold text-sm shadow-sm hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors">Overschrijven</button>
                         </div>
                     </div>
                 </Modal>
@@ -473,39 +473,39 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
         return (
             <div className="p-4 md:p-8 w-full max-w-[1000px] mx-auto animate-in fade-in duration-300">
                 <div className="flex items-center justify-between mb-6">
-                    <button onClick={() => setView('list')} className="flex items-center gap-2 text-slate-500 hover:text-slate-900 font-bold text-sm bg-white border border-slate-200 px-4 py-2 rounded-xl shadow-sm transition-colors">
+                    <button onClick={() => setView('list')} className="flex items-center gap-2 text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white font-bold text-sm bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-4 py-2 rounded-xl shadow-sm transition-colors">
                         <ArrowLeft size={18}/> Terug naar Kennisbank
                     </button>
                     {canManage && (
                         <div className="flex gap-2">
-                            <button onClick={() => handleEditArticle(selectedArticle)} className="p-2 bg-white border border-slate-200 rounded-xl text-slate-600 hover:text-teal-600 transition-colors">
+                            <button onClick={() => handleEditArticle(selectedArticle)} className="p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 hover:text-teal-600 dark:hover:text-teal-400 transition-colors">
                                 <Edit2 size={18} />
                             </button>
-                            <button onClick={() => setDeleteArticleId(selectedArticle.id)} className="p-2 bg-white border border-slate-200 rounded-xl text-slate-600 hover:text-red-600 transition-colors">
+                            <button onClick={() => setDeleteArticleId(selectedArticle.id)} className="p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-slate-600 dark:text-slate-300 hover:text-red-600 dark:hover:text-red-400 transition-colors">
                                 <Trash2 size={18} />
                             </button>
                         </div>
                     )}
                 </div>
 
-                <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
-                    <div className="bg-slate-50/50 border-b border-slate-100 p-8 md:p-12">
+                <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-xl overflow-hidden">
+                    <div className="bg-slate-50/50 dark:bg-slate-900/50 border-b border-slate-100 dark:border-slate-700 p-8 md:p-12">
                         <div className="flex items-center gap-3 mb-4">
-                            <span className="px-3 py-1 bg-teal-50 text-teal-700 text-xs font-bold uppercase tracking-wider rounded-full border border-teal-100">
+                            <span className="px-3 py-1 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 text-xs font-bold uppercase tracking-wider rounded-full border border-teal-100 dark:border-teal-800">
                                 {selectedArticle.category}
                             </span>
                             {selectedArticle.isPinned && (
-                                <span className="px-3 py-1 bg-amber-50 text-amber-700 text-xs font-bold uppercase tracking-wider rounded-full border border-amber-100 flex items-center gap-1">
+                                <span className="px-3 py-1 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-bold uppercase tracking-wider rounded-full border border-amber-100 dark:border-amber-800 flex items-center gap-1">
                                     <Tag size={12}/> Belangrijk
                                 </span>
                             )}
                         </div>
-                        <h1 className="text-3xl md:text-4xl font-bold text-slate-900 mb-6 leading-tight">{selectedArticle.title}</h1>
+                        <h1 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">{selectedArticle.title}</h1>
                         
-                        <div className="flex flex-wrap gap-6 text-sm text-slate-500">
+                        <div className="flex flex-wrap gap-6 text-sm text-slate-500 dark:text-slate-400">
                             <div className="flex items-center gap-2">
                                 <User size={16} />
-                                <span className="font-medium text-slate-700">{selectedArticle.authorName}</span>
+                                <span className="font-medium text-slate-700 dark:text-slate-300">{selectedArticle.authorName}</span>
                                 <span className="opacity-50">({selectedArticle.authorRole})</span>
                             </div>
                             <div className="flex items-center gap-2">
@@ -513,7 +513,7 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                                 <span>Laatst gewijzigd: {selectedArticle.lastUpdated}</span>
                             </div>
                             {selectedArticle.reviewDate && (
-                                <div className="flex items-center gap-2 text-amber-600 font-medium">
+                                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-medium">
                                     <Calendar size={16} />
                                     <span>Review: {selectedArticle.reviewDate}</span>
                                 </div>
@@ -521,18 +521,18 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                         </div>
                     </div>
 
-                    <div className="p-8 md:p-12 text-slate-700 leading-relaxed text-lg">
+                    <div className="p-8 md:p-12 text-slate-700 dark:text-slate-300 leading-relaxed text-lg">
                         {/* Render Markdown Content */}
-                        <div className="prose prose-slate prose-lg max-w-none">
+                        <div className="prose prose-slate dark:prose-invert prose-lg max-w-none">
                             {renderMarkdown(selectedArticle.content)}
                         </div>
                     </div>
 
-                    <div className="bg-slate-50 p-8 border-t border-slate-100">
-                        <h4 className="font-bold text-slate-900 text-sm uppercase mb-3">Tags</h4>
+                    <div className="bg-slate-50 dark:bg-slate-900/50 p-8 border-t border-slate-100 dark:border-slate-700">
+                        <h4 className="font-bold text-slate-900 dark:text-white text-sm uppercase mb-3">Tags</h4>
                         <div className="flex flex-wrap gap-2">
                             {selectedArticle.tags.map(tag => (
-                                <span key={tag} className="px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-600">
+                                <span key={tag} className="px-3 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300">
                                     #{tag}
                                 </span>
                             ))}
@@ -546,9 +546,9 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                     title="Artikel Verwijderen"
                 >
                     <div className="space-y-4">
-                        <p className="text-sm text-slate-600">Weet je zeker dat je dit artikel wilt verwijderen? Dit kan niet ongedaan worden gemaakt.</p>
+                        <p className="text-sm text-slate-600 dark:text-slate-300">Weet je zeker dat je dit artikel wilt verwijderen? Dit kan niet ongedaan worden gemaakt.</p>
                         <div className="flex justify-end gap-3 pt-2">
-                            <button onClick={() => setDeleteArticleId(null)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors">Annuleren</button>
+                            <button onClick={() => setDeleteArticleId(null)} className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Annuleren</button>
                             <button onClick={handleConfirmDelete} className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold text-sm shadow-sm hover:bg-red-700 transition-colors">Verwijderen</button>
                         </div>
                     </div>
@@ -562,16 +562,16 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
         <div className="p-4 md:p-8 2xl:p-12 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500">
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
                 <div>
-                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
-                        <BookOpen className="text-teal-600" size={32} />
+                    <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
+                        <BookOpen className="text-teal-600 dark:text-teal-400" size={32} />
                         Kennisbank
                     </h1>
-                    <p className="text-slate-500 mt-1">Slimme protocollen, handleidingen en uitleg.</p>
+                    <p className="text-slate-500 dark:text-slate-400 mt-1">Slimme protocollen, handleidingen en uitleg.</p>
                 </div>
                 {canManage && (
                     <button 
                         onClick={handleCreateNew}
-                        className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all w-full md:w-auto justify-center"
+                        className="flex items-center gap-2 px-6 py-3 bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white text-sm font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all w-full md:w-auto justify-center"
                     >
                         <Plus size={18} />
                         Nieuwe Artikel
@@ -581,13 +581,13 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
 
             {/* Search Hero */}
             <div className="relative mb-10 group">
-                <div className="absolute inset-0 bg-teal-500/5 rounded-2xl transform rotate-1 group-hover:rotate-0 transition-transform duration-300"></div>
-                <div className="relative bg-white p-3 rounded-2xl border border-slate-200 shadow-sm flex items-center">
+                <div className="absolute inset-0 bg-teal-500/5 dark:bg-teal-900/20 rounded-2xl transform rotate-1 group-hover:rotate-0 transition-transform duration-300"></div>
+                <div className="relative bg-white dark:bg-slate-800 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex items-center">
                     <Search className="ml-4 text-slate-400" size={24} />
                     <input 
                         type="text" 
                         placeholder="Waar ben je naar op zoek? (bv. 'Kassa afsluiten', 'Brand', 'VIP')"
-                        className="w-full p-4 text-lg outline-none text-slate-700 placeholder:text-slate-400 font-medium bg-transparent"
+                        className="w-full p-4 text-lg outline-none text-slate-700 dark:text-slate-200 placeholder:text-slate-400 font-medium bg-transparent"
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                     />
@@ -598,15 +598,15 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
                 {/* Sidebar Categories */}
                 <div className="lg:col-span-1 space-y-2">
-                    <h3 className="font-bold text-slate-900 px-2 mb-2 flex items-center gap-2"><Filter size={16}/> Categorieën</h3>
+                    <h3 className="font-bold text-slate-900 dark:text-white px-2 mb-2 flex items-center gap-2"><Filter size={16}/> Categorieën</h3>
                     {categories.map(cat => (
                         <button
                             key={cat}
                             onClick={() => setSelectedCategory(cat)}
                             className={`w-full text-left px-4 py-3 rounded-xl text-sm font-bold transition-all flex justify-between items-center ${
                                 selectedCategory === cat 
-                                ? 'bg-slate-900 text-white shadow-md' 
-                                : 'bg-white text-slate-600 hover:bg-slate-50 border border-transparent hover:border-slate-200'
+                                ? 'bg-slate-900 dark:bg-slate-700 text-white shadow-md' 
+                                : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700 border border-transparent hover:border-slate-200 dark:hover:border-slate-600'
                             }`}
                         >
                             {cat}
@@ -623,27 +623,27 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                                 <div 
                                     key={article.id} 
                                     onClick={() => handleOpenArticle(article)}
-                                    className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:shadow-lg hover:border-teal-200 transition-all cursor-pointer group flex flex-col h-full"
+                                    className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm hover:shadow-lg hover:border-teal-200 dark:hover:border-teal-700 transition-all cursor-pointer group flex flex-col h-full"
                                 >
                                     <div className="flex justify-between items-start mb-4">
-                                        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-wider rounded-lg group-hover:bg-teal-50 group-hover:text-teal-700 transition-colors">
+                                        <span className="px-2.5 py-1 bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[10px] font-bold uppercase tracking-wider rounded-lg group-hover:bg-teal-50 dark:group-hover:bg-teal-900/30 group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors">
                                             {article.category}
                                         </span>
                                         {article.isPinned && <Tag size={16} className="text-amber-500 fill-amber-500" />}
                                     </div>
                                     
-                                    <h3 className="text-lg font-bold text-slate-900 mb-2 group-hover:text-teal-700 transition-colors line-clamp-2">
+                                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-2 group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors line-clamp-2">
                                         {article.title}
                                     </h3>
                                     
-                                    <div className="text-slate-500 text-sm line-clamp-3 mb-6 flex-1 opacity-80">
+                                    <div className="text-slate-500 dark:text-slate-400 text-sm line-clamp-3 mb-6 flex-1 opacity-80">
                                         {/* Simple text preview without markdown syntax for list view */}
                                         {article.content.replace(/[#*]/g, '')}
                                     </div>
 
-                                    <div className="flex items-center justify-between pt-4 border-t border-slate-50 text-xs text-slate-400 font-medium">
+                                    <div className="flex items-center justify-between pt-4 border-t border-slate-50 dark:border-slate-700 text-xs text-slate-400 font-medium">
                                         <span>{article.lastUpdated}</span>
-                                        <div className="flex items-center gap-1 group-hover:text-teal-600 transition-colors">
+                                        <div className="flex items-center gap-1 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
                                             Lezen <ChevronRight size={14} />
                                         </div>
                                     </div>
@@ -651,10 +651,10 @@ const KnowledgeBasePage: React.FC<KnowledgeBasePageProps> = ({ currentUser, onSh
                             ))}
                         </div>
                     ) : (
-                        <div className="text-center py-20 bg-white rounded-2xl border border-slate-200 border-dashed">
-                            <Info size={48} className="mx-auto text-slate-300 mb-4" />
-                            <h3 className="font-bold text-slate-900 text-lg">Geen artikelen gevonden</h3>
-                            <p className="text-slate-500 text-sm mt-1">Probeer een andere zoekterm of categorie.</p>
+                        <div className="text-center py-20 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 border-dashed">
+                            <Info size={48} className="mx-auto text-slate-300 dark:text-slate-600 mb-4" />
+                            <h3 className="font-bold text-slate-900 dark:text-white text-lg">Geen artikelen gevonden</h3>
+                            <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Probeer een andere zoekterm of categorie.</p>
                         </div>
                     )}
                 </div>
