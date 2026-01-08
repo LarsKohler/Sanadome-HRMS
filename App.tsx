@@ -38,6 +38,17 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
       return !!localStorage.getItem('hrms_current_user');
   });
+  
+  // Dark Mode State
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
+      if (typeof window !== 'undefined') {
+          const saved = localStorage.getItem('hrms_dark_mode');
+          if (saved) return JSON.parse(saved);
+          return window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+      return false;
+  });
+
   const [currentView, setCurrentView] = useState<ViewState>(ViewState.HOME);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [newsItems, setNewsItems] = useState<NewsPost[]>([]);
@@ -51,6 +62,21 @@ function App() {
 
   // Specific Feature States
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+
+  // Toggle Theme Function
+  const toggleTheme = () => {
+      setIsDarkMode(prev => !prev);
+  };
+
+  // Apply Theme Effect
+  useEffect(() => {
+      if (isDarkMode) {
+          document.documentElement.classList.add('dark');
+      } else {
+          document.documentElement.classList.remove('dark');
+      }
+      localStorage.setItem('hrms_dark_mode', JSON.stringify(isDarkMode));
+  }, [isDarkMode]);
 
   // Initialize Data
   useEffect(() => {
@@ -388,12 +414,12 @@ function App() {
           case ViewState.COMPLAINTS: // NEW
               return <ComplaintsPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           default:
-              return <div className="p-10">Pagina niet gevonden of in ontwikkeling.</div>;
+              return <div className="p-10 dark:text-white">Pagina niet gevonden of in ontwikkeling.</div>;
       }
   };
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+    <div className={`flex h-screen bg-slate-50 dark:bg-slate-900 font-sans text-slate-900 dark:text-slate-100 overflow-hidden transition-colors duration-300`}>
       <Sidebar 
         currentView={currentView} 
         onChangeView={setCurrentView}
@@ -411,6 +437,8 @@ function App() {
           onNavigate={setCurrentView}
           isLive={isLive}
           onOpenFeedbackModal={() => {}}
+          isDarkMode={isDarkMode}
+          toggleTheme={toggleTheme}
         />
         
         <main className="flex-1 overflow-y-auto scroll-smooth">
