@@ -58,7 +58,8 @@ const DataAuditPage: React.FC<DataAuditPageProps> = ({ currentUser, onShowToast 
         e.stopPropagation();
     };
 
-    const readExcel = (file: File): Promise<any[]> => {
+    // Updated: Returns array of arrays instead of JSON objects to handle headers manually
+    const readExcel = (file: File): Promise<any[][]> => {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = (e) => {
@@ -67,7 +68,8 @@ const DataAuditPage: React.FC<DataAuditPageProps> = ({ currentUser, onShowToast 
                     const workbook = XLSX.read(data, { type: 'array' });
                     const sheetName = workbook.SheetNames[0];
                     const sheet = workbook.Sheets[sheetName];
-                    const jsonData = XLSX.utils.sheet_to_json(sheet);
+                    // header: 1 returns an array of arrays
+                    const jsonData = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' }) as any[][];
                     resolve(jsonData);
                 } catch (err) {
                     console.error("Excel parse error:", err);
@@ -90,7 +92,6 @@ const DataAuditPage: React.FC<DataAuditPageProps> = ({ currentUser, onShowToast 
                 const page = await pdf.getPage(i);
                 const textContent = await page.getTextContent();
                 
-                // Sort items by vertical position (top to bottom)
                 const items = textContent.items.map((item: any) => ({
                     str: item.str,
                     y: item.transform[5],
@@ -101,19 +102,18 @@ const DataAuditPage: React.FC<DataAuditPageProps> = ({ currentUser, onShowToast 
                     return a.x - b.x;
                 });
 
-                // Group into rough lines
                 let currentY = -9999;
                 let currentLine = "";
                 
                 items.forEach((item: any) => {
                      if (currentY !== -9999 && Math.abs(item.y - currentY) > 8) {
-                         allLines.push(currentLine.trim());
+                         if(currentLine.trim()) allLines.push(currentLine.trim());
                          currentLine = "";
                      }
                      currentLine += item.str + " ";
                      currentY = item.y;
                 });
-                if(currentLine) allLines.push(currentLine.trim());
+                if(currentLine.trim()) allLines.push(currentLine.trim());
             }
             return allLines;
         } catch (error: any) {
@@ -128,41 +128,94 @@ const DataAuditPage: React.FC<DataAuditPageProps> = ({ currentUser, onShowToast 
 
         try {
             // 1. Process Excel (Reservations)
-            const rawReservations = await readExcel(reservationFile);
+            const rawRows = await readExcel(reservationFile);
             
-            // Find incomplete reservations
-            const incompleteReservations = rawReservations.filter((row: any) => {
-                // Normalize keys to lowercase to be safe
-                const normalize = (key: string) => Object.keys(row).find(k => k.toLowerCase() === key.toLowerCase());
-                const emailKey = normalize('email');
-                const phoneKey = normalize('telephone');
+            // --- ROBUST HEADER DETECTION ---
+            let headerRowIndex = -1;
+            
+            // Defines expected headers (lowercase) and possible variations
+            const targetHeaders = {
+                number: ['number', 'reservering', 'id'],
+                email: ['email', 'e-mail'],
+                telephone: ['telephone', 'phone', 'telefoon', 'mobiel']
+            };
+
+            // Search first 20 rows
+            for (let i = 0; i < Math.min(rawRows.length, 20); i++) {
+                const row = rawRows[i].map(c => String(c).trim().toLowerCase());
                 
-                const email = row[emailKey || 'Email'];
-                const phone = row[phoneKey || 'Telephone'];
+                // Check if this row contains 'number' AND 'email' (Telephone is sometimes optional in export settings?)
+                // Let's require Number and Email at minimum to identify the header row
+                const hasNumber = row.some(cell => targetHeaders.number.includes(cell));
+                const hasEmail = row.some(cell => targetHeaders.email.includes(cell));
                 
-                // Allow "N.v.t." or similar placeholders to count as missing if needed, but strict check is empty/undefined
-                const isEmailMissing = !email || String(email).trim() === '';
-                const isPhoneMissing = !phone || String(phone).trim() === '';
+                if (hasNumber && hasEmail) {
+                    headerRowIndex = i;
+                    break;
+                }
+            }
 
-                return isEmailMissing || isPhoneMissing;
-            }).map((row: any) => {
-                 const normalize = (key: string) => Object.keys(row).find(k => k.toLowerCase() === key.toLowerCase());
-                 const idKey = normalize('number');
-                 const lastKey = normalize('last name');
-                 const firstKey = normalize('first name');
-                 const emailKey = normalize('email');
-                 const phoneKey = normalize('telephone');
+            if (headerRowIndex === -1) {
+                // Last ditch effort: Look for just "Number" if the others are missing? No, safer to fail.
+                throw new Error("Kon de kolomkoppen (Number, Email) niet vinden in de eerste 20 regels van het Excel bestand. Controleer of het bestand de juiste kolommen bevat.");
+            }
 
-                 const missing = [];
-                 if (!row[emailKey || 'Email']) missing.push('Email');
-                 if (!row[phoneKey || 'Telephone']) missing.push('Telefoon');
+            const headerRow = rawRows[headerRowIndex].map(h => String(h).trim().toLowerCase());
+            
+            // Helper to find column index
+            const findColIndex = (variations: string[]) => {
+                return headerRow.findIndex(h => variations.some(v => h === v || h.includes(v)));
+            };
 
-                 return {
-                     id: String(row[idKey || 'Number']),
-                     name: `${row[firstKey || 'First name']} ${row[lastKey || 'Last name']}`,
-                     missing
-                 };
-            });
+            // Map column names to indexes
+            const colMap = {
+                number: findColIndex(targetHeaders.number),
+                firstName: findColIndex(['first name', 'voornaam']),
+                lastName: findColIndex(['last name', 'achternaam']),
+                email: findColIndex(targetHeaders.email),
+                phone: findColIndex(targetHeaders.telephone)
+            };
+
+            if (colMap.number === -1) throw new Error("Kolom 'Number' niet gevonden.");
+
+            // Process Data Rows
+            const processedReservations = [];
+            
+            for (let i = headerRowIndex + 1; i < rawRows.length; i++) {
+                const row = rawRows[i];
+                if (!row || row.length === 0) continue;
+
+                // Safely access columns
+                const id = row[colMap.number] !== undefined ? String(row[colMap.number]).trim() : '';
+                if (!id || id.toLowerCase() === 'undefined' || id === '') continue;
+
+                const firstName = colMap.firstName > -1 && row[colMap.firstName] ? row[colMap.firstName] : '';
+                const lastName = colMap.lastName > -1 && row[colMap.lastName] ? row[colMap.lastName] : '';
+                const email = colMap.email > -1 && row[colMap.email] ? String(row[colMap.email]).trim() : '';
+                const phone = colMap.phone > -1 && row[colMap.phone] ? String(row[colMap.phone]).trim() : '';
+
+                // Determine missing fields individually
+                const missing = [];
+                
+                // Email check: must exist, not be empty, not be "undefined" string
+                if (!email || email.toLowerCase() === 'undefined' || email === '') {
+                    missing.push('Email');
+                }
+                
+                // Phone check: same
+                if (!phone || phone.toLowerCase() === 'undefined' || phone === '') {
+                    missing.push('Telefoon');
+                }
+
+                // Only add to list if something is missing
+                if (missing.length > 0) {
+                    processedReservations.push({
+                        id,
+                        name: `${firstName} ${lastName}`.trim() || 'Onbekend',
+                        missing
+                    });
+                }
+            }
 
             // 2. Process PDF (Action Log)
             const pdfLines = await readPdfText(actionLogFile);
@@ -171,6 +224,7 @@ const DataAuditPage: React.FC<DataAuditPageProps> = ({ currentUser, onShowToast 
             const checkInMap = new Map<string, { employee: string, time: string }>();
             
             // Regex to find: Name > Stay ID
+            // Matches: "Anouk Wieggers > Stay 175424"
             const actionRegex = /^(.+?)\s*>\s*Stay\s*(\d+)/i;
             
             for (let i = 0; i < pdfLines.length; i++) {
@@ -178,29 +232,33 @@ const DataAuditPage: React.FC<DataAuditPageProps> = ({ currentUser, onShowToast 
                 
                 // Look for the state change line indicating check-in
                 if (line.includes("State changed from Confirmed to Started")) {
-                    // Look backwards for the user action line
-                    // Search up to 5 lines back to find the "User > Stay ID" pattern
-                    for (let j = 1; j <= 5; j++) {
+                    // Look backwards for the user action line (up to 10 lines back to be safe)
+                    for (let j = 1; j <= 10; j++) {
                         if (i - j < 0) break;
                         const prevLine = pdfLines[i-j];
+                        
+                        // Try to extract timestamp while looking back
+                        const timeMatch = prevLine.match(/(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})/);
+                        let time = timeMatch ? timeMatch[0] : '';
+
                         const match = prevLine.match(actionRegex);
                         if (match) {
                             const employeeName = match[1].trim();
                             const resId = match[2].trim();
                             
-                            // Try to find timestamp in between lines
-                            let time = 'Onbekend';
-                            // Usually timestamp is the line immediately before the state change or between action and state change
-                            // Let's look at lines between action and state change
-                            for(let k = i - j + 1; k < i; k++) {
-                                const potentialTime = pdfLines[k].match(/\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2}/);
-                                if (potentialTime) {
-                                    time = potentialTime[0];
-                                    break;
+                            // If we haven't found a timestamp in this line, look at the lines BETWEEN action and state change
+                            if (!time) {
+                                for (let k = i - j + 1; k < i; k++) {
+                                    const intermediateLine = pdfLines[k];
+                                    const intermediateTime = intermediateLine.match(/(\d{2}-\d{2}-\d{4}\s+\d{2}:\d{2}:\d{2})/);
+                                    if (intermediateTime) {
+                                        time = intermediateTime[0];
+                                        break;
+                                    }
                                 }
                             }
 
-                            checkInMap.set(resId, { employee: employeeName, time });
+                            checkInMap.set(resId, { employee: employeeName, time: time || 'Onbekend' });
                             break; // Stop looking back once found
                         }
                     }
@@ -208,7 +266,7 @@ const DataAuditPage: React.FC<DataAuditPageProps> = ({ currentUser, onShowToast 
             }
 
             // 3. Correlate Data
-            const results: AuditResult[] = incompleteReservations.map(res => {
+            const results: AuditResult[] = processedReservations.map(res => {
                 const checkInData = checkInMap.get(res.id);
                 return {
                     id: res.id,
@@ -264,7 +322,7 @@ const DataAuditPage: React.FC<DataAuditPageProps> = ({ currentUser, onShowToast 
                         </div>
                         Data Kwaliteit Audit
                     </h1>
-                    <p className="text-slate-500 mt-2 text-lg">Controleer reserveringen op ontbrekende gegevens.</p>
+                    <p className="text-slate-500 mt-2 text-lg">Controleer reserveringen op ontbrekende gegevens (Email/Telefoon).</p>
                 </div>
                 {auditResults && (
                     <div className="flex gap-3">
@@ -418,7 +476,9 @@ const DataAuditPage: React.FC<DataAuditPageProps> = ({ currentUser, onShowToast 
                                             </div>
                                         </td>
                                         <td className="px-6 py-4 font-medium text-slate-800">
-                                            {res.responsibleEmployee === 'Onbekend (Niet gevonden in log)' ? <span className="text-slate-400 italic">Niet gevonden</span> : res.responsibleEmployee}
+                                            {res.responsibleEmployee.includes('Niet gevonden') 
+                                                ? <span className="text-slate-400 italic">Niet gevonden</span> 
+                                                : <span className="font-bold text-teal-700">{res.responsibleEmployee}</span>}
                                         </td>
                                         <td className="px-6 py-4 text-slate-500 text-xs">
                                             {res.checkInTime || '-'}
