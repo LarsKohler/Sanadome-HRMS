@@ -150,8 +150,8 @@ const DataAuditPage: React.FC<DataAuditPageProps> = ({ currentUser, onShowToast 
                 telephone: ['telephone', 'phone', 'telefoon', 'mobiel']
             };
 
-            // Search first 50 rows (increased from 20)
-            for (let i = 0; i < Math.min(rawRows.length, 50); i++) {
+            // Search ALL rows to find the header (removed 50 rows limit)
+            for (let i = 0; i < rawRows.length; i++) {
                 const row = rawRows[i].map(c => String(c).trim().toLowerCase());
                 
                 // Check if this row contains 'number' AND 'email' (Telephone is sometimes optional in export settings?)
@@ -167,7 +167,7 @@ const DataAuditPage: React.FC<DataAuditPageProps> = ({ currentUser, onShowToast 
 
             if (headerRowIndex === -1) {
                 // Look for just "Number" as a fallback if Email header is oddly named
-                for (let i = 0; i < Math.min(rawRows.length, 50); i++) {
+                for (let i = 0; i < rawRows.length; i++) {
                     const row = rawRows[i].map(c => String(c).trim().toLowerCase());
                     if (row.some(cell => targetHeaders.number.includes(cell))) {
                         headerRowIndex = i;
