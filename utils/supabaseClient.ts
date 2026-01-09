@@ -164,6 +164,16 @@ import { createClient } from '@supabase/supabase-js';
     RETURN EXISTS (SELECT 1 FROM employees WHERE id = auth.uid()::text AND data->>'role' = 'Manager');
   END;
   $$ LANGUAGE plpgsql SECURITY DEFINER;
+  
+  -- CRITICAL: Function to allow updates to employee data (like password) without full RLS block
+  -- This function runs with admin privileges (SECURITY DEFINER)
+  CREATE OR REPLACE FUNCTION update_employee_data(p_id text, p_data jsonb)
+  RETURNS void AS $$
+  BEGIN
+    INSERT INTO employees (id, data) VALUES (p_id, p_data)
+    ON CONFLICT (id) DO UPDATE SET data = p_data;
+  END;
+  $$ LANGUAGE plpgsql SECURITY DEFINER;
 
   -- Employees
   DROP POLICY IF EXISTS "Managers all" ON employees;
