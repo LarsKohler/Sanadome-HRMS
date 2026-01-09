@@ -132,7 +132,7 @@ import { createClient } from '@supabase/supabase-js';
     data jsonb
   );
 
-  -- Stock Control
+  -- Stock Control (NIEUW)
   CREATE TABLE IF NOT EXISTS stock_items (
     id text PRIMARY KEY,
     data jsonb
@@ -346,7 +346,7 @@ import { createClient } from '@supabase/supabase-js';
   CREATE POLICY "Stock: Iedereen lezen" ON stock_items FOR SELECT USING ( true );
 
   DROP POLICY IF EXISTS "Stock: Iedereen schrijven" ON stock_items;
-  CREATE POLICY "Stock: Iedereen schrijven" ON stock_items FOR ALL USING ( true ); -- Of restrict to managers?
+  CREATE POLICY "Stock: Iedereen schrijven" ON stock_items FOR ALL USING ( true ); 
 
   DROP POLICY IF EXISTS "Stock Logs: Iedereen lezen/schrijven" ON stock_logs;
   CREATE POLICY "Stock Logs: Iedereen lezen/schrijven" ON stock_logs FOR ALL USING ( true );

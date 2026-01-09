@@ -72,6 +72,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             currentStock: 0,
             minStock: 5,
             unit: 'Stuks',
+            itemsPerBox: 1, // Default
             lastUpdated: new Date().toISOString()
         });
         setIsItemModalOpen(true);
@@ -130,9 +131,6 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             return;
         }
 
-        const type: StockTransactionType = diff > 0 ? 'Correction' : 'Usage'; // Or Count if we want to be specific
-        // Actually, Count usually implies setting absolute value. Let's log it as 'Count' but maybe differentiate increase/decrease visually later.
-        
         const updatedItem = { 
             ...countTarget, 
             currentStock: newCount,
@@ -187,24 +185,33 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         for (const id of itemIds) {
             const item = items.find(i => i.id === id);
             if (item) {
-                const qty = cart[id];
+                // If itemsPerBox is set and > 1, the cart value represents BOXES.
+                const multiplier = (item.itemsPerBox && item.itemsPerBox > 1) ? item.itemsPerBox : 1;
+                const qtyEntered = cart[id];
+                // Ensure qtyEntered is treated as number
+                const qtyTotal = (qtyEntered as number) * multiplier;
+
                 const updatedItem = {
                     ...item,
-                    currentStock: item.currentStock + qty,
+                    currentStock: item.currentStock + qtyTotal,
                     lastUpdated: new Date().toISOString()
                 };
                 
                 updatedItems.push(updatedItem);
                 
+                const logMessage = multiplier > 1 
+                    ? `Levering: ${qtyEntered} doos (${qtyTotal} stuks)`
+                    : `Levering: ${qtyEntered} stuks`;
+
                 newLogs.push({
                     id: crypto.randomUUID(),
                     itemId: item.id,
                     itemName: item.name,
-                    change: qty,
+                    change: qtyTotal,
                     type: 'Delivery',
                     date: new Date().toISOString(),
                     user: currentUser.name,
-                    notes: 'Nieuwe bestelling ontvangen'
+                    notes: logMessage
                 });
 
                 await api.saveStockItem(updatedItem);
@@ -321,7 +328,14 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                     </div>
 
                                     <h3 className="font-bold text-slate-900 text-lg mb-1">{item.name}</h3>
-                                    <span className="text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50 px-2 py-1 rounded inline-block mb-4">{item.category}</span>
+                                    <div className="flex gap-2">
+                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50 px-2 py-1 rounded inline-block mb-4">{item.category}</span>
+                                        {item.itemsPerBox && item.itemsPerBox > 1 && (
+                                            <span className="text-xs font-bold text-teal-600 uppercase tracking-wider bg-teal-50 px-2 py-1 rounded inline-block mb-4 border border-teal-100">
+                                                {item.itemsPerBox} st/doos
+                                            </span>
+                                        )}
+                                    </div>
 
                                     <div className="flex items-end justify-between">
                                         <div>
@@ -370,20 +384,26 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
                         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                             <div className="max-h-[600px] overflow-y-auto">
-                                {filteredItems.map(item => (
-                                    <div key={item.id} className="flex items-center justify-between p-4 hover:bg-slate-50 border-b border-slate-100 last:border-0">
-                                        <div>
-                                            <div className="font-bold text-slate-900">{item.name}</div>
-                                            <div className="text-xs text-slate-500">{item.category} • Huidig: {item.currentStock} {item.unit}</div>
+                                {filteredItems.map(item => {
+                                    const isBox = item.itemsPerBox && item.itemsPerBox > 1;
+                                    return (
+                                        <div key={item.id} className="flex items-center justify-between p-4 hover:bg-slate-50 border-b border-slate-100 last:border-0">
+                                            <div>
+                                                <div className="font-bold text-slate-900">{item.name}</div>
+                                                <div className="text-xs text-slate-500 flex items-center gap-2">
+                                                    {item.category} • Huidig: {item.currentStock} {item.unit}
+                                                    {isBox && <span className="bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded font-bold">{item.itemsPerBox} st/doos</span>}
+                                                </div>
+                                            </div>
+                                            <button 
+                                                onClick={() => addToCart(item)}
+                                                className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-teal-50 hover:text-teal-700 transition-colors"
+                                            >
+                                                <Plus size={18}/>
+                                            </button>
                                         </div>
-                                        <button 
-                                            onClick={() => addToCart(item)}
-                                            className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-teal-50 hover:text-teal-700 transition-colors"
-                                        >
-                                            <Plus size={18}/>
-                                        </button>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     </div>
@@ -401,21 +421,33 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                 Object.entries(cart).map(([id, qty]) => {
                                     const item = items.find(i => i.id === id);
                                     if (!item) return null;
+                                    const isBox = (item.itemsPerBox || 1) > 1;
+                                    const totalUnits = qty * (item.itemsPerBox || 1);
+
                                     return (
-                                        <div key={id} className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                            <div className="flex-1 min-w-0 mr-2">
-                                                <div className="font-bold text-sm truncate">{item.name}</div>
-                                                <div className="text-xs text-slate-500">{item.unit}</div>
+                                        <div key={id} className="flex flex-col bg-slate-50 p-3 rounded-xl border border-slate-100 gap-2">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex-1 min-w-0 mr-2">
+                                                    <div className="font-bold text-sm truncate">{item.name}</div>
+                                                    <div className="text-xs text-slate-500">
+                                                        {isBox ? `Per doos (${item.itemsPerBox}st)` : item.unit}
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <input 
+                                                        type="number" 
+                                                        className="w-16 p-1 text-center border rounded font-bold text-sm"
+                                                        value={qty}
+                                                        onChange={(e) => updateCart(id, parseInt(e.target.value) || 0)}
+                                                    />
+                                                    <button onClick={() => updateCart(id, 0)} className="text-slate-400 hover:text-red-500"><X size={16}/></button>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <input 
-                                                    type="number" 
-                                                    className="w-16 p-1 text-center border rounded font-bold text-sm"
-                                                    value={qty}
-                                                    onChange={(e) => updateCart(id, parseInt(e.target.value) || 0)}
-                                                />
-                                                <button onClick={() => updateCart(id, 0)} className="text-slate-400 hover:text-red-500"><X size={16}/></button>
-                                            </div>
+                                            {isBox && (
+                                                <div className="text-xs text-teal-600 font-bold border-t border-slate-200 pt-1 text-right">
+                                                    + {totalUnits} {item.unit} totaal
+                                                </div>
+                                            )}
                                         </div>
                                     );
                                 })
@@ -516,6 +548,20 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                             />
                         </div>
                     </div>
+                    
+                    {/* ITEMS PER BOX CONFIG */}
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Aantal per doos</label>
+                        <input 
+                            type="number"
+                            className="w-full p-3 border border-slate-200 rounded-xl"
+                            value={editingItem.itemsPerBox || 1}
+                            onChange={(e) => setEditingItem({...editingItem, itemsPerBox: parseInt(e.target.value) || 1})}
+                            min={1}
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">Vul 1 in als dit artikel niet per doos gaat.</p>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Huidige Voorraad</label>
@@ -549,7 +595,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                     </div>
                     
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2 text-center">Nieuw Geteld Aantal</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2 text-center">Nieuw Geteld Aantal (Totaal Stuks)</label>
                         <input 
                             type="number"
                             className="w-full p-4 text-center text-3xl font-bold border-2 border-teal-500 rounded-2xl focus:outline-none focus:ring-4 focus:ring-teal-500/20"
