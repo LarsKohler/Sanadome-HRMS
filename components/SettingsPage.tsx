@@ -25,13 +25,14 @@ const MODULE_NAMES: Record<string, string> = {
     [ViewState.CHECKLISTS]: 'Checklists',
     [ViewState.COMPENSATION]: 'Compensatie',
     [ViewState.COMPLAINTS]: 'Klachten',
+    [ViewState.STOCK_CONTROL]: 'Voorraadbeheer', // Added
     [ViewState.ONBOARDING]: 'Onboarding',
     [ViewState.EVALUATIONS]: 'Performance',
     [ViewState.RECRUITMENT]: 'Recruitment',
     [ViewState.TODO_LIST]: 'Takenlijst', 
     [ViewState.DEBT_CONTROL]: 'Debiteuren',
     [ViewState.LINEN_AUDIT]: 'Linnen Audit',
-    [ViewState.DATA_AUDIT]: 'Data Audit', // NEW
+    [ViewState.DATA_AUDIT]: 'Data Audit', 
     [ViewState.REPORTS]: 'Rapportages',
     [ViewState.SYSTEM_STATUS]: 'Systeemstatus'
 };

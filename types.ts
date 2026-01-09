@@ -20,7 +20,8 @@ export type ViewState =
   | 'CHECKLISTS'
   | 'ACADEMY'
   | 'TODO_LIST'
-  | 'COMPLAINTS'; 
+  | 'COMPLAINTS'
+  | 'STOCK_CONTROL'; 
 
 export const ViewState = {
   HOME: 'HOME',
@@ -44,6 +45,7 @@ export const ViewState = {
   ACADEMY: 'ACADEMY',
   TODO_LIST: 'TODO_LIST',
   COMPLAINTS: 'COMPLAINTS',
+  STOCK_CONTROL: 'STOCK_CONTROL',
 } as const;
 
 export type Permission =
@@ -70,7 +72,8 @@ export type Permission =
   | 'MANAGE_TICKETS'
   | 'MANAGE_CHECKLISTS'
   | 'MANAGE_TASKS'
-  | 'MANAGE_COMPLAINTS';
+  | 'MANAGE_COMPLAINTS'
+  | 'MANAGE_STOCK';
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   VIEW_REPORTS: 'Rapportages Inzien',
@@ -97,6 +100,7 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   MANAGE_CHECKLISTS: 'Checklists Beheren',
   MANAGE_TASKS: 'Takenlijst Beheren',
   MANAGE_COMPLAINTS: 'Klachten Beheren', 
+  MANAGE_STOCK: 'Voorraad Beheren',
 };
 
 // ... existing types ...
@@ -760,4 +764,29 @@ export interface ShiftHandoverItem {
   priority: ShiftHandoverPriority;
   createdAt: string;
   expiryDate?: string;
+}
+
+// --- NEW STOCK CONTROL TYPES ---
+
+export interface StockItem {
+  id: string;
+  name: string;
+  category: string;
+  currentStock: number;
+  minStock: number;
+  unit: string;
+  lastUpdated: string;
+}
+
+export type StockTransactionType = 'Delivery' | 'Count' | 'Usage' | 'Correction';
+
+export interface StockLog {
+  id: string;
+  itemId: string;
+  itemName: string;
+  change: number; // positive or negative
+  type: StockTransactionType;
+  date: string;
+  user: string;
+  notes?: string;
 }

@@ -28,6 +28,7 @@ import ComplaintsPage from './components/ComplaintsPage';
 import DataAuditPage from './components/DataAuditPage'; 
 import UpdateNotifier from './components/UpdateNotifier';
 import ResetPasswordPage from './components/ResetPasswordPage'; 
+import StockControlPage from './components/StockControlPage'; // Added
 import { api, isLive } from './utils/api';
 import { isModuleEnabled } from './utils/permissions';
 
@@ -431,6 +432,8 @@ function App() {
               return <TodoListPage currentUser={currentUser!} employees={employees} onShowToast={handleShowToast} />;
           case ViewState.COMPLAINTS:
               return <ComplaintsPage currentUser={currentUser!} onShowToast={handleShowToast} />;
+          case ViewState.STOCK_CONTROL: // Added
+              return <StockControlPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           default:
               return <div className="p-10 dark:text-white">Pagina niet gevonden of in ontwikkeling.</div>;
       }

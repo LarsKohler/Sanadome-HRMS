@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
   UserPlus, FileText, PieChart, 
-  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Medal, BookOpen, Truck, ChevronDown, ChevronRight, GraduationCap, Scale, ListTodo, FolderOpen, LogOut, MessageCircleWarning, ScanEye
+  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Medal, BookOpen, Truck, ChevronDown, ChevronRight, GraduationCap, Scale, ListTodo, FolderOpen, LogOut, MessageCircleWarning, ScanEye, Package
 } from 'lucide-react';
 import { ViewState, Employee, Permission, GlobalSettings } from '../types';
 import { hasPermission, isModuleEnabled } from '../utils/permissions';
@@ -52,6 +52,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
       items: [
         { icon: ListTodo, label: 'Checklists', id: ViewState.CHECKLISTS }, 
         { icon: Scale, label: 'Compensatie', id: ViewState.COMPENSATION }, 
+        { icon: Package, label: 'Voorraad', id: ViewState.STOCK_CONTROL, permission: 'MANAGE_STOCK' }, // Added
       ]
     },
     {
@@ -69,7 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
         { icon: CheckSquare, label: 'Takenlijst', id: ViewState.TODO_LIST },
         { icon: MessageCircleWarning, label: 'Klachten', id: ViewState.COMPLAINTS, permission: 'MANAGE_COMPLAINTS' },
         { icon: Euro, label: 'Debiteuren', id: ViewState.DEBT_CONTROL, permission: 'MANAGE_DEBTORS' },
-        { icon: ScanEye, label: 'Data Audit', id: ViewState.DATA_AUDIT, permission: 'VIEW_REPORTS' }, // NEW
+        { icon: ScanEye, label: 'Data Audit', id: ViewState.DATA_AUDIT, permission: 'VIEW_REPORTS' }, 
         { icon: Truck, label: 'Linnen Audit', id: ViewState.LINEN_AUDIT, permission: 'MANAGE_OPERATIONS' },
         { icon: PieChart, label: 'Rapportages', id: ViewState.REPORTS, permission: 'VIEW_REPORTS' },
       ]

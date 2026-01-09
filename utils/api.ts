@@ -1,7 +1,7 @@
 
 import { supabase } from './supabaseClient';
 import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, Ticket, ChecklistTemplate, ChecklistSubmission, Task, Complaint, BikeSettings, BikeReservation, ShiftHandoverItem } from '../types';
+import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, Ticket, ChecklistTemplate, ChecklistSubmission, Task, Complaint, BikeSettings, BikeReservation, ShiftHandoverItem, StockItem, StockLog } from '../types';
 import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_EVALUATION_TEMPLATES, MOCK_ACADEMY_COURSES, MOCK_ACADEMY_PROGRESS, MOCK_TICKETS, MOCK_COMPLAINTS } from './mockData';
 
 // This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
@@ -62,12 +62,12 @@ export const api = {
                   id: 'main', 
                   modules: settings.modules, 
                   branding: settings.branding,
-                  roles: settings.roles, // Save roles
+                  roles: settings.roles || {}, // Save roles
                   updated_at: new Date().toISOString() 
               });
-              if (error) console.error("Supabase save settings error:", error);
-          } catch (e) {
-              console.error("API save settings error:", e);
+              if (error) console.error("Supabase save settings error:", error.message || error);
+          } catch (e: any) {
+              console.error("API save settings error:", e.message || e);
           }
       } else {
           localStorage.setItem('hrms_global_settings', JSON.stringify(settings));
@@ -934,6 +934,55 @@ export const api = {
           const all = local ? JSON.parse(local) as ShiftHandoverItem[] : [];
           const updated = all.filter(i => i.id !== id);
           localStorage.setItem('hrms_shift_handover', JSON.stringify(updated));
+      }
+  },
+
+  // --- STOCK CONTROL ---
+  getStockItems: async (): Promise<StockItem[]> => {
+      if (isLive && supabase) {
+          const { data } = await supabase.from('stock_items').select('data');
+          return data ? data.map((row: any) => row.data) : [];
+      }
+      const local = localStorage.getItem('hrms_stock_items');
+      return local ? JSON.parse(local) : [];
+  },
+
+  saveStockItem: async (item: StockItem) => {
+      if (isLive && supabase) {
+          await supabase.from('stock_items').upsert({ id: item.id, data: item });
+      } else {
+          const current = await api.getStockItems();
+          const index = current.findIndex(i => i.id === item.id);
+          if (index >= 0) current[index] = item;
+          else current.push(item);
+          localStorage.setItem('hrms_stock_items', JSON.stringify(current));
+      }
+  },
+
+  deleteStockItem: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('stock_items').delete().eq('id', id);
+      } else {
+          const current = await api.getStockItems();
+          localStorage.setItem('hrms_stock_items', JSON.stringify(current.filter(i => i.id !== id)));
+      }
+  },
+
+  getStockLogs: async (): Promise<StockLog[]> => {
+      if (isLive && supabase) {
+          const { data } = await supabase.from('stock_logs').select('data');
+          return data ? data.map((row: any) => row.data) : [];
+      }
+      const local = localStorage.getItem('hrms_stock_logs');
+      return local ? JSON.parse(local) : [];
+  },
+
+  saveStockLog: async (log: StockLog) => {
+      if (isLive && supabase) {
+          await supabase.from('stock_logs').upsert({ id: log.id, data: log });
+      } else {
+          const current = await api.getStockLogs();
+          localStorage.setItem('hrms_stock_logs', JSON.stringify([log, ...current]));
       }
   }
 };

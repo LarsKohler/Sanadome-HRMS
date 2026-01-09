@@ -27,7 +27,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'MANAGE_TICKETS',
     'MANAGE_CHECKLISTS',
     'MANAGE_TASKS',
-    'MANAGE_COMPLAINTS' // Added
+    'MANAGE_COMPLAINTS', // Added
+    'MANAGE_STOCK' // Added
   ],
   'Senior Medewerker': [
     'CREATE_NEWS',
@@ -40,7 +41,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'MANAGE_ACADEMY',
     'MANAGE_COMPENSATION',
     'MANAGE_CHECKLISTS',
-    'MANAGE_COMPLAINTS' // Added
+    'MANAGE_COMPLAINTS', // Added
+    'MANAGE_STOCK' // Added
   ],
   'Medewerker': [
     // Removed specific permissions for Medewerker related to removed features
