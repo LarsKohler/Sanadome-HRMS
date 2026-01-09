@@ -5,15 +5,16 @@ import {
   Calendar, Clock, AlertCircle, CheckCircle2, TrendingUp, ChevronRight, 
   ArrowRight, Heart, Star, Trophy, ArrowLeft, Building2,
   Newspaper, LayoutDashboard, ClipboardCheck, ListTodo,
-  ExternalLink, Bell, AlertTriangle, User, Medal
+  ExternalLink, Bell, AlertTriangle, User, Medal, Save, Users, Eye
 } from 'lucide-react';
 import { Employee, ViewState, NewsPost, BadgeIconKey, BadgeColor } from '../types';
 import { api } from '../utils/api';
+import { Modal } from './Modal';
 
 const BADGE_ICONS: Record<BadgeIconKey, React.ElementType> = {
-    'Trophy': Trophy, 'Star': Star, 'Medal': Trophy, 'Heart': Heart, 'Zap': TrendingUp, 'Shield': CheckCircle2,
+    'Trophy': Trophy, 'Star': Star, 'Medal': Medal, 'Heart': Heart, 'Zap': TrendingUp, 'Shield': CheckCircle2,
     'Rocket': ArrowRight, 'Crown': Trophy, 'ThumbsUp': Heart, 'Lightbulb': Star, 'Flame': TrendingUp,
-    'Target': CheckCircle2, 'Users': Heart, 'Eye': Star
+    'Target': CheckCircle2, 'Users': Users, 'Eye': Eye
 };
 
 const BADGE_COLORS: Record<BadgeColor, string> = {
@@ -57,6 +58,10 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
 
   const [combinedBadges, setCombinedBadges] = useState<any[]>([]);
 
+  // Phone Edit State
+  const [isEditPhoneModalOpen, setIsEditPhoneModalOpen] = useState(false);
+  const [phoneInput, setPhoneInput] = useState(employee.phone || '');
+
   // Load Badges logic
   useEffect(() => {
       const fetchBadges = async () => {
@@ -96,6 +101,25 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
     } catch (error) {
         onShowToast('Fout bij uploaden.');
     }
+  };
+
+  const handleSavePhone = async (e: React.FormEvent) => {
+      e.preventDefault();
+      
+      const updatedEmployee = { ...employee, phone: phoneInput };
+      
+      // 1. Update UI immediately
+      onUpdateEmployee(updatedEmployee);
+      
+      // 2. Persist to DB
+      try {
+          await api.saveEmployee(updatedEmployee);
+          onShowToast("Telefoonnummer opgeslagen!");
+          setIsEditPhoneModalOpen(false);
+      } catch (err) {
+          console.error(err);
+          onShowToast("Fout bij opslaan.");
+      }
   };
 
   // --- ACTIONS LOGIC ---
@@ -139,7 +163,10 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
           title: 'Profiel Completeren',
           description: 'Voeg je telefoonnummer toe voor betere bereikbaarheid.',
           icon: Phone,
-          action: () => alert('Ga naar Instellingen om je profiel te bewerken (Demo)'),
+          action: () => {
+              setPhoneInput(''); // Reset or keep empty
+              setIsEditPhoneModalOpen(true);
+          },
           color: 'bg-amber-50 text-amber-700 border-amber-200'
       });
   }
@@ -435,8 +462,58 @@ const EmployeeProfile: React.FC<EmployeeProfileProps> = ({
                   </button>
               </div>
           </div>
-
       </div>
+
+      {/* PHONE EDIT MODAL */}
+      <Modal 
+          isOpen={isEditPhoneModalOpen} 
+          onClose={() => setIsEditPhoneModalOpen(false)} 
+          title="Profiel Completeren"
+      >
+          <form onSubmit={handleSavePhone} className="space-y-6">
+              <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 flex gap-3 mb-6">
+                  <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center flex-shrink-0">
+                      <Phone size={20}/>
+                  </div>
+                  <div>
+                      <h4 className="font-bold text-amber-800 text-sm">Voeg je nummer toe</h4>
+                      <p className="text-xs text-amber-700 leading-relaxed">
+                          We gebruiken dit nummer om je te bereiken voor belangrijke updates of roosterwijzigingen.
+                      </p>
+                  </div>
+              </div>
+
+              <div>
+                  <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Telefoonnummer</label>
+                  <input 
+                      type="tel"
+                      required
+                      placeholder="06 1234 5678"
+                      value={phoneInput}
+                      onChange={(e) => setPhoneInput(e.target.value)}
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+                      autoFocus
+                  />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4">
+                  <button 
+                      type="button" 
+                      onClick={() => setIsEditPhoneModalOpen(false)} 
+                      className="px-4 py-2 text-slate-500 font-bold hover:bg-slate-50 rounded-lg transition-colors"
+                  >
+                      Later
+                  </button>
+                  <button 
+                      type="submit" 
+                      className="px-6 py-2 bg-slate-900 text-white font-bold rounded-lg shadow-md hover:bg-slate-800 transition-colors flex items-center gap-2"
+                  >
+                      <Save size={16}/> Opslaan
+                  </button>
+              </div>
+          </form>
+      </Modal>
+
     </div>
   );
 };
