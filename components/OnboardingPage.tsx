@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Search, CheckCircle2, User, ChevronDown, MessageSquare, Save, PlayCircle, Eye, EyeOff, Calendar, Clock, Trophy, Check, ArrowRight, Circle, Settings, Plus, Trash2, Edit2, Copy, Archive, XCircle, History, FileText, BarChart3, Quote, ListChecks, X, PieChart, CheckSquare } from 'lucide-react';
 import { Employee, OnboardingTask, ViewState, OnboardingWeekData, OnboardingTemplate, OnboardingHistoryEntry, SubTask } from '../types';
@@ -29,7 +30,7 @@ const CircularScoreSelector = ({ score, onChange, readOnly }: { score: number, o
         <div className="relative w-12 h-12 flex items-center justify-center group shrink-0">
             <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
                 <path
-                    className="text-slate-100 dark:text-slate-700"
+                    className="text-slate-100"
                     d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
                     fill="none"
                     stroke="currentColor"
@@ -47,26 +48,26 @@ const CircularScoreSelector = ({ score, onChange, readOnly }: { score: number, o
             
             {!readOnly && (
                 <div className="absolute inset-0 flex flex-wrap opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer z-10 bg-transparent rounded-full">
-                    <div className="w-1/2 h-1/2 hover:bg-slate-900/5 dark:hover:bg-white/10 rounded-tl-full" onClick={() => onChange(score === 100 ? 0 : 100)} title="100%"></div>
-                    <div className="w-1/2 h-1/2 hover:bg-slate-900/5 dark:hover:bg-white/10 rounded-tr-full" onClick={() => onChange(score === 25 ? 0 : 25)} title="25%"></div>
-                    <div className="w-1/2 h-1/2 hover:bg-slate-900/5 dark:hover:bg-white/10 rounded-bl-full" onClick={() => onChange(score === 75 ? 0 : 75)} title="75%"></div>
-                    <div className="w-1/2 h-1/2 hover:bg-slate-900/5 dark:hover:bg-white/10 rounded-br-full" onClick={() => onChange(score === 50 ? 0 : 50)} title="50%"></div>
+                    <div className="w-1/2 h-1/2 hover:bg-slate-900/5 rounded-tl-full" onClick={() => onChange(score === 100 ? 0 : 100)} title="100%"></div>
+                    <div className="w-1/2 h-1/2 hover:bg-slate-900/5 rounded-tr-full" onClick={() => onChange(score === 25 ? 0 : 25)} title="25%"></div>
+                    <div className="w-1/2 h-1/2 hover:bg-slate-900/5 rounded-bl-full" onClick={() => onChange(score === 75 ? 0 : 75)} title="75%"></div>
+                    <div className="w-1/2 h-1/2 hover:bg-slate-900/5 rounded-br-full" onClick={() => onChange(score === 50 ? 0 : 50)} title="50%"></div>
                 </div>
             )}
             
              {score > 0 && score < 100 && (
-                 <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-slate-700 dark:text-slate-300 select-none pointer-events-none">
+                 <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-slate-700 select-none pointer-events-none">
                      {score}
                  </div>
              )}
              {score === 100 && (
                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                     <CheckCircle2 size={20} className="text-green-500 fill-white dark:fill-slate-900 bg-white dark:bg-slate-900 rounded-full" />
+                     <CheckCircle2 size={20} className="text-green-500 fill-white bg-white rounded-full" />
                  </div>
              )}
              {score === 0 && (
                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                     <Circle size={20} className="text-slate-200 dark:text-slate-600" />
+                     <Circle size={20} className="text-slate-200" />
                  </div>
              )}
         </div>
@@ -81,7 +82,7 @@ const SimpleCheckSelector = ({ isCompleted, onChange, readOnly }: { isCompleted:
             className={`w-12 h-12 flex items-center justify-center rounded-xl transition-all duration-200 shrink-0 border-2 ${
                 isCompleted 
                 ? 'bg-teal-500 border-teal-500 text-white shadow-sm' 
-                : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-200 dark:text-slate-600 hover:border-teal-300 dark:hover:border-teal-700'
+                : 'bg-white border-slate-200 text-slate-200 hover:border-teal-300'
             } ${readOnly ? 'cursor-default opacity-80' : 'cursor-pointer'}`}
         >
             <Check size={24} strokeWidth={isCompleted ? 3 : 2} />
@@ -557,25 +558,25 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
           <div className="space-y-8 animate-in fade-in duration-300">
               {/* Header Stats */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-                      <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Traject Score</div>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <div className="text-xs font-bold text-slate-500 uppercase mb-1">Traject Score</div>
                       <div className="flex items-center gap-2">
-                         <span className={`text-2xl font-bold ${entry.finalScore >= 80 ? 'text-green-600 dark:text-green-400' : 'text-slate-800 dark:text-white'}`}>{entry.finalScore}%</span>
+                         <span className={`text-2xl font-bold ${entry.finalScore >= 80 ? 'text-green-600' : 'text-slate-800'}`}>{entry.finalScore}%</span>
                          {entry.finalScore === 100 && <Trophy size={20} className="text-yellow-500"/>}
                       </div>
                   </div>
-                  <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-                      <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Duur</div>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <div className="text-xs font-bold text-slate-500 uppercase mb-1">Duur</div>
                       <div className="flex items-center gap-2">
                           <Calendar size={18} className="text-slate-400"/>
-                          <span className="text-sm font-bold text-slate-800 dark:text-white">{entry.startDate} - {entry.endDate}</span>
+                          <span className="text-sm font-bold text-slate-800">{entry.startDate} - {entry.endDate}</span>
                       </div>
                   </div>
-                  <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-                      <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Status</div>
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <div className="text-xs font-bold text-slate-500 uppercase mb-1">Status</div>
                       <div className="flex items-center gap-2">
                           <CheckCircle2 size={18} className="text-slate-400"/>
-                          <span className="text-sm font-bold text-slate-800 dark:text-white">
+                          <span className="text-sm font-bold text-slate-800">
                               {completedTasks} / {totalTasks} Taken
                           </span>
                       </div>
@@ -585,17 +586,17 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
               {/* Week Summaries */}
               {entry.weeks && entry.weeks.length > 0 && (
                   <div className="space-y-4">
-                      <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 pb-2">
-                          <BarChart3 size={18} className="text-teal-600 dark:text-teal-400"/>
-                          <h3 className="font-bold text-slate-900 dark:text-white">Week Evaluaties & Samenvattingen</h3>
+                      <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                          <BarChart3 size={18} className="text-teal-600"/>
+                          <h3 className="font-bold text-slate-900">Week Evaluaties & Samenvattingen</h3>
                       </div>
                       <div className="grid grid-cols-1 gap-4">
                           {entry.weeks.sort((a,b) => a.week - b.week).map((week, i) => (
-                              <div key={i} className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-                                  <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2">Week {week.week}</h4>
+                              <div key={i} className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                                  <h4 className="text-xs font-bold text-slate-500 uppercase mb-2">Week {week.week}</h4>
                                   <div className="flex gap-3 items-start">
-                                       <Quote size={16} className="text-slate-300 dark:text-slate-600 flex-shrink-0 mt-0.5"/>
-                                       <p className="text-sm text-slate-700 dark:text-slate-300 font-medium italic">
+                                       <Quote size={16} className="text-slate-300 flex-shrink-0 mt-0.5"/>
+                                       <p className="text-sm text-slate-700 font-medium italic">
                                            {week.managerNotes || 'Geen evaluatie genoteerd voor deze week.'}
                                        </p>
                                   </div>
@@ -607,42 +608,42 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
               {/* Aggregated Feedback / Notes Section */}
               <div className="space-y-4">
-                  <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-700 pb-2">
-                      <MessageSquare size={18} className="text-teal-600 dark:text-teal-400"/>
-                      <h3 className="font-bold text-slate-900 dark:text-white">Genoteerde Feedback (Taken)</h3>
+                  <div className="flex items-center gap-2 border-b border-slate-100 pb-2">
+                      <MessageSquare size={18} className="text-teal-600"/>
+                      <h3 className="font-bold text-slate-900">Genoteerde Feedback (Taken)</h3>
                   </div>
                   
                   {tasksWithNotes.length > 0 ? (
-                      <div className="space-y-4 relative before:absolute before:inset-0 before:ml-2.5 before:-translate-x-px before:h-full before:w-0.5 before:bg-slate-200 dark:before:bg-slate-700">
+                      <div className="space-y-4 relative before:absolute before:inset-0 before:ml-2.5 before:-translate-x-px before:h-full before:w-0.5 before:bg-slate-200">
                           {tasksWithNotes.map((task, idx) => (
                               <div key={idx} className="relative pl-8">
                                   {/* Timeline Dot */}
-                                  <div className="absolute left-0 top-1 w-5 h-5 rounded-full bg-white dark:bg-slate-800 border-2 border-teal-500 z-10"></div>
+                                  <div className="absolute left-0 top-1 w-5 h-5 rounded-full bg-white border-2 border-teal-500 z-10"></div>
                                   
-                                  <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
+                                  <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
                                       <div className="flex justify-between items-start mb-2">
                                           <div>
-                                              <span className="text-[10px] font-bold bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 px-2 py-0.5 rounded uppercase tracking-wide">
+                                              <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-0.5 rounded uppercase tracking-wide">
                                                   Week {task.week} - {task.category}
                                               </span>
-                                              <h4 className="font-bold text-slate-900 dark:text-white text-sm mt-1">{task.title}</h4>
+                                              <h4 className="font-bold text-slate-900 text-sm mt-1">{task.title}</h4>
                                           </div>
                                           {task.score !== undefined && (
-                                              <div className={`px-2 py-1 rounded text-xs font-bold ${task.score === 100 ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                                              <div className={`px-2 py-1 rounded text-xs font-bold ${task.score === 100 ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'}`}>
                                                   {task.score}%
                                               </div>
                                           )}
                                       </div>
-                                      <div className="bg-amber-50/50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-100 dark:border-amber-900/50 mt-2">
-                                          <p className="text-sm text-slate-700 dark:text-slate-300 italic">"{task.notes}"</p>
+                                      <div className="bg-amber-50/50 p-3 rounded-lg border border-amber-100 mt-2">
+                                          <p className="text-sm text-slate-700 italic">"{task.notes}"</p>
                                       </div>
                                   </div>
                               </div>
                           ))}
                       </div>
                   ) : (
-                      <div className="text-center py-8 bg-slate-50 dark:bg-slate-800 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
-                          <p className="text-sm text-slate-500 dark:text-slate-400 italic">Er zijn geen specifieke notities gemaakt bij taken.</p>
+                      <div className="text-center py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                          <p className="text-sm text-slate-500 italic">Er zijn geen specifieke notities gemaakt bij taken.</p>
                       </div>
                   )}
               </div>
@@ -658,15 +659,15 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
       {/* Header & Controls */}
       <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-6">
         <div>
-           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white">Onboarding & Groei</h1>
-           <p className="text-slate-500 dark:text-slate-400 mt-1">Begeleid nieuwe collega's naar een succesvolle start.</p>
+           <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">Onboarding & Groei</h1>
+           <p className="text-slate-500 mt-1">Begeleid nieuwe collega's naar een succesvolle start.</p>
         </div>
 
         <div className="flex items-center gap-3">
             {canEdit && (
                 <button 
                     onClick={() => setIsTemplateManagerOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-900 dark:hover:text-white rounded-xl shadow-sm transition-all text-sm font-bold"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 hover:text-slate-900 rounded-xl shadow-sm transition-all text-sm font-bold"
                 >
                     <Settings size={18} />
                     Templates Beheren
@@ -677,28 +678,28 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
             <div className="relative z-20" ref={selectorRef}>
                 <button 
                     onClick={() => setIsEmployeeSelectorOpen(!isEmployeeSelectorOpen)}
-                    className="flex items-center gap-3 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm px-4 py-2.5 rounded-xl hover:bg-slate-50 dark:hover:bg-slate-700 transition-all min-w-[280px] justify-between group"
+                    className="flex items-center gap-3 bg-white border border-slate-200 shadow-sm px-4 py-2.5 rounded-xl hover:bg-slate-50 transition-all min-w-[280px] justify-between group"
                 >
                     <div className="flex items-center gap-3">
-                        <img src={selectedEmployee.avatar} className="w-8 h-8 rounded-full border border-slate-200 dark:border-slate-600" alt="Avatar"/>
+                        <img src={selectedEmployee.avatar} className="w-8 h-8 rounded-full border border-slate-200" alt="Avatar"/>
                         <div className="text-left">
                             <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">Geselecteerd</div>
-                            <div className="text-sm font-bold text-slate-800 dark:text-slate-200">{selectedEmployee.name}</div>
+                            <div className="text-sm font-bold text-slate-800">{selectedEmployee.name}</div>
                         </div>
                     </div>
                     <ChevronDown size={16} className={`text-slate-400 transition-transform duration-200 ${isEmployeeSelectorOpen ? 'rotate-180' : ''}`} />
                 </button>
 
                 {isEmployeeSelectorOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-[320px] bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-                        <div className="p-3 border-b border-slate-50 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50">
+                    <div className="absolute right-0 top-full mt-2 w-[320px] bg-white rounded-xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                        <div className="p-3 border-b border-slate-50 bg-slate-50/50">
                             <div className="relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
                                 <input 
                                     type="text" 
                                     autoFocus
                                     placeholder="Zoek medewerker..." 
-                                    className="w-full pl-9 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 dark:text-white"
+                                    className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
@@ -712,17 +713,17 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                         setSelectedEmployeeId(emp.id);
                                         setIsEmployeeSelectorOpen(false);
                                     }}
-                                    className={`w-full text-left px-4 py-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors flex items-center gap-3 ${selectedEmployeeId === emp.id ? 'bg-teal-50/50 dark:bg-teal-900/30' : ''}`}
+                                    className={`w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors flex items-center gap-3 ${selectedEmployeeId === emp.id ? 'bg-teal-50/50' : ''}`}
                                 >
                                     <img src={emp.avatar} className="w-8 h-8 rounded-full object-cover" alt={emp.name}/>
                                     <div className="flex-1 min-w-0">
-                                        <div className={`text-sm font-bold truncate ${selectedEmployeeId === emp.id ? 'text-teal-900 dark:text-teal-400' : 'text-slate-900 dark:text-slate-200'}`}>{emp.name}</div>
-                                        <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                                        <div className={`text-sm font-bold truncate ${selectedEmployeeId === emp.id ? 'text-teal-900' : 'text-slate-900'}`}>{emp.name}</div>
+                                        <div className="flex items-center gap-1.5 text-xs text-slate-500">
                                             {emp.role}
                                             {emp.onboardingStatus === 'Active' && <span className="w-2 h-2 bg-teal-500 rounded-full ml-1"></span>}
                                         </div>
                                     </div>
-                                    {selectedEmployeeId === emp.id && <Check size={16} className="text-teal-600 dark:text-teal-400"/>}
+                                    {selectedEmployeeId === emp.id && <Check size={16} className="text-teal-600"/>}
                                 </button>
                             ))}
                         </div>
@@ -738,43 +739,43 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
           
           {/* Left Column: Status Card */}
           <div className="lg:col-span-1 space-y-6">
-              <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 relative overflow-hidden">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 relative overflow-hidden">
                   <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-500 to-slate-900"></div>
                   
                   <div className="flex flex-col items-center text-center mb-6">
                       <div className="relative mb-4">
-                          <img src={selectedEmployee.avatar} className="w-20 h-20 rounded-2xl object-cover shadow-sm border-2 border-white dark:border-slate-700" alt="Avatar"/>
-                          <div className={`absolute -bottom-2 -right-2 p-1.5 rounded-full border-2 border-white dark:border-slate-800 ${selectedEmployee.onboardingStatus === 'Active' ? 'bg-teal-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-400'}`}>
+                          <img src={selectedEmployee.avatar} className="w-20 h-20 rounded-2xl object-cover shadow-sm border-2 border-white" alt="Avatar"/>
+                          <div className={`absolute -bottom-2 -right-2 p-1.5 rounded-full border-2 border-white ${selectedEmployee.onboardingStatus === 'Active' ? 'bg-teal-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
                               {selectedEmployee.onboardingStatus === 'Completed' ? <Trophy size={14}/> : <Clock size={14}/>}
                           </div>
                       </div>
-                      <h2 className="text-xl font-bold text-slate-900 dark:text-white">{selectedEmployee.name}</h2>
-                      <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">{selectedEmployee.role}</p>
+                      <h2 className="text-xl font-bold text-slate-900">{selectedEmployee.name}</h2>
+                      <p className="text-sm text-slate-500 font-medium">{selectedEmployee.role}</p>
                   </div>
 
-                  <div className="space-y-4 pt-4 border-t border-slate-50 dark:border-slate-700">
+                  <div className="space-y-4 pt-4 border-t border-slate-50">
                       <div className="flex justify-between items-center text-sm">
-                          <span className="text-slate-500 dark:text-slate-400">Mentor</span>
-                          <span className="font-bold text-slate-800 dark:text-slate-200">{selectedEmployee.mentor || 'Geen'}</span>
+                          <span className="text-slate-500">Mentor</span>
+                          <span className="font-bold text-slate-800">{selectedEmployee.mentor || 'Geen'}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
-                          <span className="text-slate-500 dark:text-slate-400">Startdatum</span>
-                          <span className="font-bold text-slate-800 dark:text-slate-200">{selectedEmployee.hiredOn}</span>
+                          <span className="text-slate-500">Startdatum</span>
+                          <span className="font-bold text-slate-800">{selectedEmployee.hiredOn}</span>
                       </div>
                       <div className="flex justify-between items-center text-sm">
-                          <span className="text-slate-500 dark:text-slate-400">Status</span>
-                          <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${selectedEmployee.onboardingStatus === 'Active' ? 'bg-teal-50 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400' : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-400'}`}>
+                          <span className="text-slate-500">Status</span>
+                          <span className={`px-2 py-0.5 rounded text-xs font-bold uppercase ${selectedEmployee.onboardingStatus === 'Active' ? 'bg-teal-50 text-teal-700' : 'bg-slate-100 text-slate-600'}`}>
                               {selectedEmployee.onboardingStatus || 'Pending'}
                           </span>
                       </div>
                   </div>
 
                   {canEdit && selectedEmployee.onboardingTasks.length > 0 && (
-                      <div className="mt-8 pt-6 border-t border-slate-50 dark:border-slate-700 space-y-3">
+                      <div className="mt-8 pt-6 border-t border-slate-50 space-y-3">
                           <button onClick={() => handleArchiveTrajectory('Completed')} className="w-full py-3 bg-green-600 text-white rounded-xl font-bold text-sm shadow-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
                               <Archive size={16}/> Afronden & Archiveren
                           </button>
-                          <button onClick={() => handleArchiveTrajectory('Aborted')} className="w-full py-3 bg-white dark:bg-slate-800 border border-red-100 dark:border-red-900/50 text-red-600 dark:text-red-400 rounded-xl font-bold text-sm hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors flex items-center justify-center gap-2">
+                          <button onClick={() => handleArchiveTrajectory('Aborted')} className="w-full py-3 bg-white border border-red-100 text-red-600 rounded-xl font-bold text-sm hover:bg-red-50 transition-colors flex items-center justify-center gap-2">
                               <XCircle size={16}/> Traject Stopzetten
                           </button>
                       </div>
@@ -783,17 +784,17 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
               {/* Progress Circle Card (Only if tasks exist) */}
               {selectedEmployee.onboardingTasks.length > 0 && (
-                  <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-700 p-6 flex items-center gap-6">
+                  <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex items-center gap-6">
                       <div className="relative w-20 h-20 flex-shrink-0">
                             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
-                            <path className="text-slate-100 dark:text-slate-700" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
+                            <path className="text-slate-100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
                             <path className="text-teal-500 transition-all duration-1000 ease-out" strokeDasharray={`${progress}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="3" />
                             </svg>
-                            <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-slate-900 dark:text-white">{progress}%</div>
+                            <div className="absolute inset-0 flex items-center justify-center font-bold text-lg text-slate-900">{progress}%</div>
                       </div>
                       <div>
-                          <h3 className="font-bold text-slate-900 dark:text-white">Voortgang</h3>
-                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                          <h3 className="font-bold text-slate-900">Voortgang</h3>
+                          <p className="text-xs text-slate-500 mt-1 leading-relaxed">
                               {progress === 100 ? "Onboarding compleet!" : "Blijf zo doorgaan."}
                           </p>
                       </div>
@@ -806,26 +807,26 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
               {(selectedEmployee.onboardingTasks.length === 0) ? (
                  <div className="flex flex-col gap-8">
                      {/* Template Selector */}
-                     <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-12 text-center flex flex-col items-center justify-center shadow-sm">
+                     <div className="bg-white rounded-2xl border border-slate-200 p-12 text-center flex flex-col items-center justify-center shadow-sm">
                          {canEdit ? (
                              <div className="max-w-xl w-full">
-                                 <div className="w-20 h-20 bg-teal-50 dark:bg-teal-900/30 rounded-full flex items-center justify-center text-teal-600 dark:text-teal-400 mb-6 mx-auto">
+                                 <div className="w-20 h-20 bg-teal-50 rounded-full flex items-center justify-center text-teal-600 mb-6 mx-auto">
                                      <PlayCircle size={40} />
                                  </div>
-                                 <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">Kies een Onboarding Traject</h3>
-                                 <p className="text-slate-500 dark:text-slate-400 mb-8">Selecteer een template om het inwerktraject voor <strong>{selectedEmployee.name}</strong> te starten.</p>
+                                 <h3 className="text-2xl font-bold text-slate-900 mb-2">Kies een Onboarding Traject</h3>
+                                 <p className="text-slate-500 mb-8">Selecteer een template om het inwerktraject voor <strong>{selectedEmployee.name}</strong> te starten.</p>
                                  
                                  <div className="space-y-4 text-left">
                                      {templates.map(template => (
                                          <div 
                                             key={template.id}
-                                            className="p-5 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-teal-500 dark:hover:border-teal-500 hover:shadow-md transition-all cursor-pointer bg-white dark:bg-slate-800 group"
+                                            className="p-5 rounded-xl border border-slate-200 hover:border-teal-500 hover:shadow-md transition-all cursor-pointer bg-white group"
                                             onClick={() => handleApplyTemplate(template.id)}
                                          >
                                              <div className="flex justify-between items-center">
                                                  <div>
-                                                     <h4 className="font-bold text-slate-900 dark:text-white group-hover:text-teal-700 dark:group-hover:text-teal-400">{template.title}</h4>
-                                                     <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">{template.description || 'Geen beschrijving'}</p>
+                                                     <h4 className="font-bold text-slate-900 group-hover:text-teal-700">{template.title}</h4>
+                                                     <p className="text-sm text-slate-500 mt-1">{template.description || 'Geen beschrijving'}</p>
                                                      <div className="flex items-center gap-4 mt-3 text-xs text-slate-400 font-medium">
                                                          <span>{template.tasks.length} taken</span>
                                                          <span>•</span>
@@ -834,70 +835,70 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                                          <span>{template.weekCount || 4} weken</span>
                                                      </div>
                                                  </div>
-                                                 <div className="w-10 h-10 rounded-full bg-slate-50 dark:bg-slate-700 group-hover:bg-teal-50 dark:group-hover:bg-teal-900/30 flex items-center justify-center text-slate-400 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                                                 <div className="w-10 h-10 rounded-full bg-slate-50 group-hover:bg-teal-50 flex items-center justify-center text-slate-400 group-hover:text-teal-600 transition-colors">
                                                      <ArrowRight size={20} />
                                                  </div>
                                              </div>
                                          </div>
                                      ))}
                                      {templates.length === 0 && (
-                                         <div className="text-center p-6 bg-slate-50 dark:bg-slate-900 rounded-xl border border-dashed border-slate-200 dark:border-slate-700">
-                                             <p className="text-slate-500 dark:text-slate-400 text-sm">Er zijn nog geen templates aangemaakt.</p>
-                                             <button onClick={() => setIsTemplateManagerOpen(true)} className="text-teal-600 dark:text-teal-400 font-bold text-sm mt-2 hover:underline">Maak er een aan</button>
+                                         <div className="text-center p-6 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                                             <p className="text-slate-500 text-sm">Er zijn nog geen templates aangemaakt.</p>
+                                             <button onClick={() => setIsTemplateManagerOpen(true)} className="text-teal-600 font-bold text-sm mt-2 hover:underline">Maak er een aan</button>
                                          </div>
                                      )}
                                  </div>
                              </div>
                          ) : (
                              <div>
-                                 <div className="w-20 h-20 bg-slate-50 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-300 dark:text-slate-500 mb-6 mx-auto">
+                                 <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 mb-6 mx-auto">
                                      <Clock size={40} />
                                  </div>
-                                 <h3 className="text-xl font-bold text-slate-900 dark:text-white">Nog niet gestart</h3>
-                                 <p className="text-slate-500 dark:text-slate-400 mt-2 max-w-sm mx-auto">De manager heeft het onboarding programma nog niet geactiveerd.</p>
+                                 <h3 className="text-xl font-bold text-slate-900">Nog niet gestart</h3>
+                                 <p className="text-slate-500 mt-2 max-w-sm mx-auto">De manager heeft het onboarding programma nog niet geactiveerd.</p>
                              </div>
                          )}
                      </div>
 
                      {/* History Section */}
                      {selectedEmployee.onboardingHistory && selectedEmployee.onboardingHistory.length > 0 && (
-                         <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-                             <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50">
-                                 <h3 className="font-bold text-slate-900 dark:text-white text-sm uppercase tracking-wider flex items-center gap-2">
+                         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50">
+                                 <h3 className="font-bold text-slate-900 text-sm uppercase tracking-wider flex items-center gap-2">
                                      <History size={16}/> Eerdere Trajecten
                                  </h3>
                              </div>
-                             <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                             <div className="divide-y divide-slate-100">
                                  {selectedEmployee.onboardingHistory.map(entry => (
                                      <div 
                                         key={entry.id} 
                                         onClick={() => setViewingHistoryEntry(entry)}
-                                        className="p-6 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer group"
+                                        className="p-6 flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer group"
                                      >
                                          <div className="flex items-center gap-4">
-                                             <div className="w-10 h-10 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-500 dark:text-slate-400 group-hover:bg-teal-50 dark:group-hover:bg-teal-900/30 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+                                             <div className="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 group-hover:bg-teal-50 group-hover:text-teal-600 transition-colors">
                                                  <CheckCircle2 size={20}/>
                                              </div>
                                              <div>
-                                                 <h4 className="font-bold text-slate-900 dark:text-white group-hover:text-teal-700 dark:group-hover:text-teal-400 transition-colors">{entry.templateTitle}</h4>
-                                                 <p className="text-xs text-slate-500 dark:text-slate-400">{entry.startDate} - {entry.endDate}</p>
+                                                 <h4 className="font-bold text-slate-900 group-hover:text-teal-700 transition-colors">{entry.templateTitle}</h4>
+                                                 <p className="text-xs text-slate-500">{entry.startDate} - {entry.endDate}</p>
                                              </div>
                                          </div>
                                          <div className="flex items-center gap-6">
                                              <div className="text-right">
                                                  <div className="text-xs font-bold text-slate-400 uppercase">Score</div>
-                                                 <div className="font-bold text-teal-600 dark:text-teal-400">{entry.finalScore}%</div>
+                                                 <div className="font-bold text-teal-600">{entry.finalScore}%</div>
                                              </div>
                                              <div className="flex gap-2">
                                                  <button 
-                                                    className="text-slate-400 hover:text-teal-600 dark:hover:text-teal-400 transition-colors p-2"
+                                                    className="text-slate-400 hover:text-teal-600 transition-colors p-2"
                                                     onClick={(e) => { e.stopPropagation(); setViewingHistoryEntry(entry); }}
                                                  >
                                                      <Eye size={20} />
                                                  </button>
                                                  {canEdit && (
                                                      <button 
-                                                        className="text-slate-400 hover:text-red-600 dark:hover:text-red-400 transition-colors p-2"
+                                                        className="text-slate-400 hover:text-red-600 transition-colors p-2"
                                                         onClick={(e) => handleDeleteHistoryEntry(entry.id, e)}
                                                      >
                                                          <Trash2 size={20} />
@@ -913,10 +914,10 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                  </div>
               ) : (
                  // --- TIMELINE STATE ---
-                 <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-8 min-h-[600px]">
+                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-8 min-h-[600px]">
                     <div className="relative">
                         {/* Connecting Line */}
-                        <div className="absolute top-8 bottom-8 left-[19px] w-0.5 bg-slate-100 dark:bg-slate-700 z-0"></div>
+                        <div className="absolute top-8 bottom-8 left-[19px] w-0.5 bg-slate-100 z-0"></div>
 
                         {Array.from({ length: selectedEmployee.onboardingWeekCount || 4 }).map((_, i) => {
                             const week = i + 1;
@@ -935,12 +936,8 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                 <div key={week} className={`relative z-10 mb-12 last:mb-0 ${isFuture ? 'opacity-50 grayscale' : ''}`}>
                                     {/* Timeline Node */}
                                     <div className="flex items-start gap-6">
-                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-sm border-4 flex-shrink-0
-                                            ${isAllDone 
-                                                ? 'bg-green-500 text-white border-white dark:border-slate-800' 
-                                                : isCurrent 
-                                                    ? 'bg-teal-600 text-white ring-4 ring-teal-50 dark:ring-teal-900/30 border-white dark:border-slate-800' 
-                                                    : 'bg-white dark:bg-slate-700 text-slate-300 dark:text-slate-500 border-slate-100 dark:border-slate-600'}
+                                        <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shadow-sm border-4 border-white flex-shrink-0
+                                            ${isAllDone ? 'bg-green-500 text-white' : isCurrent ? 'bg-teal-600 text-white ring-4 ring-teal-50' : 'bg-white text-slate-300 border-slate-100'}
                                         `}>
                                             {isAllDone ? <Check size={20} strokeWidth={3}/> : week}
                                         </div>
@@ -948,13 +945,13 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                         <div className="flex-1 pt-1">
                                             <div className="flex justify-between items-start mb-6">
                                                 <div>
-                                                    <h3 className="text-xl font-bold text-slate-900 dark:text-white">
+                                                    <h3 className="text-xl font-bold text-slate-900">
                                                         {weekTitle}
                                                     </h3>
                                                     <p className="text-sm font-medium text-slate-400 mt-1">{completedCount}/{totalCount} taken afgerond</p>
                                                 </div>
                                                 {isAllDone && (
-                                                    <span className="bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1">
+                                                    <span className="bg-green-50 text-green-700 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1">
                                                         <CheckCircle2 size={12}/> Voltooid
                                                     </span>
                                                 )}
@@ -965,8 +962,8 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                                 {tasks.map(task => (
                                                     <div key={task.id} className={`group flex flex-col p-4 rounded-xl border transition-all duration-200 ${
                                                         task.score === 100 
-                                                        ? 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-700' 
-                                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-teal-200 dark:hover:border-teal-800 hover:shadow-sm'
+                                                        ? 'bg-slate-50 border-slate-100' 
+                                                        : 'bg-white border-slate-200 hover:border-teal-200 hover:shadow-sm'
                                                     }`}>
                                                         <div className="flex items-start gap-4">
                                                             <div className="mt-0.5">
@@ -988,23 +985,23 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                                                 <div className="flex justify-between items-start">
                                                                     <div>
                                                                         <div className="flex items-center gap-2 mb-1">
-                                                                            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-700 px-2 py-0.5 rounded uppercase tracking-wider">{task.category}</span>
+                                                                            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase tracking-wider">{task.category}</span>
                                                                             {task.completedBy && (
                                                                                 <span className="text-[10px] text-slate-400 font-medium">via {task.completedBy}</span>
                                                                             )}
                                                                         </div>
-                                                                        <h4 className={`font-bold text-sm ${task.score === 100 ? 'text-slate-400 line-through' : 'text-slate-900 dark:text-white'}`}>
+                                                                        <h4 className={`font-bold text-sm ${task.score === 100 ? 'text-slate-400 line-through' : 'text-slate-900'}`}>
                                                                             {task.title}
                                                                         </h4>
-                                                                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 line-clamp-2">{task.description}</p>
+                                                                        <p className="text-xs text-slate-500 mt-1 line-clamp-2">{task.description}</p>
                                                                     </div>
 
                                                                     <div className="flex items-center gap-2">
                                                                         {(canEdit || (task.notes && task.notesVisibleToEmployee)) && (
                                                                             <button 
                                                                                 onClick={() => setOpenTaskNoteId(openTaskNoteId === task.id ? null : task.id)}
-                                                                                className={`p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${
-                                                                                    task.notes ? 'text-teal-600 bg-teal-50 dark:text-teal-400 dark:bg-teal-900/30' : 'text-slate-300 dark:text-slate-600 hover:text-slate-600 dark:hover:text-slate-300 opacity-0 group-hover:opacity-100'
+                                                                                className={`p-2 rounded-lg hover:bg-slate-100 transition-colors ${
+                                                                                    task.notes ? 'text-teal-600 bg-teal-50' : 'text-slate-300 hover:text-slate-600 opacity-0 group-hover:opacity-100'
                                                                                 }`}
                                                                             >
                                                                                 <MessageSquare size={16} />
@@ -1015,7 +1012,7 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
                                                                 {/* SUBTASKS DISPLAY */}
                                                                 {task.subtasks && task.subtasks.length > 0 && (
-                                                                    <div className="mt-3 pl-1 border-l-2 border-slate-100 dark:border-slate-700 space-y-2">
+                                                                    <div className="mt-3 pl-1 border-l-2 border-slate-100 space-y-2">
                                                                         {task.subtasks.map(subtask => (
                                                                             <div key={subtask.id} className="flex items-start gap-3 py-1 group/subtask">
                                                                                 <button 
@@ -1023,18 +1020,18 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                                                                     disabled={!canEdit}
                                                                                     className={`mt-0.5 w-4 h-4 rounded border flex items-center justify-center transition-colors flex-shrink-0 ${
                                                                                         subtask.completed 
-                                                                                            ? 'bg-teal-50 border-teal-500 text-white dark:bg-teal-900/50 dark:border-teal-500' 
-                                                                                            : `bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 ${canEdit ? 'hover:border-teal-400' : 'opacity-50 cursor-not-allowed'}`
+                                                                                            ? 'bg-teal-50 border-teal-500 text-white' 
+                                                                                            : `bg-white border-slate-300 ${canEdit ? 'hover:border-teal-400' : 'opacity-50 cursor-not-allowed'}`
                                                                                     }`}
                                                                                 >
                                                                                     {subtask.completed && <Check size={10} strokeWidth={4} />}
                                                                                 </button>
                                                                                 <div className={`flex-1 ${subtask.completed ? 'opacity-50' : ''}`}>
-                                                                                    <div className={`text-sm font-medium ${subtask.completed ? 'text-slate-500 line-through' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                                                    <div className={`text-sm font-medium ${subtask.completed ? 'text-slate-500 line-through' : 'text-slate-700'}`}>
                                                                                         {subtask.title}
                                                                                     </div>
                                                                                     {subtask.description && (
-                                                                                        <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                                                                                        <div className="text-xs text-slate-500 mt-0.5">
                                                                                             {subtask.description}
                                                                                         </div>
                                                                                     )}
@@ -1046,25 +1043,21 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
                                                                 {/* Task Note / Feedback Area */}
                                                                 {(openTaskNoteId === task.id || (task.notes && task.notesVisibleToEmployee && !isManager)) && (
-                                                                    <div className={`mt-3 pt-3 border-t border-dashed border-slate-200 dark:border-slate-700 animate-in slide-in-from-top-1 ${!openTaskNoteId && !task.notes ? 'hidden' : ''}`}>
+                                                                    <div className={`mt-3 pt-3 border-t border-dashed border-slate-200 animate-in slide-in-from-top-1 ${!openTaskNoteId && !task.notes ? 'hidden' : ''}`}>
                                                                         {canEdit ? (
-                                                                            <div className="bg-amber-50 dark:bg-amber-900/20 p-3 rounded-lg border border-amber-100 dark:border-amber-800">
+                                                                            <div className="bg-amber-50 p-3 rounded-lg border border-amber-100">
                                                                                 <div className="flex justify-between items-center mb-2">
-                                                                                    <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wide flex items-center gap-1"><MessageSquare size={10}/> Feedback</span>
+                                                                                    <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wide flex items-center gap-1"><MessageSquare size={10}/> Feedback</span>
                                                                                     <button 
                                                                                         onClick={() => handleToggleNoteVisibility(task.id)}
-                                                                                        className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 px-2 py-0.5 rounded border transition-colors ${
-                                                                                            task.notesVisibleToEmployee 
-                                                                                            ? 'bg-green-50 text-green-700 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800' 
-                                                                                            : 'bg-white text-slate-400 border-slate-200 dark:bg-slate-800 dark:text-slate-500 dark:border-slate-700'
-                                                                                        }`}
+                                                                                        className={`text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 px-2 py-0.5 rounded border transition-colors ${task.notesVisibleToEmployee ? 'bg-green-50 text-green-700 border-green-200' : 'bg-white text-slate-400 border-slate-200'}`}
                                                                                     >
                                                                                         {task.notesVisibleToEmployee ? <Eye size={10}/> : <EyeOff size={10}/>}
                                                                                         {task.notesVisibleToEmployee ? 'Openbaar' : 'Privé'}
                                                                                     </button>
                                                                                 </div>
                                                                                 <textarea 
-                                                                                    className="w-full bg-white dark:bg-slate-800 border border-amber-200 dark:border-amber-800 rounded-lg p-2 text-xs text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-1 focus:ring-amber-400"
+                                                                                    className="w-full bg-white border border-amber-200 rounded-lg p-2 text-xs text-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-400"
                                                                                     rows={2}
                                                                                     placeholder="Typ feedback..."
                                                                                     value={task.notes || ''}
@@ -1072,9 +1065,9 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                                                                 />
                                                                             </div>
                                                                         ) : (
-                                                                            <div className="bg-slate-50 dark:bg-slate-700 p-3 rounded-lg border border-slate-100 dark:border-slate-600">
-                                                                                <span className="font-bold text-slate-400 dark:text-slate-500 block mb-1 text-[10px] uppercase tracking-wider">Notitie van Manager</span>
-                                                                                <p className="text-xs text-slate-700 dark:text-slate-300 italic">"{task.notes}"</p>
+                                                                            <div className="bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                                                                <span className="font-bold text-slate-400 block mb-1 text-[10px] uppercase tracking-wider">Notitie van Manager</span>
+                                                                                <p className="text-xs text-slate-700 italic">"{task.notes}"</p>
                                                                             </div>
                                                                         )}
                                                                     </div>
@@ -1087,27 +1080,27 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
                                             {/* Week Review Block */}
                                             {(!isFuture && !isAllDone) || (weekData?.managerNotes) ? (
-                                                <div className="mt-6 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 p-5">
-                                                    <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-3 flex items-center gap-2">
+                                                <div className="mt-6 bg-slate-50 rounded-xl border border-slate-200 p-5">
+                                                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3 flex items-center gap-2">
                                                         <MessageSquare size={14}/> Week Evaluatie
                                                     </h4>
                                                     {canEdit ? (
                                                         <div className="relative">
                                                             <textarea 
-                                                                className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg p-3 text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent font-medium text-slate-700 dark:text-slate-200 shadow-sm"
+                                                                className="w-full bg-white border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-teal-500 focus:border-transparent font-medium text-slate-700 shadow-sm"
                                                                 rows={2}
                                                                 placeholder="Schrijf een korte evaluatie voor deze week..."
                                                                 value={weekData?.managerNotes || ''}
                                                                 onChange={(e) => handleUpdateWeekNote(week, e.target.value)}
                                                             />
                                                             <div className="absolute bottom-3 right-3">
-                                                                <button onClick={() => onShowToast('Evaluatie opgeslagen')} className="p-1.5 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg hover:bg-white dark:hover:bg-slate-600 text-teal-600 dark:text-teal-400 shadow-sm transition-colors">
+                                                                <button onClick={() => onShowToast('Evaluatie opgeslagen')} className="p-1.5 bg-slate-100 border border-slate-200 rounded-lg hover:bg-white text-teal-600 shadow-sm transition-colors">
                                                                     <Save size={14} />
                                                                 </button>
                                                             </div>
                                                         </div>
                                                     ) : (
-                                                        <p className="text-sm text-slate-600 dark:text-slate-400 italic">
+                                                        <p className="text-sm text-slate-600 italic">
                                                             {weekData?.managerNotes || 'Nog geen evaluatie beschikbaar.'}
                                                         </p>
                                                     )}
@@ -1132,12 +1125,13 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
         title="Templates Beheren"
       >
           {isEditingTemplate && editingTemplate ? (
-              <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
+              <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2">
                   <div className="flex items-center gap-4">
-                      <button onClick={() => setIsEditingTemplate(false)} className="text-sm font-bold text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200">Terug</button>
-                      <h3 className="font-bold text-slate-900 dark:text-white">Template Bewerken</h3>
+                      <button onClick={() => setIsEditingTemplate(false)} className="text-sm font-bold text-slate-500 hover:text-slate-800">Terug</button>
+                      <h3 className="font-bold text-slate-900">Template Bewerken</h3>
                   </div>
                   
+                  {/* Single Datalist Definition for Autocomplete */}
                   <datalist id="category-suggestions">
                       {availableCategories.map(cat => (
                           <option key={cat} value={cat} />
@@ -1145,18 +1139,18 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   </datalist>
                   
                   <div>
-                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Template Naam</label>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Template Naam</label>
                       <input 
                         type="text" 
-                        className="w-full rounded-lg border border-slate-300 dark:border-slate-600 p-2 text-sm font-bold bg-white dark:bg-slate-800 dark:text-white"
+                        className="w-full rounded-lg border border-slate-300 p-2 text-sm font-bold"
                         value={editingTemplate.title}
                         onChange={(e) => setEditingTemplate({...editingTemplate, title: e.target.value})}
                       />
                   </div>
                   <div>
-                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Omschrijving</label>
+                      <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Omschrijving</label>
                       <textarea 
-                        className="w-full rounded-lg border border-slate-300 dark:border-slate-600 p-2 text-sm bg-white dark:bg-slate-800 dark:text-white"
+                        className="w-full rounded-lg border border-slate-300 p-2 text-sm"
                         value={editingTemplate.description || ''}
                         onChange={(e) => setEditingTemplate({...editingTemplate, description: e.target.value})}
                       />
@@ -1170,18 +1164,18 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                           const currentTitle = editingTemplate.weekTitles?.[week] || DEFAULT_WEEK_TITLES[week] || `Week ${week}`;
 
                           return (
-                              <div key={week} className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 relative group/week">
+                              <div key={week} className="bg-slate-50 p-4 rounded-xl border border-slate-200 relative group/week">
                                   <div className="flex justify-between items-center mb-3">
                                       <input 
-                                        className="font-bold text-slate-900 dark:text-white text-sm bg-transparent border-b border-transparent focus:border-teal-500 focus:outline-none w-3/4"
+                                        className="font-bold text-slate-900 text-sm bg-transparent border-b border-transparent focus:border-teal-500 focus:outline-none w-3/4"
                                         value={currentTitle}
                                         onChange={(e) => updateTemplateWeekTitle(week, e.target.value)}
                                         placeholder={`Titel voor Week ${week}`}
                                       />
                                       <div className="flex gap-2">
-                                          <button onClick={() => addTaskToTemplate(week)} className="text-xs text-teal-600 dark:text-teal-400 font-bold hover:underline">+ Taak</button>
+                                          <button onClick={() => addTaskToTemplate(week)} className="text-xs text-teal-600 font-bold hover:underline">+ Taak</button>
                                           {(editingTemplate.weekCount || 4) > 1 && (
-                                              <button onClick={() => handleRemoveWeek(week)} className="text-slate-300 hover:text-red-500 dark:text-slate-500 dark:hover:text-red-400">
+                                              <button onClick={() => handleRemoveWeek(week)} className="text-slate-300 hover:text-red-500">
                                                   <Trash2 size={16}/>
                                               </button>
                                           )}
@@ -1189,44 +1183,44 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                                   </div>
                                   <div className="space-y-3">
                                       {weekTasks.map((task) => (
-                                          <div key={task.id} className="bg-white dark:bg-slate-900 p-3 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col gap-2">
+                                          <div key={task.id} className="bg-white p-3 rounded-lg border border-slate-200 shadow-sm flex flex-col gap-2">
                                               <div className="flex justify-between items-start">
                                                   <div className="flex-1">
                                                       <input 
-                                                          className="font-bold text-sm text-slate-800 dark:text-slate-200 w-full focus:outline-none placeholder:text-slate-400 bg-transparent"
+                                                          className="font-bold text-sm text-slate-800 w-full focus:outline-none placeholder:text-slate-400"
                                                           value={task.title}
                                                           onChange={(e) => updateTemplateTask(task.id, 'title', e.target.value)}
                                                           placeholder="Taak titel..."
                                                       />
                                                       <input 
-                                                          className="text-xs text-slate-500 dark:text-slate-400 w-full focus:outline-none mt-1 placeholder:text-slate-300 bg-transparent"
+                                                          className="text-xs text-slate-500 w-full focus:outline-none mt-1 placeholder:text-slate-300"
                                                           value={task.description}
                                                           onChange={(e) => updateTemplateTask(task.id, 'description', e.target.value)}
                                                           placeholder="Beschrijving..."
                                                       />
                                                   </div>
-                                                  <button onClick={() => removeTaskFromTemplate(task.id)} className="text-slate-300 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400"><Trash2 size={14}/></button>
+                                                  <button onClick={() => removeTaskFromTemplate(task.id)} className="text-slate-300 hover:text-red-500"><Trash2 size={14}/></button>
                                               </div>
                                               
-                                              <div className="flex items-center gap-2 pt-2 border-t border-slate-50 dark:border-slate-800">
+                                              <div className="flex items-center gap-2 pt-2 border-t border-slate-50">
                                                   <select 
-                                                      className="text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-1 py-0.5 text-slate-600 dark:text-slate-300 focus:outline-none"
+                                                      className="text-xs bg-slate-50 border border-slate-200 rounded px-1 py-0.5 text-slate-600 focus:outline-none"
                                                       value={task.category}
                                                       onChange={(e) => updateTemplateTask(task.id, 'category', e.target.value)}
                                                   >
                                                       {availableCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                                                   </select>
-                                                  <label className="flex items-center gap-1 cursor-pointer text-xs text-slate-500 dark:text-slate-400">
+                                                  <label className="flex items-center gap-1 cursor-pointer text-xs text-slate-500">
                                                       <input 
                                                           type="checkbox" 
                                                           checked={task.isSimpleCheck} 
                                                           onChange={(e) => updateTemplateTask(task.id, 'isSimpleCheck', e.target.checked)}
-                                                          className="rounded text-teal-600 focus:ring-teal-500 w-3 h-3 border-slate-300 dark:border-slate-600 dark:bg-slate-700"
+                                                          className="rounded text-teal-600 focus:ring-teal-500 w-3 h-3"
                                                       />
                                                       Simpel
                                                   </label>
                                                   <div className="ml-auto flex gap-1">
-                                                      <button onClick={() => addSubtaskToTemplateTask(task.id)} className="text-[10px] bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400 flex items-center gap-1">
+                                                      <button onClick={() => addSubtaskToTemplateTask(task.id)} className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded hover:bg-slate-200 text-slate-500 flex items-center gap-1">
                                                           <Plus size={10}/> Sub
                                                       </button>
                                                   </div>
@@ -1234,15 +1228,15 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
 
                                               {/* Subtasks */}
                                               {task.subtasks && task.subtasks.length > 0 && (
-                                                  <div className="pl-2 border-l-2 border-slate-100 dark:border-slate-700 space-y-1 mt-1">
+                                                  <div className="pl-2 border-l-2 border-slate-100 space-y-1 mt-1">
                                                       {task.subtasks.map((st) => (
                                                           <div key={st.id} className="flex gap-2 items-center">
                                                               <input 
-                                                                  className="text-xs w-full bg-slate-50 dark:bg-slate-800 border-none p-1 rounded text-slate-700 dark:text-slate-300"
+                                                                  className="text-xs w-full bg-slate-50 border-none p-1 rounded"
                                                                   value={st.title}
                                                                   onChange={(e) => updateSubtaskTitle(task.id, st.id, e.target.value)}
                                                               />
-                                                              <button onClick={() => removeSubtaskFromTemplateTask(task.id, st.id)} className="text-slate-300 hover:text-red-400 dark:text-slate-600 dark:hover:text-red-400"><X size={12}/></button>
+                                                              <button onClick={() => removeSubtaskFromTemplateTask(task.id, st.id)} className="text-slate-300 hover:text-red-400"><X size={12}/></button>
                                                           </div>
                                                       ))}
                                                   </div>
@@ -1255,12 +1249,12 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                           );
                       })}
                       
-                      <button onClick={handleAddWeek} className="w-full py-3 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl text-slate-500 dark:text-slate-400 font-bold text-sm hover:border-teal-500 hover:text-teal-600 transition-colors flex items-center justify-center gap-2">
+                      <button onClick={handleAddWeek} className="w-full py-3 border-2 border-dashed border-slate-300 rounded-xl text-slate-500 font-bold text-sm hover:border-teal-500 hover:text-teal-600 flex items-center justify-center gap-2">
                           <Plus size={16}/> Week Toevoegen
                       </button>
                   </div>
 
-                  <div className="pt-6 border-t border-slate-100 dark:border-slate-700 flex justify-end gap-3 sticky bottom-0 bg-white dark:bg-slate-800 pb-2">
+                  <div className="pt-6 border-t border-slate-100 flex justify-end gap-3 sticky bottom-0 bg-white pb-2">
                       <button onClick={handleSaveTemplate} className="px-6 py-2 bg-slate-900 text-white rounded-xl font-bold text-sm shadow-md hover:bg-slate-800 transition-colors flex items-center gap-2">
                           <Save size={16}/> Template Opslaan
                       </button>
@@ -1269,22 +1263,22 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
           ) : (
               <div className="space-y-4">
                   {templates.map(template => (
-                      <div key={template.id} className="bg-slate-50 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex justify-between items-center group">
+                      <div key={template.id} className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex justify-between items-center group">
                           <div>
-                              <h4 className="font-bold text-slate-900 dark:text-white">{template.title}</h4>
-                              <p className="text-xs text-slate-500 dark:text-slate-400">{template.description}</p>
+                              <h4 className="font-bold text-slate-900">{template.title}</h4>
+                              <p className="text-xs text-slate-500">{template.description}</p>
                               <div className="text-[10px] text-slate-400 mt-1">{template.tasks.length} taken • {template.weekCount || 4} weken</div>
                           </div>
                           <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                               <button 
                                   onClick={() => { setEditingTemplate(JSON.parse(JSON.stringify(template))); setIsEditingTemplate(true); }}
-                                  className="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 hover:text-teal-600 hover:border-teal-200 transition-colors"
+                                  className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-teal-600 hover:border-teal-200"
                               >
                                   <Edit2 size={16}/>
                               </button>
                               <button 
                                   onClick={() => handleDeleteTemplate(template.id)}
-                                  className="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-500 hover:text-red-600 hover:border-red-200 transition-colors"
+                                  className="p-2 bg-white border border-slate-200 rounded-lg text-slate-500 hover:text-red-600 hover:border-red-200"
                               >
                                   <Trash2 size={16}/>
                               </button>
@@ -1294,7 +1288,7 @@ const OnboardingPage: React.FC<OnboardingPageProps> = ({
                   {templates.length === 0 && (
                       <div className="text-center p-4 text-slate-400 italic">Nog geen templates.</div>
                   )}
-                  <button onClick={handleCreateTemplate} className="w-full py-3 bg-teal-50 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400 font-bold text-sm rounded-xl border border-teal-100 dark:border-teal-800 hover:bg-teal-100 dark:hover:bg-teal-900/50 transition-colors flex items-center justify-center gap-2">
+                  <button onClick={handleCreateTemplate} className="w-full py-3 bg-teal-50 text-teal-700 font-bold text-sm rounded-xl border border-teal-100 hover:bg-teal-100 transition-colors flex items-center justify-center gap-2">
                       <Plus size={16}/> Nieuw Template Aanmaken
                   </button>
               </div>

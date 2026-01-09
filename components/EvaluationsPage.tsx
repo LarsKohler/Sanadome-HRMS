@@ -462,17 +462,17 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
           <div className="flex flex-col lg:flex-row h-full gap-6">
               
               {/* MAIN CALENDAR */}
-              <div className="flex-1 bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
-                  <div className="p-6 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center bg-slate-50/50 dark:bg-slate-900/50">
+              <div className="flex-1 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
+                  <div className="p-6 border-b border-slate-200 flex justify-between items-center bg-slate-50/50">
                       <div className="flex items-center gap-4">
-                          <h3 className="text-xl font-bold text-slate-900 dark:text-white capitalize flex items-center gap-2">
+                          <h3 className="text-xl font-bold text-slate-900 capitalize flex items-center gap-2">
                               <CalendarIcon size={20} className="text-slate-400"/>
                               {monthName}
                           </h3>
-                          <div className="flex gap-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-0.5 shadow-sm">
-                              <button onClick={() => changeMonth(-1)} className="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-md text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"><ChevronLeft size={18}/></button>
-                              <div className="w-px bg-slate-200 dark:bg-slate-700 my-1"></div>
-                              <button onClick={() => changeMonth(1)} className="p-1.5 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-md text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white"><ChevronRight size={18}/></button>
+                          <div className="flex gap-1 bg-white border border-slate-200 rounded-lg p-0.5 shadow-sm">
+                              <button onClick={() => changeMonth(-1)} className="p-1.5 hover:bg-slate-50 rounded-md text-slate-500 hover:text-slate-800"><ChevronLeft size={18}/></button>
+                              <div className="w-px bg-slate-200 my-1"></div>
+                              <button onClick={() => changeMonth(1)} className="p-1.5 hover:bg-slate-50 rounded-md text-slate-500 hover:text-slate-800"><ChevronRight size={18}/></button>
                           </div>
                       </div>
                       <div className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-3">
@@ -481,15 +481,15 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                       </div>
                   </div>
 
-                  <div className="grid grid-cols-7 border-b border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/80">
+                  <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50/80">
                       {['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'].map(d => (
                           <div key={d} className="py-3 text-center text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">{d}</div>
                       ))}
                   </div>
 
-                  <div className="grid grid-cols-7 flex-1 auto-rows-fr bg-slate-100 dark:bg-slate-900 gap-px border-b border-slate-200 dark:border-slate-700">
+                  <div className="grid grid-cols-7 flex-1 auto-rows-fr bg-slate-100 gap-px border-b border-slate-200">
                       {days.map((date, idx) => {
-                          if (!date) return <div key={idx} className="bg-slate-50/30 dark:bg-slate-900/30 min-h-[120px]"></div>;
+                          if (!date) return <div key={idx} className="bg-slate-50/30 min-h-[120px]"></div>;
                           
                           const dateStr = date.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
                           const dayEvals = filteredList.filter(item => item.evaluation.plannedDate === dateStr);
@@ -498,8 +498,8 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                           return (
                               <div 
                                 key={idx} 
-                                className={`bg-white dark:bg-slate-800 p-2 min-h-[120px] relative transition-colors group flex flex-col
-                                    ${isToday ? 'bg-blue-50/20 dark:bg-blue-900/10' : 'hover:bg-slate-50 dark:hover:bg-slate-700'}
+                                className={`bg-white p-2 min-h-[120px] relative transition-colors group flex flex-col
+                                    ${isToday ? 'bg-blue-50/20' : 'hover:bg-slate-50'}
                                 `}
                                 onDragOver={handleDragOver}
                                 onDrop={(e) => handleDrop(e, date)}
@@ -508,7 +508,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                       <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400'}`}>
                                           {date.getDate()}
                                       </span>
-                                      {dayEvals.length > 0 && <span className="text-[9px] font-bold text-slate-300 dark:text-slate-600">{dayEvals.length} items</span>}
+                                      {dayEvals.length > 0 && <span className="text-[9px] font-bold text-slate-300">{dayEvals.length} items</span>}
                                   </div>
                                   
                                   <div className="space-y-1.5 flex-1">
@@ -522,11 +522,11 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                                 onClick={() => setSelectedEvaluationId(evaluation.id)}
                                                 className={`
                                                     p-2 rounded-md border-l-4 text-xs shadow-sm cursor-pointer transition-all hover:-translate-y-0.5 hover:shadow-md
-                                                    bg-white dark:bg-slate-700 border border-slate-100 dark:border-slate-600
+                                                    bg-white border border-slate-100
                                                     ${isActive ? 'border-l-blue-500' : 'border-l-amber-400'}
                                                 `}
                                               >
-                                                  <div className="font-bold text-slate-800 dark:text-slate-200 truncate leading-tight">{employee.name}</div>
+                                                  <div className="font-bold text-slate-800 truncate leading-tight">{employee.name}</div>
                                                   <div className="text-[9px] text-slate-400 truncate">{evaluation.type}</div>
                                               </div>
                                           );
@@ -540,9 +540,9 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
               {/* UPCOMING SIDEBAR */}
               <div className="w-full lg:w-80 flex flex-col gap-6">
-                  <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col h-full max-h-[750px]">
-                      <div className="p-5 border-b border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50">
-                          <h3 className="font-bold text-slate-900 dark:text-white text-sm uppercase tracking-wider flex items-center gap-2">
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full max-h-[750px]">
+                      <div className="p-5 border-b border-slate-100 bg-slate-50/50">
+                          <h3 className="font-bold text-slate-900 text-sm uppercase tracking-wider flex items-center gap-2">
                               <Clock size={16} className="text-slate-400"/> Aankomend
                           </h3>
                       </div>
@@ -552,19 +552,19 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                   <div 
                                     key={evaluation.id}
                                     onClick={() => setSelectedEvaluationId(evaluation.id)}
-                                    className="p-3 bg-white dark:bg-slate-700/50 border border-slate-100 dark:border-slate-700 rounded-xl shadow-sm hover:border-teal-300 dark:hover:border-teal-600 hover:shadow-md transition-all cursor-pointer group"
+                                    className="p-3 bg-white border border-slate-100 rounded-xl shadow-sm hover:border-teal-300 hover:shadow-md transition-all cursor-pointer group"
                                   >
                                       <div className="flex items-center gap-3 mb-2">
-                                          <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center font-bold text-xs text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600">
+                                          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-xs text-slate-500 border border-slate-200">
                                               {employee.name.charAt(0)}
                                           </div>
                                           <div className="flex-1 min-w-0">
-                                              <div className="font-bold text-slate-900 dark:text-white text-sm truncate">{employee.name}</div>
-                                              <div className="text-xs text-slate-500 dark:text-slate-400 truncate">{employee.role}</div>
+                                              <div className="font-bold text-slate-900 text-sm truncate">{employee.name}</div>
+                                              <div className="text-xs text-slate-500 truncate">{employee.role}</div>
                                           </div>
                                       </div>
-                                      <div className="flex justify-between items-center text-xs bg-slate-50 dark:bg-slate-700 p-2 rounded-lg group-hover:bg-teal-50 dark:group-hover:bg-teal-900/30 transition-colors">
-                                          <span className="font-medium text-slate-600 dark:text-slate-300">{evaluation.plannedDate}</span>
+                                      <div className="flex justify-between items-center text-xs bg-slate-50 p-2 rounded-lg group-hover:bg-teal-50 transition-colors">
+                                          <span className="font-medium text-slate-600">{evaluation.plannedDate}</span>
                                           <span className="text-slate-400 truncate max-w-[80px]">{evaluation.type}</span>
                                       </div>
                                   </div>
@@ -589,57 +589,57 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       const percentage = Math.round((totalScore / maxScore) * 100);
 
       return (
-          <div className="h-full bg-slate-50 dark:bg-slate-900 p-8 overflow-y-auto">
-              <div className="max-w-4xl mx-auto bg-white dark:bg-slate-800 rounded-none md:rounded-2xl shadow-lg print:shadow-none print:w-full overflow-hidden print:text-black print:bg-white">
-                  <div className="p-8 border-b-4 border-teal-600 bg-slate-50 dark:bg-slate-900 flex justify-between items-start print:bg-white">
+          <div className="h-full bg-slate-50 p-8 overflow-y-auto">
+              <div className="max-w-4xl mx-auto bg-white rounded-none md:rounded-2xl shadow-lg print:shadow-none print:w-full overflow-hidden">
+                  <div className="p-8 border-b-4 border-teal-600 bg-slate-50 flex justify-between items-start print:bg-white">
                       <div>
-                          <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tight mb-2 print:text-black">Evaluatie Rapport</h1>
-                          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium">{evaluation.type}</p>
+                          <h1 className="text-3xl font-black text-slate-900 uppercase tracking-tight mb-2">Evaluatie Rapport</h1>
+                          <p className="text-slate-500 text-sm font-medium">{evaluation.type}</p>
                       </div>
                       <div className="text-right">
-                          <div className="text-sm font-bold text-slate-900 dark:text-white print:text-black">{employee.name}</div>
-                          <div className="text-xs text-slate-500 dark:text-slate-400">{employee.role}</div>
+                          <div className="text-sm font-bold text-slate-900">{employee.name}</div>
+                          <div className="text-xs text-slate-500">{employee.role}</div>
                           <div className="mt-2 text-xs font-mono text-slate-400">Ref: {evaluation.id.slice(0,8)}</div>
                       </div>
                   </div>
 
                   <div className="p-8">
                       <div className="grid grid-cols-3 gap-6 mb-10">
-                          <div className="p-4 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl text-center">
+                          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center">
                               <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Datum Afgerond</div>
-                              <div className="font-bold text-slate-900 dark:text-white">{evaluation.completedAt || '-'}</div>
+                              <div className="font-bold text-slate-900">{evaluation.completedAt || '-'}</div>
                           </div>
-                          <div className="p-4 bg-slate-50 dark:bg-slate-700/50 border border-slate-200 dark:border-slate-700 rounded-xl text-center">
+                          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center">
                               <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Manager</div>
-                              <div className="font-bold text-slate-900 dark:text-white">{currentUser.name}</div>
+                              <div className="font-bold text-slate-900">{currentUser.name}</div>
                           </div>
-                          <div className="p-4 bg-teal-50 dark:bg-teal-900/30 border border-teal-200 dark:border-teal-800 rounded-xl text-center">
-                              <div className="text-xs font-bold text-teal-700 dark:text-teal-400 uppercase tracking-wider mb-1">Score</div>
-                              <div className="font-bold text-teal-800 dark:text-teal-300 text-xl">{percentage}% ({totalScore}/{maxScore})</div>
+                          <div className="p-4 bg-teal-50 border border-teal-200 rounded-xl text-center">
+                              <div className="text-xs font-bold text-teal-700 uppercase tracking-wider mb-1">Score</div>
+                              <div className="font-bold text-teal-800 text-xl">{percentage}% ({totalScore}/{maxScore})</div>
                           </div>
                       </div>
 
                       <div className="mb-10">
-                          <h3 className="font-bold text-slate-900 dark:text-white text-lg mb-4 border-b border-slate-200 dark:border-slate-700 pb-2">Competenties</h3>
+                          <h3 className="font-bold text-slate-900 text-lg mb-4 border-b border-slate-200 pb-2">Competenties</h3>
                           <div className="space-y-6">
                               {evaluation.scores.map((score, idx) => (
                                   <div key={idx} className="flex gap-4 items-start">
                                       <div className="w-1/3">
                                           <div className="text-xs font-bold text-slate-400 uppercase">{score.category}</div>
-                                          <div className="font-bold text-slate-800 dark:text-slate-200">{score.topic}</div>
+                                          <div className="font-bold text-slate-800">{score.topic}</div>
                                       </div>
                                       <div className="flex-1">
                                           <div className="flex items-center gap-2 mb-1">
-                                              <div className="flex-1 h-3 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                                              <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
                                                   <div 
                                                     className={`h-full ${score.managerScore >= 4 ? 'bg-green-500' : score.managerScore === 3 ? 'bg-amber-400' : 'bg-red-400'}`} 
                                                     style={{width: `${(score.managerScore / 5) * 100}%`}}
                                                   ></div>
                                               </div>
-                                              <span className="font-bold text-slate-900 dark:text-white w-6 text-right">{score.managerScore}</span>
+                                              <span className="font-bold text-slate-900 w-6 text-right">{score.managerScore}</span>
                                           </div>
                                           {score.managerComment && (
-                                              <p className="text-xs text-slate-500 dark:text-slate-400 italic bg-slate-50 dark:bg-slate-700/50 p-2 rounded">
+                                              <p className="text-xs text-slate-500 italic bg-slate-50 p-2 rounded">
                                                   "{score.managerComment}"
                                               </p>
                                           )}
@@ -651,25 +651,25 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
                       <div className="grid grid-cols-2 gap-8 mb-10">
                           <div>
-                              <h3 className="font-bold text-slate-900 dark:text-white mb-3 border-b border-slate-200 dark:border-slate-700 pb-2 flex items-center gap-2"><TrendingUp size={16} className="text-green-600"/> Successen</h3>
-                              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{evaluation.managerWins || evaluation.employeeWins || 'Geen input.'}</p>
+                              <h3 className="font-bold text-slate-900 mb-3 border-b border-slate-200 pb-2 flex items-center gap-2"><TrendingUp size={16} className="text-green-600"/> Successen</h3>
+                              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{evaluation.managerWins || evaluation.employeeWins || 'Geen input.'}</p>
                           </div>
                           <div>
-                              <h3 className="font-bold text-slate-900 dark:text-white mb-3 border-b border-slate-200 dark:border-slate-700 pb-2 flex items-center gap-2"><TrendingDown size={16} className="text-amber-600"/> Aandachtspunten</h3>
-                              <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{evaluation.managerStruggles || evaluation.employeeStruggles || 'Geen input.'}</p>
+                              <h3 className="font-bold text-slate-900 mb-3 border-b border-slate-200 pb-2 flex items-center gap-2"><TrendingDown size={16} className="text-amber-600"/> Aandachtspunten</h3>
+                              <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{evaluation.managerStruggles || evaluation.employeeStruggles || 'Geen input.'}</p>
                           </div>
                       </div>
 
-                      <div className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-xl border border-slate-200 dark:border-slate-700 mb-10">
-                          <h3 className="font-bold text-slate-900 dark:text-white mb-2">Samenvatting & Conclusie</h3>
-                          <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">{evaluation.managerGeneralFeedback || 'Geen conclusie genoteerd.'}</p>
+                      <div className="bg-slate-50 p-6 rounded-xl border border-slate-200 mb-10">
+                          <h3 className="font-bold text-slate-900 mb-2">Samenvatting & Conclusie</h3>
+                          <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap">{evaluation.managerGeneralFeedback || 'Geen conclusie genoteerd.'}</p>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-20 pt-10 border-t border-slate-200 dark:border-slate-700">
+                      <div className="grid grid-cols-2 gap-20 pt-10 border-t border-slate-200">
                           <div>
-                              <div className="h-16 border-b border-slate-300 dark:border-slate-600 mb-2 relative">
+                              <div className="h-16 border-b border-slate-300 mb-2 relative">
                                   {evaluation.completedAt && (
-                                      <div className="absolute bottom-2 left-0 font-handwriting text-2xl text-slate-600 dark:text-slate-400 transform -rotate-2">
+                                      <div className="absolute bottom-2 left-0 font-handwriting text-2xl text-slate-600 transform -rotate-2">
                                           {currentUser.name}
                                       </div>
                                   )}
@@ -678,9 +678,9 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                               <p className="text-xs text-slate-400">{evaluation.completedAt}</p>
                           </div>
                           <div>
-                              <div className="h-16 border-b border-slate-300 dark:border-slate-600 mb-2 relative">
+                              <div className="h-16 border-b border-slate-300 mb-2 relative">
                                   {evaluation.completedAt && (
-                                      <div className="absolute bottom-2 left-0 font-handwriting text-2xl text-slate-600 dark:text-slate-400 transform rotate-1">
+                                      <div className="absolute bottom-2 left-0 font-handwriting text-2xl text-slate-600 transform rotate-1">
                                           {employee.name}
                                       </div>
                                   )}
@@ -693,7 +693,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
               </div>
               
               <div className="flex justify-center mt-8 gap-4 print:hidden pb-10">
-                  <button onClick={() => window.print()} className="px-6 py-3 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl shadow-lg transition-all flex items-center gap-2">
+                  <button onClick={() => window.print()} className="px-6 py-3 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-slate-800 transition-all flex items-center gap-2">
                       <Printer size={18} /> Print Rapport
                   </button>
               </div>
@@ -713,57 +713,55 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
       return (
           <div className="fixed inset-0 z-50 flex justify-end">
               <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-sm transition-opacity" onClick={() => setSelectedEvaluationId(null)}></div>
-              <div className="relative w-full max-w-5xl bg-white dark:bg-slate-800 h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 border-l border-transparent dark:border-slate-700">
+              <div className="relative w-full max-w-5xl bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
                   
                   {/* HEADER */}
-                  <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-700 bg-white dark:bg-slate-800 sticky top-0 z-10">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-6">
-                            <div className="relative">
-                                <img src={employee.avatar} className="w-16 h-16 rounded-xl object-cover border-2 border-slate-100 dark:border-slate-700" alt="Avatar"/>
-                                <div className={`absolute -bottom-2 -right-2 p-1.5 rounded-full border-2 border-white dark:border-slate-800 ${evaluation.status === 'Signed' ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'}`}>
-                                    {evaluation.status === 'Signed' ? <CheckCircle2 size={12}/> : <Clock size={12}/>}
-                                </div>
-                            </div>
-                            <div>
-                                <h2 className="text-2xl font-bold text-slate-900 dark:text-white">{evaluation.type}</h2>
-                                <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400 text-sm mt-1">
-                                    <User size={14}/> {employee.name}
-                                    <span className="text-slate-300 dark:text-slate-600">•</span>
-                                    <CalendarIcon size={14}/> {evaluation.plannedDate || evaluation.createdAt}
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div className="flex gap-3 items-center">
-                            {evaluation.status === 'Planned' && isManager && (
-                                <button onClick={() => handleStartEarly(selectedData)} className="px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white text-sm font-bold rounded-xl shadow hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors flex items-center gap-2">
-                                    <Unlock size={16}/> Starten
-                                </button>
-                            )}
-                            {canEditEmployee && (
-                                <button onClick={handleSubmitEmployee} className="px-6 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl shadow hover:bg-blue-700 transition-colors flex items-center gap-2">
-                                    Indienen <ArrowRight size={16}/>
-                                </button>
-                            )}
-                            {canEditManager && (
-                                <button onClick={handleSubmitManager} className="px-6 py-2 bg-purple-600 text-white text-sm font-bold rounded-xl shadow hover:bg-purple-700 transition-colors flex items-center gap-2">
-                                    Naar Bespreking <MessageSquare size={16}/>
-                                </button>
-                            )}
-                            {isReviewMode && isManager && (
-                                <button onClick={handleSignOff} className="px-6 py-2 bg-green-600 text-white text-sm font-bold rounded-xl shadow hover:bg-green-700 transition-colors flex items-center gap-2">
-                                    <CheckCircle2 size={16}/> Ondertekenen
-                                </button>
-                            )}
-                            <div className="w-px h-8 bg-slate-100 dark:bg-slate-700 mx-2"></div>
-                            <button onClick={() => setSelectedEvaluationId(null)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full text-slate-400 transition-colors"><X size={24}/></button>
-                        </div>
+                  <div className="px-8 py-6 border-b border-slate-100 flex justify-between items-center bg-white sticky top-0 z-10">
+                      <div className="flex items-center gap-6">
+                          <div className="relative">
+                              <img src={employee.avatar} className="w-16 h-16 rounded-xl object-cover border-2 border-slate-100" alt="Avatar"/>
+                              <div className={`absolute -bottom-2 -right-2 p-1.5 rounded-full border-2 border-white ${evaluation.status === 'Signed' ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'}`}>
+                                  {evaluation.status === 'Signed' ? <CheckCircle2 size={12}/> : <Clock size={12}/>}
+                              </div>
+                          </div>
+                          <div>
+                              <h2 className="text-2xl font-bold text-slate-900">{evaluation.type}</h2>
+                              <div className="flex items-center gap-2 text-slate-500 text-sm mt-1">
+                                  <User size={14}/> {employee.name}
+                                  <span className="text-slate-300">•</span>
+                                  <CalendarIcon size={14}/> {evaluation.plannedDate || evaluation.createdAt}
+                              </div>
+                          </div>
+                      </div>
+                      
+                      <div className="flex gap-3 items-center">
+                          {evaluation.status === 'Planned' && isManager && (
+                              <button onClick={() => handleStartEarly(selectedData)} className="px-4 py-2 bg-slate-900 text-white text-sm font-bold rounded-xl shadow hover:bg-slate-800 transition-colors flex items-center gap-2">
+                                  <Unlock size={16}/> Starten
+                              </button>
+                          )}
+                          {canEditEmployee && (
+                              <button onClick={handleSubmitEmployee} className="px-6 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl shadow hover:bg-blue-700 transition-colors flex items-center gap-2">
+                                  Indienen <ArrowRight size={16}/>
+                              </button>
+                          )}
+                          {canEditManager && (
+                              <button onClick={handleSubmitManager} className="px-6 py-2 bg-purple-600 text-white text-sm font-bold rounded-xl shadow hover:bg-purple-700 transition-colors flex items-center gap-2">
+                                  Naar Bespreking <MessageSquare size={16}/>
+                              </button>
+                          )}
+                          {isReviewMode && isManager && (
+                              <button onClick={handleSignOff} className="px-6 py-2 bg-green-600 text-white text-sm font-bold rounded-xl shadow hover:bg-green-700 transition-colors flex items-center gap-2">
+                                  <CheckCircle2 size={16}/> Ondertekenen
+                              </button>
+                          )}
+                          <div className="w-px h-8 bg-slate-100 mx-2"></div>
+                          <button onClick={() => setSelectedEvaluationId(null)} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 transition-colors"><X size={24}/></button>
                       </div>
                   </div>
 
                   {/* CONTENT */}
-                  <div className="flex-1 overflow-y-auto bg-slate-50/50 dark:bg-slate-900/50">
+                  <div className="flex-1 overflow-y-auto bg-slate-50/50">
                       {['Signed', 'Archived'].includes(evaluation.status) ? (
                           renderReportView(selectedData)
                       ) : (
@@ -771,19 +769,19 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                               {/* Stepper */}
                               <div className="mb-10 max-w-3xl mx-auto">
                                   <div className="flex justify-between items-center relative">
-                                      <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-200 dark:bg-slate-700 -z-10 rounded-full"></div>
+                                      <div className="absolute top-1/2 left-0 w-full h-1 bg-slate-200 -z-10 rounded-full"></div>
                                       <div className="absolute left-0 top-1/2 h-1 bg-blue-500 -z-10 rounded-full transition-all duration-500" style={{ width: `${step * 25}%` }}></div>
                                       
                                       {['Ingepland', 'Zelfreflectie', 'Beoordeling', 'Bespreking', 'Afgerond'].map((label, idx) => {
                                           const active = idx <= step;
                                           return (
-                                              <div key={idx} className="flex flex-col items-center gap-2 bg-slate-50/50 dark:bg-slate-900/50 px-2">
+                                              <div key={idx} className="flex flex-col items-center gap-2 bg-slate-50/50 px-2">
                                                   <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all ${
-                                                      active ? 'border-blue-500 bg-blue-50 dark:bg-blue-900 text-blue-600 dark:text-blue-400' : 'border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-300 dark:text-slate-600'
+                                                      active ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-slate-300 bg-white text-slate-300'
                                                   }`}>
-                                                      {idx < step ? <Check size={16} strokeWidth={3}/> : <div className={`w-2.5 h-2.5 rounded-full ${active ? 'bg-blue-500' : 'bg-slate-300 dark:bg-slate-600'}`}></div>}
+                                                      {idx < step ? <Check size={16} strokeWidth={3}/> : <div className={`w-2.5 h-2.5 rounded-full ${active ? 'bg-blue-500' : 'bg-slate-300'}`}></div>}
                                                   </div>
-                                                  <span className={`text-[10px] font-bold uppercase tracking-wider ${active ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-600'}`}>{label}</span>
+                                                  <span className={`text-[10px] font-bold uppercase tracking-wider ${active ? 'text-slate-900' : 'text-slate-400'}`}>{label}</span>
                                               </div>
                                           );
                                       })}
@@ -792,11 +790,11 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
                               {evaluation.status === 'Planned' ? (
                                   <div className="flex flex-col items-center justify-center py-20 text-center">
-                                      <div className="w-20 h-20 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center mb-6 text-slate-300 dark:text-slate-500">
+                                      <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-6 text-slate-300">
                                           <Lock size={32} />
                                       </div>
-                                      <h3 className="text-xl font-bold text-slate-900 dark:text-white">Nog even geduld</h3>
-                                      <p className="text-slate-500 dark:text-slate-400 mt-2 mb-6 max-w-md">
+                                      <h3 className="text-xl font-bold text-slate-900">Nog even geduld</h3>
+                                      <p className="text-slate-500 mt-2 mb-6 max-w-md">
                                           Deze evaluatie staat gepland voor <strong>{evaluation.plannedDate}</strong>. 
                                           Het formulier wordt automatisch vrijgegeven.
                                       </p>
@@ -804,21 +802,21 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                               ) : (
                                   <div className="max-w-4xl mx-auto space-y-8">
                                       {/* Competencies */}
-                                      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-                                          <div className="px-6 py-4 bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-                                              <h4 className="font-bold text-slate-900 dark:text-white">Competenties & Scores</h4>
-                                              <div className="flex gap-8 text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mr-4">
+                                      <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                                          <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center">
+                                              <h4 className="font-bold text-slate-900">Competenties & Scores</h4>
+                                              <div className="flex gap-8 text-xs font-bold text-slate-500 uppercase tracking-wider mr-4">
                                                   <span className="w-24 text-center">Medewerker</span>
                                                   <span className="w-24 text-center">Manager</span>
                                               </div>
                                           </div>
-                                          <div className="divide-y divide-slate-100 dark:divide-slate-700">
+                                          <div className="divide-y divide-slate-100">
                                               {evaluation.scores.map((score, idx) => (
-                                                  <div key={idx} className="p-6 hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors">
+                                                  <div key={idx} className="p-6 hover:bg-slate-50 transition-colors">
                                                       <div className="flex justify-between items-start mb-4">
                                                           <div className="flex-1 pr-8">
                                                               <div className="text-xs font-bold text-slate-400 uppercase mb-1">{score.category}</div>
-                                                              <div className="font-bold text-slate-900 dark:text-white">{score.topic}</div>
+                                                              <div className="font-bold text-slate-900">{score.topic}</div>
                                                           </div>
                                                           <div className="flex gap-8">
                                                               {/* Employee Input */}
@@ -827,13 +825,13 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                                                       <select 
                                                                         value={score.employeeScore}
                                                                         onChange={(e) => handleScoreChange(idx, 'employeeScore', parseInt(e.target.value))}
-                                                                        className="bg-slate-100 dark:bg-slate-700 border-transparent rounded-lg font-bold text-slate-900 dark:text-white focus:ring-blue-500 cursor-pointer"
+                                                                        className="bg-slate-100 border-transparent rounded-lg font-bold text-slate-900 focus:ring-blue-500 cursor-pointer"
                                                                       >
                                                                           <option value="0">-</option>
                                                                           {[1,2,3,4,5].map(v => <option key={v} value={v}>{v}</option>)}
                                                                       </select>
                                                                   ) : (
-                                                                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold ${score.employeeScore > 0 ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500'}`}>
+                                                                      <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold ${score.employeeScore > 0 ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-400'}`}>
                                                                           {score.employeeScore || '-'}
                                                                       </div>
                                                                   )}
@@ -844,15 +842,15 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                                                       <select 
                                                                         value={score.managerScore}
                                                                         onChange={(e) => handleScoreChange(idx, 'managerScore', parseInt(e.target.value))}
-                                                                        className="bg-slate-100 dark:bg-slate-700 border-transparent rounded-lg font-bold text-slate-900 dark:text-white focus:ring-purple-500 cursor-pointer"
+                                                                        className="bg-slate-100 border-transparent rounded-lg font-bold text-slate-900 focus:ring-purple-500 cursor-pointer"
                                                                       >
                                                                           <option value="0">-</option>
                                                                           {[1,2,3,4,5].map(v => <option key={v} value={v}>{v}</option>)}
                                                                       </select>
                                                                   ) : (
                                                                       <div className={`w-10 h-10 rounded-lg flex items-center justify-center font-bold ${
-                                                                          evaluation.status === 'EmployeeInput' ? 'bg-slate-50 dark:bg-slate-800 text-slate-200 dark:text-slate-700' :
-                                                                          score.managerScore > 0 ? 'bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 dark:text-slate-500'
+                                                                          evaluation.status === 'EmployeeInput' ? 'bg-slate-50 text-slate-200' :
+                                                                          score.managerScore > 0 ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-400'
                                                                       }`}>
                                                                           {evaluation.status === 'EmployeeInput' ? '?' : score.managerScore || '-'}
                                                                       </div>
@@ -867,13 +865,13 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                                                   {canEditEmployee ? (
                                                                       <textarea 
                                                                         placeholder="Licht je score toe..."
-                                                                        className="w-full bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl p-3 text-sm focus:outline-none focus:border-blue-300 resize-none dark:text-white"
+                                                                        className="w-full bg-blue-50/50 border border-blue-100 rounded-xl p-3 text-sm focus:outline-none focus:border-blue-300 resize-none"
                                                                         rows={2}
                                                                         value={score.employeeComment || ''}
                                                                         onChange={(e) => handleScoreChange(idx, 'employeeComment', e.target.value)}
                                                                       />
                                                                   ) : (
-                                                                      <div className="bg-blue-50/30 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 p-3 rounded-xl text-sm text-slate-600 dark:text-slate-300 italic">
+                                                                      <div className="bg-blue-50/30 border border-blue-100 p-3 rounded-xl text-sm text-slate-600 italic">
                                                                           "{score.employeeComment}"
                                                                       </div>
                                                                   )}
@@ -884,13 +882,13 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                                                   {canEditManager ? (
                                                                       <textarea 
                                                                         placeholder="Feedback manager..."
-                                                                        className="w-full bg-purple-50/50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 rounded-xl p-3 text-sm focus:outline-none focus:border-purple-300 resize-none dark:text-white"
+                                                                        className="w-full bg-purple-50/50 border border-purple-100 rounded-xl p-3 text-sm focus:outline-none focus:border-purple-300 resize-none"
                                                                         rows={2}
                                                                         value={score.managerComment || ''}
                                                                         onChange={(e) => handleScoreChange(idx, 'managerComment', e.target.value)}
                                                                       />
                                                                   ) : (
-                                                                      <div className={`bg-purple-50/30 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-800 p-3 rounded-xl text-sm text-slate-600 dark:text-slate-300 italic ${evaluation.status === 'EmployeeInput' ? 'opacity-50 blur-sm' : ''}`}>
+                                                                      <div className={`bg-purple-50/30 border border-purple-100 p-3 rounded-xl text-sm text-slate-600 italic ${evaluation.status === 'EmployeeInput' ? 'opacity-50 blur-sm' : ''}`}>
                                                                           {evaluation.status === 'EmployeeInput' ? "Feedback verborgen" : `"${score.managerComment}"`}
                                                                       </div>
                                                                   )}
@@ -904,39 +902,39 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
 
                                       {/* Open Questions */}
                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-green-100 dark:border-green-900 shadow-sm">
-                                              <div className="flex items-center gap-2 mb-4 text-green-700 dark:text-green-400">
+                                          <div className="bg-white p-6 rounded-2xl border border-green-100 shadow-sm">
+                                              <div className="flex items-center gap-2 mb-4 text-green-700">
                                                   <TrendingUp size={20}/>
                                                   <h4 className="font-bold">Successen & Wins</h4>
                                               </div>
                                               {canEditEmployee ? (
                                                   <textarea 
-                                                    className="w-full h-40 p-4 bg-green-50/30 dark:bg-green-900/10 border border-green-100 dark:border-green-900/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 text-sm resize-none dark:text-white"
+                                                    className="w-full h-40 p-4 bg-green-50/30 border border-green-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 text-sm resize-none"
                                                     placeholder="Waar ben je trots op?"
                                                     value={evaluation.employeeWins || ''}
                                                     onChange={(e) => handleTextChange('employeeWins', e.target.value)}
                                                   />
                                               ) : (
-                                                  <div className="p-4 bg-green-50/30 dark:bg-green-900/10 border border-green-100 dark:border-green-900/50 rounded-xl text-sm text-slate-700 dark:text-slate-300 min-h-[160px]">
+                                                  <div className="p-4 bg-green-50/30 border border-green-100 rounded-xl text-sm text-slate-700 min-h-[160px]">
                                                       {evaluation.employeeWins || 'Geen input.'}
                                                   </div>
                                               )}
                                           </div>
 
-                                          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-amber-100 dark:border-amber-900 shadow-sm">
-                                              <div className="flex items-center gap-2 mb-4 text-amber-700 dark:text-amber-400">
+                                          <div className="bg-white p-6 rounded-2xl border border-amber-100 shadow-sm">
+                                              <div className="flex items-center gap-2 mb-4 text-amber-700">
                                                   <TrendingDown size={20}/>
                                                   <h4 className="font-bold">Uitdagingen</h4>
                                               </div>
                                               {canEditEmployee ? (
                                                   <textarea 
-                                                    className="w-full h-40 p-4 bg-amber-50/30 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-sm resize-none dark:text-white"
+                                                    className="w-full h-40 p-4 bg-amber-50/30 border border-amber-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-sm resize-none"
                                                     placeholder="Wat kon er beter?"
                                                     value={evaluation.employeeStruggles || ''}
                                                     onChange={(e) => handleTextChange('employeeStruggles', e.target.value)}
                                                   />
                                               ) : (
-                                                  <div className="p-4 bg-amber-50/30 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/50 rounded-xl text-sm text-slate-700 dark:text-slate-300 min-h-[160px]">
+                                                  <div className="p-4 bg-amber-50/30 border border-amber-100 rounded-xl text-sm text-slate-700 min-h-[160px]">
                                                       {evaluation.employeeStruggles || 'Geen input.'}
                                                   </div>
                                               )}
@@ -944,17 +942,17 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                       </div>
 
                                       {(canEditManager || evaluation.managerGeneralFeedback) && (
-                                          <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-purple-100 dark:border-purple-900 shadow-sm">
-                                              <h4 className="font-bold text-purple-900 dark:text-purple-400 mb-4">Samenvatting & Conclusie Manager</h4>
+                                          <div className="bg-white p-6 rounded-2xl border border-purple-100 shadow-sm">
+                                              <h4 className="font-bold text-purple-900 mb-4">Samenvatting & Conclusie Manager</h4>
                                               {canEditManager ? (
                                                   <textarea 
-                                                    className="w-full h-32 p-4 bg-purple-50/30 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 text-sm resize-none dark:text-white"
+                                                    className="w-full h-32 p-4 bg-purple-50/30 border border-purple-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 text-sm resize-none"
                                                     placeholder="Eindconclusie en afspraken..."
                                                     value={evaluation.managerGeneralFeedback || ''}
                                                     onChange={(e) => handleTextChange('managerGeneralFeedback', e.target.value)}
                                                   />
                                               ) : (
-                                                  <div className={`p-4 bg-purple-50/30 dark:bg-purple-900/10 border border-purple-100 dark:border-purple-900/50 rounded-xl text-sm text-slate-700 dark:text-slate-300 min-h-[128px] ${evaluation.status === 'EmployeeInput' ? 'blur-sm' : ''}`}>
+                                                  <div className={`p-4 bg-purple-50/30 border border-purple-100 rounded-xl text-sm text-slate-700 min-h-[128px] ${evaluation.status === 'EmployeeInput' ? 'blur-sm' : ''}`}>
                                                       {evaluation.managerGeneralFeedback || 'Nog geen conclusie.'}
                                                   </div>
                                               )}
@@ -976,11 +974,11 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
         {/* HEADER */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-6">
             <div>
-                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center gap-3">
-                    <ClipboardCheck className="text-teal-600 dark:text-teal-400" size={32} />
+                <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 flex items-center gap-3">
+                    <ClipboardCheck className="text-teal-600" size={32} />
                     Performance & Evaluaties
                 </h1>
-                <p className="text-slate-500 dark:text-slate-400 mt-1">Beheer functioneringsgesprekken en groei.</p>
+                <p className="text-slate-500 mt-1">Beheer functioneringsgesprekken en groei.</p>
             </div>
 
             <div className="flex items-center gap-3">
@@ -988,13 +986,13 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                     <>
                         <button 
                             onClick={() => setIsAssignModalOpen(true)}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl font-bold text-sm shadow-md transition-all"
+                            className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold text-sm shadow-md transition-all"
                         >
                             <CalendarIcon size={16}/> Inplannen
                         </button>
                         <button 
                             onClick={handleCreateTemplate}
-                            className="flex items-center gap-2 px-4 py-2.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 rounded-xl font-bold text-sm shadow-sm transition-all"
+                            className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 rounded-xl font-bold text-sm shadow-sm transition-all"
                         >
                             <Plus size={16}/> Nieuw Template
                         </button>
@@ -1004,8 +1002,8 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
         </div>
 
         {/* TABS & FILTERS */}
-        <div className="bg-white dark:bg-slate-800 rounded-3xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden flex flex-col min-h-[700px]">
-            <div className="border-b border-slate-200 dark:border-slate-700 px-6 py-4 flex flex-col md:flex-row gap-4 justify-between items-center">
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[700px]">
+            <div className="border-b border-slate-200 px-6 py-4 flex flex-col md:flex-row gap-4 justify-between items-center">
                 <div className="flex gap-2">
                     {[
                         { id: 'active', label: 'Actief & Lopende' },
@@ -1015,7 +1013,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                         <button 
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id as any)}
-                            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-slate-900 dark:bg-slate-700 text-white shadow-md' : 'text-slate-500 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-700'}`}
+                            className={`px-4 py-2 rounded-xl text-sm font-bold transition-all ${activeTab === tab.id ? 'bg-slate-900 text-white shadow-md' : 'text-slate-500 hover:bg-slate-50'}`}
                         >
                             {tab.label}
                         </button>
@@ -1030,14 +1028,14 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                             placeholder="Zoek evaluatie..." 
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-teal-500 dark:text-white"
+                            className="pl-9 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium w-full md:w-64 focus:outline-none focus:ring-2 focus:ring-teal-500"
                         />
                     </div>
                 )}
             </div>
 
             {/* CONTENT AREA */}
-            <div className="flex-1 bg-slate-50/50 dark:bg-slate-900/50 p-6 md:p-8 overflow-y-auto">
+            <div className="flex-1 bg-slate-50/50 p-6 md:p-8 overflow-y-auto">
                 
                 {/* PLANNING CALENDAR */}
                 {activeTab === 'planning' && (
@@ -1049,28 +1047,28 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                         <div 
                             onClick={handleCreateTemplate}
-                            className="bg-white dark:bg-slate-800 rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-600 p-8 flex flex-col items-center justify-center cursor-pointer hover:border-teal-500 dark:hover:border-teal-400 hover:bg-teal-50/20 dark:hover:bg-teal-900/20 transition-all min-h-[250px] group"
+                            className="bg-white rounded-2xl border-2 border-dashed border-slate-300 p-8 flex flex-col items-center justify-center cursor-pointer hover:border-teal-500 hover:bg-teal-50/20 transition-all min-h-[250px] group"
                         >
-                            <div className="w-16 h-16 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-400 mb-4 group-hover:scale-110 transition-transform">
+                            <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 mb-4 group-hover:scale-110 transition-transform">
                                 <Plus size={32} />
                             </div>
-                            <h3 className="font-bold text-slate-600 dark:text-slate-400 group-hover:text-teal-600 dark:group-hover:text-teal-400">Nieuw Template</h3>
+                            <h3 className="font-bold text-slate-600 group-hover:text-teal-600">Nieuw Template</h3>
                         </div>
                         {templates.map(tpl => (
-                            <div key={tpl.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm p-6 flex flex-col hover:shadow-md transition-shadow">
+                            <div key={tpl.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col hover:shadow-md transition-shadow">
                                 <div className="flex justify-between items-start mb-4">
-                                    <div className="p-2 bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 rounded-lg">
+                                    <div className="p-2 bg-teal-50 text-teal-600 rounded-lg">
                                         <ClipboardCheck size={24} />
                                     </div>
-                                    <button onClick={() => setDeleteTemplateId(tpl.id)} className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-colors"><Trash2 size={16}/></button>
+                                    <button onClick={() => setDeleteTemplateId(tpl.id)} className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 rounded-lg transition-colors"><Trash2 size={16}/></button>
                                 </div>
-                                <h3 className="font-bold text-slate-900 dark:text-white text-lg mb-2">{tpl.title}</h3>
-                                <p className="text-sm text-slate-500 dark:text-slate-400 mb-6 line-clamp-2 min-h-[2.5rem]">{tpl.description || 'Geen beschrijving'}</p>
-                                <div className="mt-auto pt-4 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center">
+                                <h3 className="font-bold text-slate-900 text-lg mb-2">{tpl.title}</h3>
+                                <p className="text-sm text-slate-500 mb-6 line-clamp-2 min-h-[2.5rem]">{tpl.description || 'Geen beschrijving'}</p>
+                                <div className="mt-auto pt-4 border-t border-slate-100 flex justify-between items-center">
                                     <span className="text-xs font-bold text-slate-400 uppercase">{tpl.sections.length} Secties</span>
                                     <button 
                                         onClick={() => { setEditingTemplate(tpl); setIsTemplateModalOpen(true); }}
-                                        className="text-sm font-bold text-teal-600 dark:text-teal-400 hover:underline flex items-center gap-1"
+                                        className="text-sm font-bold text-teal-600 hover:underline flex items-center gap-1"
                                     >
                                         <Edit2 size={14}/> Bewerken
                                     </button>
@@ -1086,35 +1084,35 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                         {filteredList.map(({ evaluation, employee }) => {
                             const isPlanned = evaluation.status === 'Planned';
                             const isSigned = evaluation.status === 'Signed' || evaluation.status === 'Archived';
-                            const statusColor = isPlanned ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400' :
-                                              isSigned ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
-                                              evaluation.status === 'Review' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
-                                              'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400';
+                            const statusColor = isPlanned ? 'bg-amber-100 text-amber-800' :
+                                              isSigned ? 'bg-green-100 text-green-800' :
+                                              evaluation.status === 'Review' ? 'bg-purple-100 text-purple-800' :
+                                              'bg-blue-100 text-blue-800';
 
                             return (
                                 <div 
                                     key={evaluation.id}
                                     onClick={() => setSelectedEvaluationId(evaluation.id)}
-                                    className="group bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm hover:shadow-lg hover:border-teal-400 dark:hover:border-teal-500 transition-all cursor-pointer relative overflow-hidden"
+                                    className="group bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:border-teal-400 transition-all cursor-pointer relative overflow-hidden"
                                 >
                                     {isManager && (
                                         <button 
                                             onClick={(e) => { e.stopPropagation(); setDeleteEvaluationId({ evalId: evaluation.id, empId: employee.id }); }}
-                                            className="absolute top-4 right-4 p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg opacity-0 group-hover:opacity-100 transition-all z-10"
+                                            className="absolute top-4 right-4 p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg opacity-0 group-hover:opacity-100 transition-all z-10"
                                         >
                                             <Trash2 size={16}/>
                                         </button>
                                     )}
 
                                     <div className="flex items-center gap-4 mb-4">
-                                        <img src={employee.avatar} className="w-12 h-12 rounded-full object-cover border border-slate-100 dark:border-slate-600" alt="Avatar"/>
+                                        <img src={employee.avatar} className="w-12 h-12 rounded-full object-cover border border-slate-100" alt="Avatar"/>
                                         <div>
-                                            <h4 className="font-bold text-slate-900 dark:text-white text-sm leading-tight">{employee.name}</h4>
-                                            <p className="text-xs text-slate-500 dark:text-slate-400">{evaluation.type}</p>
+                                            <h4 className="font-bold text-slate-900 text-sm leading-tight">{employee.name}</h4>
+                                            <p className="text-xs text-slate-500">{evaluation.type}</p>
                                         </div>
                                     </div>
 
-                                    <div className="flex justify-between items-center border-t border-slate-50 dark:border-slate-700 pt-4 mt-2">
+                                    <div className="flex justify-between items-center border-t border-slate-50 pt-4 mt-2">
                                         <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide ${statusColor}`}>
                                             {getStatusLabel(evaluation.status)}
                                         </span>
@@ -1126,7 +1124,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                             );
                         })}
                         {filteredList.length === 0 && (
-                            <div className="col-span-full py-20 text-center text-slate-400 bg-white dark:bg-slate-800 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                            <div className="col-span-full py-20 text-center text-slate-400 bg-white rounded-2xl border border-dashed border-slate-200">
                                 <LayoutDashboard size={48} className="mx-auto mb-4 opacity-20" />
                                 <p>Geen evaluaties gevonden.</p>
                             </div>
@@ -1152,7 +1150,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Titel</label>
                         <input 
                             type="text" 
-                            className="w-full p-2 border rounded-lg font-bold bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600"
+                            className="w-full p-2 border rounded-lg font-bold"
                             value={editingTemplate.title}
                             onChange={(e) => setEditingTemplate({...editingTemplate, title: e.target.value})}
                         />
@@ -1161,7 +1159,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Omschrijving</label>
                         <input 
                             type="text" 
-                            className="w-full p-2 border rounded-lg text-sm bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600"
+                            className="w-full p-2 border rounded-lg text-sm"
                             value={editingTemplate.description}
                             onChange={(e) => setEditingTemplate({...editingTemplate, description: e.target.value})}
                         />
@@ -1169,10 +1167,10 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                     
                     <div className="space-y-4">
                         {editingTemplate.sections.map((section, sIdx) => (
-                            <div key={section.id} className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                            <div key={section.id} className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                                 <div className="flex justify-between mb-2">
                                     <input 
-                                        className="bg-transparent font-bold text-slate-800 dark:text-white text-sm border-b border-transparent focus:border-blue-500 outline-none"
+                                        className="bg-transparent font-bold text-slate-800 text-sm border-b border-transparent focus:border-blue-500 outline-none"
                                         value={section.title}
                                         onChange={(e) => updateTemplateSection(sIdx, 'title', e.target.value)}
                                     />
@@ -1181,22 +1179,22 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                                     {section.questions.map((q, qIdx) => (
                                         <div key={q.id} className="flex gap-2">
                                             <input 
-                                                className="flex-1 text-sm p-2 border rounded bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600 dark:text-white"
+                                                className="flex-1 text-sm p-2 border rounded bg-white"
                                                 value={q.text}
                                                 onChange={(e) => updateTemplateQuestion(sIdx, qIdx, e.target.value)}
                                             />
                                         </div>
                                     ))}
-                                    <button onClick={() => addTemplateQuestion(sIdx)} className="text-xs text-blue-600 dark:text-blue-400 font-bold hover:underline">+ Vraag Toevoegen</button>
+                                    <button onClick={() => addTemplateQuestion(sIdx)} className="text-xs text-blue-600 font-bold hover:underline">+ Vraag Toevoegen</button>
                                 </div>
                             </div>
                         ))}
-                        <button onClick={addTemplateSection} className="w-full py-2 border-2 border-dashed border-slate-300 dark:border-slate-600 text-slate-500 dark:text-slate-400 rounded-xl font-bold text-xs hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-400">
+                        <button onClick={addTemplateSection} className="w-full py-2 border-2 border-dashed border-slate-300 text-slate-500 rounded-xl font-bold text-xs hover:border-blue-400 hover:text-blue-600">
                             + Sectie Toevoegen
                         </button>
                     </div>
 
-                    <button onClick={handleSaveTemplate} className="w-full py-3 bg-slate-900 dark:bg-slate-700 text-white font-bold rounded-xl hover:bg-slate-800 dark:hover:bg-slate-600">Opslaan</button>
+                    <button onClick={handleSaveTemplate} className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl">Opslaan</button>
                 </div>
             )}
         </Modal>
@@ -1211,7 +1209,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                 <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Medewerker</label>
                     <select 
-                        className="w-full p-3 border rounded-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                        className="w-full p-3 border rounded-xl bg-white"
                         value={assignForm.employeeId}
                         onChange={(e) => setAssignForm({...assignForm, employeeId: e.target.value})}
                         required
@@ -1223,7 +1221,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                 <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Template</label>
                     <select 
-                        className="w-full p-3 border rounded-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700"
+                        className="w-full p-3 border rounded-xl bg-white"
                         value={assignForm.templateId}
                         onChange={(e) => setAssignForm({...assignForm, templateId: e.target.value})}
                         required
@@ -1236,7 +1234,7 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
                     <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Geplande Datum</label>
                     <input 
                         type="date"
-                        className="w-full p-3 border rounded-xl dark:bg-slate-800 dark:border-slate-700"
+                        className="w-full p-3 border rounded-xl"
                         value={assignForm.date}
                         onChange={(e) => setAssignForm({...assignForm, date: e.target.value})}
                         required
@@ -1253,9 +1251,9 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
             title="Template Verwijderen"
         >
             <div className="space-y-4">
-                <p className="text-sm text-slate-600 dark:text-slate-300">Weet je zeker dat je dit evaluatie template wilt verwijderen? Dit kan niet ongedaan worden gemaakt.</p>
+                <p className="text-sm text-slate-600">Weet je zeker dat je dit evaluatie template wilt verwijderen? Dit kan niet ongedaan worden gemaakt.</p>
                 <div className="flex justify-end gap-3 pt-2">
-                    <button onClick={() => setDeleteTemplateId(null)} className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Annuleren</button>
+                    <button onClick={() => setDeleteTemplateId(null)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors">Annuleren</button>
                     <button onClick={confirmDeleteTemplate} className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold text-sm shadow-sm hover:bg-red-700 transition-colors">Verwijderen</button>
                 </div>
             </div>
@@ -1267,9 +1265,9 @@ const EvaluationsPage: React.FC<EvaluationsPageProps> = ({
             title="Evaluatie Verwijderen"
         >
             <div className="space-y-4">
-                <p className="text-sm text-slate-600 dark:text-slate-300">Weet je zeker dat je deze evaluatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.</p>
+                <p className="text-sm text-slate-600">Weet je zeker dat je deze evaluatie wilt verwijderen? Dit kan niet ongedaan worden gemaakt.</p>
                 <div className="flex justify-end gap-3 pt-2">
-                    <button onClick={() => setDeleteEvaluationId(null)} className="px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors">Annuleren</button>
+                    <button onClick={() => setDeleteEvaluationId(null)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold text-sm hover:bg-slate-50 transition-colors">Annuleren</button>
                     <button onClick={confirmDeleteEvaluation} className="px-4 py-2 bg-red-600 text-white rounded-lg font-bold text-sm shadow-sm hover:bg-red-700 transition-colors">Verwijderen</button>
                 </div>
             </div>

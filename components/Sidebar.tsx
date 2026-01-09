@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   Home, User, CheckSquare, Users, Calendar, 
   UserPlus, FileText, PieChart, 
-  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Medal, BookOpen, Truck, ChevronDown, ChevronRight, GraduationCap, Scale, ListTodo, FolderOpen, LogOut, MessageCircleWarning, ScanEye, Waves
+  Settings, ChevronLeft, FileBarChart, Newspaper, UserCheck, ClipboardList, X, ClipboardCheck, Activity, Shield, Euro, Medal, BookOpen, Truck, ChevronDown, ChevronRight, GraduationCap, Scale, ListTodo, FolderOpen, LogOut, MessageCircleWarning, ScanEye
 } from 'lucide-react';
 import { ViewState, Employee, Permission, GlobalSettings } from '../types';
 import { hasPermission, isModuleEnabled } from '../utils/permissions';
@@ -136,14 +136,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
           </div>
 
           {/* Logo in Sidebar */}
-          <div className="flex items-center gap-3 px-2 mb-10">
-              <div className="p-2.5 bg-teal-600 dark:bg-teal-500 rounded-xl text-white shadow-lg shadow-teal-600/20 dark:shadow-none">
-                  <Waves size={24} strokeWidth={2.5} />
+          <div className="flex items-center gap-2 px-2 mb-10">
+              <div className="text-teal-600 dark:text-teal-400">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-8 h-8">
+                    <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+                  </svg>
               </div>
               <div>
                   <h1 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white leading-none">
                     Mijn<span className="text-teal-600 dark:text-teal-400">Sanadome</span>
                   </h1>
+                  <p className="text--[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mt-0.5">Medewerkers</p>
               </div>
           </div>
 

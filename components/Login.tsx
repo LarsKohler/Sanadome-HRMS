@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Lock, ArrowRight, AlertCircle, User, Key, ChevronLeft, Mail, UserPlus, Shield, Waves } from 'lucide-react';
+import { Lock, ArrowRight, AlertCircle, User, Key, ChevronLeft, Mail, UserPlus, Shield } from 'lucide-react';
 import { api } from '../utils/api';
 import { GlobalSettings } from '../types';
 
@@ -101,8 +101,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
         {/* Content Overlay */}
         <div className="absolute bottom-0 left-0 p-12 z-30 text-white">
-          <div className="w-14 h-14 bg-teal-600/90 backdrop-blur-md text-white rounded-2xl flex items-center justify-center shadow-lg shadow-teal-900/30 mb-6">
-             <Waves size={28} strokeWidth={2.5} />
+          <div className="w-12 h-12 bg-slate-900/50 backdrop-blur-md text-teal-400 border border-teal-500/30 rounded-2xl flex items-center justify-center shadow-lg mb-6">
+             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-7 h-7">
+                <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+             </svg>
           </div>
           {/* QUOTE STAYS SERIF */}
           <h2 className="text-4xl font-serif font-bold leading-tight mb-4 drop-shadow-lg">
