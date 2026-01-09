@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { Search, Filter, MoreHorizontal, Mail, Phone, UserPlus, Pencil, Trash2, Lock, Copy, ExternalLink, Check, Clock, CheckCircle2, XCircle, Eye } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, Filter, MoreHorizontal, Mail, Phone, UserPlus, Pencil, Trash2, Lock, Copy, ExternalLink, Check, Clock, CheckCircle2, XCircle, Eye, KeyRound } from 'lucide-react';
 import { Employee, EvaluationCycle } from '../types';
 import { Modal } from './Modal';
 import { hasPermission } from '../utils/permissions';
@@ -13,7 +13,7 @@ interface EmployeeDirectoryProps {
   onUpdateEmployee: (employee: Employee) => void;
   onDeleteEmployee: (id: string) => void;
   onSimulateOnboarding?: (employee: Employee) => void;
-  onViewProfile?: (employeeId: string) => void; // New callback
+  onViewProfile?: (employeeId: string) => void; 
 }
 
 const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ 
@@ -33,7 +33,10 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
   const [inviteLinkCopied, setInviteLinkCopied] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   
+  // Dropdown positioning state
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
+  const [dropdownPos, setDropdownPos] = useState<{top: number, left: number} | null>(null);
+  
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
 
   const [formData, setFormData] = useState({
@@ -45,20 +48,26 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
     departments: [] as string[],
     hiredOn: '',
     employmentType: 'Full-Time',
-    password: '' // Added password field for auto-creation
+    password: '' 
   });
 
   const [searchTerm, setSearchTerm] = useState('');
 
   // Check Permission
   const canManage = hasPermission(currentUser, 'MANAGE_EMPLOYEES');
-  // Specific delete permission
   const canDelete = hasPermission(currentUser, 'DELETE_EMPLOYEES');
 
   useEffect(() => {
-    const handleClickOutside = () => setActiveActionId(null);
+    const handleClickOutside = () => {
+        setActiveActionId(null);
+        setDropdownPos(null);
+    };
     window.addEventListener('click', handleClickOutside);
-    return () => window.removeEventListener('click', handleClickOutside);
+    window.addEventListener('scroll', handleClickOutside); // Close on scroll to prevent floating
+    return () => {
+        window.removeEventListener('click', handleClickOutside);
+        window.removeEventListener('scroll', handleClickOutside);
+    };
   }, []);
 
   useEffect(() => {
@@ -67,6 +76,18 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
           return () => clearTimeout(timer);
       }
   }, [toastMessage]);
+
+  const handleActionClick = (e: React.MouseEvent, empId: string) => {
+      e.stopPropagation();
+      const rect = e.currentTarget.getBoundingClientRect();
+      // Calculate position: align right edge of dropdown with right edge of button, approx 10px down
+      // Standard dropdown width is approx 224px (w-56)
+      setDropdownPos({
+          top: rect.bottom + window.scrollY + 5,
+          left: rect.right + window.scrollX - 224 
+      });
+      setActiveActionId(activeActionId === empId ? null : empId);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -154,15 +175,11 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
 
   const handleAddSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // GENERATE REAL UUID FOR SUPABASE AUTH COMPATIBILITY
     const newId = crypto.randomUUID();
-    
     const fullName = `${formData.firstName} ${formData.lastName}`;
     const dateObj = formData.hiredOn ? new Date(formData.hiredOn) : new Date();
     const formattedDate = dateObj.toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' });
 
-    // Calculate first quarterly evaluation date (3 months from start)
     const firstEvalDate = new Date(dateObj);
     firstEvalDate.setMonth(firstEvalDate.getMonth() + 3);
     const formattedEvalDate = firstEvalDate.toLocaleDateString('nl-NL', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -175,11 +192,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
         status: 'Planned',
         createdAt: new Date().toLocaleDateString('nl-NL'),
         plannedDate: formattedEvalDate,
-        scores: EVALUATION_TEMPLATES.FRONT_OFFICE.map(t => ({
-            ...t,
-            employeeScore: 0,
-            managerScore: 0
-        })),
+        scores: EVALUATION_TEMPLATES.FRONT_OFFICE.map(t => ({ ...t, employeeScore: 0, managerScore: 0 })),
         goals: [],
         signatures: []
     };
@@ -197,12 +210,12 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       employmentType: formData.employmentType,
       accountStatus: 'Pending',
       onboardingStatus: 'Pending',
-      password: formData.password || 'sanadome123', // Default or provided
+      password: formData.password || 'sanadome123', 
       documents: [],
       notes: [],
       onboardingTasks: [],
-      evaluations: [firstEvaluation], // Add the planned evaluation
-      customPermissions: [] // Explicitly empty to ensure they use role defaults
+      evaluations: [firstEvaluation], 
+      customPermissions: [] 
     };
 
     onAddEmployee(newEmployee);
@@ -230,17 +243,28 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       }
   };
 
+  const handleCopyResetLink = (id: string) => {
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://sanadome-hrms.vercel.app';
+      const link = `${baseUrl}/reset-password/${id}`;
+      
+      navigator.clipboard.writeText(link).catch(() => {});
+      setToastMessage("Wachtwoord reset link gekopieerd");
+      setActiveActionId(null);
+  };
+
   const getInviteLink = (id: string) => {
       const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://sanadome-hrms.vercel.app';
       return `${baseUrl}/welcome/${id.substring(0,8)}`;
   };
 
-  // Filter Employees
   const filteredEmployees = employees.filter(e => 
       e.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
       e.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
       e.departments?.some(d => d.toLowerCase().includes(searchTerm.toLowerCase()))
   );
+
+  // Helper to find employee for active dropdown
+  const activeEmployee = employees.find(e => e.id === activeActionId);
 
   return (
     <div className="p-4 md:p-8 2xl:p-12 w-full animate-in fade-in duration-500 max-w-[2400px] mx-auto">
@@ -368,76 +392,13 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                     </div>
                   </td>
                   
-                  <td className="px-6 py-4 text-right relative" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                     <button 
-                        onClick={() => setActiveActionId(activeActionId === employee.id ? null : employee.id)}
+                        onClick={(e) => handleActionClick(e, employee.id)}
                         className={`p-2 rounded-lg hover:bg-slate-100 transition-colors ${activeActionId === employee.id ? 'text-teal-600 bg-teal-50' : 'text-slate-400'}`}
                     >
                         <MoreHorizontal size={18} />
                     </button>
-
-                    {activeActionId === employee.id && (
-                        <div className="absolute right-8 top-10 w-56 bg-white rounded-xl shadow-xl border border-slate-100 z-20 py-2 animate-in fade-in zoom-in-95 duration-200 text-left">
-                          
-                          <button 
-                            onClick={() => {
-                                if (onViewProfile) onViewProfile(employee.id);
-                                setActiveActionId(null);
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-teal-600 flex items-center gap-3 transition-colors font-medium"
-                          >
-                            <Eye size={14} />
-                            Bekijk Profiel
-                          </button>
-
-                          {canManage && (
-                              <>
-                                <div className="h-px bg-slate-50 my-1"></div>
-                                {employee.accountStatus === 'Pending' && (
-                                    <>
-                                        <button 
-                                            onClick={() => {
-                                                handleCopyLink(employee.id);
-                                                setActiveActionId(null);
-                                            }}
-                                            className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-teal-600 flex items-center gap-3 transition-colors font-medium"
-                                        >
-                                            <Copy size={14} />
-                                            Kopieer uitnodiging
-                                        </button>
-                                        <div className="h-px bg-slate-50 my-1"></div>
-                                    </>
-                                )}
-
-                                <button 
-                                    onClick={() => {
-                                        openEditModal(employee);
-                                        setActiveActionId(null);
-                                    }}
-                                    className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-teal-600 flex items-center gap-3 transition-colors font-medium"
-                                >
-                                    <Pencil size={14} />
-                                    Bewerk medewerker
-                                </button>
-                                {canDelete && (
-                                    <>
-                                        <div className="h-px bg-slate-50 my-1"></div>
-                                        <button 
-                                            onClick={() => {
-                                                openDeleteModal(employee);
-                                                setActiveActionId(null);
-                                            }}
-                                            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors font-medium"
-                                        >
-                                            <Trash2 size={14} />
-                                            Verwijderen
-                                        </button>
-                                    </>
-                                )}
-                              </>
-                          )}
-                        </div>
-                    )}
                   </td>
                 </tr>
               ))}
@@ -453,91 +414,119 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
         </div>
       </div>
 
+      {/* DROPDOWN MENU - Rendered outside to prevent clipping */}
+      {activeActionId && activeEmployee && dropdownPos && (
+          <div 
+            className="fixed z-[9999] w-56 bg-white rounded-xl shadow-xl border border-slate-100 py-2 animate-in fade-in zoom-in-95 duration-200 text-left"
+            style={{ top: dropdownPos.top, left: dropdownPos.left }}
+            onClick={(e) => e.stopPropagation()}
+          >
+              <button 
+                onClick={() => {
+                    if (onViewProfile) onViewProfile(activeEmployee.id);
+                    setActiveActionId(null);
+                }}
+                className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-teal-600 flex items-center gap-3 transition-colors font-medium"
+              >
+                <Eye size={14} />
+                Bekijk Profiel
+              </button>
+
+              {canManage && (
+                  <>
+                    <div className="h-px bg-slate-50 my-1"></div>
+                    {activeEmployee.accountStatus === 'Pending' && (
+                        <>
+                            <button 
+                                onClick={() => {
+                                    handleCopyLink(activeEmployee.id);
+                                    setActiveActionId(null);
+                                }}
+                                className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-teal-600 flex items-center gap-3 transition-colors font-medium"
+                            >
+                                <Copy size={14} />
+                                Kopieer uitnodiging
+                            </button>
+                            <div className="h-px bg-slate-50 my-1"></div>
+                        </>
+                    )}
+
+                    <button 
+                        onClick={() => {
+                            handleCopyResetLink(activeEmployee.id);
+                            setActiveActionId(null);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-teal-600 flex items-center gap-3 transition-colors font-medium"
+                    >
+                        <KeyRound size={14} />
+                        Wachtwoord Resetten
+                    </button>
+
+                    <button 
+                        onClick={() => {
+                            openEditModal(activeEmployee);
+                            setActiveActionId(null);
+                        }}
+                        className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-teal-600 flex items-center gap-3 transition-colors font-medium"
+                    >
+                        <Pencil size={14} />
+                        Bewerk medewerker
+                    </button>
+                    {canDelete && (
+                        <>
+                            <div className="h-px bg-slate-50 my-1"></div>
+                            <button 
+                                onClick={() => {
+                                    openDeleteModal(activeEmployee);
+                                    setActiveActionId(null);
+                                }}
+                                className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-3 transition-colors font-medium"
+                            >
+                                <Trash2 size={14} />
+                                Verwijderen
+                            </button>
+                        </>
+                    )}
+                  </>
+              )}
+          </div>
+      )}
+
+      {/* Add Modal and Edit/Delete Modals (Keep existing code) */}
       {canManage && (
         <>
-        <Modal 
-          isOpen={isAddModalOpen} 
-          onClose={() => setIsAddModalOpen(false)} 
-          title="Nieuwe medewerker"
-        >
-          {/* Form Content */}
+        <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="Nieuwe medewerker">
           <form onSubmit={handleAddSubmit} className="space-y-5">
+            {/* Same form as before */}
             <div className="grid grid-cols-2 gap-5">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Voornaam</label>
-                <input 
-                  type="text" 
-                  name="firstName"
-                  required
-                  value={formData.firstName}
-                  onChange={handleInputChange}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
-                  placeholder="Voornaam"
-                />
+                <input type="text" name="firstName" required value={formData.firstName} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium" placeholder="Voornaam" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Achternaam</label>
-                <input 
-                  type="text" 
-                  name="lastName"
-                  required
-                  value={formData.lastName}
-                  onChange={handleInputChange}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
-                  placeholder="Achternaam"
-                />
+                <input type="text" name="lastName" required value={formData.lastName} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium" placeholder="Achternaam" />
               </div>
             </div>
-
             <div className="grid grid-cols-2 gap-5">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">E-mailadres</label>
-                <input 
-                  type="email" 
-                  name="email"
-                  required
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
-                  placeholder="naam@sanadome.nl"
-                />
+                <input type="email" name="email" required value={formData.email} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium" placeholder="naam@sanadome.nl" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Telefoonnummer</label>
-                <input 
-                  type="tel" 
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
-                  placeholder="+31 6..."
-                />
+                <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium" placeholder="+31 6..." />
               </div>
             </div>
-
-            {/* Password Field for Auto Auth Creation */}
             <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Start Wachtwoord</label>
-                <input 
-                  type="text" 
-                  name="password"
-                  value={formData.password}
-                  onChange={handleInputChange}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
-                  placeholder="bv. Sanadome2023! (Laat leeg voor standaard)"
-                />
+                <input type="text" name="password" value={formData.password} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium" placeholder="bv. Sanadome2023! (Laat leeg voor standaard)" />
                 <p className="text-[10px] text-slate-400 mt-1">Dit wachtwoord wordt gebruikt om direct een inlog-account aan te maken.</p>
             </div>
-
             <div className="grid grid-cols-2 gap-5">
                <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Rol</label>
-                <select 
-                  name="role"
-                  value={formData.role}
-                  onChange={handleInputChange}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
-                >
+                <select name="role" value={formData.role} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium">
                   <option value="Medewerker">Medewerker</option>
                   <option value="Senior Medewerker">Senior Medewerker</option>
                   <option value="Manager">Manager</option>
@@ -545,230 +534,110 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Dienstverband</label>
-                <select 
-                  name="employmentType"
-                  value={formData.employmentType}
-                  onChange={handleInputChange}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
-                >
+                <select name="employmentType" value={formData.employmentType} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium">
                   <option value="Full-Time">Voltijd (Full-Time)</option>
                   <option value="Part-Time">Deeltijd (Part-Time)</option>
                   <option value="Contract">Contractbasis</option>
                 </select>
               </div>
             </div>
-
             <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Afdeling(en)</label>
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-3">
                     <label className="flex items-center gap-3 cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            checked={formData.departments.includes('Front Office')}
-                            onChange={() => handleDepartmentChange('Front Office')}
-                            className="w-5 h-5 text-teal-600 rounded focus:ring-teal-500 border-gray-300"
-                        />
+                        <input type="checkbox" checked={formData.departments.includes('Front Office')} onChange={() => handleDepartmentChange('Front Office')} className="w-5 h-5 text-teal-600 rounded focus:ring-teal-500 border-gray-300" />
                         <span className="text-sm font-medium text-slate-700">Front Office</span>
                     </label>
                     <label className="flex items-center gap-3 cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            checked={formData.departments.includes('Reserveringen')}
-                            onChange={() => handleDepartmentChange('Reserveringen')}
-                            className="w-5 h-5 text-teal-600 rounded focus:ring-teal-500 border-gray-300"
-                        />
+                        <input type="checkbox" checked={formData.departments.includes('Reserveringen')} onChange={() => handleDepartmentChange('Reserveringen')} className="w-5 h-5 text-teal-600 rounded focus:ring-teal-500 border-gray-300" />
                         <span className="text-sm font-medium text-slate-700">Reserveringen</span>
                     </label>
                 </div>
             </div>
-
             <div>
               <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Startdatum</label>
-              <input 
-                type="date" 
-                name="hiredOn"
-                required
-                value={formData.hiredOn}
-                onChange={handleInputChange}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
-              />
+              <input type="date" name="hiredOn" required value={formData.hiredOn} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium" />
             </div>
-
             <div className="pt-6 flex justify-end gap-3">
-              <button 
-                type="button"
-                onClick={() => setIsAddModalOpen(false)}
-                className="px-6 py-3 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
-              >
-                Annuleren
-              </button>
-              <button 
-                type="submit"
-                className="px-6 py-3 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-all shadow-sm"
-              >
-                Opslaan & Aanmaken
-              </button>
+              <button type="button" onClick={() => setIsAddModalOpen(false)} className="px-6 py-3 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">Annuleren</button>
+              <button type="submit" className="px-6 py-3 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-all shadow-sm">Opslaan & Aanmaken</button>
             </div>
           </form>
         </Modal>
 
-        {/* Success Modal */}
-        <Modal 
-             isOpen={isSuccessModalOpen}
-             onClose={() => setIsSuccessModalOpen(false)}
-             title="Medewerker toegevoegd"
-          >
+        <Modal isOpen={isSuccessModalOpen} onClose={() => setIsSuccessModalOpen(false)} title="Medewerker toegevoegd">
              <div className="text-center space-y-6 py-4">
                  <div className="w-20 h-20 bg-teal-50 text-teal-600 rounded-full flex items-center justify-center mx-auto shadow-sm border border-teal-100">
                      <UserPlus size={36} />
                  </div>
-                 
                  <div>
                      <h3 className="text-xl font-bold font-serif text-slate-900">Account Aangemaakt!</h3>
                      <p className="text-sm text-slate-600 mt-2 max-w-xs mx-auto">
                          <strong>{recentlyAddedEmployee?.name}</strong> is toegevoegd aan het systeem. De eerste evaluatie is automatisch ingepland.
                      </p>
                  </div>
-
                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center gap-3 shadow-inner">
                      <code className="text-xs text-slate-600 flex-1 truncate font-mono">
                          {recentlyAddedEmployee ? getInviteLink(recentlyAddedEmployee.id) : '...'}
                      </code>
-                     <button 
-                        onClick={() => handleCopyLink(recentlyAddedEmployee?.id)}
-                        className="p-2.5 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600 transition-colors"
-                        title="Kopieer link"
-                     >
+                     <button onClick={() => handleCopyLink(recentlyAddedEmployee?.id)} className="p-2.5 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 text-slate-600 transition-colors" title="Kopieer link">
                          {inviteLinkCopied ? <Check size={16} className="text-teal-600"/> : <Copy size={16} />}
                      </button>
                  </div>
-
                  <div className="flex flex-col gap-3 pt-2">
-                     <button 
-                        onClick={() => {
-                            if (onSimulateOnboarding && recentlyAddedEmployee) {
-                                onSimulateOnboarding(recentlyAddedEmployee);
-                            }
-                        }}
-                        className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg transition-all hover:scale-[1.02]"
-                     >
+                     <button onClick={() => { if (onSimulateOnboarding && recentlyAddedEmployee) { onSimulateOnboarding(recentlyAddedEmployee); } }} className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg transition-all hover:scale-[1.02]">
                          <ExternalLink size={18} /> Direct naar Onboarding
                      </button>
-                     <button 
-                        onClick={() => setIsSuccessModalOpen(false)}
-                        className="text-sm text-slate-400 hover:text-slate-800 font-medium py-2"
-                     >
+                     <button onClick={() => setIsSuccessModalOpen(false)} className="text-sm text-slate-400 hover:text-slate-800 font-medium py-2">
                          Sluiten
                      </button>
                  </div>
              </div>
           </Modal>
 
-        {/* Edit Modal (Existing code...) */}
-        <Modal 
-          isOpen={isEditModalOpen} 
-          onClose={() => setIsEditModalOpen(false)} 
-          title="Bewerk medewerker"
-        >
+        <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="Bewerk medewerker">
           <form onSubmit={handleEditSubmit} className="space-y-5">
-             {/* Same form fields as Add, minus password */}
              <div className="grid grid-cols-2 gap-5">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Voornaam</label>
-                <input 
-                  type="text" 
-                  name="firstName"
-                  required
-                  value={formData.firstName}
-                  onChange={handleInputChange}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
-                />
+                <input type="text" name="firstName" required value={formData.firstName} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium" />
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Achternaam</label>
-                <input 
-                  type="text" 
-                  name="lastName"
-                  required
-                  value={formData.lastName}
-                  onChange={handleInputChange}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
-                />
+                <input type="text" name="lastName" required value={formData.lastName} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium" />
               </div>
             </div>
-
             <div className="grid grid-cols-2 gap-5">
               <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">E-mailadres</label>
-                <input 
-                  type="email" 
-                  name="email"
-                  required
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
-                />
+                <input type="email" name="email" required value={formData.email} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium" />
               </div>
                <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Telefoonnummer</label>
-                <input 
-                  type="tel" 
-                  name="phone"
-                  value={formData.phone}
-                  onChange={handleInputChange}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium"
-                />
+                <input type="tel" name="phone" value={formData.phone} onChange={handleInputChange} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all font-medium" />
               </div>
             </div>
-
             <div>
                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Afdeling(en)</label>
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-3">
                     <label className="flex items-center gap-3 cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            checked={formData.departments.includes('Front Office')}
-                            onChange={() => handleDepartmentChange('Front Office')}
-                            className="w-5 h-5 text-teal-600 rounded focus:ring-teal-500 border-gray-300"
-                        />
+                        <input type="checkbox" checked={formData.departments.includes('Front Office')} onChange={() => handleDepartmentChange('Front Office')} className="w-5 h-5 text-teal-600 rounded focus:ring-teal-500 border-gray-300" />
                         <span className="text-sm font-medium text-slate-700">Front Office</span>
                     </label>
                     <label className="flex items-center gap-3 cursor-pointer">
-                        <input 
-                            type="checkbox" 
-                            checked={formData.departments.includes('Reserveringen')}
-                            onChange={() => handleDepartmentChange('Reserveringen')}
-                            className="w-5 h-5 text-teal-600 rounded focus:ring-teal-500 border-gray-300"
-                        />
+                        <input type="checkbox" checked={formData.departments.includes('Reserveringen')} onChange={() => handleDepartmentChange('Reserveringen')} className="w-5 h-5 text-teal-600 rounded focus:ring-teal-500 border-gray-300" />
                         <span className="text-sm font-medium text-slate-700">Reserveringen</span>
                     </label>
                 </div>
             </div>
-
             <div className="pt-6 flex justify-end gap-3">
-              <button 
-                type="button"
-                onClick={() => setIsEditModalOpen(false)}
-                className="px-6 py-3 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
-              >
-                Annuleren
-              </button>
-              <button 
-                type="submit"
-                className="px-6 py-3 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-all shadow-sm"
-              >
-                Opslaan
-              </button>
+              <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-6 py-3 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">Annuleren</button>
+              <button type="submit" className="px-6 py-3 text-sm font-bold text-white bg-slate-900 rounded-xl hover:bg-slate-800 transition-all shadow-sm">Opslaan</button>
             </div>
           </form>
         </Modal>
 
-        {/* Delete Modal */}
-        <Modal
-          isOpen={isDeleteModalOpen}
-          onClose={() => setIsDeleteModalOpen(false)}
-          title="Medewerker verwijderen"
-        >
+        <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Medewerker verwijderen">
            <div className="space-y-6 py-2">
               <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-start gap-3">
                   <div className="p-2 bg-red-100 rounded-full text-red-600 mt-0.5">
@@ -776,26 +645,12 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                   </div>
                   <div>
                       <h4 className="text-sm font-bold text-red-900">Let op!</h4>
-                      <p className="text-sm text-red-800 mt-1">
-                        Weet u zeker dat u <strong>{selectedEmployee?.name}</strong> wilt verwijderen? 
-                        Deze actie is onomkeerbaar.
-                      </p>
+                      <p className="text-sm text-red-800 mt-1">Weet u zeker dat u <strong>{selectedEmployee?.name}</strong> wilt verwijderen? Deze actie is onomkeerbaar.</p>
                   </div>
               </div>
               <div className="flex justify-end gap-3">
-                <button 
-                  type="button"
-                  onClick={() => setIsDeleteModalOpen(false)}
-                  className="px-6 py-3 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors"
-                >
-                  Annuleren
-                </button>
-                <button 
-                  onClick={handleDeleteConfirm}
-                  className="px-6 py-3 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-all shadow-sm"
-                >
-                  Verwijderen
-                </button>
+                <button type="button" onClick={() => setIsDeleteModalOpen(false)} className="px-6 py-3 text-sm font-bold text-slate-700 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors">Annuleren</button>
+                <button onClick={handleDeleteConfirm} className="px-6 py-3 text-sm font-bold text-white bg-red-600 rounded-xl hover:bg-red-700 transition-all shadow-sm">Verwijderen</button>
               </div>
            </div>
         </Modal>
@@ -803,7 +658,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       )}
       
       {toastMessage && (
-        <div className="fixed bottom-8 right-8 z-50 animate-in slide-in-from-bottom-5 fade-in duration-300">
+        <div className="fixed bottom-8 right-8 z-[9999] animate-in slide-in-from-bottom-5 fade-in duration-300">
            <div className="bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-3">
                <Check size={18} className="text-teal-400"/>
                <span className="font-medium text-sm">{toastMessage}</span>

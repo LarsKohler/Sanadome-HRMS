@@ -24,9 +24,10 @@ import CompensationPage from './components/CompensationPage';
 import ChecklistsPage from './components/ChecklistsPage';
 import HRDossierPage from './components/HRDossierPage'; 
 import TodoListPage from './components/TodoListPage'; 
-import ComplaintsPage from './components/ComplaintsPage'; // NEW
-import DataAuditPage from './components/DataAuditPage'; // NEW
+import ComplaintsPage from './components/ComplaintsPage'; 
+import DataAuditPage from './components/DataAuditPage'; 
 import UpdateNotifier from './components/UpdateNotifier';
+import ResetPasswordPage from './components/ResetPasswordPage'; // NEW
 import { api, isLive } from './utils/api';
 import { isModuleEnabled } from './utils/permissions';
 
@@ -39,6 +40,9 @@ function App() {
       return !!localStorage.getItem('hrms_current_user');
   });
   
+  // URL Routing for special pages (Reset Password)
+  const [resetToken, setResetToken] = useState<string | null>(null);
+
   // Dark Mode State
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
       if (typeof window !== 'undefined') {
@@ -62,6 +66,15 @@ function App() {
 
   // Specific Feature States
   const [selectedProfileId, setSelectedProfileId] = useState<string | null>(null);
+
+  // Initialize Routing Logic
+  useEffect(() => {
+      const path = window.location.pathname;
+      if (path.startsWith('/reset-password/')) {
+          const id = path.split('/reset-password/')[1];
+          if (id) setResetToken(id);
+      }
+  }, []);
 
   // Toggle Theme Function
   const toggleTheme = () => {
@@ -92,9 +105,12 @@ function App() {
       setGlobalSettings(settings);
     };
 
-    if (isAuthenticated) {
+    if (isAuthenticated || resetToken) { // Load data even if just resetting password to find employee name
         loadData();
-        // Subscribe to realtime updates
+    }
+    
+    if (isAuthenticated) {
+        // Subscribe to realtime updates only if authenticated
         const unsubscribe = api.subscribe(
             setEmployees,
             setNewsItems,
@@ -102,7 +118,7 @@ function App() {
         );
         return () => { unsubscribe(); };
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, resetToken]);
 
   // SYNC CURRENT USER WITH EMPLOYEE DATA
   useEffect(() => {
@@ -175,12 +191,10 @@ function App() {
       setEmployees(prev => prev.filter(e => e.id !== id));
   };
 
-  /* Added handleAddNotification */
   const handleAddNotification = async (notification: Notification) => {
     await api.saveNotification(notification);
   };
 
-  // --- NEWS HANDLERS ---
   const handleAddNews = async (post: NewsPost) => {
       setNewsItems(prev => [post, ...prev]);
       try {
@@ -237,6 +251,12 @@ function App() {
       api.saveGlobalSettings(newSettings);
       handleShowToast('Systeem instellingen opgeslagen.');
   };
+
+  // --- SPECIAL ROUTING CHECKS ---
+
+  if (resetToken) {
+      return <ResetPasswordPage employeeId={resetToken} />;
+  }
 
   if (!isAuthenticated) {
       return <Login onLogin={handleLogin} />;
@@ -359,7 +379,7 @@ function App() {
               return <DebtControlPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           case ViewState.LINEN_AUDIT:
               return <LinenAuditPage currentUser={currentUser!} onShowToast={handleShowToast} />;
-          case ViewState.DATA_AUDIT: // NEW
+          case ViewState.DATA_AUDIT: 
               return <DataAuditPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           case ViewState.KNOWLEDGE_BASE:
               return <KnowledgeBasePage currentUser={currentUser!} onShowToast={handleShowToast} />;
@@ -368,7 +388,6 @@ function App() {
                   currentUser={currentUser!}
                   employees={employees}
                   onUpdateEmployee={handleUpdateEmployee}
-                  /* Passed onAddNotification to EvaluationsPage */
                   onAddNotification={handleAddNotification}
                   onShowToast={handleShowToast}
               />;
@@ -378,7 +397,6 @@ function App() {
                   employees={employees} 
                   applicants={applicants}
                   onShowToast={handleShowToast}
-                  /* Passed onAddNotification to RecruitmentPage */
                   onAddNotification={handleAddNotification}
                   onHireCandidate={async (applicant) => {
                       const newId = crypto.randomUUID();
@@ -389,7 +407,6 @@ function App() {
                           departments: ['Front Office'],
                           email: applicant.email,
                           phone: applicant.phone,
-                          /* Fix: Applicant property avatar used correctly after type update */
                           avatar: applicant.avatar || `https://ui-avatars.com/api/?name=${applicant.firstName}+${applicant.lastName}&background=random`,
                           linkedin: `${applicant.firstName} ${applicant.lastName}`,
                           hiredOn: new Date().toLocaleDateString('nl-NL', { day: '2-digit', month: 'short', year: 'numeric' }),
@@ -411,7 +428,7 @@ function App() {
               return <ChecklistsPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           case ViewState.TODO_LIST: 
               return <TodoListPage currentUser={currentUser!} employees={employees} onShowToast={handleShowToast} />;
-          case ViewState.COMPLAINTS: // NEW
+          case ViewState.COMPLAINTS:
               return <ComplaintsPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           default:
               return <div className="p-10 dark:text-white">Pagina niet gevonden of in ontwikkeling.</div>;
