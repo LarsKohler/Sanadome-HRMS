@@ -326,6 +326,15 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         }
     };
 
+    // --- LOG DELETION ---
+    const handleDeleteLog = async (logId: string) => {
+        if (confirm("Weet je zeker dat je dit logboekitem wilt verwijderen?")) {
+            await api.deleteStockLog(logId);
+            setLogs(prev => prev.filter(l => l.id !== logId));
+            onShowToast("Logboekitem verwijderd.");
+        }
+    };
+
     return (
         <div className="p-6 md:p-10 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 min-h-[calc(100vh-80px)]">
             
@@ -475,6 +484,9 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                 <h3 className="font-bold text-teal-900 flex items-center gap-2">
                                     <ClipboardList size={20}/> Wensenlijst (Nog niet besteld)
                                 </h3>
+                                <button onClick={() => handleDeleteOrder(orders.find(o => o.status === 'Pending')?.id!)} className="text-teal-700 hover:text-red-600">
+                                    <Trash2 size={18}/>
+                                </button>
                             </div>
                             <div className="divide-y divide-slate-100">
                                 {orders.filter(o => o.status === 'Pending').map(order => (
@@ -540,7 +552,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                     >
                                         <Box size={16}/> Binnenmelden
                                     </button>
-                                    <button onClick={() => handleDeleteOrder(order.id)} className="text-xs text-red-400 hover:text-red-600 hover:underline text-center">Annuleren</button>
+                                    <button onClick={() => handleDeleteOrder(order.id)} className="text-xs text-red-400 hover:text-red-600 hover:underline text-center">Annuleren & Verwijderen</button>
                                 </div>
                             </div>
                         ))}
@@ -562,7 +574,12 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                     <div className="text-xs font-bold text-slate-500 mb-1">Ontvangen: {new Date(order.receivedAt!).toLocaleDateString()} door {order.receivedBy}</div>
                                     <div className="text-sm text-slate-700">{order.items.length} artikelen ({order.items.map(i => i.name).join(', ').substring(0, 50)}...)</div>
                                 </div>
-                                <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Voltooid</span>
+                                <div className="flex items-center gap-3">
+                                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Voltooid</span>
+                                    <button onClick={() => handleDeleteOrder(order.id)} className="text-slate-300 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-50">
+                                        <Trash2 size={16}/>
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -580,6 +597,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                 <th className="px-6 py-4">Aantal</th>
                                 <th className="px-6 py-4">Gebruiker</th>
                                 <th className="px-6 py-4">Notitie</th>
+                                <th className="px-6 py-4 text-right"></th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 text-sm">
@@ -604,11 +622,14 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                     </td>
                                     <td className="px-6 py-4 text-slate-600">{log.user}</td>
                                     <td className="px-6 py-4 text-slate-500 italic truncate max-w-xs">{log.notes || '-'}</td>
+                                    <td className="px-6 py-4 text-right">
+                                        <button onClick={() => handleDeleteLog(log.id)} className="text-slate-400 hover:text-red-500 p-1.5 hover:bg-red-50 rounded transition-colors"><Trash2 size={16}/></button>
+                                    </td>
                                 </tr>
                             ))}
                             {logs.length === 0 && (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 italic">Geen activiteit gevonden.</td>
+                                    <td colSpan={7} className="px-6 py-12 text-center text-slate-400 italic">Geen activiteit gevonden.</td>
                                 </tr>
                             )}
                         </tbody>

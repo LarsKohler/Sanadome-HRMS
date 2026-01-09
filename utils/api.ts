@@ -1,3 +1,5 @@
+
+// ... existing imports ...
 import { supabase } from './supabaseClient';
 import { 
   Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, 
@@ -871,6 +873,16 @@ export const api = {
       } else {
           const current = await api.getStockLogs();
           localStorage.setItem('hrms_stock_logs', JSON.stringify([log, ...current]));
+      }
+  },
+
+  // NEW: deleteStockLog
+  deleteStockLog: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('stock_logs').delete().eq('id', id);
+      } else {
+          const current = await api.getStockLogs();
+          localStorage.setItem('hrms_stock_logs', JSON.stringify(current.filter(l => l.id !== id)));
       }
   },
 
