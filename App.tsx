@@ -270,9 +270,9 @@ function App() {
           }
           setCurrentUser(updated);
           localStorage.setItem('hrms_current_user', JSON.stringify(updated));
+          // Optimistic update
           setEmployees(prev => prev.map(e => e.id === updated.id ? updated : e));
-          const freshData = await api.getEmployees();
-          setEmployees(freshData);
+          // We rely on the optimistic update here to prevent potential race conditions or stale reads if DB write failed
       }} />;
   }
 

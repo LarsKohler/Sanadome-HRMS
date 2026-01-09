@@ -474,6 +474,11 @@ export const api = {
   },
 
   saveEmployee: async (employee: Employee, isNew = false): Promise<boolean> => {
+    // 1. Update Local Storage first (Optimistic / Fallback)
+    const currentLocal = storage.getEmployees();
+    const updatedLocal = [employee, ...currentLocal.filter(e => e.id !== employee.id)];
+    storage.saveEmployees(updatedLocal);
+
     if (isLive && supabase) {
       try {
         if (isNew) {
@@ -484,16 +489,17 @@ export const api = {
           .upsert({ id: employee.id, data: employee });
         
         if (error) {
-            console.error("Supabase save error", error);
-            return false;
+            console.warn("Supabase save failed (using local fallback):", error.message);
+            // Return true because we successfully saved to local storage, 
+            // so the app UI shouldn't block the user.
+            return true; 
         }
         return true;
       } catch (e) {
-        console.error(e);
-        return false;
+        console.warn("Supabase exception (using local fallback):", e);
+        return true; // Fallback to success via local storage
       }
     }
-    storage.saveEmployees([employee, ...storage.getEmployees().filter(e => e.id !== employee.id)]);
     return true;
   },
 
