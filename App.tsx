@@ -10,6 +10,7 @@ import NewsPage from './components/NewsPage';
 import OnboardingPage from './components/OnboardingPage';
 import Login from './components/Login';
 import WelcomeFlow from './components/WelcomeFlow';
+import PasswordResetFlow from './components/PasswordResetFlow'; // IMPORTED
 import { Toast } from './components/Toast';
 import SystemStatusPage from './components/SystemStatusPage';
 import SettingsPage from './components/SettingsPage';
@@ -24,13 +25,26 @@ import CompensationPage from './components/CompensationPage';
 import ChecklistsPage from './components/ChecklistsPage';
 import HRDossierPage from './components/HRDossierPage'; 
 import TodoListPage from './components/TodoListPage'; 
-import ComplaintsPage from './components/ComplaintsPage'; // NEW
-import DataAuditPage from './components/DataAuditPage'; // NEW
+import ComplaintsPage from './components/ComplaintsPage'; 
+import DataAuditPage from './components/DataAuditPage'; 
 import UpdateNotifier from './components/UpdateNotifier';
 import { api, isLive } from './utils/api';
 import { isModuleEnabled } from './utils/permissions';
 
 function App() {
+  // --- RESET PASSWORD ROUTE CHECK ---
+  const [resetEmployeeId, setResetEmployeeId] = useState<string | null>(null);
+
+  useEffect(() => {
+      const path = window.location.pathname;
+      if (path.startsWith('/reset-password/')) {
+          const id = path.split('/reset-password/')[1];
+          if (id) {
+              setResetEmployeeId(id);
+          }
+      }
+  }, []);
+
   const [currentUser, setCurrentUser] = useState<Employee | null>(() => {
       const saved = localStorage.getItem('hrms_current_user');
       return saved ? JSON.parse(saved) : null;
@@ -238,6 +252,18 @@ function App() {
       handleShowToast('Systeem instellingen opgeslagen.');
   };
 
+  // --- RESET PASSWORD FLOW ---
+  if (resetEmployeeId) {
+      return <PasswordResetFlow 
+        employeeId={resetEmployeeId} 
+        onComplete={() => {
+            setResetEmployeeId(null);
+            // Remove path from URL without reload to return to login
+            window.history.pushState({}, '', '/');
+        }} 
+      />;
+  }
+
   if (!isAuthenticated) {
       return <Login onLogin={handleLogin} />;
   }
@@ -305,6 +331,7 @@ function App() {
                   onUpdateEmployee={handleUpdateEmployee}
                   onDeleteEmployee={handleDeleteEmployee}
                   onViewProfile={(id) => { setSelectedProfileId(id); setCurrentView(ViewState.PROFILE); }}
+                  onShowToast={handleShowToast} // Passed toast handler
               />;
           case ViewState.PROFILE:
               const targetProfile = employees.find(e => e.id === selectedProfileId) || currentUser!;

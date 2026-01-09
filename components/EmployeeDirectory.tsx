@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Search, Filter, MoreHorizontal, Mail, Phone, UserPlus, Pencil, Trash2, Lock, Copy, ExternalLink, Check, Clock, CheckCircle2, XCircle, Eye } from 'lucide-react';
+import { Search, Filter, MoreHorizontal, Mail, Phone, UserPlus, Pencil, Trash2, Lock, Copy, ExternalLink, Check, Clock, CheckCircle2, XCircle, Eye, Key } from 'lucide-react';
 import { Employee, EvaluationCycle } from '../types';
 import { Modal } from './Modal';
 import { hasPermission } from '../utils/permissions';
@@ -13,7 +13,8 @@ interface EmployeeDirectoryProps {
   onUpdateEmployee: (employee: Employee) => void;
   onDeleteEmployee: (id: string) => void;
   onSimulateOnboarding?: (employee: Employee) => void;
-  onViewProfile?: (employeeId: string) => void; // New callback
+  onViewProfile?: (employeeId: string) => void;
+  onShowToast?: (message: string) => void;
 }
 
 const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({ 
@@ -23,7 +24,8 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
   onUpdateEmployee,
   onDeleteEmployee,
   onSimulateOnboarding,
-  onViewProfile
+  onViewProfile,
+  onShowToast
 }) => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -34,6 +36,9 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   
   const [activeActionId, setActiveActionId] = useState<string | null>(null);
+  // NEW: State to store calculated position for the dropdown menu
+  const [menuPosition, setMenuPosition] = useState<{top: number, right: number} | null>(null);
+  
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
 
   const [formData, setFormData] = useState({
@@ -54,9 +59,13 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
   const canManage = hasPermission(currentUser, 'MANAGE_EMPLOYEES');
   // Specific delete permission
   const canDelete = hasPermission(currentUser, 'DELETE_EMPLOYEES');
+  const isManager = currentUser.role === 'Manager';
 
   useEffect(() => {
-    const handleClickOutside = () => setActiveActionId(null);
+    const handleClickOutside = () => {
+        setActiveActionId(null);
+        setMenuPosition(null);
+    };
     window.addEventListener('click', handleClickOutside);
     return () => window.removeEventListener('click', handleClickOutside);
   }, []);
@@ -82,6 +91,27 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       });
   };
 
+  // --- ACTIONS ---
+
+  const handleMenuClick = (e: React.MouseEvent, id: string) => {
+      e.stopPropagation();
+      // If closing
+      if (activeActionId === id) {
+          setActiveActionId(null);
+          setMenuPosition(null);
+          return;
+      }
+      
+      // Calculate position
+      const rect = e.currentTarget.getBoundingClientRect();
+      // Position logic: fixed position based on screen coords
+      setMenuPosition({
+          top: rect.bottom + 5,
+          right: window.innerWidth - rect.right
+      });
+      setActiveActionId(id);
+  };
+
   const openEditModal = (employee: Employee) => {
     const nameParts = employee.name.split(' ');
     const lastName = nameParts.pop() || '';
@@ -101,12 +131,26 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
     });
     setIsEditModalOpen(true);
     setActiveActionId(null);
+    setMenuPosition(null);
   };
 
   const openDeleteModal = (employee: Employee) => {
     setSelectedEmployee(employee);
     setIsDeleteModalOpen(true);
     setActiveActionId(null);
+    setMenuPosition(null);
+  };
+
+  const handleCopyResetLink = (employee: Employee) => {
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://sanadome-hrms.vercel.app';
+      const link = `${baseUrl}/reset-password/${employee.id}`;
+      navigator.clipboard.writeText(link).catch(() => {});
+      
+      if(onShowToast) onShowToast("Reset link gekopieerd naar klembord.");
+      else setToastMessage("Reset link gekopieerd");
+      
+      setActiveActionId(null);
+      setMenuPosition(null);
   };
 
   const handleEditSubmit = (e: React.FormEvent) => {
@@ -227,6 +271,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       if (id) {
           setToastMessage("Uitnodigingslink gekopieerd");
           setActiveActionId(null);
+          setMenuPosition(null);
       }
   };
 
@@ -368,76 +413,13 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
                     </div>
                   </td>
                   
-                  <td className="px-6 py-4 text-right relative" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                     <button 
-                        onClick={() => setActiveActionId(activeActionId === employee.id ? null : employee.id)}
+                        onClick={(e) => handleMenuClick(e, employee.id)}
                         className={`p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors ${activeActionId === employee.id ? 'text-teal-600 bg-teal-50 dark:bg-teal-900/30' : 'text-slate-400'}`}
                     >
                         <MoreHorizontal size={18} />
                     </button>
-
-                    {activeActionId === employee.id && (
-                        <div className="absolute right-8 top-10 w-56 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 z-20 py-2 animate-in fade-in zoom-in-95 duration-200 text-left">
-                          
-                          <button 
-                            onClick={() => {
-                                if (onViewProfile) onViewProfile(employee.id);
-                                setActiveActionId(null);
-                            }}
-                            className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-teal-600 dark:hover:text-white flex items-center gap-3 transition-colors font-medium"
-                          >
-                            <Eye size={14} />
-                            Bekijk Profiel
-                          </button>
-
-                          {canManage && (
-                              <>
-                                <div className="h-px bg-slate-50 dark:bg-slate-700 my-1"></div>
-                                {employee.accountStatus === 'Pending' && (
-                                    <>
-                                        <button 
-                                            onClick={() => {
-                                                handleCopyLink(employee.id);
-                                                setActiveActionId(null);
-                                            }}
-                                            className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-teal-600 flex items-center gap-3 transition-colors font-medium"
-                                        >
-                                            <Copy size={14} />
-                                            Kopieer uitnodiging
-                                        </button>
-                                        <div className="h-px bg-slate-50 dark:bg-slate-700 my-1"></div>
-                                    </>
-                                )}
-
-                                <button 
-                                    onClick={() => {
-                                        openEditModal(employee);
-                                        setActiveActionId(null);
-                                    }}
-                                    className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-teal-600 flex items-center gap-3 transition-colors font-medium"
-                                >
-                                    <Pencil size={14} />
-                                    Bewerk medewerker
-                                </button>
-                                {canDelete && (
-                                    <>
-                                        <div className="h-px bg-slate-50 dark:bg-slate-700 my-1"></div>
-                                        <button 
-                                            onClick={() => {
-                                                openDeleteModal(employee);
-                                                setActiveActionId(null);
-                                            }}
-                                            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center gap-3 transition-colors font-medium"
-                                        >
-                                            <Trash2 size={14} />
-                                            Verwijderen
-                                        </button>
-                                    </>
-                                )}
-                              </>
-                          )}
-                        </div>
-                    )}
                   </td>
                 </tr>
               ))}
@@ -452,6 +434,87 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
           </div>
         </div>
       </div>
+
+      {/* DROPDOWN MENU - FIXED POSITION */}
+      {activeActionId && menuPosition && (
+          <div 
+             className="fixed z-[100] w-56 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 py-2 animate-in fade-in zoom-in-95 duration-200 text-left origin-top-right"
+             style={{ 
+                 top: menuPosition.top, 
+                 right: menuPosition.right 
+             }}
+          >
+              {(() => {
+                  const emp = employees.find(e => e.id === activeActionId);
+                  if (!emp) return null;
+                  
+                  return (
+                      <>
+                        <button 
+                            onClick={() => {
+                                if (onViewProfile) onViewProfile(emp.id);
+                                setActiveActionId(null);
+                            }}
+                            className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-teal-600 dark:hover:text-white flex items-center gap-3 transition-colors font-medium"
+                        >
+                            <Eye size={14} />
+                            Bekijk Profiel
+                        </button>
+
+                        {canManage && (
+                            <>
+                                <div className="h-px bg-slate-50 dark:bg-slate-700 my-1"></div>
+                                {emp.accountStatus === 'Pending' && (
+                                    <>
+                                        <button 
+                                            onClick={() => handleCopyLink(emp.id)}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-teal-600 flex items-center gap-3 transition-colors font-medium"
+                                        >
+                                            <Copy size={14} />
+                                            Kopieer uitnodiging
+                                        </button>
+                                        <div className="h-px bg-slate-50 dark:bg-slate-700 my-1"></div>
+                                    </>
+                                )}
+
+                                <button 
+                                    onClick={() => openEditModal(emp)}
+                                    className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-teal-600 flex items-center gap-3 transition-colors font-medium"
+                                >
+                                    <Pencil size={14} />
+                                    Bewerk medewerker
+                                </button>
+                                
+                                {/* NEW PASSWORD RESET BUTTON */}
+                                {isManager && (
+                                    <button 
+                                        onClick={() => handleCopyResetLink(emp)}
+                                        className="w-full text-left px-4 py-2.5 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-teal-600 flex items-center gap-3 transition-colors font-medium"
+                                    >
+                                        <Key size={14} />
+                                        Wachtwoord resetten
+                                    </button>
+                                )}
+
+                                {canDelete && (
+                                    <>
+                                        <div className="h-px bg-slate-50 dark:bg-slate-700 my-1"></div>
+                                        <button 
+                                            onClick={() => openDeleteModal(emp)}
+                                            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 flex items-center gap-3 transition-colors font-medium"
+                                        >
+                                            <Trash2 size={14} />
+                                            Verwijderen
+                                        </button>
+                                    </>
+                                )}
+                            </>
+                        )}
+                      </>
+                  );
+              })()}
+          </div>
+      )}
 
       {canManage && (
         <>
@@ -664,7 +727,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
              </div>
           </Modal>
 
-        {/* Edit Modal (Existing code...) */}
+        {/* Edit Modal */}
         <Modal 
           isOpen={isEditModalOpen} 
           onClose={() => setIsEditModalOpen(false)} 
