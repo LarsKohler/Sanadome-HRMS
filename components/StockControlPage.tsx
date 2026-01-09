@@ -2,10 +2,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Package, Search, Plus, Filter, AlertTriangle, RefreshCw, 
-    ArrowUpRight, ArrowDownRight, Edit2, Trash2, Save, X, 
-    History, TrendingUp, TrendingDown, ClipboardList, ShoppingCart, Box, Tag
+    Edit2, Trash2, Save, X, History, TrendingUp, TrendingDown, 
+    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight
 } from 'lucide-react';
-import { Employee, StockItem, StockLog, StockTransactionType } from '../types';
+import { Employee, StockItem, StockLog, StockOrder, StockOrderItem } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
 import { hasPermission } from '../utils/permissions';
@@ -16,8 +16,9 @@ interface StockControlPageProps {
 }
 
 const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShowToast }) => {
-    const [activeTab, setActiveTab] = useState<'inventory' | 'incoming' | 'logs'>('inventory');
+    const [activeTab, setActiveTab] = useState<'inventory' | 'orders' | 'logs'>('inventory');
     const [items, setItems] = useState<StockItem[]>([]);
+    const [orders, setOrders] = useState<StockOrder[]>([]);
     const [logs, setLogs] = useState<StockLog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
@@ -26,14 +27,13 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     // Modals
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<Partial<StockItem>>({});
-    
-    // Quick Count Modal
     const [isCountModalOpen, setIsCountModalOpen] = useState(false);
     const [countTarget, setCountTarget] = useState<StockItem | null>(null);
-    const [countValue, setCountValue] = useState(''); // String to handle empty input
+    const [countValue, setCountValue] = useState(''); 
+    const [isOrderModalOpen, setIsOrderModalOpen] = useState(false); // To add items to pending order
 
-    // Cart for Incoming (Delivery)
-    const [cart, setCart] = useState<Record<string, number>>({}); 
+    // Cart (Wensenlijst)
+    const [pendingOrderItems, setPendingOrderItems] = useState<Record<string, number>>({});
 
     const canManage = hasPermission(currentUser, 'MANAGE_STOCK');
 
@@ -43,12 +43,14 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
     const loadData = async () => {
         setIsLoading(true);
-        const [i, l] = await Promise.all([
+        const [i, l, o] = await Promise.all([
             api.getStockItems(),
-            api.getStockLogs()
+            api.getStockLogs(),
+            api.getStockOrders()
         ]);
         setItems(i.sort((a,b) => a.name.localeCompare(b.name)));
         setLogs(l.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+        setOrders(o.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
         setIsLoading(false);
     };
 
@@ -72,7 +74,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             currentStock: 0,
             minStock: 5,
             unit: 'Stuks',
-            itemsPerBox: 1, // Default
+            itemsPerBox: 1, 
             lastUpdated: new Date().toISOString()
         });
         setIsItemModalOpen(true);
@@ -112,11 +114,11 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         onShowToast("Artikel opgeslagen.");
     };
 
-    // --- STOCK ACTIONS ---
+    // --- COUNTING ---
 
     const handleOpenCount = (item: StockItem) => {
         setCountTarget(item);
-        setCountValue('');
+        setCountValue(item.currentStock.toString());
         setIsCountModalOpen(true);
     };
 
@@ -159,79 +161,169 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         onShowToast("Voorraad bijgewerkt.");
     };
 
-    // --- INCOMING DELIVERY ---
+    // --- ORDERING LOGIC ---
 
-    const addToCart = (item: StockItem) => {
-        setCart(prev => ({ ...prev, [item.id]: (prev[item.id] || 0) + 1 }));
-    };
+    const handleAddToPending = (item: StockItem) => {
+        // Find existing pending order or create new one in memory
+        // For simplicity, we just add to the general "Wensenlijst" (Pending status)
+        
+        // Find if there is an open pending order
+        const pendingOrder = orders.find(o => o.status === 'Pending');
+        
+        let newItems: StockOrderItem[] = [];
+        let orderId = pendingOrder?.id;
 
-    const updateCart = (itemId: string, val: number) => {
-        if (val <= 0) {
-            const newCart = { ...cart };
-            delete newCart[itemId];
-            setCart(newCart);
+        if (pendingOrder) {
+            newItems = [...pendingOrder.items];
+            const existingItemIndex = newItems.findIndex(i => i.itemId === item.id);
+            if (existingItemIndex >= 0) {
+                newItems[existingItemIndex].quantity += 1;
+            } else {
+                newItems.push({
+                    itemId: item.id,
+                    name: item.name,
+                    quantity: 1, // Default 1 box/unit
+                    unit: (item.itemsPerBox && item.itemsPerBox > 1) ? 'Doos' : 'Stuk'
+                });
+            }
         } else {
-            setCart(prev => ({ ...prev, [itemId]: val }));
+            orderId = crypto.randomUUID();
+            newItems = [{
+                itemId: item.id,
+                name: item.name,
+                quantity: 1,
+                unit: (item.itemsPerBox && item.itemsPerBox > 1) ? 'Doos' : 'Stuk'
+            }];
         }
+
+        const order: StockOrder = {
+            id: orderId!,
+            items: newItems,
+            status: 'Pending',
+            createdAt: pendingOrder ? pendingOrder.createdAt : new Date().toISOString(),
+            createdBy: pendingOrder ? pendingOrder.createdBy : currentUser.name
+        };
+
+        api.saveStockOrder(order);
+        setOrders(prev => {
+            const idx = prev.findIndex(o => o.id === order.id);
+            if (idx >= 0) {
+                const newArr = [...prev];
+                newArr[idx] = order;
+                return newArr;
+            }
+            return [order, ...prev];
+        });
+        
+        onShowToast(`${item.name} toegevoegd aan wensenlijst.`);
     };
 
-    const confirmDelivery = async () => {
-        const itemIds = Object.keys(cart);
-        if (itemIds.length === 0) return;
+    const handlePlaceOrder = async (orderId: string) => {
+        const order = orders.find(o => o.id === orderId);
+        if (!order) return;
 
+        const updatedOrder: StockOrder = {
+            ...order,
+            status: 'Ordered',
+            orderedAt: new Date().toISOString()
+        };
+
+        await api.saveStockOrder(updatedOrder);
+        setOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
+        onShowToast("Bestelling geplaatst!");
+    };
+
+    const handleReceiveOrder = async (orderId: string) => {
+        const order = orders.find(o => o.id === orderId);
+        if (!order) return;
+
+        // Update Stock
         const newLogs: StockLog[] = [];
-        const updatedItems: StockItem[] = [];
+        const updatedItems = [...items];
 
-        for (const id of itemIds) {
-            const item = items.find(i => i.id === id);
-            if (item) {
-                // If itemsPerBox is set and > 1, the cart value represents BOXES.
-                const multiplier = (item.itemsPerBox && item.itemsPerBox > 1) ? item.itemsPerBox : 1;
-                const qtyEntered = cart[id];
-                // Ensure qtyEntered is treated as number
-                const qtyTotal = (qtyEntered as number) * multiplier;
+        for (const orderItem of order.items) {
+            const stockItem = updatedItems.find(i => i.id === orderItem.itemId);
+            if (stockItem) {
+                const multiplier = (stockItem.itemsPerBox && stockItem.itemsPerBox > 1) ? stockItem.itemsPerBox : 1;
+                const totalQty = orderItem.quantity * multiplier;
 
-                const updatedItem = {
-                    ...item,
-                    currentStock: item.currentStock + qtyTotal,
-                    lastUpdated: new Date().toISOString()
-                };
-                
-                updatedItems.push(updatedItem);
-                
-                const logMessage = multiplier > 1 
-                    ? `Levering: ${qtyEntered} doos (${qtyTotal} stuks)`
-                    : `Levering: ${qtyEntered} stuks`;
+                stockItem.currentStock += totalQty;
+                stockItem.lastUpdated = new Date().toISOString();
+
+                await api.saveStockItem(stockItem);
 
                 newLogs.push({
                     id: crypto.randomUUID(),
-                    itemId: item.id,
-                    itemName: item.name,
-                    change: qtyTotal,
+                    itemId: stockItem.id,
+                    itemName: stockItem.name,
+                    change: totalQty,
                     type: 'Delivery',
                     date: new Date().toISOString(),
                     user: currentUser.name,
-                    notes: logMessage
+                    notes: `Bestelling ontvangen: ${orderItem.quantity}x ${orderItem.unit}`
                 });
-
-                await api.saveStockItem(updatedItem);
             }
         }
 
-        // Batch save logs locally/api
+        // Update Order Status
+        const updatedOrder: StockOrder = {
+            ...order,
+            status: 'Received',
+            receivedAt: new Date().toISOString(),
+            receivedBy: currentUser.name
+        };
+
+        await api.saveStockOrder(updatedOrder);
+        
+        // Save Logs
         for (const log of newLogs) {
             await api.saveStockLog(log);
         }
 
-        setItems(prev => prev.map(i => {
-            const updated = updatedItems.find(u => u.id === i.id);
-            return updated || i;
-        }));
+        setItems(updatedItems);
         setLogs(prev => [...newLogs, ...prev]);
+        setOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
         
-        setCart({});
-        setActiveTab('inventory');
-        onShowToast("Levering verwerkt.");
+        onShowToast("Bestelling binnengemeld en voorraad bijgewerkt.");
+    };
+
+    const handleDeleteOrder = async (id: string) => {
+        if(confirm("Weet je zeker dat je deze bestelling wilt verwijderen?")) {
+            await api.deleteStockOrder(id);
+            setOrders(prev => prev.filter(o => o.id !== id));
+            onShowToast("Bestelling verwijderd.");
+        }
+    };
+
+    const updateOrderItemQuantity = (orderId: string, itemId: string, delta: number) => {
+        const order = orders.find(o => o.id === orderId);
+        if (!order) return;
+
+        const updatedItems = order.items.map(i => {
+            if (i.itemId === itemId) {
+                return { ...i, quantity: Math.max(1, i.quantity + delta) };
+            }
+            return i;
+        });
+
+        const updatedOrder = { ...order, items: updatedItems };
+        api.saveStockOrder(updatedOrder);
+        setOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
+    };
+
+    const removeOrderItem = (orderId: string, itemId: string) => {
+        const order = orders.find(o => o.id === orderId);
+        if (!order) return;
+
+        const updatedItems = order.items.filter(i => i.itemId !== itemId);
+        
+        if (updatedItems.length === 0) {
+            handleDeleteOrder(orderId);
+        } else {
+            const updatedOrder = { ...order, items: updatedItems };
+            api.saveStockOrder(updatedOrder);
+            setOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
+        }
     };
 
     return (
@@ -245,7 +337,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                         </div>
                         Voorraadbeheer
                     </h1>
-                    <p className="text-slate-500 mt-2 text-lg">Beheer artikelen, tellingen en bestellingen.</p>
+                    <p className="text-slate-500 mt-2 text-lg">Beheer voorraad receptie en bestellingen.</p>
                 </div>
                 {canManage && (
                     <div className="flex gap-3">
@@ -262,17 +354,18 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             {/* TABS */}
             <div className="border-b border-slate-200 mb-8 flex gap-8">
                 <button onClick={() => setActiveTab('inventory')} className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'inventory' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500'}`}>
-                    <ClipboardList size={18}/> Voorraadlijst
+                    <ClipboardList size={18}/> Voorraad Receptie
                 </button>
-                <button onClick={() => setActiveTab('incoming')} className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'incoming' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500'}`}>
-                    <ShoppingCart size={18}/> Levering Registreren
-                    {Object.keys(cart).length > 0 && <span className="bg-teal-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">{Object.keys(cart).length}</span>}
+                <button onClick={() => setActiveTab('orders')} className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'orders' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500'}`}>
+                    <ShoppingCart size={18}/> Bestellingen
+                    {orders.filter(o => o.status === 'Pending').length > 0 && <span className="bg-teal-600 text-white text-[10px] px-1.5 py-0.5 rounded-full">{orders.filter(o => o.status === 'Pending').length}</span>}
                 </button>
                 <button onClick={() => setActiveTab('logs')} className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'logs' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500'}`}>
                     <History size={18}/> Logboek
                 </button>
             </div>
 
+            {/* INVENTORY TAB */}
             {activeTab === 'inventory' && (
                 <div className="space-y-6">
                     {/* Filters */}
@@ -304,164 +397,174 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {filteredItems.map(item => {
-                            const isLowStock = item.currentStock <= item.minStock;
-                            return (
-                                <div key={item.id} className={`bg-white rounded-2xl border-2 p-5 shadow-sm hover:shadow-md transition-all group relative ${isLowStock ? 'border-red-100' : 'border-slate-100'}`}>
-                                    {isLowStock && (
-                                        <div className="absolute top-4 right-4 text-red-500 animate-pulse" title="Lage voorraad">
-                                            <AlertTriangle size={20}/>
-                                        </div>
-                                    )}
-                                    
-                                    <div className="flex justify-between items-start mb-4">
-                                        <div className="p-3 bg-slate-50 rounded-xl text-slate-500">
-                                            <Box size={24}/>
-                                        </div>
-                                        {canManage && (
-                                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button onClick={() => handleEditItem(item)} className="p-2 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg"><Edit2 size={16}/></button>
-                                                <button onClick={() => handleDeleteItem(item.id)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    <h3 className="font-bold text-slate-900 text-lg mb-1">{item.name}</h3>
-                                    <div className="flex gap-2">
-                                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider bg-slate-50 px-2 py-1 rounded inline-block mb-4">{item.category}</span>
-                                        {item.itemsPerBox && item.itemsPerBox > 1 && (
-                                            <span className="text-xs font-bold text-teal-600 uppercase tracking-wider bg-teal-50 px-2 py-1 rounded inline-block mb-4 border border-teal-100">
-                                                {item.itemsPerBox} st/doos
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    <div className="flex items-end justify-between">
-                                        <div>
-                                            <div className={`text-3xl font-bold ${isLowStock ? 'text-red-600' : 'text-slate-900'}`}>
-                                                {item.currentStock}
-                                            </div>
-                                            <div className="text-xs text-slate-500 font-medium">
-                                                {item.unit} (Min: {item.minStock})
-                                            </div>
-                                        </div>
-                                        
-                                        {canManage && (
-                                            <button 
-                                                onClick={() => handleOpenCount(item)}
-                                                className="px-4 py-2 bg-slate-900 text-white rounded-lg text-xs font-bold hover:bg-slate-800 transition-colors shadow-sm"
-                                            >
-                                                Tellen
-                                            </button>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        {filteredItems.length === 0 && (
-                            <div className="col-span-full py-20 text-center text-slate-400 italic bg-white rounded-2xl border border-dashed border-slate-200">
-                                Geen artikelen gevonden.
-                            </div>
-                        )}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <table className="w-full text-left">
+                            <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
+                                <tr>
+                                    <th className="px-6 py-4">Artikel</th>
+                                    <th className="px-6 py-4">Huidig</th>
+                                    <th className="px-6 py-4">Status</th>
+                                    <th className="px-6 py-4 text-right">Acties</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-sm">
+                                {filteredItems.map(item => {
+                                    const isLow = item.currentStock <= item.minStock;
+                                    return (
+                                        <tr key={item.id} className="hover:bg-slate-50">
+                                            <td className="px-6 py-4">
+                                                <div className="font-bold text-slate-900">{item.name}</div>
+                                                <div className="text-xs text-slate-500 flex items-center gap-2">
+                                                    {item.category}
+                                                    {item.itemsPerBox && item.itemsPerBox > 1 && (
+                                                        <span className="bg-slate-100 px-1.5 rounded border border-slate-200">Per doos: {item.itemsPerBox}st</span>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 font-mono font-bold text-base text-slate-800">
+                                                {item.currentStock} <span className="text-xs font-normal text-slate-400">{item.unit}</span>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {isLow ? (
+                                                    <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold border border-red-200">
+                                                        <AlertTriangle size={12}/> Laag ({item.minStock})
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold border border-green-200">
+                                                        <Check size={12}/> Voldoende
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    {canManage && (
+                                                        <button 
+                                                            onClick={() => handleOpenCount(item)}
+                                                            className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-lg hover:bg-slate-50"
+                                                        >
+                                                            Tellen
+                                                        </button>
+                                                    )}
+                                                    <button 
+                                                        onClick={() => handleAddToPending(item)}
+                                                        className="px-3 py-1.5 bg-teal-50 text-teal-700 border border-teal-200 font-bold text-xs rounded-lg hover:bg-teal-100"
+                                                    >
+                                                        + Bestellen
+                                                    </button>
+                                                    {canManage && (
+                                                        <button onClick={() => handleEditItem(item)} className="p-1.5 text-slate-400 hover:text-slate-700"><Edit2 size={16}/></button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             )}
 
-            {activeTab === 'incoming' && (
-                <div className="flex flex-col lg:flex-row gap-8">
-                    <div className="flex-1 space-y-6">
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                            <input 
-                                type="text" 
-                                placeholder="Zoek artikel om toe te voegen..." 
-                                className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm"
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                            />
-                        </div>
-
-                        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                            <div className="max-h-[600px] overflow-y-auto">
-                                {filteredItems.map(item => {
-                                    const isBox = item.itemsPerBox && item.itemsPerBox > 1;
-                                    return (
-                                        <div key={item.id} className="flex items-center justify-between p-4 hover:bg-slate-50 border-b border-slate-100 last:border-0">
-                                            <div>
-                                                <div className="font-bold text-slate-900">{item.name}</div>
-                                                <div className="text-xs text-slate-500 flex items-center gap-2">
-                                                    {item.category} • Huidig: {item.currentStock} {item.unit}
-                                                    {isBox && <span className="bg-teal-50 text-teal-700 px-1.5 py-0.5 rounded font-bold">{item.itemsPerBox} st/doos</span>}
-                                                </div>
-                                            </div>
-                                            <button 
-                                                onClick={() => addToCart(item)}
-                                                className="p-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-teal-50 hover:text-teal-700 transition-colors"
-                                            >
-                                                <Plus size={18}/>
-                                            </button>
-                                        </div>
-                                    );
-                                })}
+            {/* ORDERS TAB */}
+            {activeTab === 'orders' && (
+                <div className="space-y-8">
+                    {/* PENDING ORDERS (Wensenlijst) */}
+                    {orders.some(o => o.status === 'Pending') && (
+                        <div className="bg-white rounded-2xl border border-teal-200 shadow-md overflow-hidden">
+                            <div className="bg-teal-50 px-6 py-4 border-b border-teal-100 flex justify-between items-center">
+                                <h3 className="font-bold text-teal-900 flex items-center gap-2">
+                                    <ClipboardList size={20}/> Wensenlijst (Nog niet besteld)
+                                </h3>
                             </div>
-                        </div>
-                    </div>
-
-                    <div className="w-full lg:w-96 bg-white rounded-2xl border border-slate-200 shadow-lg flex flex-col h-[600px]">
-                        <div className="p-6 border-b border-slate-100 bg-slate-50/50">
-                            <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                                <ShoppingCart size={20} className="text-teal-600"/> Nieuwe Bestelling
-                            </h3>
-                        </div>
-                        <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                            {Object.keys(cart).length === 0 ? (
-                                <div className="text-center text-slate-400 italic mt-20">Nog geen items geselecteerd.</div>
-                            ) : (
-                                Object.entries(cart).map(([id, qty]) => {
-                                    const item = items.find(i => i.id === id);
-                                    if (!item) return null;
-                                    const isBox = (item.itemsPerBox || 1) > 1;
-                                    const totalUnits = qty * (item.itemsPerBox || 1);
-
-                                    return (
-                                        <div key={id} className="flex flex-col bg-slate-50 p-3 rounded-xl border border-slate-100 gap-2">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex-1 min-w-0 mr-2">
-                                                    <div className="font-bold text-sm truncate">{item.name}</div>
-                                                    <div className="text-xs text-slate-500">
-                                                        {isBox ? `Per doos (${item.itemsPerBox}st)` : item.unit}
+                            <div className="divide-y divide-slate-100">
+                                {orders.filter(o => o.status === 'Pending').map(order => (
+                                    <div key={order.id} className="p-6">
+                                        <div className="mb-4 text-xs text-slate-500">
+                                            Aangemaakt op {new Date(order.createdAt).toLocaleDateString()} door {order.createdBy}
+                                        </div>
+                                        <div className="space-y-2 mb-6">
+                                            {order.items.map(item => (
+                                                <div key={item.itemId} className="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
+                                                    <span className="font-bold text-slate-700">{item.name}</span>
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="flex items-center gap-2 bg-white px-2 py-1 rounded border border-slate-200">
+                                                            <button onClick={() => updateOrderItemQuantity(order.id, item.itemId, -1)} className="text-slate-400 hover:text-slate-700"><TrendingDown size={16}/></button>
+                                                            <span className="font-mono w-8 text-center">{item.quantity}</span>
+                                                            <button onClick={() => updateOrderItemQuantity(order.id, item.itemId, 1)} className="text-slate-400 hover:text-slate-700"><TrendingUp size={16}/></button>
+                                                        </div>
+                                                        <span className="text-xs text-slate-500 w-12">{item.unit}</span>
+                                                        <button onClick={() => removeOrderItem(order.id, item.itemId)} className="text-slate-300 hover:text-red-500"><X size={16}/></button>
                                                     </div>
                                                 </div>
-                                                <div className="flex items-center gap-2">
-                                                    <input 
-                                                        type="number" 
-                                                        className="w-16 p-1 text-center border rounded font-bold text-sm"
-                                                        value={qty}
-                                                        onChange={(e) => updateCart(id, parseInt(e.target.value) || 0)}
-                                                    />
-                                                    <button onClick={() => updateCart(id, 0)} className="text-slate-400 hover:text-red-500"><X size={16}/></button>
-                                                </div>
-                                            </div>
-                                            {isBox && (
-                                                <div className="text-xs text-teal-600 font-bold border-t border-slate-200 pt-1 text-right">
-                                                    + {totalUnits} {item.unit} totaal
-                                                </div>
-                                            )}
+                                            ))}
                                         </div>
-                                    );
-                                })
-                            )}
+                                        <div className="flex justify-end gap-3">
+                                            <button 
+                                                onClick={() => handlePlaceOrder(order.id)}
+                                                className="px-6 py-2.5 bg-teal-600 text-white font-bold rounded-xl shadow-md hover:bg-teal-700 flex items-center gap-2"
+                                            >
+                                                Bestelling Plaatsen <ArrowRight size={18}/>
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
-                        <div className="p-6 border-t border-slate-100 bg-slate-50/50">
-                            <button 
-                                onClick={confirmDelivery}
-                                disabled={Object.keys(cart).length === 0}
-                                className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl shadow-md hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-                            >
-                                Levering Verwerken
-                            </button>
-                        </div>
+                    )}
+
+                    {/* ORDERED (Onderweg) */}
+                    <h3 className="font-bold text-slate-900 flex items-center gap-2 mt-8">
+                        <Truck size={20} className="text-blue-500"/> Onderweg (Besteld)
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4">
+                        {orders.filter(o => o.status === 'Ordered').map(order => (
+                            <div key={order.id} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col md:flex-row gap-6">
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold uppercase tracking-wide">Besteld</span>
+                                        <span className="text-xs text-slate-500">op {new Date(order.orderedAt!).toLocaleDateString()}</span>
+                                    </div>
+                                    <div className="space-y-1">
+                                        {order.items.map(item => (
+                                            <div key={item.itemId} className="text-sm text-slate-700 flex justify-between border-b border-slate-50 py-1 last:border-0">
+                                                <span>{item.name}</span>
+                                                <span className="font-bold text-slate-900">{item.quantity} {item.unit}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="flex flex-col justify-center gap-2">
+                                    <button 
+                                        onClick={() => handleReceiveOrder(order.id)}
+                                        className="px-4 py-2 bg-slate-900 text-white font-bold rounded-xl shadow-sm hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
+                                    >
+                                        <Box size={16}/> Binnenmelden
+                                    </button>
+                                    <button onClick={() => handleDeleteOrder(order.id)} className="text-xs text-red-400 hover:text-red-600 hover:underline text-center">Annuleren</button>
+                                </div>
+                            </div>
+                        ))}
+                         {orders.filter(o => o.status === 'Ordered').length === 0 && (
+                            <div className="p-8 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-400">
+                                Geen lopende bestellingen.
+                            </div>
+                        )}
+                    </div>
+
+                    {/* HISTORY (Ontvangen) */}
+                    <h3 className="font-bold text-slate-900 flex items-center gap-2 mt-8">
+                        <History size={20} className="text-slate-400"/> Historie (Ontvangen)
+                    </h3>
+                     <div className="grid grid-cols-1 gap-4 opacity-75 hover:opacity-100 transition-opacity">
+                        {orders.filter(o => o.status === 'Received').slice(0, 5).map(order => (
+                            <div key={order.id} className="bg-slate-50 rounded-xl border border-slate-200 p-4 flex justify-between items-center">
+                                <div>
+                                    <div className="text-xs font-bold text-slate-500 mb-1">Ontvangen: {new Date(order.receivedAt!).toLocaleDateString()} door {order.receivedBy}</div>
+                                    <div className="text-sm text-slate-700">{order.items.length} artikelen ({order.items.map(i => i.name).join(', ').substring(0, 50)}...)</div>
+                                </div>
+                                <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Voltooid</span>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}

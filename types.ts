@@ -1,31 +1,30 @@
-
 export enum ViewState {
   HOME = 'HOME',
-  NEWS = 'NEWS',
   DIRECTORY = 'DIRECTORY',
   PROFILE = 'PROFILE',
   HR_DOSSIER = 'HR_DOSSIER',
+  NEWS = 'NEWS',
   ONBOARDING = 'ONBOARDING',
-  ACADEMY = 'ACADEMY',
-  KNOWLEDGE_BASE = 'KNOWLEDGE_BASE',
-  CHECKLISTS = 'CHECKLISTS',
-  COMPENSATION = 'COMPENSATION',
-  STOCK_CONTROL = 'STOCK_CONTROL',
-  TODO_LIST = 'TODO_LIST',
-  COMPLAINTS = 'COMPLAINTS',
-  DEBT_CONTROL = 'DEBT_CONTROL',
-  LINEN_AUDIT = 'LINEN_AUDIT',
-  DATA_AUDIT = 'DATA_AUDIT',
   REPORTS = 'REPORTS',
   SYSTEM_STATUS = 'SYSTEM_STATUS',
   SETTINGS = 'SETTINGS',
+  DEBT_CONTROL = 'DEBT_CONTROL',
+  LINEN_AUDIT = 'LINEN_AUDIT',
+  DATA_AUDIT = 'DATA_AUDIT',
+  KNOWLEDGE_BASE = 'KNOWLEDGE_BASE',
+  EVALUATIONS = 'EVALUATIONS',
   RECRUITMENT = 'RECRUITMENT',
-  EVALUATIONS = 'EVALUATIONS'
+  ACADEMY = 'ACADEMY',
+  COMPENSATION = 'COMPENSATION',
+  CHECKLISTS = 'CHECKLISTS',
+  TODO_LIST = 'TODO_LIST',
+  COMPLAINTS = 'COMPLAINTS',
+  STOCK_CONTROL = 'STOCK_CONTROL'
 }
 
 export type Permission = 
-  | 'VIEW_REPORTS'
-  | 'MANAGE_EMPLOYEES'
+  | 'VIEW_REPORTS' 
+  | 'MANAGE_EMPLOYEES' 
   | 'DELETE_EMPLOYEES'
   | 'MANAGE_DOCUMENTS'
   | 'DELETE_DOCUMENTS'
@@ -51,25 +50,25 @@ export type Permission =
   | 'MANAGE_STOCK';
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
-  'VIEW_REPORTS': 'Rapportages Bekijken',
-  'MANAGE_EMPLOYEES': 'Medewerkers Beheren',
-  'DELETE_EMPLOYEES': 'Medewerkers Verwijderen',
-  'MANAGE_DOCUMENTS': 'Documenten Beheren',
-  'DELETE_DOCUMENTS': 'Documenten Verwijderen',
-  'VIEW_ALL_DOCUMENTS': 'Alle Documenten Inzien',
+  'VIEW_REPORTS': 'Bekijk Rapportages',
+  'MANAGE_EMPLOYEES': 'Beheer Medewerkers',
+  'DELETE_EMPLOYEES': 'Verwijder Medewerkers',
+  'MANAGE_DOCUMENTS': 'Beheer Documenten',
+  'DELETE_DOCUMENTS': 'Verwijder Documenten',
+  'VIEW_ALL_DOCUMENTS': 'Bekijk Alle Documenten',
   'CREATE_NEWS': 'Nieuws Plaatsen',
   'DELETE_NEWS': 'Nieuws Verwijderen',
-  'MANAGE_ONBOARDING': 'Onboarding Beheren',
+  'MANAGE_ONBOARDING': 'Beheer Onboarding',
   'VIEW_SYSTEM_STATUS': 'Systeemstatus Inzien',
   'MANAGE_SETTINGS': 'Instellingen Beheren',
   'MANAGE_EVALUATIONS': 'Evaluaties Beheren',
   'DELETE_EVALUATIONS': 'Evaluaties Verwijderen',
-  'MANAGE_DEBTORS': 'Debiteuren Beheren',
-  'MANAGE_RECRUITMENT': 'Recruitment Beheren',
-  'MANAGE_KNOWLEDGE': 'Kennisbank Beheren',
-  'MANAGE_OPERATIONS': 'Operatie Beheren',
-  'MANAGE_ACADEMY': 'Academy Beheren',
-  'MANAGE_COMPENSATION': 'Compensatie Beheren',
+  'MANAGE_DEBTORS': 'Debiteuren Beheer',
+  'MANAGE_RECRUITMENT': 'Recruitment Beheer',
+  'MANAGE_KNOWLEDGE': 'Kennisbank Beheer',
+  'MANAGE_OPERATIONS': 'Operationeel Beheer',
+  'MANAGE_ACADEMY': 'Academy Beheer',
+  'MANAGE_COMPENSATION': 'Compensatie Beheer',
   'DELETE_COMPENSATION': 'Compensatie Verwijderen',
   'MANAGE_TICKETS': 'Tickets Beheren',
   'MANAGE_CHECKLISTS': 'Checklists Beheren',
@@ -79,82 +78,19 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
 };
 
 export interface GlobalSettings {
-  modules: Record<string, { 
-    id: ViewState, 
-    name: string, 
-    enabled: boolean, 
-    accessMode: 'open' | 'restricted',
-    hiddenForRoles?: string[],
-    hiddenForUsers?: string[],
-    allowedUsers?: string[]
+  modules: Record<string, {
+    id: ViewState;
+    name: string;
+    enabled: boolean;
+    accessMode: 'open' | 'restricted';
+    hiddenForRoles: string[];
+    hiddenForUsers: string[];
+    allowedUsers: string[];
   }>;
   branding: {
     loginImages: string[];
   };
-  roles?: Record<string, Permission[]>;
-}
-
-export type BadgeIconKey = 'Trophy' | 'Star' | 'Medal' | 'Heart' | 'Zap' | 'Shield' | 'Rocket' | 'Crown' | 'ThumbsUp' | 'Lightbulb' | 'Flame' | 'Target' | 'Users' | 'Eye';
-export type BadgeColor = 'yellow' | 'blue' | 'purple' | 'red' | 'green' | 'pink' | 'orange' | 'slate';
-
-export interface BadgeDefinition {
-  id: string;
-  name: string;
-  description: string;
-  icon: BadgeIconKey;
-  color: BadgeColor;
-  createdAt: string;
-}
-
-export interface AssignedBadge {
-  id: string;
-  badgeId: string;
-  assignedBy: string;
-  assignedById: string;
-  assignedAt: string;
-  reason?: string;
-}
-
-export interface NewsPost {
-  id: string;
-  title: string;
-  shortDescription: string;
-  content: string;
-  authorName: string;
-  authorRole: string;
-  authorAvatar: string;
-  date: string;
-  image?: string;
-  isPinned?: boolean;
-  readBy?: string[];
-}
-
-export interface Notification {
-  id: string;
-  recipientId: string;
-  senderName: string;
-  type: 'System' | 'Badge' | 'Evaluation' | 'Recruitment' | 'General' | 'Evaluation'; // Duplication fixed in logic usually, but here just defining string literal types
-  title: string;
-  message: string;
-  date: string;
-  read: boolean;
-  targetView: ViewState;
-  targetEmployeeId?: string;
-  isPinned?: boolean;
-}
-
-// --- EMPLOYEE & HR ---
-
-export interface EmployeeNote {
-  id: string;
-  title: string;
-  category: string;
-  content: string;
-  date: string;
-  author: string;
-  visibleToEmployee: boolean;
-  impact?: 'Positive' | 'Negative' | 'Neutral';
-  score?: number;
+  roles: Record<string, Permission[]>;
 }
 
 export interface EmployeeDocument {
@@ -168,49 +104,30 @@ export interface EmployeeDocument {
   url: string;
 }
 
-export type DossierEntryType = 'Sick' | 'Late' | 'Warning' | 'Compliment' | 'Recovery' | 'Note';
+export interface EmployeeNote {
+  id: string;
+  title: string;
+  category: 'General' | 'Performance' | 'Verzuim' | 'Gesprek' | 'Incident';
+  content: string;
+  date: string;
+  author: string;
+  visibleToEmployee: boolean;
+  impact: 'Positive' | 'Negative' | 'Neutral';
+  score?: number;
+}
+
+export type DossierEntryType = 'Sick' | 'Late' | 'Warning' | 'Recovery' | 'Compliment';
 
 export interface DossierEntry {
   id: string;
   type: DossierEntryType;
   date: string;
-  endDate?: string;
   title: string;
   description: string;
   loggedBy: string;
+  endDate?: string;
   meta?: any;
 }
-
-export interface Employee {
-  id: string;
-  name: string;
-  role: string;
-  email: string;
-  avatar: string;
-  departments: string[];
-  phone?: string;
-  linkedin?: string;
-  hiredOn: string;
-  employmentType: string;
-  accountStatus: 'Active' | 'Pending' | 'Inactive';
-  password?: string;
-  customPermissions?: Permission[];
-  badges?: AssignedBadge[];
-  onboardingStatus?: 'Pending' | 'Active' | 'Completed';
-  onboardingTasks?: OnboardingTask[];
-  onboardingWeeks?: OnboardingWeekData[];
-  onboardingWeekCount?: number;
-  onboardingWeekTitles?: Record<number, string>;
-  activeTemplateId?: string;
-  onboardingHistory?: OnboardingHistoryEntry[];
-  mentor?: string;
-  dossier?: DossierEntry[];
-  notes?: EmployeeNote[];
-  documents?: EmployeeDocument[];
-  evaluations?: EvaluationCycle[];
-}
-
-// --- ONBOARDING ---
 
 export interface SubTask {
   id: string;
@@ -224,20 +141,20 @@ export interface OnboardingTask {
   week: number;
   category: string;
   title: string;
-  description?: string;
-  completed?: boolean;
+  description: string;
+  completed: boolean;
   completedBy?: string;
   completedDate?: string;
-  score?: number;
   notes?: string;
   notesVisibleToEmployee?: boolean;
+  score?: number;
   subtasks?: SubTask[];
   isSimpleCheck?: boolean;
 }
 
 export interface OnboardingWeekData {
   week: number;
-  managerNotes?: string;
+  managerNotes: string;
   status: 'Open' | 'Completed';
 }
 
@@ -247,29 +164,140 @@ export interface OnboardingHistoryEntry {
   role: string;
   startDate: string;
   endDate: string;
-  finalScore: number;
   tasks: OnboardingTask[];
   weeks: OnboardingWeekData[];
+  finalScore: number;
+}
+
+export interface AssignedBadge {
+  id: string;
+  badgeId: string;
+  assignedBy: string;
+  assignedById: string;
+  assignedAt: string;
+  reason?: string;
+}
+
+export type EvaluationStatus = 'Planned' | 'EmployeeInput' | 'ManagerInput' | 'Review' | 'Signed' | 'Archived';
+
+export interface EvaluationCycle {
+  id: string;
+  employeeId: string;
+  managerId: string;
+  type: string;
+  templateId?: string;
+  status: EvaluationStatus;
+  createdAt: string;
+  plannedDate?: string;
+  completedAt?: string;
+  scores: {
+    category: string;
+    topic: string;
+    employeeScore: number;
+    managerScore: number;
+    employeeComment?: string;
+    managerComment?: string;
+  }[];
+  goals: string[];
+  signatures: string[];
+  employeeWins?: string;
+  employeeStruggles?: string;
+  managerWins?: string;
+  managerStruggles?: string;
+  managerGeneralFeedback?: string;
+}
+
+export interface Employee {
+  id: string;
+  name: string;
+  role: string;
+  departments: string[];
+  email: string;
+  phone?: string;
+  avatar: string;
+  hiredOn: string;
+  employmentType?: string;
+  accountStatus: 'Active' | 'Pending' | 'Inactive';
+  password?: string;
+  linkedin?: string;
+  mentor?: string;
+  
+  documents?: EmployeeDocument[];
+  notes?: EmployeeNote[];
+  dossier?: DossierEntry[];
+  
+  onboardingStatus?: 'Pending' | 'Active' | 'Completed' | 'Aborted';
+  onboardingWeekCount?: number;
+  onboardingWeekTitles?: Record<number, string>;
+  onboardingTasks: OnboardingTask[];
+  onboardingWeeks?: OnboardingWeekData[];
+  onboardingHistory?: OnboardingHistoryEntry[];
+  activeTemplateId?: string;
+
+  evaluations?: EvaluationCycle[];
+  badges?: AssignedBadge[];
+  customPermissions?: Permission[];
+}
+
+export interface NewsPost {
+  id: string;
+  title: string;
+  shortDescription: string;
+  content: string;
+  authorName: string;
+  authorRole: string;
+  authorAvatar: string;
+  date: string;
+  readBy?: string[];
+  image?: string;
+  isPinned?: boolean;
 }
 
 export interface OnboardingTemplate {
   id: string;
   title: string;
-  description?: string;
+  description: string;
   role?: string;
   tasks: OnboardingTask[];
   weekTitles?: Record<number, string>;
-  weekCount?: number;
   createdAt: string;
+  weekCount?: number;
 }
 
-// --- RECRUITMENT ---
+export interface SystemUpdateLog {
+  id: string;
+  version: string;
+  date: string;
+  timestamp: string;
+  author: string;
+  type: 'Feature' | 'Bugfix' | 'Maintenance' | 'Security';
+  impact: 'High' | 'Medium' | 'Low';
+  affectedArea: string;
+  description: string;
+  status: 'Success' | 'Pending' | 'Failed';
+}
+
+export interface KnowledgeArticle {
+  id: string;
+  title: string;
+  category: string;
+  content: string;
+  tags: string[];
+  authorName: string;
+  authorRole: string;
+  lastUpdated: string;
+  allowedRoles: string[];
+  allowedDepartments: string[];
+  views: number;
+  isPinned: boolean;
+  reviewDate?: string;
+}
 
 export type ApplicantStage = 'New' | 'Screening' | 'Interview 1' | 'Interview 2' | 'Offer' | 'Hired' | 'Rejected';
 
 export interface RecruitmentTimelineEvent {
   id: string;
-  type: 'StatusChange' | 'Note' | 'Interview' | 'Scorecard';
+  type: 'StatusChange' | 'Note' | 'Interview' | 'Email' | 'Scorecard';
   author: string;
   date: string;
   content: string;
@@ -296,21 +324,50 @@ export interface Interview {
 
 export interface Applicant {
   id: string;
+  vacancyId: string;
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
-  vacancyId: string;
   stage: ApplicantStage;
   appliedDate: string;
-  resumeUrl?: string;
-  motivationUrl?: string;
-  rating?: number;
   matchScore?: number;
   skills?: string[];
+  resumeUrl?: string;
+  motivationUrl?: string;
   timeline: RecruitmentTimelineEvent[];
   scorecards: CandidateScorecard[];
   interviews: Interview[];
+  rating?: number;
+}
+
+export type TicketType = 'Bug' | 'Idea' | 'Fix';
+export type TicketPriority = 'High' | 'Medium' | 'Low';
+export type TicketStatus = 'Open' | 'In Progress' | 'Resolved';
+
+export interface TicketMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  timestamp: string;
+  type: 'public' | 'internal' | 'system';
+  avatar?: string;
+}
+
+export interface Ticket {
+  id: string;
+  title: string;
+  description: string;
+  type: TicketType;
+  priority: TicketPriority;
+  page: string;
+  status: TicketStatus;
+  submittedBy: string;
+  submittedById: string;
+  submittedAt: string;
+  messages: TicketMessage[];
+  resolvedAt?: string;
 }
 
 export interface Vacancy {
@@ -318,12 +375,53 @@ export interface Vacancy {
   title: string;
   department: string;
   type: string;
-  status: string;
+  status: 'Open' | 'Closed';
   applicantsCount: number;
   postedDate: string;
 }
 
-// --- ACADEMY ---
+export interface EvaluationTemplate {
+  id: string;
+  title: string;
+  description: string;
+  createdAt: string;
+  updatedAt: string;
+  sections: {
+    id: string;
+    title: string;
+    questions: {
+        id: string;
+        text: string;
+        description?: string;
+    }[];
+  }[];
+}
+
+export interface Notification {
+  id: string;
+  recipientId: string;
+  senderName: string;
+  type: 'System' | 'Badge' | 'Evaluation' | 'Task' | 'Recruitment';
+  title: string;
+  message: string;
+  date: string;
+  read: boolean;
+  targetView?: ViewState;
+  targetEmployeeId?: string;
+  isPinned?: boolean;
+}
+
+export type BadgeIconKey = 'Trophy' | 'Star' | 'Medal' | 'Heart' | 'Zap' | 'Shield' | 'Rocket' | 'Crown' | 'ThumbsUp' | 'Lightbulb' | 'Flame' | 'Target' | 'Users' | 'Eye';
+export type BadgeColor = 'yellow' | 'blue' | 'purple' | 'red' | 'green' | 'pink' | 'orange' | 'slate';
+
+export interface BadgeDefinition {
+  id: string;
+  name: string;
+  description: string;
+  icon: BadgeIconKey;
+  color: BadgeColor;
+  createdAt: string;
+}
 
 export type BlockType = 'text' | 'image' | 'video' | 'quiz' | 'hotspot' | 'time-capsule';
 
@@ -344,8 +442,8 @@ export interface LearningBlock {
 export interface AcademyLesson {
   id: string;
   title: string;
-  durationMinutes: number;
   blocks: LearningBlock[];
+  durationMinutes: number;
 }
 
 export interface AcademyModule {
@@ -361,6 +459,7 @@ export interface AcademyCourse {
   category: string;
   coverImage?: string;
   level: string;
+  prerequisiteCourseIds?: string[];
   targetRoles: string[];
   targetEmployees?: string[];
   createdAt: string;
@@ -370,170 +469,28 @@ export interface AcademyCourse {
   modules: AcademyModule[];
   dueDate?: string;
   badgeConfig?: {
-    enabled: boolean;
-    name: string;
-    icon: BadgeIconKey;
-    color: BadgeColor;
-    minScore: number;
+      enabled: boolean;
+      name: string;
+      icon: BadgeIconKey;
+      color: BadgeColor;
+      minScore: number;
   };
-  prerequisiteCourseIds?: string[];
 }
 
 export interface AcademyProgress {
   id: string;
   employeeId: string;
   courseId: string;
-  status: 'In Progress' | 'Completed';
+  status: 'Not Started' | 'In Progress' | 'Completed';
   progressPercentage: number;
   completedLessonIds: string[];
   quizScores: Record<string, number>;
   timeCapsuleAnswers?: Record<string, any>;
   startDate?: string;
   completedDate?: string;
-  isBadgeEarned?: boolean;
   finalScore?: number;
+  isBadgeEarned?: boolean;
 }
-
-// --- EVALUATIONS ---
-
-export type EvaluationStatus = 'Planned' | 'EmployeeInput' | 'ManagerInput' | 'Review' | 'Signed' | 'Archived';
-
-export interface EvaluationTemplate {
-  id: string;
-  title: string;
-  description: string;
-  sections: { id: string; title: string; questions: { id: string; text: string; }[] }[];
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface EvaluationCycle {
-  id: string;
-  employeeId: string;
-  managerId: string;
-  type: string;
-  templateId?: string;
-  status: EvaluationStatus;
-  createdAt: string;
-  plannedDate?: string;
-  completedAt?: string;
-  scores: { 
-    category: string; 
-    topic: string; 
-    employeeScore: number; 
-    managerScore: number;
-    employeeComment?: string;
-    managerComment?: string;
-  }[];
-  goals: any[];
-  signatures: any[];
-  employeeWins?: string;
-  employeeStruggles?: string;
-  managerWins?: string;
-  managerStruggles?: string;
-  managerGeneralFeedback?: string;
-}
-
-// --- TICKETS ---
-
-export type TicketStatus = 'Open' | 'In Progress' | 'Resolved';
-export type TicketPriority = 'Low' | 'Medium' | 'High';
-export type TicketType = 'Bug' | 'Idea' | 'Fix';
-
-export interface TicketMessage {
-  id: string;
-  senderId: string;
-  senderName: string;
-  avatar?: string;
-  content: string;
-  timestamp: string;
-  type: 'public' | 'internal' | 'system';
-}
-
-export interface Ticket {
-  id: string;
-  title: string;
-  description: string;
-  type: TicketType;
-  priority: TicketPriority;
-  page: string;
-  status: TicketStatus;
-  submittedBy: string;
-  submittedById: string;
-  submittedAt: string;
-  resolvedAt?: string;
-  messages?: TicketMessage[];
-}
-
-// --- TASKS ---
-
-export type TaskStatus = 'Pending' | 'In Progress' | 'Completed';
-export type TaskPriority = 'Low' | 'Medium' | 'High';
-
-export interface TaskUpdate {
-  id: string;
-  author: string;
-  content: string;
-  createdAt: string;
-}
-
-export interface Task {
-  id: string;
-  title: string;
-  description?: string;
-  status: TaskStatus;
-  priority: TaskPriority;
-  dueDate?: string;
-  assigneeId?: string;
-  assigneeName?: string;
-  isGeneral: boolean;
-  createdBy: string;
-  createdById: string;
-  createdAt: string;
-  shareWithTeam?: boolean;
-  subtasks?: SubTask[];
-  updates?: TaskUpdate[];
-  completedAt?: string;
-}
-
-// --- COMPLAINTS ---
-
-export type ComplaintStatus = 'Open' | 'In Progress' | 'Resolved' | 'Closed';
-export type ComplaintSeverity = 'Low' | 'Medium' | 'High' | 'Critical';
-export type ComplaintCategory = 'Room' | 'Food' | 'Service' | 'Noise' | 'Technical' | 'Other';
-
-export interface ComplaintTimelineItem {
-  id: string;
-  date: string;
-  author: string;
-  action: string;
-  note: string;
-}
-
-export interface Complaint {
-  id: string;
-  reservationNumber: string;
-  guestName: string;
-  roomNumber?: string;
-  category: ComplaintCategory;
-  department?: string;
-  severity: ComplaintSeverity;
-  status: ComplaintStatus;
-  description: string;
-  images?: string[];
-  compensationDetails: {
-    offered: string;
-    cost?: number;
-    guestAccepted: boolean | null;
-  };
-  assignedTo?: string;
-  createdBy: string;
-  createdAt: string;
-  updatedAt: string;
-  timeline: ComplaintTimelineItem[];
-}
-
-// --- COMPENSATION ---
 
 export type CompensationCategory = 'Kamer' | 'F&B' | 'Wellness' | 'Service' | 'Overig';
 
@@ -542,8 +499,8 @@ export interface CompensationPolicy {
   category: CompensationCategory;
   complaint: string;
   standardCompensation: string;
-  maxRefundAmount?: number;
   procedure: string;
+  maxRefundAmount?: number;
   authorizedRoles: string[];
   updatedAt: string;
   updatedBy: string;
@@ -562,7 +519,149 @@ export interface CompensationLog {
   date: string;
 }
 
-// --- DEBTORS ---
+export type ChecklistItemType = 'checkbox' | 'text' | 'yes_no' | 'select' | 'multi_select' | 'date' | 'file' | 'rating' | 'signature' | 'header';
+
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  description?: string;
+  type: ChecklistItemType;
+  required: boolean;
+  isCritical?: boolean;
+  explanationRequiredOn?: 'yes' | 'no' | null;
+  options?: string[];
+  explanationLabel?: string;
+  includeTime?: boolean;
+}
+
+export interface ChecklistTemplate {
+  id: string;
+  title: string;
+  description: string;
+  category?: string;
+  items: ChecklistItem[];
+  targetRoles?: string[];
+  createdBy: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface ChecklistSubmission {
+  id: string;
+  templateId: string;
+  templateSnapshot?: ChecklistTemplate;
+  submittedBy: string;
+  submittedById: string;
+  status: 'Draft' | 'Completed';
+  responses: Record<string, any>;
+  startedAt: string;
+  completedAt?: string;
+}
+
+export type TaskPriority = 'Low' | 'Medium' | 'High';
+export type TaskStatus = 'Pending' | 'In Progress' | 'Completed';
+
+export interface TaskUpdate {
+  id: string;
+  author: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface Task {
+  id: string;
+  title: string;
+  description: string;
+  status: TaskStatus;
+  priority: TaskPriority;
+  dueDate?: string;
+  assigneeId?: string;
+  assigneeName?: string;
+  isGeneral: boolean;
+  shareWithTeam?: boolean;
+  createdBy: string;
+  createdById: string;
+  createdAt: string;
+  completedAt?: string;
+  subtasks: SubTask[];
+  updates: TaskUpdate[];
+}
+
+export type ComplaintStatus = 'Open' | 'In Progress' | 'Resolved' | 'Closed';
+export type ComplaintSeverity = 'Low' | 'Medium' | 'High' | 'Critical';
+export type ComplaintCategory = 'Room' | 'Food' | 'Service' | 'Noise' | 'Technical' | 'Other';
+
+export interface ComplaintTimelineItem {
+  id: string;
+  date: string;
+  author: string;
+  action: string;
+  note?: string;
+}
+
+export interface Complaint {
+  id: string;
+  reservationNumber: string;
+  guestName: string;
+  roomNumber?: string;
+  category: ComplaintCategory;
+  department?: string;
+  severity: ComplaintSeverity;
+  status: ComplaintStatus;
+  description: string;
+  images?: string[];
+  compensationDetails: {
+      offered: string;
+      cost?: number;
+      guestAccepted?: boolean | null;
+  };
+  assignedTo?: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  timeline: ComplaintTimelineItem[];
+}
+
+export interface BikeSettings {
+  inventory: Record<string, number>;
+  inMaintenance: string[];
+  termsAndConditions: string;
+  maintenanceReasons: Record<string, string>;
+}
+
+export type BikeType = 'City Bike Men' | 'City Bike Women' | 'E-Bike';
+
+export interface BikeReservation {
+  id: string;
+  groupId: string;
+  guestName: string;
+  roomNumber: string;
+  bikeType: BikeType;
+  bikeId?: string;
+  amount: number;
+  startDate: string;
+  endDate: string;
+  startTime?: string;
+  endTime?: string;
+  status: 'Pending' | 'Active' | 'Completed' | 'Cancelled';
+  termsAccepted: boolean;
+  signatureUrl?: string;
+  damageReport?: string;
+  createdAt: string;
+  createdBy: string;
+}
+
+export interface ShiftHandoverItem {
+  id: string;
+  date: string;
+  content: string;
+  category: 'General' | 'Specific';
+  target?: string;
+  authorName: string;
+  priority: 'High' | 'Normal';
+  createdAt: string;
+  expiryDate?: string;
+}
 
 export type DebtorStatus = 'New' | '1st Reminder' | '2nd Reminder' | 'Final Notice' | 'Paid' | 'Correction' | 'Cashlist';
 
@@ -592,129 +691,6 @@ export interface Debtor {
   correctionReason?: string;
 }
 
-// --- CHECKLISTS ---
-
-export type ChecklistItemType = 'text' | 'checkbox' | 'yes_no' | 'select' | 'multi_select' | 'date' | 'file' | 'rating' | 'signature' | 'header';
-
-export interface ChecklistItem {
-  id: string;
-  text: string;
-  type: ChecklistItemType;
-  required?: boolean;
-  isCritical?: boolean;
-  description?: string;
-  options?: string[];
-  explanationRequiredOn?: 'yes' | 'no' | null;
-  explanationLabel?: string;
-  includeTime?: boolean;
-}
-
-export interface ChecklistTemplate {
-  id: string;
-  title: string;
-  description: string;
-  category?: string;
-  targetRoles?: string[];
-  items: ChecklistItem[];
-  createdBy: string;
-  isActive: boolean;
-  createdAt: string;
-}
-
-export interface ChecklistSubmission {
-  id: string;
-  templateId: string;
-  templateSnapshot?: ChecklistTemplate;
-  submittedBy: string;
-  submittedById: string;
-  status: 'Draft' | 'Completed';
-  responses: Record<string, any>;
-  startedAt: string;
-  completedAt?: string;
-}
-
-// --- SURVEYS ---
-
-export type SurveyTarget = 'All' | 'Managers' | 'Seniors';
-export type SurveyQuestionType = 'Rating' | 'Scale10' | 'YesNo' | 'Text' | 'Choice';
-
-export interface SurveyQuestion {
-  id: string;
-  text: string;
-  type: SurveyQuestionType;
-  options?: string[];
-  image?: string;
-}
-
-export interface Survey {
-  id: string;
-  title: string;
-  description: string;
-  targetAudience: SurveyTarget;
-  coverImage?: string;
-  questions: SurveyQuestion[];
-  createdBy: string;
-  createdAt: string;
-  status: 'Active' | 'Closed' | 'Draft';
-  responseCount: number;
-  completedBy: string[];
-}
-
-export interface SurveyResponse {
-  id: string;
-  surveyId: string;
-  employeeId: string;
-  answers: Record<string, string | number>;
-  completedAt: string;
-}
-
-// --- BIKE RENTAL ---
-
-export type BikeType = 'City Bike Men' | 'City Bike Women' | 'E-Bike';
-
-export interface BikeSettings {
-  inventory: Record<BikeType, number>;
-  inMaintenance: string[];
-  termsAndConditions: string;
-  maintenanceReasons: Record<string, string>;
-}
-
-export interface BikeReservation {
-  id: string;
-  groupId: string;
-  guestName: string;
-  roomNumber: string;
-  bikeType: BikeType;
-  bikeId?: string;
-  amount: number;
-  startDate: string;
-  endDate: string;
-  startTime?: string;
-  endTime?: string;
-  status: 'Pending' | 'Active' | 'Completed' | 'Cancelled';
-  termsAccepted: boolean;
-  signatureUrl?: string;
-  damageReport?: string;
-  createdAt: string;
-  createdBy: string;
-}
-
-// --- SHIFT HANDOVER ---
-
-export interface ShiftHandoverItem {
-  id: string;
-  date: string;
-  content: string;
-  category: 'General' | 'Specific';
-  target?: string;
-  authorName: string;
-  priority: 'Normal' | 'High';
-  createdAt: string;
-  expiryDate?: string;
-}
-
-// --- STOCK CONTROL ---
-
 export interface StockItem {
   id: string;
   name: string;
@@ -739,33 +715,56 @@ export interface StockLog {
   notes?: string;
 }
 
-// --- SYSTEM ---
+export type StockOrderStatus = 'Pending' | 'Ordered' | 'Received';
 
-export interface SystemUpdateLog {
-  id: string;
-  version: string;
-  date: string;
-  timestamp: string;
-  author: string;
-  type: 'Feature' | 'Bugfix' | 'Maintenance' | 'Security';
-  impact: 'High' | 'Medium' | 'Low';
-  affectedArea: string;
-  description: string;
-  status: string;
+export interface StockOrderItem {
+  itemId: string;
+  name: string;
+  quantity: number;
+  unit: string;
 }
 
-export interface KnowledgeArticle {
+export interface StockOrder {
+  id: string;
+  items: StockOrderItem[];
+  status: StockOrderStatus;
+  createdAt: string;
+  createdBy: string;
+  orderedAt?: string;
+  receivedAt?: string;
+  receivedBy?: string;
+  notes?: string;
+}
+
+export type SurveyQuestionType = 'Rating' | 'Scale10' | 'YesNo' | 'Text' | 'Choice';
+export type SurveyTarget = 'All' | 'Managers' | 'Seniors';
+
+export interface SurveyQuestion {
+  id: string;
+  text: string;
+  type: SurveyQuestionType;
+  options?: string[];
+  image?: string;
+}
+
+export interface Survey {
   id: string;
   title: string;
-  category: string;
-  content: string;
-  tags: string[];
-  authorName: string;
-  authorRole: string;
-  lastUpdated: string;
-  allowedRoles: string[];
-  allowedDepartments: string[];
-  views?: number;
-  isPinned?: boolean;
-  reviewDate?: string;
+  description: string;
+  targetAudience: SurveyTarget;
+  coverImage?: string;
+  questions: SurveyQuestion[];
+  createdBy: string;
+  createdAt: string;
+  status: 'Active' | 'Closed' | 'Draft';
+  responseCount: number;
+  completedBy: string[]; // List of employee IDs who completed it
+}
+
+export interface SurveyResponse {
+  id: string;
+  surveyId: string;
+  employeeId: string;
+  answers: Record<string, string | number>;
+  completedAt: string;
 }

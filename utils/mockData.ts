@@ -1,4 +1,3 @@
-
 import { Employee, NewsPost, OnboardingTemplate, SystemUpdateLog, KnowledgeArticle, Applicant, Ticket, Vacancy, EvaluationTemplate, AcademyCourse, AcademyProgress, Complaint } from '../types';
 
 export const MOCK_EMPLOYEES: Employee[] = [

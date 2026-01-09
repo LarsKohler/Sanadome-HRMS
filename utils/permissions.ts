@@ -1,4 +1,3 @@
-
 import { Employee, Permission, ViewState, GlobalSettings } from '../types';
 
 // Define default permissions per role

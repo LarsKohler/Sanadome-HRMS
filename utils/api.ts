@@ -1,213 +1,539 @@
-
 import { supabase } from './supabaseClient';
-import { storage } from './storage'; // Fallback
-import { Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BadgeDefinition, AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, Ticket, ChecklistTemplate, ChecklistSubmission, Task, Complaint, BikeSettings, BikeReservation, ShiftHandoverItem, StockItem, StockLog } from '../types';
-import { MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, MOCK_APPLICANTS, MOCK_EVALUATION_TEMPLATES, MOCK_ACADEMY_COURSES, MOCK_ACADEMY_PROGRESS, MOCK_TICKETS, MOCK_COMPLAINTS } from './mockData';
+import { 
+  Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, 
+  Debtor, KnowledgeArticle, Applicant, EvaluationCycle, EvaluationTemplate, BadgeDefinition, 
+  AcademyCourse, AcademyProgress, CompensationPolicy, CompensationLog, GlobalSettings, 
+  Ticket, ChecklistTemplate, ChecklistSubmission, Task, Complaint, BikeSettings, 
+  BikeReservation, ShiftHandoverItem, StockItem, StockLog, StockOrder 
+} from '../types';
+import { 
+  MOCK_EMPLOYEES, MOCK_NEWS, MOCK_TEMPLATES, MOCK_SYSTEM_LOGS, MOCK_KNOWLEDGE_BASE, 
+  MOCK_APPLICANTS, MOCK_EVALUATION_TEMPLATES, MOCK_ACADEMY_COURSES, MOCK_ACADEMY_PROGRESS, 
+  MOCK_TICKETS, MOCK_COMPLAINTS 
+} from './mockData';
+import { storage } from './storage';
 
-// This API layer decides whether to use Supabase (if configured) or LocalStorage (fallback)
 export const isLive = !!supabase;
 
-// --- GITHUB CONFIGURATION ---
 export const GITHUB_CONFIG = {
-    OWNER: 'LarsKohler', 
-    REPO: 'Sanadome-HRMS', 
-    ENABLE: true 
+    ENABLE: false, // Feature flag for GitHub integration
+    OWNER: 'your-org',
+    REPO: 'your-repo'
 };
 
-// Helper to sanitize applicant data (ensure arrays exist)
-const sanitizeApplicants = (data: any[]): Applicant[] => {
-    return data.map(app => ({
-        ...app,
-        interviews: app.interviews || [],
-        scorecards: app.scorecards || [],
-        timeline: app.timeline || []
-    }));
-};
+// Helper for offline unique IDs
+const uuid = () => Math.random().toString(36).substr(2, 9);
 
 export const api = {
-  // --- GLOBAL SETTINGS (MODULE VISIBILITY & BRANDING & ROLES) ---
-  getGlobalSettings: async (): Promise<GlobalSettings | null> => {
-      if (isLive && supabase) {
-          try {
-              // Explicitly select modules AND branding AND roles columns
-              const { data, error } = await supabase.from('global_settings').select('*').eq('id', 'main').single();
-              
-              if (data) {
-                  return {
-                      modules: data.modules || {},
-                      branding: data.branding || { loginImages: [] },
-                      roles: data.roles || undefined // Load roles if present
-                  };
-              }
-              // If no row exists yet, return default structure (will be created on first save)
-              return { modules: {}, branding: { loginImages: [] }, roles: undefined };
-          } catch (e) {
-              console.error("Error fetching global settings:", e);
-              return null;
-          }
+  // --- REALTIME SUBSCRIPTIONS ---
+  subscribe: (
+    onEmployees: (data: Employee[]) => void,
+    onNews: (data: NewsPost[]) => void,
+    onApplicants?: (data: Applicant[]) => void
+  ) => {
+    if (isLive && supabase) {
+      // Supabase Realtime logic would go here
+      const empSub = supabase.channel('employees').on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, payload => {
+          // Fetch fresh data on change
+          api.getEmployees().then(onEmployees);
+      }).subscribe();
+      
+      const newsSub = supabase.channel('news').on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, payload => {
+          api.getNews().then(onNews);
+      }).subscribe();
+
+      let appSub: any;
+      if (onApplicants) {
+          appSub = supabase.channel('applicants').on('postgres_changes', { event: '*', schema: 'public', table: 'applicants' }, payload => {
+              api.getApplicants().then(onApplicants);
+          }).subscribe();
       }
-      const local = localStorage.getItem('hrms_global_settings');
-      if (local) {
-          const settings = JSON.parse(local);
-          if (!settings.branding) settings.branding = { loginImages: [] };
-          return settings;
-      }
-      return { modules: {}, branding: { loginImages: [] } };
+
+      return () => {
+          supabase.removeChannel(empSub);
+          supabase.removeChannel(newsSub);
+          if (appSub) supabase.removeChannel(appSub);
+      };
+    } else {
+      // LocalStorage Polling
+      return storage.subscribe(onEmployees, onNews, () => {}, () => {}); // Notifications ignored in this simplified subscribe
+    }
   },
 
-  saveGlobalSettings: async (settings: GlobalSettings) => {
+  subscribeToDebtors: (callback: (debtors: Debtor[]) => void) => {
       if (isLive && supabase) {
-          try {
-              const { error } = await supabase.from('global_settings').upsert({ 
-                  id: 'main', 
-                  modules: settings.modules, 
-                  branding: settings.branding,
-                  roles: settings.roles || {}, // Save roles
-                  updated_at: new Date().toISOString() 
-              });
-              if (error) console.error("Supabase save settings error:", error.message || error);
-          } catch (e: any) {
-              console.error("API save settings error:", e.message || e);
+          const sub = supabase.channel('debtors').on('postgres_changes', { event: '*', schema: 'public', table: 'debtors' }, () => {
+              api.getDebtors().then(callback);
+          }).subscribe();
+          return () => { supabase.removeChannel(sub); };
+      }
+      return () => {}; // No-op for offline
+  },
+
+  // --- EMPLOYEES ---
+  getEmployees: async (): Promise<Employee[]> => {
+    if (isLive && supabase) {
+      const { data } = await supabase.from('employees').select('data');
+      return data ? data.map((row: any) => row.data) : [];
+    }
+    return storage.getEmployees();
+  },
+
+  saveEmployee: async (employee: Employee, isNew = false): Promise<boolean> => {
+    if (isLive && supabase) {
+      const { error } = await supabase.from('employees').upsert({ id: employee.id, data: employee });
+      if (error) { console.error(error); return false; }
+      return true;
+    }
+    const employees = storage.getEmployees();
+    const index = employees.findIndex(e => e.id === employee.id);
+    if (index >= 0) employees[index] = employee;
+    else employees.push(employee);
+    storage.saveEmployees(employees);
+    return true;
+  },
+
+  deleteEmployee: async (id: string) => {
+    if (isLive && supabase) {
+      await supabase.from('employees').delete().eq('id', id);
+    } else {
+      const employees = storage.getEmployees().filter(e => e.id !== id);
+      storage.saveEmployees(employees);
+    }
+  },
+
+  loginUser: async (email: string, pass: string): Promise<Employee | null> => {
+      const employees = await api.getEmployees();
+      const user = employees.find(e => e.email.toLowerCase() === email.toLowerCase());
+      
+      if (user) {
+          // Check for default or set password
+          const validPass = user.password || 'sanadome123';
+          if (validPass === pass) {
+              return user;
           }
+      }
+      return null;
+  },
+
+  // --- NEWS ---
+  getNews: async (): Promise<NewsPost[]> => {
+    if (isLive && supabase) {
+      const { data } = await supabase.from('news').select('data');
+      return data ? data.map((row: any) => row.data) : [];
+    }
+    return storage.getNews();
+  },
+
+  saveNewsPost: async (post: NewsPost) => {
+    if (isLive && supabase) {
+      await supabase.from('news').upsert({ id: post.id, data: post });
+    } else {
+      const news = storage.getNews();
+      storage.saveNews([post, ...news]);
+    }
+  },
+
+  updateNewsPost: async (post: NewsPost) => {
+    if (isLive && supabase) {
+      await supabase.from('news').upsert({ id: post.id, data: post });
+    } else {
+      const news = storage.getNews().map(n => n.id === post.id ? post : n);
+      storage.saveNews(news);
+    }
+  },
+
+  deleteNewsPost: async (id: string) => {
+    if (isLive && supabase) {
+      await supabase.from('news').delete().eq('id', id);
+    } else {
+      const news = storage.getNews().filter(n => n.id !== id);
+      storage.saveNews(news);
+    }
+  },
+
+  // --- TEMPLATES ---
+  getTemplates: async (): Promise<OnboardingTemplate[]> => {
+      if (isLive && supabase) {
+          const { data } = await supabase.from('onboarding_templates').select('data');
+          return data ? data.map((row: any) => row.data) : [];
+      }
+      return storage.getTemplates();
+  },
+
+  saveTemplate: async (template: OnboardingTemplate) => {
+      if (isLive && supabase) {
+          await supabase.from('onboarding_templates').upsert({ id: template.id, data: template });
       } else {
-          localStorage.setItem('hrms_global_settings', JSON.stringify(settings));
+          const tpls = storage.getTemplates();
+          const idx = tpls.findIndex(t => t.id === template.id);
+          if (idx >= 0) tpls[idx] = template;
+          else tpls.push(template);
+          storage.saveTemplates(tpls);
       }
   },
 
-  // --- COMPLAINTS (NEW) ---
-  getComplaints: async (): Promise<Complaint[]> => {
+  deleteTemplate: async (id: string) => {
       if (isLive && supabase) {
-          try {
-              const { data, error } = await supabase.from('complaints').select('*');
-              if (!error && data) {
-                  return data.map((row: any) => ({
-                      id: row.id,
-                      reservationNumber: row.reservation_number,
-                      guestName: row.guest_name,
-                      roomNumber: row.room_number, // Map snake_case to camelCase
-                      category: row.category,
-                      department: row.department, // Map new field
-                      severity: row.severity,
-                      status: row.status,
-                      description: row.description,
-                      images: row.images || [], // Map new field
-                      compensationDetails: row.compensation_details || { offered: '', guestAccepted: null },
-                      assignedTo: row.assigned_to,
-                      createdBy: row.created_by,
-                      createdAt: row.created_at,
-                      updatedAt: row.updated_at,
-                      timeline: row.timeline || []
-                  }));
-              }
-              return MOCK_COMPLAINTS;
-          } catch (e) {
-              return MOCK_COMPLAINTS;
-          }
-      }
-      const local = localStorage.getItem('hrms_complaints');
-      return local ? JSON.parse(local) : MOCK_COMPLAINTS;
-  },
-
-  saveComplaint: async (complaint: Complaint) => {
-      if (isLive && supabase) {
-          const payload = {
-              id: complaint.id,
-              reservation_number: complaint.reservationNumber,
-              guest_name: complaint.guestName,
-              room_number: complaint.roomNumber,
-              category: complaint.category,
-              department: complaint.department, // NEW
-              severity: complaint.severity,
-              status: complaint.status,
-              description: complaint.description,
-              images: complaint.images, // NEW
-              compensation_details: complaint.compensationDetails,
-              assigned_to: complaint.assignedTo,
-              created_by: complaint.createdBy,
-              created_at: complaint.createdAt,
-              updated_at: new Date().toISOString(), // Always update timestamp
-              timeline: complaint.timeline
-          };
-          await supabase.from('complaints').upsert(payload);
+          await supabase.from('onboarding_templates').delete().eq('id', id);
       } else {
-          const current = await api.getComplaints();
-          const idx = current.findIndex(c => c.id === complaint.id);
-          if (idx >= 0) current[idx] = complaint;
-          else current.unshift(complaint);
-          localStorage.setItem('hrms_complaints', JSON.stringify(current));
+          const tpls = storage.getTemplates().filter(t => t.id !== id);
+          storage.saveTemplates(tpls);
       }
   },
 
-  deleteComplaint: async (id: string) => {
+  // --- SYSTEM LOGS ---
+  getSystemLogs: async (): Promise<SystemUpdateLog[]> => {
       if (isLive && supabase) {
-          await supabase.from('complaints').delete().eq('id', id);
+          const { data } = await supabase.from('system_updates').select('data');
+          return data ? data.map((row: any) => row.data) : [];
+      }
+      const local = localStorage.getItem('hrms_system_logs');
+      return local ? JSON.parse(local) : MOCK_SYSTEM_LOGS;
+  },
+
+  saveSystemLog: async (log: SystemUpdateLog) => {
+      if (isLive && supabase) {
+          await supabase.from('system_updates').upsert({ id: log.id, data: log });
       } else {
-          const current = await api.getComplaints();
-          localStorage.setItem('hrms_complaints', JSON.stringify(current.filter(c => c.id !== id)));
+          const current = await api.getSystemLogs();
+          localStorage.setItem('hrms_system_logs', JSON.stringify([log, ...current]));
       }
   },
 
-  // --- TASKS ---
-  getTasks: async (): Promise<Task[]> => {
+  // --- KNOWLEDGE BASE ---
+  getKnowledgeArticles: async (): Promise<KnowledgeArticle[]> => {
       if (isLive && supabase) {
-          try {
-              const { data, error } = await supabase.from('tasks').select('data');
-              if (!error && data) return data.map((row: any) => row.data);
-              return [];
-          } catch (e) {
-              return [];
-          }
+          const { data } = await supabase.from('knowledge_base').select('data');
+          return data ? data.map((row: any) => row.data) : [];
       }
-      const local = localStorage.getItem('hrms_tasks');
+      const local = localStorage.getItem('hrms_kb_articles');
+      return local ? JSON.parse(local) : MOCK_KNOWLEDGE_BASE;
+  },
+
+  saveKnowledgeArticle: async (article: KnowledgeArticle) => {
+      if (isLive && supabase) {
+          await supabase.from('knowledge_base').upsert({ id: article.id, data: article });
+      } else {
+          const current = await api.getKnowledgeArticles();
+          const idx = current.findIndex(a => a.id === article.id);
+          if (idx >= 0) current[idx] = article;
+          else current.push(article);
+          localStorage.setItem('hrms_kb_articles', JSON.stringify(current));
+      }
+  },
+
+  deleteKnowledgeArticle: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('knowledge_base').delete().eq('id', id);
+      } else {
+          const current = await api.getKnowledgeArticles();
+          localStorage.setItem('hrms_kb_articles', JSON.stringify(current.filter(a => a.id !== id)));
+      }
+  },
+
+  // --- TICKETS ---
+  getTickets: async (): Promise<Ticket[]> => {
+      if (isLive && supabase) {
+          const { data } = await supabase.from('tickets').select('data');
+          return data ? data.map((row: any) => row.data) : [];
+      }
+      const local = localStorage.getItem('hrms_tickets_v2');
+      return local ? JSON.parse(local) : MOCK_TICKETS;
+  },
+
+  saveTicket: async (ticket: Ticket) => {
+      if (isLive && supabase) {
+          await supabase.from('tickets').upsert({ id: ticket.id, data: ticket });
+      } else {
+          const current = await api.getTickets();
+          const idx = current.findIndex(t => t.id === ticket.id);
+          if (idx >= 0) current[idx] = ticket;
+          else current.push(ticket);
+          localStorage.setItem('hrms_tickets_v2', JSON.stringify(current));
+      }
+  },
+
+  // --- RECRUITMENT ---
+  getApplicants: async (): Promise<Applicant[]> => {
+      if (isLive && supabase) {
+          const { data } = await supabase.from('applicants').select('data');
+          return data ? data.map((row: any) => row.data) : [];
+      }
+      const local = localStorage.getItem('hrms_applicants');
+      return local ? JSON.parse(local) : MOCK_APPLICANTS;
+  },
+
+  saveApplicant: async (applicant: Applicant) => {
+      if (isLive && supabase) {
+          await supabase.from('applicants').upsert({ id: applicant.id, data: applicant });
+      } else {
+          const current = await api.getApplicants();
+          const idx = current.findIndex(a => a.id === applicant.id);
+          if (idx >= 0) current[idx] = applicant;
+          else current.push(applicant);
+          localStorage.setItem('hrms_applicants', JSON.stringify(current));
+      }
+  },
+
+  // --- DEBTORS ---
+  getDebtors: async (): Promise<Debtor[]> => {
+      if (isLive && supabase) {
+          const { data } = await supabase.from('debtors').select('data');
+          return data ? data.map((row: any) => row.data) : [];
+      }
+      const local = localStorage.getItem('hrms_debtors');
       return local ? JSON.parse(local) : [];
   },
 
-  saveTask: async (task: Task) => {
+  saveDebtors: async (debtors: Debtor[]) => {
       if (isLive && supabase) {
-          await supabase.from('tasks').upsert({ 
-              id: task.id, 
-              assignee_id: task.assigneeId || null,
-              is_general: task.isGeneral,
-              data: task 
-          });
+          const updates = debtors.map(d => supabase.from('debtors').upsert({ id: d.id, data: d }));
+          await Promise.all(updates);
       } else {
-          const current = await api.getTasks();
-          const index = current.findIndex(t => t.id === task.id);
-          if (index >= 0) current[index] = task;
-          else current.push(task);
-          localStorage.setItem('hrms_tasks', JSON.stringify(current));
+          localStorage.setItem('hrms_debtors', JSON.stringify(debtors));
       }
   },
 
-  deleteTask: async (id: string) => {
+  deleteDebtor: async (id: string): Promise<boolean> => {
       if (isLive && supabase) {
-          await supabase.from('tasks').delete().eq('id', id);
+          const { error } = await supabase.from('debtors').delete().eq('id', id);
+          return !error;
       } else {
-          const current = await api.getTasks();
-          localStorage.setItem('hrms_tasks', JSON.stringify(current.filter(t => t.id !== id)));
+          const current = await api.getDebtors();
+          localStorage.setItem('hrms_debtors', JSON.stringify(current.filter(d => d.id !== id)));
+          return true;
+      }
+  },
+
+  deleteDebtors: async (ids: string[]): Promise<boolean> => {
+      if (isLive && supabase) {
+          const { error } = await supabase.from('debtors').delete().in('id', ids);
+          return !error;
+      } else {
+          const current = await api.getDebtors();
+          localStorage.setItem('hrms_debtors', JSON.stringify(current.filter(d => !ids.includes(d.id))));
+          return true;
+      }
+  },
+
+  // --- NOTIFICATIONS ---
+  saveNotification: async (notification: Notification) => {
+      if (isLive && supabase) {
+          await supabase.from('notifications').upsert({ id: notification.id, data: notification });
+      } else {
+          // Local storage notifications logic if needed
+      }
+  },
+
+  // --- EVALUATION TEMPLATES ---
+  getEvaluationTemplates: async (): Promise<EvaluationTemplate[]> => {
+      if (isLive && supabase) {
+          // Assuming stored in system_updates table or dedicated
+          // For now, let's use a mock
+          return MOCK_EVALUATION_TEMPLATES;
+      }
+      const local = localStorage.getItem('hrms_evaluation_templates');
+      return local ? JSON.parse(local) : MOCK_EVALUATION_TEMPLATES;
+  },
+
+  saveEvaluationTemplate: async (template: EvaluationTemplate) => {
+      const current = await api.getEvaluationTemplates();
+      const idx = current.findIndex(t => t.id === template.id);
+      if (idx >= 0) current[idx] = template;
+      else current.push(template);
+      localStorage.setItem('hrms_evaluation_templates', JSON.stringify(current));
+  },
+
+  deleteEvaluationTemplate: async (id: string) => {
+      const current = await api.getEvaluationTemplates();
+      localStorage.setItem('hrms_evaluation_templates', JSON.stringify(current.filter(t => t.id !== id)));
+  },
+
+  // --- EVALUATIONS (Stored in Employee object, but helper for single save) ---
+  saveEvaluation: async (evalCycle: EvaluationCycle) => {
+      // In this architecture, evaluations are inside employee objects.
+      // So saving an evaluation typically means saving the employee.
+      // This helper might be redundant unless we have a separate table.
+      // Assuming separate table 'evaluations' for indexing/performance in future
+      if (isLive && supabase) {
+          await supabase.from('evaluations').upsert({ id: evalCycle.id, employee_id: evalCycle.employeeId, data: evalCycle });
+      }
+  },
+
+  deleteEvaluation: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('evaluations').delete().eq('id', id);
+      }
+  },
+
+  // --- BADGES ---
+  getBadges: async (): Promise<BadgeDefinition[]> => {
+      if (isLive && supabase) {
+          // Assuming badges are part of global settings or separate table.
+          // Let's use local storage for now or fetch from global settings.
+          const settings = await api.getGlobalSettings();
+          return (settings as any)?.badges || [];
+      }
+      const local = localStorage.getItem('hrms_badges');
+      return local ? JSON.parse(local) : [];
+  },
+
+  saveBadge: async (badge: BadgeDefinition) => {
+      const current = await api.getBadges();
+      const idx = current.findIndex(b => b.id === badge.id);
+      if (idx >= 0) current[idx] = badge;
+      else current.push(badge);
+      
+      if (isLive && supabase) {
+          // Store in global settings for now
+          const settings = await api.getGlobalSettings();
+          const newSettings = { ...settings, badges: current };
+          await api.saveGlobalSettings(newSettings as any);
+      } else {
+          localStorage.setItem('hrms_badges', JSON.stringify(current));
+      }
+  },
+
+  deleteBadge: async (id: string) => {
+      const current = await api.getBadges();
+      const updated = current.filter(b => b.id !== id);
+      if (isLive && supabase) {
+          const settings = await api.getGlobalSettings();
+          const newSettings = { ...settings, badges: updated };
+          await api.saveGlobalSettings(newSettings as any);
+      } else {
+          localStorage.setItem('hrms_badges', JSON.stringify(updated));
+      }
+  },
+
+  // --- ACADEMY ---
+  getAcademyCourses: async (): Promise<AcademyCourse[]> => {
+      if (isLive && supabase) {
+          const { data } = await supabase.from('academy_courses').select('data');
+          return data ? data.map((row: any) => row.data) : [];
+      }
+      const local = localStorage.getItem('hrms_academy_courses');
+      return local ? JSON.parse(local) : MOCK_ACADEMY_COURSES;
+  },
+
+  saveAcademyCourse: async (course: AcademyCourse) => {
+      if (isLive && supabase) {
+          await supabase.from('academy_courses').upsert({ id: course.id, data: course });
+      } else {
+          const current = await api.getAcademyCourses();
+          const idx = current.findIndex(c => c.id === course.id);
+          if (idx >= 0) current[idx] = course;
+          else current.push(course);
+          localStorage.setItem('hrms_academy_courses', JSON.stringify(current));
+      }
+  },
+
+  deleteAcademyCourse: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('academy_courses').delete().eq('id', id);
+      } else {
+          const current = await api.getAcademyCourses();
+          localStorage.setItem('hrms_academy_courses', JSON.stringify(current.filter(c => c.id !== id)));
+      }
+  },
+
+  getAcademyProgress: async (): Promise<AcademyProgress[]> => {
+      if (isLive && supabase) {
+          const { data } = await supabase.from('academy_progress').select('data');
+          return data ? data.map((row: any) => row.data) : [];
+      }
+      const local = localStorage.getItem('hrms_academy_progress');
+      return local ? JSON.parse(local) : MOCK_ACADEMY_PROGRESS;
+  },
+
+  saveAcademyProgress: async (progress: AcademyProgress) => {
+      if (isLive && supabase) {
+          await supabase.from('academy_progress').upsert({ id: progress.id, employee_id: progress.employeeId, course_id: progress.courseId, data: progress });
+      } else {
+          const current = await api.getAcademyProgress();
+          const idx = current.findIndex(p => p.id === progress.id);
+          if (idx >= 0) current[idx] = progress;
+          else current.push(progress);
+          localStorage.setItem('hrms_academy_progress', JSON.stringify(current));
+      }
+  },
+
+  // --- COMPENSATION ---
+  getCompensationPolicies: async (): Promise<CompensationPolicy[]> => {
+      if (isLive && supabase) {
+          const { data } = await supabase.from('compensation_policies').select('data');
+          return data ? data.map((row: any) => row.data) : [];
+      }
+      const local = localStorage.getItem('hrms_comp_policies');
+      return local ? JSON.parse(local) : [];
+  },
+
+  saveCompensationPolicy: async (policy: CompensationPolicy) => {
+      if (isLive && supabase) {
+          await supabase.from('compensation_policies').upsert({ id: policy.id, data: policy });
+      } else {
+          const current = await api.getCompensationPolicies();
+          const idx = current.findIndex(p => p.id === policy.id);
+          if (idx >= 0) current[idx] = policy;
+          else current.push(policy);
+          localStorage.setItem('hrms_comp_policies', JSON.stringify(current));
+      }
+  },
+
+  deleteCompensationPolicy: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('compensation_policies').delete().eq('id', id);
+      } else {
+          const current = await api.getCompensationPolicies();
+          localStorage.setItem('hrms_comp_policies', JSON.stringify(current.filter(p => p.id !== id)));
+      }
+  },
+
+  getCompensationLogs: async (): Promise<CompensationLog[]> => {
+      if (isLive && supabase) {
+          const { data } = await supabase.from('compensation_logs').select('data');
+          return data ? data.map((row: any) => row.data) : [];
+      }
+      const local = localStorage.getItem('hrms_comp_logs');
+      return local ? JSON.parse(local) : [];
+  },
+
+  saveCompensationLog: async (log: CompensationLog) => {
+      if (isLive && supabase) {
+          await supabase.from('compensation_logs').upsert({ id: log.id, data: log });
+      } else {
+          const current = await api.getCompensationLogs();
+          const idx = current.findIndex(l => l.id === log.id);
+          if (idx >= 0) current[idx] = log;
+          else current.push(log);
+          localStorage.setItem('hrms_comp_logs', JSON.stringify(current));
+      }
+  },
+
+  deleteCompensationLog: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('compensation_logs').delete().eq('id', id);
+      } else {
+          const current = await api.getCompensationLogs();
+          localStorage.setItem('hrms_comp_logs', JSON.stringify(current.filter(l => l.id !== id)));
       }
   },
 
   // --- CHECKLISTS ---
   getChecklistTemplates: async (): Promise<ChecklistTemplate[]> => {
       if (isLive && supabase) {
-          try {
-              const { data, error } = await supabase.from('checklist_templates').select('*');
-              if (!error && data) {
-                  return data.map((d: any) => ({
-                      id: d.id,
-                      title: d.title,
-                      description: d.description,
-                      items: d.items,
-                      createdBy: d.created_by,
-                      isActive: d.is_active,
-                      createdAt: d.created_at
-                  }));
-              }
-              return [];
-          } catch (e) {
-              return [];
-          }
+          const { data } = await supabase.from('checklist_templates').select('id, title, description, items, created_by, is_active, created_at'); // Mapping needed
+          // Map DB columns to object
+          return data ? data.map((row: any) => ({
+              id: row.id,
+              title: row.title,
+              description: row.description,
+              items: row.items,
+              createdBy: row.created_by,
+              isActive: row.is_active,
+              createdAt: row.created_at
+          })) : [];
       }
       const local = localStorage.getItem('hrms_checklist_templates');
       return local ? JSON.parse(local) : [];
@@ -221,12 +547,13 @@ export const api = {
               description: template.description,
               items: template.items,
               created_by: template.createdBy,
-              is_active: template.isActive
+              is_active: template.isActive,
+              created_at: template.createdAt
           });
       } else {
           const current = await api.getChecklistTemplates();
-          const index = current.findIndex(t => t.id === template.id);
-          if (index >= 0) current[index] = template;
+          const idx = current.findIndex(t => t.id === template.id);
+          if (idx >= 0) current[idx] = template;
           else current.push(template);
           localStorage.setItem('hrms_checklist_templates', JSON.stringify(current));
       }
@@ -243,25 +570,18 @@ export const api = {
 
   getChecklistSubmissions: async (): Promise<ChecklistSubmission[]> => {
       if (isLive && supabase) {
-          try {
-              const { data, error } = await supabase.from('checklist_submissions').select('*');
-              if (!error && data) {
-                  return data.map((d: any) => ({
-                      id: d.id,
-                      template_id: d.template_id,
-                      templateSnapshot: d.template_snapshot,
-                      submittedBy: d.submitted_by,
-                      submittedById: d.submitted_by_id,
-                      status: d.status,
-                      responses: d.responses,
-                      startedAt: d.started_at,
-                      completedAt: d.completed_at
-                  }));
-              }
-              return [];
-          } catch (e) {
-              return [];
-          }
+          const { data } = await supabase.from('checklist_submissions').select('*');
+          return data ? data.map((row: any) => ({
+              id: row.id,
+              templateId: row.template_id,
+              templateSnapshot: row.template_snapshot,
+              submittedBy: row.submitted_by,
+              submittedById: row.submitted_by_id,
+              status: row.status,
+              responses: row.responses,
+              startedAt: row.started_at,
+              completedAt: row.completed_at
+          })) : [];
       }
       const local = localStorage.getItem('hrms_checklist_submissions');
       return local ? JSON.parse(local) : [];
@@ -282,586 +602,152 @@ export const api = {
           });
       } else {
           const current = await api.getChecklistSubmissions();
-          const index = current.findIndex(s => s.id === submission.id);
-          if (index >= 0) current[index] = submission;
+          const idx = current.findIndex(s => s.id === submission.id);
+          if (idx >= 0) current[idx] = submission;
           else current.push(submission);
           localStorage.setItem('hrms_checklist_submissions', JSON.stringify(current));
       }
   },
 
-  // --- TICKETS ---
-  getTickets: async (): Promise<Ticket[]> => {
+  // --- GLOBAL SETTINGS ---
+  getGlobalSettings: async (): Promise<GlobalSettings | null> => {
       if (isLive && supabase) {
-          try {
-              const { data, error } = await supabase.from('tickets').select('data');
-              if (!error && data && data.length > 0) return data.map((row: any) => row.data);
-              return MOCK_TICKETS;
-          } catch (e) {
-              return MOCK_TICKETS;
-          }
-      }
-      const local = localStorage.getItem('hrms_tickets');
-      return local ? JSON.parse(local) : MOCK_TICKETS;
-  },
-
-  saveTicket: async (ticket: Ticket) => {
-      if (isLive && supabase) {
-          await supabase.from('tickets').upsert({ id: ticket.id, data: ticket });
-      } else {
-          const current = await api.getTickets();
-          const index = current.findIndex(t => t.id === ticket.id);
-          if (index >= 0) current[index] = ticket;
-          else current.unshift(ticket);
-          localStorage.setItem('hrms_tickets', JSON.stringify(current));
-      }
-  },
-
-  // --- COMPENSATION POLICIES & LOGS (SUPABASE ONLY) ---
-  getCompensationPolicies: async (): Promise<CompensationPolicy[]> => {
-      if (isLive && supabase) {
-          try {
-              const { data, error } = await supabase.from('compensation_policies').select('data');
-              if (!error && data && data.length > 0) return data.map((row: any) => row.data);
-              return [];
-          } catch (e) {
-              console.error("Error fetching compensation policies", e);
-              return [];
-          }
-      }
-      return []; 
-  },
-
-  saveCompensationPolicy: async (policy: CompensationPolicy) => {
-      if (isLive && supabase) {
-          await supabase.from('compensation_policies').upsert({ id: policy.id, data: policy });
-      }
-  },
-
-  deleteCompensationPolicy: async (id: string) => {
-      if (isLive && supabase) {
-          await supabase.from('compensation_policies').delete().eq('id', id);
-      }
-  },
-
-  getCompensationLogs: async (): Promise<CompensationLog[]> => {
-      if (isLive && supabase) {
-          try {
-              const { data, error } = await supabase.from('compensation_logs').select('data');
-              if (!error && data && data.length > 0) return data.map((row: any) => row.data);
-              return [];
-          } catch (e) {
-              console.error("Error fetching compensation logs", e);
-              return [];
-          }
-      }
-      return [];
-  },
-
-  saveCompensationLog: async (log: CompensationLog) => {
-      if (isLive && supabase) {
-          await supabase.from('compensation_logs').upsert({ id: log.id, data: log });
-      }
-  },
-
-  deleteCompensationLog: async (id: string) => {
-      if (isLive && supabase) {
-          await supabase.from('compensation_logs').delete().eq('id', id);
-      }
-  },
-
-  // --- ACADEMY (NEW) ---
-  getAcademyCourses: async (): Promise<AcademyCourse[]> => {
-      if (isLive && supabase) {
-          try {
-              const { data, error } = await supabase.from('academy_courses').select('data');
-              if (!error && data) return data.map((row: any) => row.data);
-              return MOCK_ACADEMY_COURSES;
-          } catch (e) {
-              return MOCK_ACADEMY_COURSES;
-          }
-      }
-      const local = localStorage.getItem('hrms_academy_courses');
-      return local ? JSON.parse(local) : MOCK_ACADEMY_COURSES;
-  },
-
-  saveAcademyCourse: async (course: AcademyCourse) => {
-      if (isLive && supabase) {
-          await supabase.from('academy_courses').upsert({ id: course.id, data: course });
-      } else {
-          const current = await api.getAcademyCourses();
-          const index = current.findIndex(c => c.id === course.id);
-          if (index >= 0) current[index] = course;
-          else current.push(course);
-          localStorage.setItem('hrms_academy_courses', JSON.stringify(current));
-      }
-  },
-
-  deleteAcademyCourse: async (id: string) => {
-      if (isLive && supabase) {
-          await supabase.from('academy_courses').delete().eq('id', id);
-      } else {
-          const current = await api.getAcademyCourses();
-          const filtered = current.filter(c => c.id !== id);
-          localStorage.setItem('hrms_academy_courses', JSON.stringify(filtered));
-      }
-  },
-
-  getAcademyProgress: async (): Promise<AcademyProgress[]> => {
-      if (isLive && supabase) {
-          try {
-              const { data, error } = await supabase.from('academy_progress').select('data, employee_id, course_id');
-              if (!error && data) return data.map((row: any) => row.data);
-              return MOCK_ACADEMY_PROGRESS;
-          } catch (e) {
-              return MOCK_ACADEMY_PROGRESS;
-          }
-      }
-      const local = localStorage.getItem('hrms_academy_progress');
-      return local ? JSON.parse(local) : MOCK_ACADEMY_PROGRESS;
-  },
-
-  saveAcademyProgress: async (progress: AcademyProgress) => {
-      if (isLive && supabase) {
-          await supabase.from('academy_progress').upsert({ id: progress.id, employee_id: progress.employeeId, course_id: progress.courseId, data: progress });
-      } else {
-          const current = await api.getAcademyProgress();
-          const index = current.findIndex(p => p.id === progress.id);
-          if (index >= 0) current[index] = progress;
-          else current.push(progress);
-          localStorage.setItem('hrms_academy_progress', JSON.stringify(current));
-      }
-  },
-
-  // --- RECRUITMENT ---
-  getApplicants: async (): Promise<Applicant[]> => {
-      if (isLive && supabase) {
-          try {
-              const { data, error } = await supabase.from('applicants').select('data');
-              if (!error && data && data.length > 0) return sanitizeApplicants(data.map((row: any) => row.data));
-              return sanitizeApplicants(MOCK_APPLICANTS);
-          } catch (e) {
-              return sanitizeApplicants(MOCK_APPLICANTS);
-          }
-      }
-      const local = localStorage.getItem('hrms_applicants');
-      return sanitizeApplicants(local ? JSON.parse(local) : MOCK_APPLICANTS);
-  },
-
-  saveApplicant: async (applicant: Applicant) => {
-      if (isLive && supabase) {
-          await supabase.from('applicants').upsert({ id: applicant.id, data: applicant });
-      } else {
-          const current = await api.getApplicants();
-          const index = current.findIndex(a => a.id === applicant.id);
-          if (index >= 0) current[index] = applicant;
-          else current.push(applicant);
-          localStorage.setItem('hrms_applicants', JSON.stringify(current));
-      }
-  },
-
-  // --- EXISTING METHODS ---
-  getEmployees: async (): Promise<Employee[]> => {
-    if (isLive && supabase) {
-      try {
-        const { data, error } = await supabase.from('employees').select('data');
-        if (error) throw error;
-        // Map Supabase 'data' column back to Employee object
-        return data.map((row: any) => row.data) as Employee[];
-      } catch (e) {
-        console.warn("Supabase fetch failed, falling back to storage", e);
-        return storage.getEmployees();
-      }
-    }
-    return storage.getEmployees();
-  },
-
-  saveEmployee: async (employee: Employee, isNew = false): Promise<boolean> => {
-    // 1. Update Local Storage first (Optimistic / Fallback)
-    const currentLocal = storage.getEmployees();
-    const updatedLocal = [employee, ...currentLocal.filter(e => e.id !== employee.id)];
-    storage.saveEmployees(updatedLocal);
-
-    if (isLive && supabase) {
-      try {
-        // Attempt 1: RPC (Security Definer to bypass RLS)
-        // We try this because standard UPSERT often fails if the user isn't authenticated via Supabase Auth
-        // and we are updating the 'employees' table which might be protected.
-        const { error: rpcError } = await supabase.rpc('update_employee_data', { 
-            p_id: employee.id, 
-            p_data: employee 
-        });
-
-        if (!rpcError) return true;
-
-        // Attempt 2: Standard Upsert (Fallback if RPC missing)
-        console.log("RPC failed, trying standard upsert:", rpcError.message);
-        const { error: upsertError } = await supabase
-          .from('employees')
-          .upsert({ id: employee.id, data: employee });
-        
-        if (upsertError) {
-            console.warn("Supabase upsert failed (using local fallback):", upsertError.message);
-            // We return true because local storage was updated, so the UI should proceed.
-            return true; 
-        }
-        return true;
-      } catch (e) {
-        console.warn("Supabase exception:", e);
-        return true; 
-      }
-    }
-    return true;
-  },
-
-  deleteEmployee: async (id: string) => {
-      if (isLive && supabase) {
-          await supabase.from('employees').delete().eq('id', id);
-      } else {
-          const current = storage.getEmployees();
-          storage.saveEmployees(current.filter(e => e.id !== id));
-      }
-  },
-
-  getNews: async (): Promise<NewsPost[]> => {
-    if (isLive && supabase) {
-      const { data } = await supabase.from('news').select('data');
-      return data ? data.map((row: any) => row.data) : MOCK_NEWS;
-    }
-    return storage.getNews();
-  },
-
-  saveNewsPost: async (post: NewsPost) => {
-      if (isLive && supabase) {
-          await supabase.from('news').insert({ id: post.id, data: post });
-      } else {
-          const current = storage.getNews();
-          storage.saveNews([post, ...current]);
-      }
-  },
-
-  updateNewsPost: async (post: NewsPost) => {
-      if (isLive && supabase) {
-          await supabase.from('news').update({ data: post }).eq('id', post.id);
-      } else {
-          const current = storage.getNews();
-          storage.saveNews(current.map(n => n.id === post.id ? post : n));
-      }
-  },
-
-  deleteNewsPost: async (id: string) => {
-      if (isLive && supabase) {
-          await supabase.from('news').delete().eq('id', id);
-      } else {
-          const current = storage.getNews();
-          storage.saveNews(current.filter(n => n.id !== id));
-      }
-  },
-
-  getTemplates: async (): Promise<OnboardingTemplate[]> => {
-      if (isLive && supabase) {
-          const { data } = await supabase.from('onboarding_templates').select('data');
-          return data ? data.map((row: any) => row.data) : MOCK_TEMPLATES;
-      }
-      return storage.getTemplates();
-  },
-
-  saveTemplate: async (template: OnboardingTemplate) => {
-      if (isLive && supabase) {
-          await supabase.from('onboarding_templates').upsert({ id: template.id, data: template });
-      } else {
-          const current = storage.getTemplates();
-          const exists = current.find(t => t.id === template.id);
-          const updated = exists ? current.map(t => t.id === template.id ? template : t) : [...current, template];
-          storage.saveTemplates(updated);
-      }
-  },
-
-  deleteTemplate: async (id: string) => {
-      if (isLive && supabase) {
-          await supabase.from('onboarding_templates').delete().eq('id', id);
-      } else {
-          const current = storage.getTemplates();
-          storage.saveTemplates(current.filter(t => t.id !== id));
-      }
-  },
-
-  saveNotification: async (notification: Notification) => {
-    if (isLive && supabase) {
-        await supabase.from('notifications').upsert({ id: notification.id, data: notification });
-    } else {
-        const current = storage.getNotifications();
-        storage.saveNotifications([...current, notification]);
-    }
-  },
-
-  // --- Realtime Subscription ---
-  subscribe: (
-    onEmployees: (data: Employee[]) => void,
-    onNews: (data: NewsPost[]) => void,
-    onApplicants?: (data: Applicant[]) => void
-  ) => {
-    if (isLive && supabase) {
-      const channel = supabase.channel('public-db-changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, async () => {
-            const data = await api.getEmployees();
-            onEmployees(data);
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'news' }, async () => {
-            const data = await api.getNews();
-            onNews(data);
-        })
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'applicants' }, async () => {
-            if (onApplicants) {
-                const data = await api.getApplicants();
-                onApplicants(data);
-            }
-        })
-        .subscribe();
-
-      return () => { supabase.removeChannel(channel); };
-    } else {
-      // Fallback subscription to local storage logic is less robust without notifications arg
-      // but assuming storage.subscribe is updated or simplified.
-      return () => {};
-    }
-  },
-
-  loginUser: async (email: string, pass: string): Promise<Employee | null> => {
-      // 1. Try Supabase Auth first (if configured)
-      if (isLive && supabase) {
-          // This is a placeholder for real Supabase Auth. 
-          // Since we use a custom 'employees' table, we manually check it here for the demo.
-          // In production: await supabase.auth.signInWithPassword(...)
-      }
-
-      // 2. Fallback: Check local/mock database
-      const employees = await api.getEmployees();
-      const user = employees.find(e => e.email.toLowerCase() === email.toLowerCase());
-      
-      // Simple password check (In prod, use hash)
-      if (user && (user.password === pass || pass === 'sanadome123')) {
-          return user;
-      }
-      return null;
-  },
-
-  // ... (Other existing methods like uploadFile, etc. kept as is) ...
-  uploadFile: async (file: File): Promise<string> => {
-      if (isLive && supabase) {
-          const fileName = `${Date.now()}-${file.name}`;
-          const { data, error } = await supabase.storage.from('documents').upload(fileName, file);
+          const { data } = await supabase.from('global_settings').select('*').single();
           if (data) {
-              const { data: publicUrl } = supabase.storage.from('documents').getPublicUrl(fileName);
-              return publicUrl.publicUrl;
+              return {
+                  modules: data.modules || {},
+                  branding: data.branding || {},
+                  roles: data.roles || {}
+              };
           }
-      }
-      // FIXED: Use FileReader to convert to Base64 so it persists in LocalStorage
-      return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = error => reject(error);
-      });
-  },
-
-  deleteFile: async (path: string) => {
-      if (isLive && supabase) {
-          const fileName = path.split('/').pop();
-          if (fileName) await supabase.storage.from('documents').remove([fileName]);
-      }
-  },
-
-  // ... (Debtors, KB, System Logs, Evaluations - unchanged logic) ...
-  getDebtors: async (): Promise<Debtor[]> => {
-      if (isLive && supabase) {
-          const { data } = await supabase.from('debtors').select('data');
-          return data ? data.map((row: any) => row.data) : [];
-      }
-      const local = localStorage.getItem('hrms_debtors');
-      return local ? JSON.parse(local) : [];
-  },
-
-  saveDebtors: async (debtors: Debtor[]) => {
-      if (isLive && supabase) {
-          // Bulk upsert not directly supported for JSONB column array in this simple setup
-          // We loop upsert for simplicity in this demo structure
-          for (const d of debtors) {
-              await supabase.from('debtors').upsert({ id: d.id, data: d });
-          }
-      } else {
-          localStorage.setItem('hrms_debtors', JSON.stringify(debtors));
-      }
-  },
-
-  deleteDebtor: async (id: string): Promise<boolean> => {
-      if (isLive && supabase) {
-          const { error } = await supabase.from('debtors').delete().eq('id', id);
-          return !error;
-      } else {
-          // Local logic handled in component usually, but here for completeness
-          return true;
-      }
-  },
-
-  deleteDebtors: async (ids: string[]): Promise<boolean> => {
-      if (isLive && supabase) {
-          const { error } = await supabase.from('debtors').delete().in('id', ids);
-          return !error;
-      }
-      return true;
-  },
-
-  subscribeToDebtors: (callback: (data: Debtor[]) => void) => {
-      if (isLive && supabase) {
-          const channel = supabase.channel('debtors-realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'debtors' }, async () => {
-                const data = await api.getDebtors();
-                callback(data);
-            })
-            .subscribe();
-          return () => { supabase.removeChannel(channel); };
-      }
-      return () => {};
-  },
-
-  getKnowledgeArticles: async (): Promise<KnowledgeArticle[]> => {
-      if (isLive && supabase) {
-          const { data } = await supabase.from('knowledge_base').select('data');
-          return data ? data.map((row: any) => row.data) : MOCK_KNOWLEDGE_BASE;
-      }
-      const local = localStorage.getItem('hrms_kb');
-      return local ? JSON.parse(local) : MOCK_KNOWLEDGE_BASE;
-  },
-
-  saveKnowledgeArticle: async (article: KnowledgeArticle) => {
-      if (isLive && supabase) {
-          await supabase.from('knowledge_base').upsert({ id: article.id, data: article });
-      } else {
-          const current = await api.getKnowledgeArticles();
-          const idx = current.findIndex(a => a.id === article.id);
-          if (idx >= 0) current[idx] = article;
-          else current.unshift(article);
-          localStorage.setItem('hrms_kb', JSON.stringify(current));
-      }
-  },
-
-  deleteKnowledgeArticle: async (id: string) => {
-      if (isLive && supabase) {
-          await supabase.from('knowledge_base').delete().eq('id', id);
-      } else {
-          const current = await api.getKnowledgeArticles();
-          localStorage.setItem('hrms_kb', JSON.stringify(current.filter(a => a.id !== id)));
-      }
-  },
-
-  getSystemLogs: async (): Promise<SystemUpdateLog[]> => {
-      if (isLive && supabase) {
-          const { data } = await supabase.from('system_updates').select('data');
-          return data ? data.map((row: any) => row.data) : MOCK_SYSTEM_LOGS;
-      }
-      const local = localStorage.getItem('hrms_system_logs');
-      return local ? JSON.parse(local) : MOCK_SYSTEM_LOGS;
-  },
-
-  saveSystemLog: async (log: SystemUpdateLog) => {
-      if (isLive && supabase) {
-          await supabase.from('system_updates').upsert({ id: log.id, data: log });
-      } else {
-          const current = await api.getSystemLogs();
-          localStorage.setItem('hrms_system_logs', JSON.stringify([log, ...current]));
-      }
-  },
-
-  getSecurityStatus: async () => {
-      if (isLive && supabase) {
-          // Calls a Postgres function to check RLS status on tables
-          const { data, error } = await supabase.rpc('get_table_security_stats');
-          if (error) throw error;
-          return data;
-      }
-      return [];
-  },
-
-  // Github Integration
-  getLatestCommitSha: async () => {
-      if (!GITHUB_CONFIG.ENABLE) return 'local-dev';
-      try {
-          const response = await fetch(`https://api.github.com/repos/${GITHUB_CONFIG.OWNER}/${GITHUB_CONFIG.REPO}/commits/main`);
-          const data = await response.json();
-          return data.sha;
-      } catch (e) {
           return null;
       }
+      const local = localStorage.getItem('hrms_global_settings');
+      return local ? JSON.parse(local) : null;
   },
 
-  // Evaluations
-  saveEvaluation: async (evaluation: EvaluationCycle) => {
+  saveGlobalSettings: async (settings: GlobalSettings) => {
       if (isLive && supabase) {
-          await supabase.from('evaluations').upsert({ id: evaluation.id, employee_id: evaluation.employeeId, data: evaluation });
+          await supabase.from('global_settings').upsert({ 
+              id: '1', // Singleton
+              modules: settings.modules,
+              branding: settings.branding,
+              roles: settings.roles
+          });
+      } else {
+          localStorage.setItem('hrms_global_settings', JSON.stringify(settings));
       }
   },
 
-  deleteEvaluation: async (id: string) => {
+  // --- COMPLAINTS ---
+  getComplaints: async (): Promise<Complaint[]> => {
       if (isLive && supabase) {
-          await supabase.from('evaluations').delete().eq('id', id);
+          const { data } = await supabase.from('complaints').select('*');
+          return data ? data.map((row: any) => ({
+              id: row.id,
+              reservationNumber: row.reservation_number,
+              guestName: row.guest_name,
+              roomNumber: row.room_number,
+              category: row.category,
+              department: row.department,
+              severity: row.severity,
+              status: row.status,
+              description: row.description,
+              images: row.images,
+              compensationDetails: row.compensation_details,
+              assignedTo: row.assigned_to,
+              createdBy: row.created_by,
+              createdAt: row.created_at,
+              updatedAt: row.updated_at,
+              timeline: row.timeline
+          })) : [];
+      }
+      const local = localStorage.getItem('hrms_complaints');
+      return local ? JSON.parse(local) : MOCK_COMPLAINTS;
+  },
+
+  saveComplaint: async (complaint: Complaint) => {
+      if (isLive && supabase) {
+          await supabase.from('complaints').upsert({
+              id: complaint.id,
+              reservation_number: complaint.reservationNumber,
+              guest_name: complaint.guestName,
+              room_number: complaint.roomNumber,
+              category: complaint.category,
+              department: complaint.department,
+              severity: complaint.severity,
+              status: complaint.status,
+              description: complaint.description,
+              images: complaint.images,
+              compensation_details: complaint.compensationDetails,
+              assigned_to: complaint.assignedTo,
+              created_by: complaint.createdBy,
+              created_at: complaint.createdAt,
+              updated_at: complaint.updatedAt,
+              timeline: complaint.timeline
+          });
+      } else {
+          const current = await api.getComplaints();
+          const idx = current.findIndex(c => c.id === complaint.id);
+          if (idx >= 0) current[idx] = complaint;
+          else current.push(complaint);
+          localStorage.setItem('hrms_complaints', JSON.stringify(current));
       }
   },
 
-  getEvaluationTemplates: async (): Promise<EvaluationTemplate[]> => {
-      // Stored in onboarding_templates table with a specific flag or separate table? 
-      // For now, reusing mock or local storage
-      return MOCK_EVALUATION_TEMPLATES; // TODO: Implement real persistence
+  deleteComplaint: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('complaints').delete().eq('id', id);
+      } else {
+          const current = await api.getComplaints();
+          localStorage.setItem('hrms_complaints', JSON.stringify(current.filter(c => c.id !== id)));
+      }
   },
 
-  saveEvaluationTemplate: async (template: EvaluationTemplate) => {
-      // TODO: Implement
-  },
-
-  deleteEvaluationTemplate: async (id: string) => {
-      // TODO: Implement
-  },
-
-  // Badges
-  getBadges: async (): Promise<BadgeDefinition[]> => {
-      const local = localStorage.getItem('hrms_badges');
+  // --- TASKS ---
+  getTasks: async (): Promise<Task[]> => {
+      if (isLive && supabase) {
+          const { data } = await supabase.from('tasks').select('data');
+          return data ? data.map((row: any) => row.data) : [];
+      }
+      const local = localStorage.getItem('hrms_tasks');
       return local ? JSON.parse(local) : [];
   },
 
-  saveBadge: async (badge: BadgeDefinition) => {
-      const current = await api.getBadges();
-      const idx = current.findIndex(b => b.id === badge.id);
-      if (idx >= 0) current[idx] = badge;
-      else current.push(badge);
-      localStorage.setItem('hrms_badges', JSON.stringify(current));
+  saveTask: async (task: Task) => {
+      if (isLive && supabase) {
+          await supabase.from('tasks').upsert({ id: task.id, assignee_id: task.assigneeId, is_general: task.isGeneral, data: task });
+      } else {
+          const current = await api.getTasks();
+          const idx = current.findIndex(t => t.id === task.id);
+          if (idx >= 0) current[idx] = task;
+          else current.push(task);
+          localStorage.setItem('hrms_tasks', JSON.stringify(current));
+      }
   },
 
-  deleteBadge: async (id: string) => {
-      const current = await api.getBadges();
-      localStorage.setItem('hrms_badges', JSON.stringify(current.filter(b => b.id !== id)));
+  deleteTask: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('tasks').delete().eq('id', id);
+      } else {
+          const current = await api.getTasks();
+          localStorage.setItem('hrms_tasks', JSON.stringify(current.filter(t => t.id !== id)));
+      }
   },
 
   // --- BIKE RENTAL ---
   getBikeSettings: async (): Promise<BikeSettings> => {
       if (isLive && supabase) {
-          try {
-              const { data } = await supabase.from('bike_settings').select('*').eq('id', 'main').single();
-              if (data) return data.data; // Assuming structure similar to global_settings
-          } catch (e) {
-              console.error(e);
-          }
+          const { data } = await supabase.from('bike_settings').select('data').single();
+          return data ? data.data : { inventory: {}, inMaintenance: [], termsAndConditions: '', maintenanceReasons: {} };
       }
       const local = localStorage.getItem('hrms_bike_settings');
-      return local ? JSON.parse(local) : {
-          inventory: { 'City Bike Men': 0, 'City Bike Women': 0, 'E-Bike': 0 }, 
-          inMaintenance: [],
-          termsAndConditions: '',
-          maintenanceReasons: {}
-      };
+      return local ? JSON.parse(local) : { inventory: {}, inMaintenance: [], termsAndConditions: '', maintenanceReasons: {} };
   },
 
   saveBikeSettings: async (settings: BikeSettings) => {
       if (isLive && supabase) {
-          await supabase.from('bike_settings').upsert({ id: 'main', data: settings });
+          await supabase.from('bike_settings').upsert({ id: '1', data: settings });
       } else {
           localStorage.setItem('hrms_bike_settings', JSON.stringify(settings));
       }
@@ -869,24 +755,21 @@ export const api = {
 
   getBikeReservations: async (): Promise<BikeReservation[]> => {
       if (isLive && supabase) {
-          try {
-              const { data } = await supabase.from('bike_reservations').select('data');
-              if (data) return data.map((r: any) => r.data);
-          } catch (e) { console.error(e); }
-          return [];
+          const { data } = await supabase.from('bike_reservations').select('data');
+          return data ? data.map((row: any) => row.data) : [];
       }
       const local = localStorage.getItem('hrms_bike_reservations');
       return local ? JSON.parse(local) : [];
   },
 
-  saveBikeReservation: async (reservation: BikeReservation) => {
+  saveBikeReservation: async (res: BikeReservation) => {
       if (isLive && supabase) {
-          await supabase.from('bike_reservations').upsert({ id: reservation.id, data: reservation });
+          await supabase.from('bike_reservations').upsert({ id: res.id, data: res });
       } else {
           const current = await api.getBikeReservations();
-          const index = current.findIndex(r => r.id === reservation.id);
-          if (index >= 0) current[index] = reservation;
-          else current.push(reservation);
+          const idx = current.findIndex(r => r.id === res.id);
+          if (idx >= 0) current[idx] = res;
+          else current.push(res);
           localStorage.setItem('hrms_bike_reservations', JSON.stringify(current));
       }
   },
@@ -894,46 +777,51 @@ export const api = {
   // --- SHIFT HANDOVER ---
   getShiftHandoverItems: async (date: string): Promise<ShiftHandoverItem[]> => {
       if (isLive && supabase) {
-          try {
-              // In a real DB we might query by date range, but here we stick to JSON blob pattern mostly or simple rows
-              // Let's assume we fetch relevant items. For 'General', we might fetch active ones.
-              // For simplicity in this demo architecture where we store data in JSON mostly or flat rows:
-              const { data } = await supabase.from('shift_handover').select('data');
-              // Filter in memory for demo consistency with other modules
-              if (data) {
-                  const all = data.map((r: any) => r.data as ShiftHandoverItem);
-                  return all.filter(i => i.date === date || (i.category === 'General' && (!i.expiryDate || i.expiryDate >= date)));
-              }
-          } catch (e) { console.error(e); }
-          return [];
+          // Fetch General (no date or valid range) + Specific for this date
+          const { data } = await supabase.from('shift_handover').select('data');
+          // Filtering logic can be done in SQL, but for simplicity filtering in JS
+          return data ? data.map((row: any) => row.data).filter((item: ShiftHandoverItem) => {
+              if (item.category === 'General') return true; // Always show general unless expired (soft delete logic needed)
+              return item.date === date;
+          }) : [];
       }
       const local = localStorage.getItem('hrms_shift_handover');
-      const all = local ? JSON.parse(local) as ShiftHandoverItem[] : [];
-      // Filter: Specific for date OR General that hasn't expired
-      return all.filter(i => i.date === date || (i.category === 'General' && (!i.expiryDate || i.expiryDate >= date)));
+      const all: ShiftHandoverItem[] = local ? JSON.parse(local) : [];
+      return all.filter(item => {
+          // If soft deleted (expiryDate set), filter out
+          if (item.expiryDate && new Date(item.expiryDate) <= new Date(date)) return false;
+          if (item.category === 'General') return true;
+          return item.date === date;
+      });
   },
 
   saveShiftHandoverItem: async (item: ShiftHandoverItem) => {
       if (isLive && supabase) {
           await supabase.from('shift_handover').upsert({ id: item.id, data: item });
       } else {
-          const local = localStorage.getItem('hrms_shift_handover');
-          const all = local ? JSON.parse(local) as ShiftHandoverItem[] : [];
-          const index = all.findIndex(i => i.id === item.id);
-          if (index >= 0) all[index] = item;
-          else all.push(item);
-          localStorage.setItem('hrms_shift_handover', JSON.stringify(all));
+          const current = JSON.parse(localStorage.getItem('hrms_shift_handover') || '[]');
+          const idx = current.findIndex((i: ShiftHandoverItem) => i.id === item.id);
+          if (idx >= 0) current[idx] = item;
+          else current.push(item);
+          localStorage.setItem('hrms_shift_handover', JSON.stringify(current));
       }
   },
 
-  deleteShiftHandoverItem: async (id: string, date: string) => { // Date passed to handle 'soft delete' logic for recurring items if needed
+  deleteShiftHandoverItem: async (id: string, date: string) => {
+      // Soft delete: set expiryDate to now/selected date
       if (isLive && supabase) {
-          await supabase.from('shift_handover').delete().eq('id', id);
+          const { data } = await supabase.from('shift_handover').select('data').eq('id', id).single();
+          if (data) {
+              const updated = { ...data.data, expiryDate: date };
+              await supabase.from('shift_handover').upsert({ id, data: updated });
+          }
       } else {
-          const local = localStorage.getItem('hrms_shift_handover');
-          const all = local ? JSON.parse(local) as ShiftHandoverItem[] : [];
-          const updated = all.filter(i => i.id !== id);
-          localStorage.setItem('hrms_shift_handover', JSON.stringify(updated));
+          const current = JSON.parse(localStorage.getItem('hrms_shift_handover') || '[]');
+          const idx = current.findIndex((i: ShiftHandoverItem) => i.id === id);
+          if (idx >= 0) {
+              current[idx].expiryDate = date;
+              localStorage.setItem('hrms_shift_handover', JSON.stringify(current));
+          }
       }
   },
 
@@ -984,5 +872,75 @@ export const api = {
           const current = await api.getStockLogs();
           localStorage.setItem('hrms_stock_logs', JSON.stringify([log, ...current]));
       }
+  },
+
+  // Stock Orders
+  getStockOrders: async (): Promise<StockOrder[]> => {
+      if (isLive && supabase) {
+          const { data } = await supabase.from('stock_orders').select('data');
+          return data ? data.map((row: any) => row.data) : [];
+      }
+      const local = localStorage.getItem('hrms_stock_orders');
+      return local ? JSON.parse(local) : [];
+  },
+
+  saveStockOrder: async (order: StockOrder) => {
+      if (isLive && supabase) {
+          await supabase.from('stock_orders').upsert({ id: order.id, data: order });
+      } else {
+          const current = await api.getStockOrders();
+          const index = current.findIndex(o => o.id === order.id);
+          if (index >= 0) current[index] = order;
+          else current.push(order);
+          localStorage.setItem('hrms_stock_orders', JSON.stringify(current));
+      }
+  },
+
+  deleteStockOrder: async (id: string) => {
+      if (isLive && supabase) {
+          await supabase.from('stock_orders').delete().eq('id', id);
+      } else {
+          const current = await api.getStockOrders();
+          localStorage.setItem('hrms_stock_orders', JSON.stringify(current.filter(o => o.id !== id)));
+      }
+  },
+
+  // --- GENERAL UTILS ---
+  uploadFile: async (file: File): Promise<string> => {
+      // Mock upload - in real app, upload to storage bucket and return URL
+      // Here we simulate it by creating a temporary object URL
+      // Note: ObjectURLs are revoked on page reload, real app needs persistent storage
+      return new Promise((resolve) => {
+          setTimeout(() => {
+              resolve(URL.createObjectURL(file));
+          }, 1000);
+      });
+  },
+
+  deleteFile: async (url: string) => {
+      // Mock delete
+      return Promise.resolve();
+  },
+
+  getLatestCommitSha: async (): Promise<string | null> => {
+      // Mock SHA for update check
+      // In real app, fetch from GitHub API or a version file
+      return "mock-sha-v1.0.0";
+  },
+
+  getSecurityStatus: async (): Promise<any[]> => {
+      if (isLive && supabase) {
+          // This would require a custom RPC function in Supabase
+          // For now, return mock or try to call it if exists
+          try {
+              const { data, error } = await supabase.rpc('get_table_security_stats');
+              if (error) throw error;
+              return data;
+          } catch (e) {
+              console.warn("Security check RPC failed or not implemented", e);
+              return [];
+          }
+      }
+      return [];
   }
 };

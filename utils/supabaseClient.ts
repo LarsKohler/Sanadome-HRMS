@@ -132,13 +132,19 @@ import { createClient } from '@supabase/supabase-js';
     data jsonb
   );
 
-  -- Stock Control (NIEUW)
+  -- Stock Control
   CREATE TABLE IF NOT EXISTS stock_items (
     id text PRIMARY KEY,
     data jsonb
   );
 
   CREATE TABLE IF NOT EXISTS stock_logs (
+    id text PRIMARY KEY,
+    data jsonb
+  );
+
+  -- Stock Orders (NIEUW)
+  CREATE TABLE IF NOT EXISTS stock_orders (
     id text PRIMARY KEY,
     data jsonb
   );
@@ -171,6 +177,7 @@ import { createClient } from '@supabase/supabase-js';
   ALTER TABLE shift_handover ENABLE ROW LEVEL SECURITY;
   ALTER TABLE stock_items ENABLE ROW LEVEL SECURITY;
   ALTER TABLE stock_logs ENABLE ROW LEVEL SECURITY;
+  ALTER TABLE stock_orders ENABLE ROW LEVEL SECURITY;
 
   -- ================================================================
   -- DEEL 3: FUNCTIES & POLICIES (Reset & Recreate)
@@ -345,11 +352,13 @@ import { createClient } from '@supabase/supabase-js';
   DROP POLICY IF EXISTS "Stock: Iedereen lezen" ON stock_items;
   CREATE POLICY "Stock: Iedereen lezen" ON stock_items FOR SELECT USING ( true );
 
-  DROP POLICY IF EXISTS "Stock: Iedereen schrijven" ON stock_items;
   CREATE POLICY "Stock: Iedereen schrijven" ON stock_items FOR ALL USING ( true ); 
 
   DROP POLICY IF EXISTS "Stock Logs: Iedereen lezen/schrijven" ON stock_logs;
   CREATE POLICY "Stock Logs: Iedereen lezen/schrijven" ON stock_logs FOR ALL USING ( true );
+
+  DROP POLICY IF EXISTS "Stock Orders: Iedereen lezen/schrijven" ON stock_orders;
+  CREATE POLICY "Stock Orders: Iedereen lezen/schrijven" ON stock_orders FOR ALL USING ( true );
 
   -- ================================================================
   -- DEEL 4: REALTIME AANZETTEN
@@ -373,7 +382,8 @@ import { createClient } from '@supabase/supabase-js';
     bike_settings,
     shift_handover,
     stock_items,
-    stock_logs;
+    stock_logs,
+    stock_orders;
 */
 
 // Veilig ophalen van env vars, met fallback naar de door jou opgegeven keys
