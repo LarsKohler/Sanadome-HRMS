@@ -30,11 +30,8 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const [isCountModalOpen, setIsCountModalOpen] = useState(false);
     const [countTarget, setCountTarget] = useState<StockItem | null>(null);
     const [countValue, setCountValue] = useState(''); 
-    const [isOrderModalOpen, setIsOrderModalOpen] = useState(false); // To add items to pending order
-
-    // Cart (Wensenlijst)
-    const [pendingOrderItems, setPendingOrderItems] = useState<Record<string, number>>({});
-
+    
+    // Permission check
     const canManage = hasPermission(currentUser, 'MANAGE_STOCK');
 
     useEffect(() => {
@@ -163,15 +160,12 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
     // --- ORDERING LOGIC ---
 
-    const handleAddToPending = (item: StockItem) => {
+    const handleAddToPending = async (item: StockItem) => {
         // Find existing pending order or create new one in memory
-        // For simplicity, we just add to the general "Wensenlijst" (Pending status)
-        
-        // Find if there is an open pending order
         const pendingOrder = orders.find(o => o.status === 'Pending');
         
         let newItems: StockOrderItem[] = [];
-        let orderId = pendingOrder?.id;
+        let orderId = pendingOrder?.id || crypto.randomUUID();
 
         if (pendingOrder) {
             newItems = [...pendingOrder.items];
@@ -187,7 +181,6 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 });
             }
         } else {
-            orderId = crypto.randomUUID();
             newItems = [{
                 itemId: item.id,
                 name: item.name,
@@ -197,14 +190,16 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         }
 
         const order: StockOrder = {
-            id: orderId!,
+            id: orderId,
             items: newItems,
             status: 'Pending',
             createdAt: pendingOrder ? pendingOrder.createdAt : new Date().toISOString(),
             createdBy: pendingOrder ? pendingOrder.createdBy : currentUser.name
         };
 
-        api.saveStockOrder(order);
+        // SAVE TO DB IMMEDIATELY
+        await api.saveStockOrder(order);
+        
         setOrders(prev => {
             const idx = prev.findIndex(o => o.id === order.id);
             if (idx >= 0) {
@@ -242,15 +237,23 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         const updatedItems = [...items];
 
         for (const orderItem of order.items) {
-            const stockItem = updatedItems.find(i => i.id === orderItem.itemId);
-            if (stockItem) {
+            const itemIndex = updatedItems.findIndex(i => i.id === orderItem.itemId);
+            if (itemIndex >= 0) {
+                const stockItem = updatedItems[itemIndex];
                 const multiplier = (stockItem.itemsPerBox && stockItem.itemsPerBox > 1) ? stockItem.itemsPerBox : 1;
                 const totalQty = orderItem.quantity * multiplier;
 
-                stockItem.currentStock += totalQty;
-                stockItem.lastUpdated = new Date().toISOString();
+                const updatedStockItem = {
+                    ...stockItem,
+                    currentStock: stockItem.currentStock + totalQty,
+                    lastUpdated: new Date().toISOString()
+                };
 
-                await api.saveStockItem(stockItem);
+                // Update array in memory
+                updatedItems[itemIndex] = updatedStockItem;
+
+                // Save individual item to DB
+                await api.saveStockItem(updatedStockItem);
 
                 newLogs.push({
                     id: crypto.randomUUID(),
@@ -295,7 +298,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         }
     };
 
-    const updateOrderItemQuantity = (orderId: string, itemId: string, delta: number) => {
+    const updateOrderItemQuantity = async (orderId: string, itemId: string, delta: number) => {
         const order = orders.find(o => o.id === orderId);
         if (!order) return;
 
@@ -307,11 +310,13 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         });
 
         const updatedOrder = { ...order, items: updatedItems };
-        api.saveStockOrder(updatedOrder);
+        
+        // SAVE TO DB
+        await api.saveStockOrder(updatedOrder);
         setOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
     };
 
-    const removeOrderItem = (orderId: string, itemId: string) => {
+    const removeOrderItem = async (orderId: string, itemId: string) => {
         const order = orders.find(o => o.id === orderId);
         if (!order) return;
 
@@ -321,7 +326,8 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             handleDeleteOrder(orderId);
         } else {
             const updatedOrder = { ...order, items: updatedItems };
-            api.saveStockOrder(updatedOrder);
+            // SAVE TO DB
+            await api.saveStockOrder(updatedOrder);
             setOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
         }
     };
