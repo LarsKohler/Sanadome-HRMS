@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Lock, ArrowRight, AlertCircle, Key, CheckCircle2 } from 'lucide-react';
+import { Lock, ArrowRight, AlertCircle, Key, CheckCircle2, ShieldCheck, ChevronRight } from 'lucide-react';
 import { api } from '../utils/api';
 import { Employee } from '../types';
 
@@ -15,10 +15,11 @@ const RESET_IMAGES = [
 
 const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ employeeId }) => {
   const [employee, setEmployee] = useState<Employee | null>(null);
+  const [step, setStep] = useState<0 | 1 | 2>(0); // 0: Intro, 1: Form, 2: Success
+  
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -30,15 +31,23 @@ const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ employeeId }) => 
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch employee details (mocked)
+  // Fetch employee details
   useEffect(() => {
       const fetchEmp = async () => {
-          const emps = await api.getEmployees();
-          // In real app, search by ID. Here we match prop
-          const found = emps.find(e => e.id.startsWith(employeeId)); // Matching partial ID from URL often used in demos
-          if (found) setEmployee(found);
+          try {
+              const emps = await api.getEmployees();
+              // Robust matching
+              const found = emps.find(e => e.id === employeeId || e.id.startsWith(employeeId)); 
+              if (found) {
+                  setEmployee(found);
+              } else {
+                  setError("Medewerker niet gevonden.");
+              }
+          } catch (e) {
+              setError("Fout bij verbinden met server.");
+          }
       };
-      fetchEmp();
+      if (employeeId) fetchEmp();
   }, [employeeId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,26 +68,40 @@ const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ employeeId }) => 
       }
 
       if (!employee) {
-          setError("Medewerker niet gevonden.");
+          setError("Geen medewerker data gevonden.");
           setIsLoading(false);
           return;
       }
 
       try {
-          const updatedEmployee = { ...employee, password: newPassword };
-          await api.saveEmployee(updatedEmployee);
-          setSuccess(true);
+          const updatedEmployee: Employee = { 
+              ...employee, 
+              password: newPassword,
+              accountStatus: 'Active' // Ensure account is active after reset
+          };
+          
+          const success = await api.saveEmployee(updatedEmployee);
+          
+          if (success) {
+              setStep(2);
+          } else {
+              setError("Opslaan mislukt. Controleer je verbinding.");
+          }
       } catch (err) {
+          console.error(err);
           setError("Er is iets misgegaan bij het opslaan.");
       } finally {
           setIsLoading(false);
       }
   };
 
-  if (!employee && !success) {
+  if (!employee && !error) {
       return (
           <div className="min-h-screen flex items-center justify-center bg-slate-50">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900"></div>
+              <div className="flex flex-col items-center gap-4">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900"></div>
+                  <p className="text-slate-500 text-sm">Gegevens laden...</p>
+              </div>
           </div>
       );
   }
@@ -120,7 +143,7 @@ const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ employeeId }) => 
              Een frisse start.
           </h2>
           <p className="text-white/80 text-lg font-light max-w-md">
-             Stel een nieuw wachtwoord in om weer veilig toegang te krijgen tot jouw Sanadome omgeving.
+             Beveilig je account met een sterk wachtwoord om toegang te houden tot Sanadome HRMS.
           </p>
         </div>
       </div>
@@ -128,38 +151,59 @@ const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ employeeId }) => 
       {/* RIGHT PANEL: Form */}
       <div className="w-full lg:w-[55%] flex flex-col justify-center items-center p-8 md:p-16 bg-slate-50 relative">
         
-        <div className="w-full max-w-md animate-in slide-in-from-right-8 fade-in duration-500">
+        <div className="w-full max-w-md">
             
-            {success ? (
-                <div className="text-center space-y-6">
-                    <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner ring-8 ring-green-50 animate-in zoom-in duration-300">
-                        <CheckCircle2 size={40} strokeWidth={3} />
+            {/* STEP 0: INTRO */}
+            {step === 0 && (
+                <div className="animate-in slide-in-from-right-8 fade-in duration-500">
+                    <div className="text-center space-y-6">
+                        <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-sm">
+                            <ShieldCheck size={36} />
+                        </div>
+                        
+                        <div className="space-y-2">
+                            <h2 className="text-3xl font-bold text-slate-900">Welkom, {employee?.name.split(' ')[0]}!</h2>
+                            <p className="text-slate-500 text-lg">
+                                We helpen je graag bij het instellen van een nieuw wachtwoord. Dit duurt maar een minuutje.
+                            </p>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm text-left space-y-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">1</div>
+                                <span className="text-slate-700 font-medium">Veilige toegang tot je gegevens</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <div className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center text-xs font-bold">2</div>
+                                <span className="text-slate-700 font-medium">Persoonlijk en vertrouwelijk</span>
+                            </div>
+                        </div>
+
+                        <button 
+                            onClick={() => setStep(1)}
+                            className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2 group"
+                        >
+                            Starten <ChevronRight size={18} className="group-hover:translate-x-1 transition-transform"/>
+                        </button>
                     </div>
-                    <div>
-                        <h2 className="text-3xl font-bold text-slate-900">Wachtwoord gewijzigd!</h2>
-                        <p className="text-slate-500 mt-2 text-lg">Je kunt nu inloggen met je nieuwe wachtwoord.</p>
-                    </div>
-                    <button 
-                        onClick={() => window.location.href = '/'}
-                        className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2 mt-8"
-                    >
-                        Naar Inlogscherm <ArrowRight size={18} />
-                    </button>
                 </div>
-            ) : (
-                <>
-                    <div className="mb-10 text-center lg:text-left">
+            )}
+
+            {/* STEP 1: FORM */}
+            {step === 1 && (
+                <div className="animate-in slide-in-from-right-8 fade-in duration-500">
+                    <div className="mb-8 text-center lg:text-left">
                         <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2">
-                            Hey {employee?.name.split(' ')[0]} 👋
+                            Nieuw Wachtwoord
                         </h1>
-                        <p className="text-slate-500 font-medium">Kies een nieuw wachtwoord voor je account.</p>
+                        <p className="text-slate-500 font-medium">Kies een sterk wachtwoord voor je account.</p>
                     </div>
 
                     <form className="space-y-6" onSubmit={handleSubmit}>
                         <div className="space-y-4">
                             <div>
                                 <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2 ml-1">
-                                    Nieuw Wachtwoord
+                                    Wachtwoord
                                 </label>
                                 <div className="relative group">
                                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-teal-600 transition-colors" size={20} />
@@ -200,15 +244,50 @@ const ResetPasswordPage: React.FC<ResetPasswordPageProps> = ({ employeeId }) => 
                             </div>
                         )}
 
-                        <button
-                            type="submit"
-                            disabled={isLoading || !newPassword || !confirmPassword}
-                            className="group relative flex w-full justify-center rounded-xl bg-slate-900 px-3 py-4 text-sm font-bold text-white text-lg shadow-lg hover:bg-slate-800 hover:shadow-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-900 transition-all transform hover:-translate-y-0.5 disabled:opacity-70 disabled:cursor-not-allowed"
-                        >
-                            {isLoading ? 'Opslaan...' : 'Wachtwoord Wijzigen'}
-                        </button>
+                        <div className="flex gap-3">
+                            <button
+                                type="button"
+                                onClick={() => setStep(0)}
+                                className="flex-1 py-4 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors"
+                            >
+                                Terug
+                            </button>
+                            <button
+                                type="submit"
+                                disabled={isLoading || !newPassword || !confirmPassword}
+                                className="flex-[2] py-4 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 hover:shadow-xl transition-all disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                            >
+                                {isLoading ? 'Opslaan...' : 'Wachtwoord Wijzigen'}
+                            </button>
+                        </div>
                     </form>
-                </>
+                </div>
+            )}
+
+            {/* STEP 2: SUCCESS */}
+            {step === 2 && (
+                <div className="text-center space-y-6 animate-in zoom-in duration-500">
+                    <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner ring-8 ring-green-50">
+                        <CheckCircle2 size={48} strokeWidth={3} />
+                    </div>
+                    <div>
+                        <h2 className="text-3xl font-bold text-slate-900">Wachtwoord gewijzigd!</h2>
+                        <p className="text-slate-500 mt-2 text-lg">Je account is nu bijgewerkt en beveiligd.</p>
+                    </div>
+                    
+                    <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm max-w-sm mx-auto">
+                        <p className="text-slate-600 text-sm">
+                            Je kunt nu inloggen met je emailadres <strong>{employee?.email}</strong> en je nieuwe wachtwoord.
+                        </p>
+                    </div>
+
+                    <button 
+                        onClick={() => window.location.href = '/'}
+                        className="w-full py-4 bg-slate-900 text-white rounded-xl font-bold shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2 mt-8"
+                    >
+                        Naar Inlogscherm <ArrowRight size={18} />
+                    </button>
+                </div>
             )}
         </div>
 
