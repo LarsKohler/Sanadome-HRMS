@@ -25,21 +25,22 @@ const sanitizeApplicants = (data: any[]): Applicant[] => {
 };
 
 export const api = {
-  // --- GLOBAL SETTINGS (MODULE VISIBILITY & BRANDING) ---
+  // --- GLOBAL SETTINGS (MODULE VISIBILITY & BRANDING & ROLES) ---
   getGlobalSettings: async (): Promise<GlobalSettings | null> => {
       if (isLive && supabase) {
           try {
-              // Explicitly select modules AND branding columns
+              // Explicitly select modules AND branding AND roles columns
               const { data, error } = await supabase.from('global_settings').select('*').eq('id', 'main').single();
               
               if (data) {
                   return {
                       modules: data.modules || {},
-                      branding: data.branding || { loginImages: [] }
+                      branding: data.branding || { loginImages: [] },
+                      roles: data.roles || undefined // Load roles if present
                   };
               }
               // If no row exists yet, return default structure (will be created on first save)
-              return { modules: {}, branding: { loginImages: [] } };
+              return { modules: {}, branding: { loginImages: [] }, roles: undefined };
           } catch (e) {
               console.error("Error fetching global settings:", e);
               return null;
@@ -60,7 +61,8 @@ export const api = {
               const { error } = await supabase.from('global_settings').upsert({ 
                   id: 'main', 
                   modules: settings.modules, 
-                  branding: settings.branding, // Ensure this column exists in DB via SQL
+                  branding: settings.branding,
+                  roles: settings.roles, // Save roles
                   updated_at: new Date().toISOString() 
               });
               if (error) console.error("Supabase save settings error:", error);

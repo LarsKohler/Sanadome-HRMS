@@ -2,7 +2,7 @@
 import { Employee, Permission, ViewState, GlobalSettings } from '../types';
 
 // Define default permissions per role
-export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
+export const DEFAULT_ROLE_PERMISSIONS: Record<string, Permission[]> = {
   'Manager': [
     'VIEW_REPORTS',
     'MANAGE_EMPLOYEES',
@@ -47,13 +47,19 @@ export const ROLE_PERMISSIONS: Record<string, Permission[]> = {
   ]
 };
 
+// Export original constant for backward compatibility
+export const ROLE_PERMISSIONS = DEFAULT_ROLE_PERMISSIONS;
+
 // Helper to check if a user has a specific permission
 // LOGIC: Role Permissions OR Custom Permissions (Additive)
-export const hasPermission = (user: Employee | null, permission: Permission): boolean => {
+// Now accepts optional customRoles to support dynamic settings from DB
+export const hasPermission = (user: Employee | null, permission: Permission, customRoles?: Record<string, Permission[]>): boolean => {
   if (!user) return false;
 
-  // 1. Check Role Defaults
-  const roleDefaults = ROLE_PERMISSIONS[user.role] || [];
+  // 1. Check Role Defaults (Use custom if provided, else static default)
+  const roles = customRoles || ROLE_PERMISSIONS;
+  const roleDefaults = roles[user.role] || [];
+  
   if (roleDefaults.includes(permission)) {
     return true; // Always allowed if in role
   }

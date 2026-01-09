@@ -154,7 +154,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
           <nav className="space-y-4">
             {sections.map((section) => {
               const visibleItems = section.items.filter(item => {
-                  const hasPerm = !item.permission || hasPermission(user, item.permission);
+                  // Pass dynamic roles from globalSettings to hasPermission
+                  const hasPerm = !item.permission || hasPermission(user, item.permission, globalSettings?.roles);
+                  
                   let moduleEnabled = true;
                   if (Object.values(ViewState).includes(item.id as ViewState)) {
                       moduleEnabled = isModuleEnabled(item.id as ViewState, user || null, globalSettings);

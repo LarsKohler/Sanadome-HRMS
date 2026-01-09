@@ -80,6 +80,7 @@ import { createClient } from '@supabase/supabase-js';
     id text PRIMARY KEY,
     modules jsonb,
     branding jsonb,
+    roles jsonb, -- ADDED: Roles configuration
     updated_at timestamptz DEFAULT now()
   );
 

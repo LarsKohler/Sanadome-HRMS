@@ -27,7 +27,7 @@ import TodoListPage from './components/TodoListPage';
 import ComplaintsPage from './components/ComplaintsPage'; 
 import DataAuditPage from './components/DataAuditPage'; 
 import UpdateNotifier from './components/UpdateNotifier';
-import ResetPasswordPage from './components/ResetPasswordPage'; // NEW
+import ResetPasswordPage from './components/ResetPasswordPage'; 
 import { api, isLive } from './utils/api';
 import { isModuleEnabled } from './utils/permissions';
 
@@ -325,6 +325,7 @@ function App() {
                   onUpdateEmployee={handleUpdateEmployee}
                   onDeleteEmployee={handleDeleteEmployee}
                   onViewProfile={(id) => { setSelectedProfileId(id); setCurrentView(ViewState.PROFILE); }}
+                  globalSettings={globalSettings} // Passed down
               />;
           case ViewState.PROFILE:
               const targetProfile = employees.find(e => e.id === selectedProfileId) || currentUser!;

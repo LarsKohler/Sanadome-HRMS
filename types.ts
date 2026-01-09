@@ -143,6 +143,7 @@ export interface GlobalSettings {
   branding?: {
     loginImages: string[];
   };
+  roles?: Record<string, Permission[]>;
 }
 
 export type DossierEntryType = 'Sick' | 'Late' | 'Warning' | 'Recovery' | 'Compliment' | 'Note' | 'OfficialNote';

@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Shield, Search, Check, AlertTriangle, User, Save, RefreshCcw, Lock, Unlock, Briefcase, Plus, X, LayoutGrid, EyeOff, CheckSquare, Square, Eye, Users, Image as ImageIcon, Trash2, Upload, Link } from 'lucide-react';
 import { Employee, Permission, PERMISSION_LABELS, GlobalSettings, ViewState } from '../types';
-import { ROLE_PERMISSIONS } from '../utils/permissions';
+import { ROLE_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS } from '../utils/permissions';
 import { Modal } from './Modal';
 import { api } from '../utils/api';
 
@@ -45,8 +45,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
   
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Local state for Role Definitions
-  const [roleConfigs, setRoleConfigs] = useState<Record<string, Permission[]>>(ROLE_PERMISSIONS);
+  // Local state for Role Definitions (Initialized from global settings or defaults)
+  const [roleConfigs, setRoleConfigs] = useState<Record<string, Permission[]>>(globalSettings?.roles || DEFAULT_ROLE_PERMISSIONS);
 
   // Branding State
   const [newImageUrl, setNewImageUrl] = useState('');
@@ -70,12 +70,16 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize selection
+  // Initialize selection & sync roles
   useEffect(() => {
       if (activeTab === 'roles' && !selectedRoleKey) {
           setSelectedRoleKey('Manager');
       }
-  }, [activeTab, selectedRoleKey]);
+      // Update local state if global settings change (e.g. initial load)
+      if (globalSettings?.roles) {
+          setRoleConfigs(globalSettings.roles);
+      }
+  }, [activeTab, selectedRoleKey, globalSettings]);
 
   // Filtered employees for search
   const filteredEmployees = useMemo(() => {
@@ -141,7 +145,15 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
   };
 
   const handleSaveRoleConfig = () => {
-      onShowToast(`Rol configuratie voor ${selectedRoleKey} opgeslagen. (Let op: dit is een demo state).`);
+      const newSettings: GlobalSettings = {
+          ...globalSettings!,
+          modules: globalSettings?.modules || {},
+          branding: globalSettings?.branding || { loginImages: [] },
+          roles: roleConfigs // Save the updated role configuration
+      };
+      
+      onUpdateGlobalSettings(newSettings);
+      onShowToast(`Rol configuratie opgeslagen.`);
   };
 
   // --- HANDLERS FOR MODULES ---
@@ -171,7 +183,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
               ...(globalSettings?.modules || {}),
               [viewId]: newConfig
           },
-          branding: globalSettings?.branding || { loginImages: [] }
+          branding: globalSettings?.branding || { loginImages: [] },
+          roles: globalSettings?.roles
       };
       
       onUpdateGlobalSettings(newSettings as GlobalSettings);
@@ -203,7 +216,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                   ...moduleConfigForm
               }
           },
-          branding: globalSettings?.branding || { loginImages: [] }
+          branding: globalSettings?.branding || { loginImages: [] },
+          roles: globalSettings?.roles
       };
 
       onUpdateGlobalSettings(newSettings as GlobalSettings);
@@ -231,7 +245,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                   modules: globalSettings?.modules || {},
                   branding: {
                       loginImages: [...currentImages, url]
-                  }
+                  },
+                  roles: globalSettings?.roles
               };
               onUpdateGlobalSettings(newSettings as GlobalSettings);
               onShowToast("Afbeelding toegevoegd.");
@@ -251,7 +266,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
           modules: globalSettings?.modules || {},
           branding: {
               loginImages: [...currentImages, newImageUrl.trim()]
-          }
+          },
+          roles: globalSettings?.roles
       };
       
       onUpdateGlobalSettings(newSettings as GlobalSettings);
@@ -268,7 +284,8 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
           modules: globalSettings?.modules || {},
           branding: {
               loginImages: currentImages.filter(url => url !== urlToDelete)
-          }
+          },
+          roles: globalSettings?.roles
       };
       
       onUpdateGlobalSettings(newSettings as GlobalSettings);
