@@ -152,7 +152,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             category: 'Algemeen',
             currentStock: 0,
             minStock: 5,
-            unit: 'Stuks', // Default invisible
+            unit: 'Stuks', 
             itemsPerBox: 1, // Default invisible
             sourceType: 'External', 
             sourceName: '',
@@ -190,7 +190,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
         const item = {
             ...editingItem,
-            unit: 'Stuks', // Force default
+            unit: editingItem.unit || 'Stuks', // Use entered unit or default
             itemsPerBox: 1 // Force default
         } as StockItem;
 
@@ -418,7 +418,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                     itemId: item.id,
                     name: item.name,
                     quantity: 1, 
-                    unit: 'Stuk'
+                    unit: item.unit || 'Stuk'
                 });
             }
         } else {
@@ -426,7 +426,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 itemId: item.id,
                 name: item.name,
                 quantity: 1,
-                unit: 'Stuk'
+                unit: item.unit || 'Stuk'
             }];
         }
 
@@ -660,7 +660,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                 <div className="flex-1">
                                     <h3 className="text-lg md:text-xl font-bold text-slate-900 mb-1">{item.name}</h3>
                                     <div className="flex items-center gap-2 text-sm text-slate-500">
-                                        <span className="text-slate-400">Huidig: {item.currentStock}</span>
+                                        <span className="text-slate-400">Huidig: {item.currentStock} {item.unit}</span>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -674,7 +674,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                         onChange={(e) => handleCategoryCountChange(item.id, e.target.value)}
                                         onFocus={(e) => e.target.select()}
                                     />
-                                    <span className="text-sm font-bold text-slate-400 w-8">Stuks</span>
+                                    <span className="text-sm font-bold text-slate-400 w-8">{item.unit || 'Stuks'}</span>
                                 </div>
                             </div>
                         ))}
@@ -806,7 +806,8 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-sm">
                                 {filteredItems.map(item => {
-                                    const isLow = item.currentStock <= item.minStock;
+                                    // Change logic: only < minStock is low
+                                    const isLow = item.currentStock < item.minStock;
                                     const isInternal = item.sourceType === 'Internal';
                                     return (
                                         <tr key={item.id} className="hover:bg-slate-50">
@@ -828,12 +829,12 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 font-mono font-bold text-base text-slate-800">
-                                                {item.currentStock}
+                                                {item.currentStock} <span className="text-xs text-slate-400 font-normal ml-1">{item.unit}</span>
                                             </td>
                                             <td className="px-6 py-4">
                                                 {isLow ? (
                                                     <span className="inline-flex items-center gap-1 bg-red-100 text-red-700 px-2 py-1 rounded text-xs font-bold border border-red-200">
-                                                        <AlertTriangle size={12}/> Laag ({item.minStock})
+                                                        <AlertTriangle size={12}/> Laag (&lt;{item.minStock})
                                                     </span>
                                                 ) : (
                                                     <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold border border-green-200">
@@ -909,6 +910,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                                                  <span className="font-mono w-6 text-center">{item.quantity}</span>
                                                                  <button onClick={() => updateOrderItemQuantity(order.id, item.itemId, 1)} className="text-slate-400 hover:text-slate-700"><TrendingUp size={14}/></button>
                                                              </div>
+                                                             <span className="text-xs text-slate-400 w-8">{item.unit}</span>
                                                              <button onClick={() => removeOrderItem(order.id, item.itemId)} className="text-slate-300 hover:text-red-500"><X size={14}/></button>
                                                          </div>
                                                      </div>
@@ -1176,14 +1178,34 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                         </div>
                     </div>
                     
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Minimum Voorraad</label>
-                        <input 
-                            type="number"
-                            className="w-full p-3 border border-slate-200 rounded-xl"
-                            value={editingItem.minStock}
-                            onChange={(e) => setEditingItem({...editingItem, minStock: parseInt(e.target.value) || 0})}
-                        />
+                    <div className="grid grid-cols-2 gap-4">
+                         <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Eenheid</label>
+                            <input
+                                type="text"
+                                className="w-full p-3 border border-slate-200 rounded-xl"
+                                placeholder="bv. Stuks, Dozen"
+                                value={editingItem.unit || ''}
+                                onChange={(e) => setEditingItem({...editingItem, unit: e.target.value})}
+                                list="unit-options"
+                            />
+                            <datalist id="unit-options">
+                                <option value="Stuks"/>
+                                <option value="Dozen"/>
+                                <option value="Zakken"/>
+                                <option value="Flessen"/>
+                                <option value="Pakken"/>
+                            </datalist>
+                         </div>
+                         <div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Minimum Voorraad</label>
+                            <input 
+                                type="number"
+                                className="w-full p-3 border border-slate-200 rounded-xl"
+                                value={editingItem.minStock}
+                                onChange={(e) => setEditingItem({...editingItem, minStock: parseInt(e.target.value) || 0})}
+                            />
+                        </div>
                     </div>
                     
                     <button type="submit" className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 shadow-md">Opslaan</button>
@@ -1229,7 +1251,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 <div className="space-y-6">
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center">
                         <h3 className="text-lg font-bold text-slate-900">{countTarget?.name}</h3>
-                        <p className="text-slate-500 text-sm">Huidig Systeem: <strong>{countTarget?.currentStock} stuks</strong></p>
+                        <p className="text-slate-500 text-sm">Huidig Systeem: <strong>{countTarget?.currentStock} {countTarget?.unit}</strong></p>
                     </div>
                     
                     <div>
