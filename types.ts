@@ -54,7 +54,8 @@ export type Permission =
   | 'VIEW_DIRECTORY'
   | 'VIEW_CHECKLISTS'
   | 'VIEW_ONBOARDING'
-  | 'VIEW_TASKS';
+  | 'VIEW_TASKS'
+  | 'VIEW_NEWS';
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_REPORTS': 'Bekijk Rapportages',
@@ -87,7 +88,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_DIRECTORY': 'Bekijk Collega\'s',
   'VIEW_CHECKLISTS': 'Bekijk Checklists',
   'VIEW_ONBOARDING': 'Bekijk Onboarding',
-  'VIEW_TASKS': 'Bekijk Takenlijst'
+  'VIEW_TASKS': 'Bekijk Takenlijst',
+  'VIEW_NEWS': 'Bekijk Nieuws'
 };
 
 export interface GlobalSettings {
