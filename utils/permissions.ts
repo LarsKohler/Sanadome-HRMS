@@ -36,7 +36,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'VIEW_CHECKLISTS',
     'VIEW_ONBOARDING',
     'VIEW_TASKS',
-    'VIEW_NEWS'
+    'VIEW_NEWS',
+    'VIEW_COMPENSATION'
   ],
   'Senior Medewerker': [
     'CREATE_NEWS',
@@ -58,13 +59,13 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'VIEW_CHECKLISTS',
     'VIEW_ONBOARDING',
     'VIEW_TASKS',
-    'VIEW_NEWS'
+    'VIEW_NEWS',
+    'VIEW_COMPENSATION'
   ],
   'Medewerker': [
-    // Reduced defaults to allow granular control. 
-    // Basic permissions only. Others must be enabled via Role Settings or Per User.
-    'VIEW_DIRECTORY',
-    'VIEW_NEWS' 
+     // EMPTY DEFAULTS to ensure settings dictate visibility. 
+     // Add 'VIEW_DIRECTORY' etc here ONLY if you want them on by default.
+     // Empty means user sees NOTHING unless added in settings.
   ]
 };
 

@@ -55,7 +55,8 @@ export type Permission =
   | 'VIEW_CHECKLISTS'
   | 'VIEW_ONBOARDING'
   | 'VIEW_TASKS'
-  | 'VIEW_NEWS';
+  | 'VIEW_NEWS'
+  | 'VIEW_COMPENSATION';
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_REPORTS': 'Bekijk Rapportages',
@@ -89,7 +90,8 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_CHECKLISTS': 'Bekijk Checklists',
   'VIEW_ONBOARDING': 'Bekijk Onboarding',
   'VIEW_TASKS': 'Bekijk Takenlijst',
-  'VIEW_NEWS': 'Bekijk Nieuws'
+  'VIEW_NEWS': 'Bekijk Nieuws',
+  'VIEW_COMPENSATION': 'Bekijk Compensatie'
 };
 
 export interface GlobalSettings {

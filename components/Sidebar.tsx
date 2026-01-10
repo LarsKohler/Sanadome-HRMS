@@ -51,7 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
       label: 'Receptie Tools',
       items: [
         { icon: ListTodo, label: 'Checklists', id: ViewState.CHECKLISTS, permission: 'VIEW_CHECKLISTS' }, 
-        { icon: Scale, label: 'Compensatie', id: ViewState.COMPENSATION }, 
+        { icon: Scale, label: 'Compensatie', id: ViewState.COMPENSATION, permission: 'VIEW_COMPENSATION' }, 
         { icon: Package, label: 'Voorraad', id: ViewState.STOCK_CONTROL, permission: 'MANAGE_STOCK' }, // Added
       ]
     },
