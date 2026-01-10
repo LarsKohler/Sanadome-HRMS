@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, Filter, MoreHorizontal, Mail, Phone, UserPlus, Pencil, Trash2, Lock, Copy, ExternalLink, Check, Clock, CheckCircle2, XCircle, Eye, KeyRound } from 'lucide-react';
 import { Employee, EvaluationCycle, GlobalSettings } from '../types';
 import { Modal } from './Modal';
-import { hasPermission } from '../utils/permissions';
+import { hasPermission, ROLE_PERMISSIONS } from '../utils/permissions';
 import { EVALUATION_TEMPLATES } from '../utils/mockData';
 
 interface EmployeeDirectoryProps {
@@ -199,6 +199,9 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
         goals: [],
         signatures: []
     };
+    
+    // Copy permissions from selected Role to customPermissions
+    const initialPermissions = globalSettings?.roles ? globalSettings.roles[formData.role] : ROLE_PERMISSIONS[formData.role] || [];
 
     const newEmployee: Employee = {
       id: newId,
@@ -218,7 +221,7 @@ const EmployeeDirectory: React.FC<EmployeeDirectoryProps> = ({
       notes: [],
       onboardingTasks: [],
       evaluations: [firstEvaluation], 
-      customPermissions: [] 
+      customPermissions: [...initialPermissions] // COPY ROLE PERMISSIONS
     };
 
     onAddEmployee(newEmployee);

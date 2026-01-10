@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Shield, Search, Check, AlertTriangle, User, Save, RefreshCcw, Lock, Unlock, Briefcase, Plus, X, LayoutGrid, EyeOff, CheckSquare, Square, Eye, Users, Image as ImageIcon, Trash2, Upload, Link } from 'lucide-react';
+import { Shield, Search, Check, AlertTriangle, User, Save, RefreshCcw, Lock, Unlock, Briefcase, Plus, X, LayoutGrid, EyeOff, CheckSquare, Square, Eye, Users, Image as ImageIcon, Trash2, Upload, Link, Copy } from 'lucide-react';
 import { Employee, Permission, PERMISSION_LABELS, GlobalSettings, ViewState } from '../types';
 import { ROLE_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS } from '../utils/permissions';
 import { Modal } from './Modal';
@@ -98,31 +98,42 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
   const handleToggleUserPermission = (perm: Permission) => {
       if (!selectedEmployee) return;
 
-      const roleDefaults = roleConfigs[selectedEmployee.role] || [];
+      // Get current effective permissions
+      let currentPerms = selectedEmployee.customPermissions;
       
-      // If permission is already in role, we CANNOT turn it off (Additive model)
-      if (roleDefaults.includes(perm)) {
-          return; 
+      // If not currently overridden (null/undefined), initialize with role defaults (snapshot)
+      if (!currentPerms) {
+          const roleDefaults = roleConfigs[selectedEmployee.role] || [];
+          currentPerms = [...roleDefaults];
       }
-
-      const currentCustom = selectedEmployee.customPermissions || [];
-      let newPermissions: Permission[];
-
-      if (currentCustom.includes(perm)) {
-          // Remove custom permission
-          newPermissions = currentCustom.filter(p => p !== perm);
+      
+      // Toggle
+      if (currentPerms.includes(perm)) {
+          currentPerms = currentPerms.filter(p => p !== perm);
       } else {
-          // Add custom permission
-          newPermissions = [...currentCustom, perm];
+          currentPerms = [...currentPerms, perm];
       }
-
-      onUpdateEmployee({ ...selectedEmployee, customPermissions: newPermissions });
+      
+      onUpdateEmployee({ ...selectedEmployee, customPermissions: currentPerms });
   };
 
   const handleResetUserPermissions = () => {
       if (!selectedEmployee) return;
-      onUpdateEmployee({ ...selectedEmployee, customPermissions: [] });
-      onShowToast(`Rechten voor ${selectedEmployee.name} hersteld naar standaard.`);
+      // Setting to undefined/empty triggers fallback to Role in hasPermission logic
+      // Ideally we set it to undefined to indicate "Inherit", but JSON doesn't support undefined.
+      // So we rely on the logic that if it's NOT an array, or if we use null. 
+      // Types say Permission[] | undefined.
+      // Let's pass undefined to reset to "Inherited".
+      onUpdateEmployee({ ...selectedEmployee, customPermissions: undefined });
+      onShowToast(`Rechten voor ${selectedEmployee.name} hersteld naar standaard (Rol).`);
+  };
+
+  const handleCopyRolePermissions = () => {
+      if (!selectedEmployee) return;
+      const roleDefaults = roleConfigs[selectedEmployee.role] || [];
+      // Create a snapshot of the role permissions
+      onUpdateEmployee({ ...selectedEmployee, customPermissions: [...roleDefaults] });
+      onShowToast(`Rol permissies gekopieerd naar persoonlijke lijst.`);
   };
 
   // --- HANDLERS FOR ROLES ---
@@ -369,7 +380,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                                       >
                                           <img src={emp.avatar} className="w-8 h-8 rounded-full object-cover border border-slate-100" alt="Av"/>
                                           <span className="truncate flex-1">{emp.name}</span>
-                                          {emp.customPermissions && emp.customPermissions.length > 0 && <div className="w-2 h-2 bg-amber-400 rounded-full shadow-sm" title="Aangepaste rechten"></div>}
+                                          {Array.isArray(emp.customPermissions) && <div className="w-2 h-2 bg-blue-500 rounded-full shadow-sm" title="Aangepaste rechten"></div>}
                                       </button>
                                   ))}
                               </div>
@@ -414,9 +425,9 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                                 <div className="flex items-center gap-6">
                                     <div className="relative">
                                         <img src={selectedEmployee.avatar} className="w-20 h-20 rounded-2xl object-cover shadow-md border-2 border-white" alt="Avatar"/>
-                                        {selectedEmployee.customPermissions && selectedEmployee.customPermissions.length > 0 && (
-                                            <div className="absolute -top-2 -right-2 bg-amber-100 text-amber-700 p-1.5 rounded-full border-2 border-white" title="Aangepaste rechten actief">
-                                                <AlertTriangle size={14} />
+                                        {Array.isArray(selectedEmployee.customPermissions) && (
+                                            <div className="absolute -top-2 -right-2 bg-blue-100 text-blue-700 p-1.5 rounded-full border-2 border-white" title="Persoonlijke rechten actief">
+                                                <User size={14} />
                                             </div>
                                         )}
                                     </div>
@@ -429,69 +440,81 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                                         </div>
                                     </div>
                                 </div>
-                                {selectedEmployee.customPermissions && selectedEmployee.customPermissions.length > 0 && (
+                                <div className="flex gap-2">
                                     <button 
-                                        onClick={handleResetUserPermissions}
-                                        className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 text-sm font-bold rounded-xl transition-colors flex items-center gap-2 border border-amber-200"
+                                        onClick={handleCopyRolePermissions}
+                                        className="px-4 py-2 bg-white hover:bg-slate-50 text-slate-700 text-sm font-bold rounded-xl transition-colors flex items-center gap-2 border border-slate-200"
+                                        title="Kopieer de huidige rol permissies naar de persoonlijke lijst"
                                     >
-                                        <RefreshCcw size={16} /> Reset
+                                        <Copy size={16} /> Kopieer van Rol
                                     </button>
-                                )}
+                                    {Array.isArray(selectedEmployee.customPermissions) && (
+                                        <button 
+                                            onClick={handleResetUserPermissions}
+                                            className="px-4 py-2 bg-amber-50 hover:bg-amber-100 text-amber-700 text-sm font-bold rounded-xl transition-colors flex items-center gap-2 border border-amber-200"
+                                            title="Verwijder persoonlijke lijst en gebruik rol standaard"
+                                        >
+                                            <RefreshCcw size={16} /> Reset naar Rol
+                                        </button>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
                                 {(Object.keys(PERMISSION_LABELS) as Permission[]).map(perm => {
-                                    const roleDefaults = roleConfigs[selectedEmployee.role] || [];
-                                    const customPerms = selectedEmployee.customPermissions || [];
+                                    // Logic: 
+                                    // If customPermissions exists (Array), use THAT list (Override Mode).
+                                    // If customPermissions is null/undefined, use Role Defaults (Inherit Mode).
                                     
-                                    const isInherited = roleDefaults.includes(perm);
-                                    const isCustom = customPerms.includes(perm);
-                                    const isEffective = isInherited || isCustom;
+                                    const isCustomMode = Array.isArray(selectedEmployee.customPermissions);
+                                    
+                                    let isActive = false;
+                                    
+                                    if (isCustomMode) {
+                                        isActive = selectedEmployee.customPermissions!.includes(perm);
+                                    } else {
+                                        const roleDefaults = roleConfigs[selectedEmployee.role] || [];
+                                        isActive = roleDefaults.includes(perm);
+                                    }
 
                                     return (
                                         <div 
                                             key={perm} 
-                                            onClick={() => !isInherited && handleToggleUserPermission(perm)}
-                                            className={`group p-5 rounded-2xl border-2 transition-all duration-200 flex items-center justify-between ${
-                                                isInherited 
-                                                    ? 'bg-slate-50 border-slate-200 cursor-default opacity-80' 
-                                                    : isCustom 
-                                                        ? 'bg-teal-50 border-teal-200 cursor-pointer shadow-sm'
-                                                        : 'bg-white border-slate-100 hover:border-slate-300 cursor-pointer'
+                                            onClick={() => handleToggleUserPermission(perm)}
+                                            className={`group p-5 rounded-2xl border-2 transition-all duration-200 flex items-center justify-between cursor-pointer ${
+                                                isCustomMode
+                                                    ? (isActive ? 'bg-blue-50 border-blue-200 shadow-sm' : 'bg-white border-slate-100 hover:border-slate-300')
+                                                    : (isActive ? 'bg-green-50 border-green-200 shadow-sm' : 'bg-white border-slate-100 hover:border-slate-300')
                                             }`}
                                         >
                                             <div>
-                                                <div className={`font-bold text-sm ${isEffective ? 'text-slate-900' : 'text-slate-400'}`}>
+                                                <div className={`font-bold text-sm ${isActive ? 'text-slate-900' : 'text-slate-400'}`}>
                                                     {PERMISSION_LABELS[perm]}
                                                 </div>
                                                 <div className="flex items-center gap-2 mt-1">
-                                                    <div className={`text-xs font-mono ${isEffective ? 'text-slate-500' : 'text-slate-300'}`}>
+                                                    <div className={`text-xs font-mono ${isActive ? 'text-slate-500' : 'text-slate-300'}`}>
                                                         {perm}
                                                     </div>
-                                                    {isInherited && (
-                                                        <span className="text-[10px] font-bold text-slate-400 bg-slate-200 px-1.5 py-0.5 rounded">ROL</span>
+                                                    {!isCustomMode && isActive && (
+                                                        <span className="text-[10px] font-bold text-green-700 bg-green-100 px-1.5 py-0.5 rounded">ROL</span>
                                                     )}
-                                                    {isCustom && (
-                                                        <span className="text-[10px] font-bold text-teal-700 bg-teal-100 px-1.5 py-0.5 rounded">EXTRA</span>
+                                                    {isCustomMode && isActive && (
+                                                        <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">PERSOONLIJK</span>
                                                     )}
                                                 </div>
                                             </div>
                                             
-                                            {isInherited ? (
-                                                <div className="flex items-center justify-center w-8 h-8 bg-green-100 text-green-600 rounded-full" title="Ingeschakeld door Rol">
-                                                    <Check size={16} strokeWidth={3}/>
-                                                </div>
-                                            ) : (
-                                                <div className={`relative w-14 h-8 rounded-full transition-colors duration-300 ${
-                                                    isCustom ? 'bg-teal-500' : 'bg-slate-200'
+                                            <div className={`relative w-14 h-8 rounded-full transition-colors duration-300 ${
+                                                isActive 
+                                                ? (isCustomMode ? 'bg-blue-500' : 'bg-green-500') 
+                                                : 'bg-slate-200'
+                                            }`}>
+                                                <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-sm transition-transform duration-300 transform flex items-center justify-center ${
+                                                    isActive ? 'translate-x-6' : 'translate-x-0'
                                                 }`}>
-                                                    <div className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full shadow-sm transition-transform duration-300 transform ${
-                                                        isCustom ? 'translate-x-6' : 'translate-x-0'
-                                                    }`}>
-                                                        {isCustom && <div className="absolute inset-0 flex items-center justify-center text-teal-500"><Plus size={14} strokeWidth={3}/></div>}
-                                                    </div>
+                                                    {isActive && <Check size={14} className={isCustomMode ? 'text-blue-600' : 'text-green-600'} strokeWidth={3}/>}
                                                 </div>
-                                            )}
+                                            </div>
                                         </div>
                                     );
                                 })}

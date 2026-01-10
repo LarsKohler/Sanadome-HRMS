@@ -511,7 +511,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             itemId: item.itemId,
             itemName: item.name,
             change: 0, // No stock change
-            type: 'Correction', // Use 'Correction' as a catch-all for non-movement events
+            type: 'Order', // Changed from 'Correction' to 'Order'
             date: new Date().toISOString(),
             user: currentUser.name,
             notes: `Besteld bij ${activeOrderTarget.supplier} (Aantal: ${item.quantity})`
@@ -1051,9 +1051,14 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                             log.type === 'Delivery' ? 'bg-green-100 text-green-700' :
                                             log.type === 'Count' ? 'bg-blue-100 text-blue-700' :
                                             log.type === 'Usage' ? 'bg-amber-100 text-amber-700' :
+                                            log.type === 'Order' ? 'bg-purple-100 text-purple-700' : 
                                             'bg-slate-100 text-slate-700'
                                         }`}>
-                                            {log.type === 'Delivery' ? 'Levering' : log.type === 'Count' ? 'Telling' : log.type === 'Correction' ? 'Correctie' : 'Verbruik'}
+                                            {log.type === 'Delivery' ? 'Levering' : 
+                                             log.type === 'Count' ? 'Telling' : 
+                                             log.type === 'Correction' ? 'Correctie' : 
+                                             log.type === 'Order' ? 'Besteld' : 
+                                             'Verbruik'}
                                         </span>
                                     </td>
                                     <td className={`px-6 py-4 font-mono font-bold ${log.change > 0 ? 'text-green-600' : log.change < 0 ? 'text-red-600' : 'text-slate-400'}`}>

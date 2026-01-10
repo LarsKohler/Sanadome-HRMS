@@ -73,25 +73,21 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, Permission[]> = {
 export const ROLE_PERMISSIONS = DEFAULT_ROLE_PERMISSIONS;
 
 // Helper to check if a user has a specific permission
-// LOGIC: Role Permissions OR Custom Permissions (Additive)
-// Now accepts optional customRoles to support dynamic settings from DB
+// LOGIC: Custom Permissions (Override) OR Role Permissions (Fallback)
 export const hasPermission = (user: Employee | null, permission: Permission, customRoles?: Record<string, Permission[]>): boolean => {
   if (!user) return false;
 
-  // 1. Check Role Defaults (Use custom if provided, else static default)
+  // 1. Check Custom Permissions (OVERRIDE MODEL)
+  // If customPermissions is an array (even empty), it overrides the role completely.
+  if (Array.isArray(user.customPermissions)) {
+    return user.customPermissions.includes(permission);
+  }
+
+  // 2. Fallback to Role Defaults
   const roles = customRoles || ROLE_PERMISSIONS;
   const roleDefaults = roles[user.role] || [];
   
-  if (roleDefaults.includes(permission)) {
-    return true; // Always allowed if in role
-  }
-
-  // 2. Check Custom Additions
-  if (user.customPermissions && user.customPermissions.includes(permission)) {
-    return true; // Allowed if explicitly added
-  }
-
-  return false;
+  return roleDefaults.includes(permission);
 };
 
 // Helper to get the list of permissions that are strictly custom (not in role)
@@ -100,7 +96,6 @@ export const getCustomPermissionsOnly = (user: Employee): Permission[] => {
   const custom = user.customPermissions || [];
   
   // Return only permissions that are in custom BUT NOT in role
-  // (Cleaning up redundancy)
   return custom.filter(p => !roleDefaults.includes(p));
 };
 
@@ -125,9 +120,6 @@ export const isModuleEnabled = (view: ViewState, user: Employee | null, settings
     // 2. Access Mode Logic
     if (config.accessMode === 'restricted') {
         // WHITELIST LOGIC: Only allow if in allowedUsers list
-        // (Admins/Managers should probably override this, but let's stick to strict config first, or maybe Managers always see everything? 
-        // For now, strict: if restricted, you must be in the list)
-        // Exception: Managers might need access to configure it, but that's handled in Settings view, not Sidebar view.
         return config.allowedUsers ? config.allowedUsers.includes(user.id) : false;
     } else {
         // BLACKLIST LOGIC (Default/Open)

@@ -722,7 +722,7 @@ export interface StockItem {
   sourceName?: string; // e.g. "Makro", "Hanos", or "Technische Dienst"
 }
 
-export type StockTransactionType = 'Delivery' | 'Count' | 'Usage' | 'Correction';
+export type StockTransactionType = 'Delivery' | 'Count' | 'Usage' | 'Correction' | 'Order';
 
 export interface StockLog {
   id: string;
