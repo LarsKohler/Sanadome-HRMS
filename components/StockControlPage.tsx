@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Package, Search, Plus, Filter, AlertTriangle, RefreshCw, 
     Edit2, Trash2, Save, X, History, TrendingUp, TrendingDown, 
-    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft
+    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft, Settings, Tag
 } from 'lucide-react';
 import { Employee, StockItem, StockLog, StockOrder, StockOrderItem } from '../types';
 import { api } from '../utils/api';
@@ -45,6 +45,11 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const [countTarget, setCountTarget] = useState<StockItem | null>(null);
     const [countValue, setCountValue] = useState(''); 
     
+    // Category Management
+    const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+    const [categoryToRename, setCategoryToRename] = useState<string | null>(null);
+    const [newCategoryName, setNewCategoryName] = useState('');
+
     // Permission check
     const canManage = hasPermission(currentUser, 'MANAGE_STOCK');
 
@@ -70,6 +75,17 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         // Add any categories that exist in items but not in defaults
         items.forEach(i => cats.add(i.category));
         return ['All', ...Array.from(cats).sort()];
+    }, [items]);
+
+    const activeCategories = useMemo(() => {
+        const counts: Record<string, number> = {};
+        // Initialize defaults with 0
+        DEFAULT_CATEGORIES.forEach(c => counts[c] = 0);
+        // Count items
+        items.forEach(i => {
+            counts[i.category] = (counts[i.category] || 0) + 1;
+        });
+        return Object.entries(counts).sort((a,b) => a[0].localeCompare(b[0]));
     }, [items]);
 
     const filteredItems = useMemo(() => {
@@ -131,6 +147,40 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
         setIsItemModalOpen(false);
         onShowToast("Artikel opgeslagen.");
+    };
+
+    // --- CATEGORY ACTIONS ---
+    const handleRenameCategory = async () => {
+        if (!categoryToRename || !newCategoryName.trim()) return;
+        
+        const itemsToUpdate = items.filter(i => i.category === categoryToRename);
+        
+        if (itemsToUpdate.length === 0) {
+            setCategoryToRename(null);
+            return;
+        }
+
+        if (confirm(`Weet je zeker dat je de categorie '${categoryToRename}' wilt hernoemen naar '${newCategoryName}' voor ${itemsToUpdate.length} artikelen?`)) {
+            // Update all items
+            const updatedItems: StockItem[] = [];
+            
+            for (const item of itemsToUpdate) {
+                const updated = { ...item, category: newCategoryName };
+                await api.saveStockItem(updated);
+                updatedItems.push(updated);
+            }
+
+            setItems(prev => prev.map(i => {
+                if (i.category === categoryToRename) {
+                    return { ...i, category: newCategoryName };
+                }
+                return i;
+            }));
+
+            onShowToast(`Categorie hernoemd. ${itemsToUpdate.length} artikelen bijgewerkt.`);
+            setCategoryToRename(null);
+            setNewCategoryName('');
+        }
     };
 
     // --- COUNTING ---
@@ -379,8 +429,14 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 {canManage && (
                     <div className="flex gap-3">
                         <button 
-                            onClick={handleOpenCreate}
+                            onClick={() => setIsCategoryModalOpen(true)}
                             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all"
+                        >
+                            <Tag size={18} /> Categorieën
+                        </button>
+                        <button 
+                            onClick={handleOpenCreate}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 text-white font-bold rounded-xl shadow-lg hover:bg-slate-800 transition-all"
                         >
                             <Plus size={18} /> Nieuw Artikel
                         </button>
@@ -489,7 +545,10 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                                         + Bestellen
                                                     </button>
                                                     {canManage && (
-                                                        <button onClick={() => handleEditItem(item)} className="p-1.5 text-slate-400 hover:text-slate-700"><Edit2 size={16}/></button>
+                                                        <>
+                                                            <button onClick={() => handleEditItem(item)} className="p-1.5 text-slate-400 hover:text-slate-700"><Edit2 size={16}/></button>
+                                                            <button onClick={() => handleDeleteItem(item.id)} className="p-1.5 text-slate-400 hover:text-red-600"><Trash2 size={16}/></button>
+                                                        </>
                                                     )}
                                                 </div>
                                             </td>
@@ -797,6 +856,51 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                         <button onClick={() => setIsCountModalOpen(false)} className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 font-bold rounded-xl hover:bg-slate-50">Annuleren</button>
                         <button onClick={confirmCount} className="flex-1 py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 shadow-md">Bevestigen</button>
                     </div>
+                </div>
+            </Modal>
+
+            {/* CATEGORY MANAGEMENT MODAL */}
+            <Modal isOpen={isCategoryModalOpen} onClose={() => { setIsCategoryModalOpen(false); setCategoryToRename(null); setNewCategoryName(''); }} title="Categorieën Beheren">
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                    {categoryToRename ? (
+                        <div className="animate-in fade-in">
+                            <div className="mb-4 bg-blue-50 border border-blue-100 p-4 rounded-xl">
+                                <p className="text-sm text-blue-800">Je staat op het punt om <strong>'{categoryToRename}'</strong> te hernoemen. Dit past alle artikelen in deze categorie aan.</p>
+                            </div>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Nieuwe Naam</label>
+                            <input 
+                                type="text" 
+                                className="w-full p-3 border border-slate-200 rounded-xl font-bold text-slate-900 focus:ring-2 focus:ring-teal-500 outline-none"
+                                value={newCategoryName}
+                                onChange={(e) => setNewCategoryName(e.target.value)}
+                                autoFocus
+                                placeholder="Nieuwe naam..."
+                            />
+                            <div className="flex gap-3 mt-4">
+                                <button onClick={() => setCategoryToRename(null)} className="flex-1 py-2 bg-white border border-slate-200 rounded-lg text-slate-600 font-bold hover:bg-slate-50">Annuleren</button>
+                                <button onClick={handleRenameCategory} disabled={!newCategoryName.trim()} className="flex-1 py-2 bg-slate-900 text-white rounded-lg font-bold hover:bg-slate-800 shadow-sm disabled:opacity-50">Opslaan</button>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            <p className="text-xs text-slate-400 mb-2">Klik op het potloodje om een categorie te hernoemen.</p>
+                            {activeCategories.map(([cat, count]) => (
+                                <div key={cat} className="flex justify-between items-center p-3 bg-white border border-slate-100 rounded-xl hover:border-slate-200 transition-colors">
+                                    <div>
+                                        <span className="font-bold text-slate-800 text-sm">{cat}</span>
+                                        <span className="text-xs text-slate-400 ml-2">({count} items)</span>
+                                    </div>
+                                    <button 
+                                        onClick={() => { setCategoryToRename(cat); setNewCategoryName(cat); }}
+                                        className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                                        title="Hernoemen"
+                                    >
+                                        <Edit2 size={16}/>
+                                    </button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             </Modal>
 
