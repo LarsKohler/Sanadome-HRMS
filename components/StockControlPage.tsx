@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
     Package, Search, Plus, Filter, AlertTriangle, RefreshCw, 
     Edit2, Trash2, Save, X, History, TrendingUp, TrendingDown, 
-    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft, Settings, Tag, Building2, PlayCircle, ChevronRight, StopCircle, Upload, FileText, Paperclip, Send, ExternalLink, Mail, ShieldCheck
+    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft, Settings, Tag, Building2, PlayCircle, ChevronRight, StopCircle, Upload, FileText, Paperclip, Send, ExternalLink, Mail, ShieldCheck, ListFilter
 } from 'lucide-react';
 import { Employee, StockItem, StockLog, StockOrder, StockOrderItem } from '../types';
 import { api } from '../utils/api';
@@ -52,11 +52,13 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
     
     // GENERAL COUNTING MODE STATE
+    const [isCountSelectionOpen, setIsCountSelectionOpen] = useState(false); // NEW: Selection modal
     const [isCountingMode, setIsCountingMode] = useState(false);
     const [countingCategories, setCountingCategories] = useState<string[]>([]);
     const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
     const [groupedItems, setGroupedItems] = useState<Record<string, StockItem[]>>({});
     const [categoryCounts, setCategoryCounts] = useState<Record<string, string>>({}); // itemId -> value
+    const [countTypeLabel, setCountTypeLabel] = useState('');
 
     // ORDERING STATES
     const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
@@ -125,7 +127,8 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const existingSuppliers = useMemo(() => {
         const suppliers = new Set<string>();
         items.forEach(i => {
-            if (i.sourceType === 'External' && i.sourceName) {
+            // Collect ALL source names that are likely suppliers (External)
+            if (i.sourceName) {
                 suppliers.add(i.sourceName);
             }
         });
@@ -297,18 +300,33 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     };
 
     // --- GENERAL COUNTING ---
-    const startGeneralCount = () => {
+    const startGeneralCount = (type: 'All' | 'Internal' | 'External') => {
+        let filteredForCount = items;
+        let label = 'Algemene Telling';
+
+        if (type === 'Internal') {
+            filteredForCount = items.filter(i => i.sourceType === 'Internal');
+            label = 'Interne Telling';
+        } else if (type === 'External') {
+            filteredForCount = items.filter(i => i.sourceType === 'External');
+            label = 'Externe Telling';
+        }
+
         const grouped: Record<string, StockItem[]> = {};
-        items.forEach(item => {
+        filteredForCount.forEach(item => {
             if (!grouped[item.category]) grouped[item.category] = [];
             grouped[item.category].push(item);
         });
+
         const sortedCats = Object.keys(grouped).sort();
-        if (sortedCats.length === 0) return onShowToast("Geen artikelen om te tellen.");
+        if (sortedCats.length === 0) return onShowToast("Geen artikelen gevonden voor deze telling.");
+        
         setGroupedItems(grouped);
         setCountingCategories(sortedCats);
         setCurrentCategoryIndex(0);
         setCategoryCounts({}); 
+        setCountTypeLabel(label);
+        setIsCountSelectionOpen(false);
         setIsCountingMode(true);
     };
 
@@ -338,7 +356,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                         type: 'Count',
                         date: new Date().toISOString(),
                         user: currentUser.name,
-                        notes: 'Algemene Telling'
+                        notes: countTypeLabel
                     });
                 }
             }
@@ -610,7 +628,10 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                             <X size={24}/>
                         </button>
                         <div>
-                            <h2 className="text-xl font-bold text-slate-900">Voorraad Tellen</h2>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-xl font-bold text-slate-900">Voorraad Tellen</h2>
+                                <span className="bg-teal-100 text-teal-800 text-[10px] px-2 py-0.5 rounded-full uppercase font-bold">{countTypeLabel}</span>
+                            </div>
                             <p className="text-sm text-slate-500">Categorie {currentCategoryIndex + 1} van {countingCategories.length}</p>
                         </div>
                     </div>
@@ -705,7 +726,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 {canManage && (
                     <div className="flex gap-3">
                         <button 
-                            onClick={startGeneralCount}
+                            onClick={() => setIsCountSelectionOpen(true)}
                             className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
                         >
                             <PlayCircle size={18} /> Telling Starten
@@ -1087,8 +1108,9 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                      onChange={(e) => setEditingItem({...editingItem, sourceName: e.target.value})}
                                      list="supplier-options"
                                      required
+                                     autoComplete="off"
                                  />
-                                 <datalist id="supplier-options">
+                                 <datalist id="supplier-options" key={existingSuppliers.join(',')}>
                                      {existingSuppliers.map(sup => <option key={sup} value={sup} />)}
                                  </datalist>
                              </div>
@@ -1166,6 +1188,40 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                     
                     <button type="submit" className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 shadow-md">Opslaan</button>
                 </form>
+            </Modal>
+
+            {/* COUNT SELECTION MODAL */}
+            <Modal isOpen={isCountSelectionOpen} onClose={() => setIsCountSelectionOpen(false)} title="Telling Starten">
+                <div className="space-y-4">
+                    <p className="text-slate-500 text-sm">Wat wil je gaan tellen?</p>
+                    <button 
+                        onClick={() => startGeneralCount('All')}
+                        className="w-full p-4 border rounded-xl flex items-center justify-between hover:bg-slate-50 transition-colors group"
+                    >
+                        <span className="font-bold text-slate-900 group-hover:text-indigo-600">Alles Tellen</span>
+                        <ChevronRight size={18} className="text-slate-300 group-hover:text-indigo-600"/>
+                    </button>
+                    <button 
+                        onClick={() => startGeneralCount('Internal')}
+                        className="w-full p-4 border rounded-xl flex items-center justify-between hover:bg-amber-50 hover:border-amber-200 transition-colors group"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-amber-100 text-amber-700 rounded-lg"><Building2 size={16}/></div>
+                            <span className="font-bold text-slate-900 group-hover:text-amber-800">Alleen Interne Items</span>
+                        </div>
+                        <ChevronRight size={18} className="text-slate-300 group-hover:text-amber-800"/>
+                    </button>
+                    <button 
+                        onClick={() => startGeneralCount('External')}
+                        className="w-full p-4 border rounded-xl flex items-center justify-between hover:bg-blue-50 hover:border-blue-200 transition-colors group"
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className="p-2 bg-blue-100 text-blue-700 rounded-lg"><Truck size={16}/></div>
+                            <span className="font-bold text-slate-900 group-hover:text-blue-800">Alleen Externe Items (Leveranciers)</span>
+                        </div>
+                        <ChevronRight size={18} className="text-slate-300 group-hover:text-blue-800"/>
+                    </button>
+                </div>
             </Modal>
 
             {/* COUNT MODAL */}
@@ -1376,7 +1432,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                     onChange={(e) => setCcConfirmed(e.target.checked)}
                                 />
                                 <span className="text-sm font-bold text-blue-800 select-none">
-                                    Lars, Mila en Janique zijn toegevoegd aan de CC.
+                                    Lars, Janique en Mila zijn toegevoegd aan de CC.
                                 </span>
                             </label>
                             <p className="text-xs text-blue-600 mt-1 ml-6">Zij ontvangen automatisch een kopie van deze bestelling/aanvraag.</p>
