@@ -63,6 +63,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const [activeOrderTarget, setActiveOrderTarget] = useState<StockOrder | null>(null);
     const [orderFile, setOrderFile] = useState<File | null>(null);
     const [isUploadingOrder, setIsUploadingOrder] = useState(false);
+    const [noSlipAvailable, setNoSlipAvailable] = useState(false); // NEW: No slip option
     const orderInputRef = useRef<HTMLInputElement>(null);
 
     // Hidden Categories (Persisted)
@@ -96,36 +97,35 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
     const categories = useMemo(() => {
         const cats = new Set<string>();
-        
-        // Add defaults if not hidden
         DEFAULT_CATEGORIES.forEach(c => {
             if (!hiddenCategories.includes(c)) cats.add(c);
         });
-        
-        // Add any categories that exist in items (even if they were hidden, presence of items force visibility, or custom cats)
         items.forEach(i => cats.add(i.category));
-        
-        // Ensure Algemeen is always there
         cats.add('Algemeen');
-        
         return ['All', ...Array.from(cats).sort()];
     }, [items, hiddenCategories]);
 
     const activeCategories = useMemo(() => {
         const counts: Record<string, number> = {};
-        
-        // Initialize defaults with 0 if not hidden
         DEFAULT_CATEGORIES.forEach(c => {
              if (!hiddenCategories.includes(c)) counts[c] = 0;
         });
-        
-        // Count items
         items.forEach(i => {
             counts[i.category] = (counts[i.category] || 0) + 1;
         });
-        
         return Object.entries(counts).sort((a,b) => a[0].localeCompare(b[0]));
     }, [items, hiddenCategories]);
+
+    // Get unique list of existing suppliers for autocomplete
+    const existingSuppliers = useMemo(() => {
+        const suppliers = new Set<string>();
+        items.forEach(i => {
+            if (i.sourceType === 'External' && i.sourceName) {
+                suppliers.add(i.sourceName);
+            }
+        });
+        return Array.from(suppliers).sort();
+    }, [items]);
 
     const filteredItems = useMemo(() => {
         return items.filter(i => {
@@ -144,9 +144,9 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             category: 'Algemeen',
             currentStock: 0,
             minStock: 5,
-            unit: 'Stuks',
-            itemsPerBox: 1, 
-            sourceType: 'External', // Default
+            unit: 'Stuks', // Default invisible
+            itemsPerBox: 1, // Default invisible
+            sourceType: 'External', 
             sourceName: '',
             lastUpdated: new Date().toISOString()
         });
@@ -174,14 +174,18 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         if (!editingItem.category) return onShowToast("Categorie is verplicht.");
         if (!editingItem.sourceName) return onShowToast("Leverancier of Afdeling is verplicht.");
 
-        // Unhide if needed
         if (hiddenCategories.includes(editingItem.category)) {
              const newHidden = hiddenCategories.filter(c => c !== editingItem.category);
              setHiddenCategories(newHidden);
              localStorage.setItem('hrms_hidden_stock_categories', JSON.stringify(newHidden));
         }
 
-        const item = editingItem as StockItem;
+        const item = {
+            ...editingItem,
+            unit: 'Stuks', // Force default
+            itemsPerBox: 1 // Force default
+        } as StockItem;
+
         await api.saveStockItem(item);
         
         setItems(prev => {
@@ -199,7 +203,6 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     };
 
     // --- CATEGORY ACTIONS ---
-    // ... (Code same as before for rename/delete category) ...
     const handleRenameCategory = async () => {
         if (!categoryToRename || !newCategoryName.trim()) return;
         const itemsToUpdate = items.filter(i => i.category === categoryToRename);
@@ -288,9 +291,8 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         onShowToast("Voorraad bijgewerkt.");
     };
 
-    // --- GENERAL COUNTING (Same as before) ---
-    // ... (Code same as provided in previous prompt) ...
-     const startGeneralCount = () => {
+    // --- GENERAL COUNTING ---
+    const startGeneralCount = () => {
         const grouped: Record<string, StockItem[]> = {};
         items.forEach(item => {
             if (!grouped[item.category]) grouped[item.category] = [];
@@ -372,7 +374,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         }
     };
 
-    // --- ORDERING LOGIC (UPDATED FOR SOURCE GROUPING) ---
+    // --- ORDERING LOGIC ---
 
     const handleAddToPending = async (item: StockItem) => {
         const sourceName = item.sourceName || 'Onbekend';
@@ -393,7 +395,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                     itemId: item.id,
                     name: item.name,
                     quantity: 1, 
-                    unit: (item.itemsPerBox && item.itemsPerBox > 1) ? 'Doos' : 'Stuk'
+                    unit: 'Stuk'
                 });
             }
         } else {
@@ -401,7 +403,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 itemId: item.id,
                 name: item.name,
                 quantity: 1,
-                unit: (item.itemsPerBox && item.itemsPerBox > 1) ? 'Doos' : 'Stuk'
+                unit: 'Stuk'
             }];
         }
 
@@ -433,12 +435,14 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const handleOpenOrderModal = (order: StockOrder) => {
         setActiveOrderTarget(order);
         setOrderFile(null);
+        setNoSlipAvailable(false); // Reset
         setIsOrderModalOpen(true);
     };
 
     const handleOrderFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             setOrderFile(e.target.files[0]);
+            setNoSlipAvailable(false); // Can't have both
         }
     };
 
@@ -464,7 +468,8 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             ...activeOrderTarget,
             status: 'Ordered',
             orderedAt: new Date().toISOString(),
-            attachmentUrl: publicUrl
+            attachmentUrl: publicUrl,
+            notes: noSlipAvailable ? 'Geen bestelbon beschikbaar (Telefonisch/Mail)' : undefined
         };
 
         await api.saveStockOrder(updatedOrder);
@@ -475,7 +480,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         setActiveOrderTarget(null);
         setOrderFile(null);
 
-        onShowToast(updatedOrder.orderType === 'External' ? 'Bestelling geplaatst en bon opgeslagen!' : 'Interne aanvraag verstuurd!');
+        onShowToast(updatedOrder.orderType === 'External' ? 'Bestelling geplaatst!' : 'Interne aanvraag verstuurd!');
     };
 
     const handleReceiveOrder = async (orderId: string) => {
@@ -490,8 +495,8 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             const itemIndex = updatedItems.findIndex(i => i.id === orderItem.itemId);
             if (itemIndex >= 0) {
                 const stockItem = updatedItems[itemIndex];
-                const multiplier = (stockItem.itemsPerBox && stockItem.itemsPerBox > 1) ? stockItem.itemsPerBox : 1;
-                const totalQty = orderItem.quantity * multiplier;
+                // REMOVED MULTIPLIER LOGIC
+                const totalQty = orderItem.quantity; 
 
                 const updatedStockItem = {
                     ...stockItem,
@@ -509,7 +514,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                     type: 'Delivery',
                     date: new Date().toISOString(),
                     user: currentUser.name,
-                    notes: `Bestelling ontvangen (${order.supplier}): ${orderItem.quantity}x ${orderItem.unit}`
+                    notes: `Bestelling ontvangen (${order.supplier}): ${orderItem.quantity} stuks`
                 });
             }
         }
@@ -578,7 +583,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         }
     };
 
-    // --- COUNTING MODE RENDERER (Same as before) ---
+    // --- COUNTING MODE RENDERER ---
     const renderCountingMode = () => {
         const currentCatName = countingCategories[currentCategoryIndex];
         const categoryItems = groupedItems[currentCatName] || [];
@@ -622,12 +627,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                 <div className="flex-1">
                                     <h3 className="text-lg md:text-xl font-bold text-slate-900 mb-1">{item.name}</h3>
                                     <div className="flex items-center gap-2 text-sm text-slate-500">
-                                        {item.itemsPerBox && item.itemsPerBox > 1 && (
-                                            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-bold border border-blue-100">
-                                                Inhoud: {item.itemsPerBox}st
-                                            </span>
-                                        )}
-                                        <span className="text-slate-400">Huidig: {item.currentStock} {item.unit}</span>
+                                        <span className="text-slate-400">Huidig: {item.currentStock}</span>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -641,7 +641,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                         onChange={(e) => handleCategoryCountChange(item.id, e.target.value)}
                                         onFocus={(e) => e.target.select()}
                                     />
-                                    <span className="text-sm font-bold text-slate-400 w-8">{item.unit}</span>
+                                    <span className="text-sm font-bold text-slate-400 w-8">Stuks</span>
                                 </div>
                             </div>
                         ))}
@@ -781,9 +781,6 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                                 <div className="font-bold text-slate-900">{item.name}</div>
                                                 <div className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
                                                     <span className="bg-slate-100 px-1.5 py-0.5 rounded">{item.category}</span>
-                                                    {item.itemsPerBox && item.itemsPerBox > 1 && (
-                                                        <span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">Per doos: {item.itemsPerBox}st</span>
-                                                    )}
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
@@ -798,7 +795,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 font-mono font-bold text-base text-slate-800">
-                                                {item.currentStock} <span className="text-xs font-normal text-slate-400">{item.unit}</span>
+                                                {item.currentStock}
                                             </td>
                                             <td className="px-6 py-4">
                                                 {isLow ? (
@@ -915,6 +912,11 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                     <div className="text-sm text-slate-600">
                                         {order.items.length} artikelen ({order.items.map(i => i.name).join(', ').substring(0, 50)}...)
                                     </div>
+                                    {order.notes && (
+                                        <div className="text-xs text-amber-600 mt-1 italic flex items-center gap-1">
+                                            <AlertTriangle size={10} /> {order.notes}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="flex items-center gap-4">
                                     {order.attachmentUrl && (
@@ -1071,8 +1073,12 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                      placeholder={editingItem.sourceType === 'External' ? "bv. Makro, Hanos" : "bv. Keuken, Technische Dienst"}
                                      value={editingItem.sourceName || ''}
                                      onChange={(e) => setEditingItem({...editingItem, sourceName: e.target.value})}
+                                     list="supplier-options"
                                      required
                                  />
+                                 <datalist id="supplier-options">
+                                     {existingSuppliers.map(sup => <option key={sup} value={sup} />)}
+                                 </datalist>
                              </div>
                         </div>
                     </div>
@@ -1126,31 +1132,6 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                             )}
                         </div>
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Eenheid</label>
-                            <input 
-                                className="w-full p-3 border border-slate-200 rounded-xl"
-                                value={editingItem.unit}
-                                onChange={(e) => setEditingItem({...editingItem, unit: e.target.value})}
-                                placeholder="Stuks, Dozen, etc."
-                            />
-                        </div>
-                    </div>
-                    
-                    {/* ITEMS PER BOX CONFIG */}
-                    <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Aantal per doos</label>
-                        <input 
-                            type="number"
-                            className="w-full p-3 border border-slate-200 rounded-xl"
-                            value={editingItem.itemsPerBox || 1}
-                            onChange={(e) => setEditingItem({...editingItem, itemsPerBox: parseInt(e.target.value) || 1})}
-                            min={1}
-                        />
-                        <p className="text-[10px] text-slate-400 mt-1">Vul 1 in als dit artikel niet per doos gaat.</p>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Huidige Voorraad</label>
                             <input 
                                 type="number"
@@ -1159,16 +1140,18 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                 onChange={(e) => setEditingItem({...editingItem, currentStock: parseInt(e.target.value) || 0})}
                             />
                         </div>
-                        <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Minimum Voorraad</label>
-                            <input 
-                                type="number"
-                                className="w-full p-3 border border-slate-200 rounded-xl"
-                                value={editingItem.minStock}
-                                onChange={(e) => setEditingItem({...editingItem, minStock: parseInt(e.target.value) || 0})}
-                            />
-                        </div>
                     </div>
+                    
+                    <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Minimum Voorraad</label>
+                        <input 
+                            type="number"
+                            className="w-full p-3 border border-slate-200 rounded-xl"
+                            value={editingItem.minStock}
+                            onChange={(e) => setEditingItem({...editingItem, minStock: parseInt(e.target.value) || 0})}
+                        />
+                    </div>
+                    
                     <button type="submit" className="w-full py-3 bg-slate-900 text-white font-bold rounded-xl hover:bg-slate-800 shadow-md">Opslaan</button>
                 </form>
             </Modal>
@@ -1178,11 +1161,11 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 <div className="space-y-6">
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-center">
                         <h3 className="text-lg font-bold text-slate-900">{countTarget?.name}</h3>
-                        <p className="text-slate-500 text-sm">Huidig Systeem: <strong>{countTarget?.currentStock} {countTarget?.unit}</strong></p>
+                        <p className="text-slate-500 text-sm">Huidig Systeem: <strong>{countTarget?.currentStock} stuks</strong></p>
                     </div>
                     
                     <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2 text-center">Nieuw Geteld Aantal (Totaal Stuks)</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-2 text-center">Nieuw Geteld Aantal</label>
                         <input 
                             type="number"
                             className="w-full p-4 text-center text-3xl font-bold border-2 border-teal-500 rounded-2xl focus:outline-none focus:ring-4 focus:ring-teal-500/20"
@@ -1301,15 +1284,15 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                     <Truck size={16}/> {activeOrderTarget.supplier}
                                 </h4>
                                 <p className="text-teal-700 text-xs leading-relaxed">
-                                    Upload de bestelbon (PDF/Excel) om de bestelling te bevestigen. Deze wordt opgeslagen bij de order.
+                                    Upload de bestelbon (PDF/Excel) om de bestelling te bevestigen.
                                 </p>
                             </div>
                             
                             <div 
-                                onClick={() => !isUploadingOrder && orderInputRef.current?.click()}
-                                className="border-2 border-dashed border-slate-300 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-teal-500 hover:bg-slate-50 transition-all group"
+                                onClick={() => !isUploadingOrder && !noSlipAvailable && orderInputRef.current?.click()}
+                                className={`border-2 border-dashed rounded-2xl p-8 flex flex-col items-center justify-center transition-all group ${noSlipAvailable ? 'border-slate-200 bg-slate-50 cursor-not-allowed opacity-50' : 'border-slate-300 cursor-pointer hover:border-teal-500 hover:bg-slate-50'}`}
                             >
-                                <input type="file" ref={orderInputRef} className="hidden" accept=".pdf,.jpg,.png,.xlsx" onChange={handleOrderFileUpload} />
+                                <input type="file" ref={orderInputRef} className="hidden" accept=".pdf,.jpg,.png,.xlsx" onChange={handleOrderFileUpload} disabled={noSlipAvailable} />
                                 {orderFile ? (
                                     <div className="text-center">
                                         <FileText size={32} className="text-teal-600 mx-auto mb-2"/>
@@ -1323,6 +1306,22 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                         <p className="text-xs text-slate-400">PDF, Excel of Afbeelding</p>
                                     </div>
                                 )}
+                            </div>
+
+                            <div className="flex items-center gap-2 px-1">
+                                <input 
+                                    type="checkbox" 
+                                    id="noSlip"
+                                    className="w-4 h-4 text-teal-600 rounded focus:ring-teal-500"
+                                    checked={noSlipAvailable}
+                                    onChange={(e) => {
+                                        setNoSlipAvailable(e.target.checked);
+                                        if(e.target.checked) setOrderFile(null);
+                                    }}
+                                />
+                                <label htmlFor="noSlip" className="text-sm font-bold text-slate-600 cursor-pointer select-none">
+                                    Geen bestelbon beschikbaar (Telefonisch/Mail)
+                                </label>
                             </div>
                         </>
                     ) : (
@@ -1341,7 +1340,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                         <button onClick={() => setIsOrderModalOpen(false)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg font-bold text-slate-600 hover:bg-slate-50">Annuleren</button>
                         <button 
                             onClick={handleConfirmOrder} 
-                            disabled={activeOrderTarget?.orderType === 'External' && !orderFile}
+                            disabled={activeOrderTarget?.orderType === 'External' && !orderFile && !noSlipAvailable}
                             className="px-6 py-2 bg-slate-900 text-white rounded-lg font-bold shadow-md hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                         >
                             {isUploadingOrder ? 'Bezig...' : (activeOrderTarget?.orderType === 'External' ? 'Bestelling Bevestigen' : 'Aanvraag Versturen')} <Send size={16}/>
