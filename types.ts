@@ -717,7 +717,9 @@ export interface StockItem {
   unit: string;
   itemsPerBox?: number;
   lastUpdated: string;
-  supplier?: string;
+  // NEW FIELDS
+  sourceType: 'External' | 'Internal';
+  sourceName?: string; // e.g. "Makro", "Hanos", or "Technische Dienst"
 }
 
 export type StockTransactionType = 'Delivery' | 'Count' | 'Usage' | 'Correction';
@@ -752,6 +754,10 @@ export interface StockOrder {
   receivedAt?: string;
   receivedBy?: string;
   notes?: string;
+  // NEW FIELDS
+  supplier?: string; // Grouping Name
+  orderType?: 'External' | 'Internal';
+  attachmentUrl?: string; // URL to uploaded order slip
 }
 
 export type SurveyQuestionType = 'Rating' | 'Scale10' | 'YesNo' | 'Text' | 'Choice';

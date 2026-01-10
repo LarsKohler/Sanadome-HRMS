@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
     Package, Search, Plus, Filter, AlertTriangle, RefreshCw, 
     Edit2, Trash2, Save, X, History, TrendingUp, TrendingDown, 
-    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft, Settings, Tag, Building2, PlayCircle, ChevronRight, StopCircle
+    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft, Settings, Tag, Building2, PlayCircle, ChevronRight, StopCircle, Upload, FileText, Paperclip, Send, ExternalLink
 } from 'lucide-react';
 import { Employee, StockItem, StockLog, StockOrder, StockOrderItem } from '../types';
 import { api } from '../utils/api';
@@ -57,6 +57,13 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
     const [groupedItems, setGroupedItems] = useState<Record<string, StockItem[]>>({});
     const [categoryCounts, setCategoryCounts] = useState<Record<string, string>>({}); // itemId -> value
+
+    // ORDERING STATES
+    const [isOrderModalOpen, setIsOrderModalOpen] = useState(false);
+    const [activeOrderTarget, setActiveOrderTarget] = useState<StockOrder | null>(null);
+    const [orderFile, setOrderFile] = useState<File | null>(null);
+    const [isUploadingOrder, setIsUploadingOrder] = useState(false);
+    const orderInputRef = useRef<HTMLInputElement>(null);
 
     // Hidden Categories (Persisted)
     const [hiddenCategories, setHiddenCategories] = useState<string[]>(() => {
@@ -139,7 +146,8 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             minStock: 5,
             unit: 'Stuks',
             itemsPerBox: 1, 
-            supplier: '',
+            sourceType: 'External', // Default
+            sourceName: '',
             lastUpdated: new Date().toISOString()
         });
         setIsCustomCategory(false);
@@ -164,6 +172,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         e.preventDefault();
         if (!editingItem.name) return onShowToast("Naam is verplicht.");
         if (!editingItem.category) return onShowToast("Categorie is verplicht.");
+        if (!editingItem.sourceName) return onShowToast("Leverancier of Afdeling is verplicht.");
 
         // Unhide if needed
         if (hiddenCategories.includes(editingItem.category)) {
@@ -190,44 +199,30 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     };
 
     // --- CATEGORY ACTIONS ---
+    // ... (Code same as before for rename/delete category) ...
     const handleRenameCategory = async () => {
         if (!categoryToRename || !newCategoryName.trim()) return;
-        
         const itemsToUpdate = items.filter(i => i.category === categoryToRename);
-        
-        if (itemsToUpdate.length === 0) {
-            setCategoryToRename(null);
-            return;
-        }
+        if (itemsToUpdate.length === 0) { setCategoryToRename(null); return; }
 
         if (confirm(`Weet je zeker dat je de categorie '${categoryToRename}' wilt hernoemen naar '${newCategoryName}' voor ${itemsToUpdate.length} artikelen?`)) {
-            
-            // Unhide target if hidden
             if (hiddenCategories.includes(newCategoryName)) {
                  const newHidden = hiddenCategories.filter(c => c !== newCategoryName);
                  setHiddenCategories(newHidden);
                  localStorage.setItem('hrms_hidden_stock_categories', JSON.stringify(newHidden));
             }
-
-            // Update all items
             const updatedItems: StockItem[] = [];
-            
             for (const item of itemsToUpdate) {
                 const updated = { ...item, category: newCategoryName };
                 await api.saveStockItem(updated);
                 updatedItems.push(updated);
             }
-
             setItems(prev => prev.map(i => {
                 if (i.category === categoryToRename) {
                     return { ...i, category: newCategoryName };
                 }
                 return i;
             }));
-
-            // If renaming a default category, we are essentially "moving" items out of it. 
-            // We don't hide the old one automatically, it stays as empty default unless deleted.
-            
             onShowToast(`Categorie hernoemd. ${itemsToUpdate.length} artikelen bijgewerkt.`);
             setCategoryToRename(null);
             setNewCategoryName('');
@@ -235,44 +230,31 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     };
 
     const handleDeleteCategoryClick = (cat: string) => {
-        if (cat === 'Algemeen') {
-            return onShowToast("De categorie 'Algemeen' kan niet verwijderd worden.");
-        }
+        if (cat === 'Algemeen') { return onShowToast("De categorie 'Algemeen' kan niet verwijderd worden."); }
         setCategoryToDelete(cat);
     };
 
     const executeDeleteCategory = async () => {
         if (!categoryToDelete) return;
-
         const itemsToMove = items.filter(i => i.category === categoryToDelete);
-        
-        // Move items to Algemeen
         for (const item of itemsToMove) {
             const updated = { ...item, category: 'Algemeen' };
             await api.saveStockItem(updated);
         }
-        
-        // Update local state for items
         setItems(prev => prev.map(i => {
-            if (i.category === categoryToDelete) {
-                return { ...i, category: 'Algemeen' };
-            }
+            if (i.category === categoryToDelete) { return { ...i, category: 'Algemeen' }; }
             return i;
         }));
-
-        // Add to hidden list if it's not already there (this persists the deletion for default categories)
         if (!hiddenCategories.includes(categoryToDelete)) {
             const newHidden = [...hiddenCategories, categoryToDelete];
             setHiddenCategories(newHidden);
             localStorage.setItem('hrms_hidden_stock_categories', JSON.stringify(newHidden));
         }
-        
         onShowToast(`Categorie '${categoryToDelete}' verwijderd. Artikelen verplaatst naar Algemeen.`);
         setCategoryToDelete(null);
     };
 
     // --- COUNTING ---
-
     const handleOpenCount = (item: StockItem) => {
         setCountTarget(item);
         setCountValue(item.currentStock.toString());
@@ -281,21 +263,11 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
     const confirmCount = async () => {
         if (!countTarget || countValue === '') return;
-        
         const newCount = parseInt(countValue);
         const diff = newCount - countTarget.currentStock;
-        
-        if (diff === 0) {
-            setIsCountModalOpen(false);
-            return;
-        }
+        if (diff === 0) { setIsCountModalOpen(false); return; }
 
-        const updatedItem = { 
-            ...countTarget, 
-            currentStock: newCount,
-            lastUpdated: new Date().toISOString() 
-        };
-
+        const updatedItem = { ...countTarget, currentStock: newCount, lastUpdated: new Date().toISOString() };
         const log: StockLog = {
             id: crypto.randomUUID(),
             itemId: updatedItem.id,
@@ -309,68 +281,48 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
         await api.saveStockItem(updatedItem);
         await api.saveStockLog(log);
-
         setItems(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i));
         setLogs(prev => [log, ...prev]);
-        
         setIsCountModalOpen(false);
         setCountTarget(null);
         onShowToast("Voorraad bijgewerkt.");
     };
 
-    // --- GENERAL COUNTING MODE LOGIC (CATEGORY BASED) ---
-    
-    const startGeneralCount = () => {
-        // Group items
+    // --- GENERAL COUNTING (Same as before) ---
+    // ... (Code same as provided in previous prompt) ...
+     const startGeneralCount = () => {
         const grouped: Record<string, StockItem[]> = {};
         items.forEach(item => {
             if (!grouped[item.category]) grouped[item.category] = [];
             grouped[item.category].push(item);
         });
-
-        // Get sorted category names
         const sortedCats = Object.keys(grouped).sort();
-        
         if (sortedCats.length === 0) return onShowToast("Geen artikelen om te tellen.");
-
         setGroupedItems(grouped);
         setCountingCategories(sortedCats);
         setCurrentCategoryIndex(0);
-        setCategoryCounts({}); // Start fresh
+        setCategoryCounts({}); 
         setIsCountingMode(true);
     };
 
     const handleCategoryCountChange = (itemId: string, val: string) => {
-        setCategoryCounts(prev => ({
-            ...prev,
-            [itemId]: val
-        }));
+        setCategoryCounts(prev => ({ ...prev, [itemId]: val }));
     };
 
     const handleNextCategory = async () => {
         const currentCat = countingCategories[currentCategoryIndex];
         const categoryItems = groupedItems[currentCat] || [];
-        
-        // Process updates for current category
         const updates: StockItem[] = [];
         const newLogs: StockLog[] = [];
 
         categoryItems.forEach(item => {
             const inputVal = categoryCounts[item.id];
-            // If input is empty, we assume NO CHANGE or 0? 
-            // Better UX: If empty, assume 0 for full audit, but lets treat empty as "Skipped/Unchanged" to be safe?
-            // Actually for "General Count", usually you want to set stock. 
-            // Let's treat empty as 0 to force counting. Or use placeholder.
-            // DECISION: If empty string, treat as 0.
-            
             if (inputVal !== undefined) {
                 const newStock = inputVal === '' ? 0 : parseInt(inputVal);
-                
                 if (newStock !== item.currentStock) {
                     const diff = newStock - item.currentStock;
                     const updatedItem = { ...item, currentStock: newStock, lastUpdated: new Date().toISOString() };
                     updates.push(updatedItem);
-                    
                     newLogs.push({
                         id: crypto.randomUUID(),
                         itemId: updatedItem.id,
@@ -385,14 +337,9 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             }
         });
 
-        // Batch Save
         if (updates.length > 0) {
-            // Save items
             await Promise.all(updates.map(u => api.saveStockItem(u)));
-            // Save logs
             await Promise.all(newLogs.map(l => api.saveStockLog(l)));
-            
-            // Update local state
             setItems(prev => {
                 const map = new Map(prev.map(i => [i.id, i]));
                 updates.forEach(u => map.set(u.id, u));
@@ -401,15 +348,12 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             setLogs(prev => [...newLogs, ...prev]);
         }
 
-        // Move next
         if (currentCategoryIndex < countingCategories.length - 1) {
             setCurrentCategoryIndex(prev => prev + 1);
-            setCategoryCounts({}); // Reset inputs for next cat
-            // Scroll to top of list
+            setCategoryCounts({});
             const listContainer = document.getElementById('counting-list-container');
             if (listContainer) listContainer.scrollTop = 0;
         } else {
-            // Finished
             setIsCountingMode(false);
             onShowToast("Telling voltooid!");
         }
@@ -418,7 +362,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const handlePrevCategory = () => {
         if (currentCategoryIndex > 0) {
             setCurrentCategoryIndex(prev => prev - 1);
-            setCategoryCounts({}); // Reset to force re-count or load current? Loading current is safer but tricky with optimistic UI. Let's reset.
+            setCategoryCounts({}); 
         }
     };
 
@@ -428,11 +372,13 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         }
     };
 
-    // --- ORDERING LOGIC ---
+    // --- ORDERING LOGIC (UPDATED FOR SOURCE GROUPING) ---
 
     const handleAddToPending = async (item: StockItem) => {
-        // Find existing pending order or create new one in memory
-        const pendingOrder = orders.find(o => o.status === 'Pending');
+        const sourceName = item.sourceName || 'Onbekend';
+        
+        // Find existing pending order SPECIFICALLY for this supplier/department
+        const pendingOrder = orders.find(o => o.status === 'Pending' && o.supplier === sourceName);
         
         let newItems: StockOrderItem[] = [];
         let orderId = pendingOrder?.id || crypto.randomUUID();
@@ -446,7 +392,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 newItems.push({
                     itemId: item.id,
                     name: item.name,
-                    quantity: 1, // Default 1 box/unit
+                    quantity: 1, 
                     unit: (item.itemsPerBox && item.itemsPerBox > 1) ? 'Doos' : 'Stuk'
                 });
             }
@@ -464,10 +410,11 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             items: newItems,
             status: 'Pending',
             createdAt: pendingOrder ? pendingOrder.createdAt : new Date().toISOString(),
-            createdBy: pendingOrder ? pendingOrder.createdBy : currentUser.name
+            createdBy: pendingOrder ? pendingOrder.createdBy : currentUser.name,
+            supplier: sourceName,
+            orderType: item.sourceType
         };
 
-        // SAVE TO DB IMMEDIATELY
         await api.saveStockOrder(order);
         
         setOrders(prev => {
@@ -480,22 +427,55 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             return [order, ...prev];
         });
         
-        onShowToast(`${item.name} toegevoegd aan wensenlijst.`);
+        onShowToast(`${item.name} toegevoegd aan bestelling voor ${sourceName}.`);
     };
 
-    const handlePlaceOrder = async (orderId: string) => {
-        const order = orders.find(o => o.id === orderId);
-        if (!order) return;
+    const handleOpenOrderModal = (order: StockOrder) => {
+        setActiveOrderTarget(order);
+        setOrderFile(null);
+        setIsOrderModalOpen(true);
+    };
+
+    const handleOrderFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.files && e.target.files[0]) {
+            setOrderFile(e.target.files[0]);
+        }
+    };
+
+    const handleConfirmOrder = async () => {
+        if (!activeOrderTarget) return;
+
+        setIsUploadingOrder(true);
+        let publicUrl = undefined;
+
+        // If External and file provided, upload
+        if (activeOrderTarget.orderType === 'External' && orderFile) {
+            try {
+                publicUrl = await api.uploadFile(orderFile);
+            } catch (e) {
+                console.error("Upload failed", e);
+                onShowToast("Uploaden bestelbon mislukt, bestelling niet geplaatst.");
+                setIsUploadingOrder(false);
+                return;
+            }
+        }
 
         const updatedOrder: StockOrder = {
-            ...order,
+            ...activeOrderTarget,
             status: 'Ordered',
-            orderedAt: new Date().toISOString()
+            orderedAt: new Date().toISOString(),
+            attachmentUrl: publicUrl
         };
 
         await api.saveStockOrder(updatedOrder);
-        setOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
-        onShowToast("Bestelling geplaatst!");
+        setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
+        
+        setIsUploadingOrder(false);
+        setIsOrderModalOpen(false);
+        setActiveOrderTarget(null);
+        setOrderFile(null);
+
+        onShowToast(updatedOrder.orderType === 'External' ? 'Bestelling geplaatst en bon opgeslagen!' : 'Interne aanvraag verstuurd!');
     };
 
     const handleReceiveOrder = async (orderId: string) => {
@@ -518,11 +498,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                     currentStock: stockItem.currentStock + totalQty,
                     lastUpdated: new Date().toISOString()
                 };
-
-                // Update array in memory
                 updatedItems[itemIndex] = updatedStockItem;
-
-                // Save individual item to DB
                 await api.saveStockItem(updatedStockItem);
 
                 newLogs.push({
@@ -533,12 +509,11 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                     type: 'Delivery',
                     date: new Date().toISOString(),
                     user: currentUser.name,
-                    notes: `Bestelling ontvangen: ${orderItem.quantity}x ${orderItem.unit}`
+                    notes: `Bestelling ontvangen (${order.supplier}): ${orderItem.quantity}x ${orderItem.unit}`
                 });
             }
         }
 
-        // Update Order Status
         const updatedOrder: StockOrder = {
             ...order,
             status: 'Received',
@@ -547,11 +522,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         };
 
         await api.saveStockOrder(updatedOrder);
-        
-        // Save Logs
-        for (const log of newLogs) {
-            await api.saveStockLog(log);
-        }
+        for (const log of newLogs) { await api.saveStockLog(log); }
 
         setItems(updatedItems);
         setLogs(prev => [...newLogs, ...prev]);
@@ -580,8 +551,6 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         });
 
         const updatedOrder = { ...order, items: updatedItems };
-        
-        // SAVE TO DB
         await api.saveStockOrder(updatedOrder);
         setOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
     };
@@ -591,12 +560,10 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         if (!order) return;
 
         const updatedItems = order.items.filter(i => i.itemId !== itemId);
-        
         if (updatedItems.length === 0) {
             handleDeleteOrder(orderId);
         } else {
             const updatedOrder = { ...order, items: updatedItems };
-            // SAVE TO DB
             await api.saveStockOrder(updatedOrder);
             setOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
         }
@@ -611,7 +578,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         }
     };
 
-    // --- COUNTING MODE RENDERER ---
+    // --- COUNTING MODE RENDERER (Same as before) ---
     const renderCountingMode = () => {
         const currentCatName = countingCategories[currentCategoryIndex];
         const categoryItems = groupedItems[currentCatName] || [];
@@ -798,6 +765,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                             <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
                                 <tr>
                                     <th className="px-6 py-4">Artikel</th>
+                                    <th className="px-6 py-4">Type</th>
                                     <th className="px-6 py-4">Huidig</th>
                                     <th className="px-6 py-4">Status</th>
                                     <th className="px-6 py-4 text-right">Acties</th>
@@ -806,6 +774,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                             <tbody className="divide-y divide-slate-100 text-sm">
                                 {filteredItems.map(item => {
                                     const isLow = item.currentStock <= item.minStock;
+                                    const isInternal = item.sourceType === 'Internal';
                                     return (
                                         <tr key={item.id} className="hover:bg-slate-50">
                                             <td className="px-6 py-4">
@@ -815,12 +784,18 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                                     {item.itemsPerBox && item.itemsPerBox > 1 && (
                                                         <span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">Per doos: {item.itemsPerBox}st</span>
                                                     )}
-                                                    {item.supplier && (
-                                                        <span className="bg-white px-1.5 py-0.5 rounded border border-slate-200 flex items-center gap-1">
-                                                            <Building2 size={10} className="text-slate-400"/> {item.supplier}
-                                                        </span>
-                                                    )}
                                                 </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                {isInternal ? (
+                                                    <span className="inline-flex items-center gap-1 bg-amber-50 text-amber-700 px-2 py-0.5 rounded text-xs border border-amber-100 font-medium">
+                                                        <Building2 size={12}/> {item.sourceName}
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs border border-blue-100 font-medium">
+                                                        <Truck size={12}/> {item.sourceName}
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4 font-mono font-bold text-base text-slate-800">
                                                 {item.currentStock} <span className="text-xs font-normal text-slate-400">{item.unit}</span>
@@ -872,50 +847,55 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             {/* ORDERS TAB */}
             {activeTab === 'orders' && (
                 <div className="space-y-8">
-                    {/* PENDING ORDERS (Wensenlijst) */}
+                    {/* PENDING ORDERS (Grouped) */}
                     {orders.some(o => o.status === 'Pending') && (
-                        <div className="bg-white rounded-2xl border border-teal-200 shadow-md overflow-hidden">
-                            <div className="bg-teal-50 px-6 py-4 border-b border-teal-100 flex justify-between items-center">
-                                <h3 className="font-bold text-teal-900 flex items-center gap-2">
-                                    <ClipboardList size={20}/> Wensenlijst (Nog niet besteld)
-                                </h3>
-                                <button onClick={() => handleDeleteOrder(orders.find(o => o.status === 'Pending')?.id!)} className="text-teal-700 hover:text-red-600">
-                                    <Trash2 size={18}/>
-                                </button>
-                            </div>
-                            <div className="divide-y divide-slate-100">
-                                {orders.filter(o => o.status === 'Pending').map(order => (
-                                    <div key={order.id} className="p-6">
-                                        <div className="mb-4 text-xs text-slate-500">
-                                            Aangemaakt op {new Date(order.createdAt).toLocaleDateString()} door {order.createdBy}
-                                        </div>
-                                        <div className="space-y-2 mb-6">
-                                            {order.items.map(item => (
-                                                <div key={item.itemId} className="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
-                                                    <span className="font-bold text-slate-700">{item.name}</span>
-                                                    <div className="flex items-center gap-4">
-                                                        <div className="flex items-center gap-2 bg-white px-2 py-1 rounded border border-slate-200">
-                                                            <button onClick={() => updateOrderItemQuantity(order.id, item.itemId, -1)} className="text-slate-400 hover:text-slate-700"><TrendingDown size={16}/></button>
-                                                            <span className="font-mono w-8 text-center">{item.quantity}</span>
-                                                            <button onClick={() => updateOrderItemQuantity(order.id, item.itemId, 1)} className="text-slate-400 hover:text-slate-700"><TrendingUp size={16}/></button>
-                                                        </div>
-                                                        <span className="text-xs text-slate-500 w-12">{item.unit}</span>
-                                                        <button onClick={() => removeOrderItem(order.id, item.itemId)} className="text-slate-300 hover:text-red-500"><X size={16}/></button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                        <div className="flex justify-end gap-3">
-                                            <button 
-                                                onClick={() => handlePlaceOrder(order.id)}
-                                                className="px-6 py-2.5 bg-teal-600 text-white font-bold rounded-xl shadow-md hover:bg-teal-700 flex items-center gap-2"
-                                            >
-                                                Bestelling Plaatsen <ArrowRight size={18}/>
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                             {orders.filter(o => o.status === 'Pending').map(order => {
+                                 const isInternal = order.orderType === 'Internal';
+                                 return (
+                                     <div key={order.id} className="bg-white rounded-2xl border border-slate-200 shadow-md overflow-hidden flex flex-col">
+                                         <div className={`px-6 py-4 border-b flex justify-between items-center ${isInternal ? 'bg-amber-50 border-amber-100' : 'bg-teal-50 border-teal-100'}`}>
+                                             <div>
+                                                 <h3 className={`font-bold flex items-center gap-2 ${isInternal ? 'text-amber-900' : 'text-teal-900'}`}>
+                                                     {isInternal ? <Building2 size={18}/> : <Truck size={18}/>}
+                                                     {order.supplier}
+                                                 </h3>
+                                                 <p className={`text-xs ${isInternal ? 'text-amber-700' : 'text-teal-700'}`}>
+                                                     {isInternal ? 'Interne Aanvraag' : 'Externe Bestelling'}
+                                                 </p>
+                                             </div>
+                                             <button onClick={() => handleDeleteOrder(order.id)} className="text-slate-400 hover:text-red-500">
+                                                 <Trash2 size={18}/>
+                                             </button>
+                                         </div>
+                                         <div className="p-4 flex-1">
+                                             <div className="space-y-2 mb-6">
+                                                 {order.items.map(item => (
+                                                     <div key={item.itemId} className="flex items-center justify-between bg-slate-50 p-2 rounded-lg text-sm">
+                                                         <span className="font-bold text-slate-700">{item.name}</span>
+                                                         <div className="flex items-center gap-2">
+                                                             <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded border border-slate-200">
+                                                                 <button onClick={() => updateOrderItemQuantity(order.id, item.itemId, -1)} className="text-slate-400 hover:text-slate-700"><TrendingDown size={14}/></button>
+                                                                 <span className="font-mono w-6 text-center">{item.quantity}</span>
+                                                                 <button onClick={() => updateOrderItemQuantity(order.id, item.itemId, 1)} className="text-slate-400 hover:text-slate-700"><TrendingUp size={14}/></button>
+                                                             </div>
+                                                             <button onClick={() => removeOrderItem(order.id, item.itemId)} className="text-slate-300 hover:text-red-500"><X size={14}/></button>
+                                                         </div>
+                                                     </div>
+                                                 ))}
+                                             </div>
+                                         </div>
+                                         <div className="p-4 bg-slate-50 border-t border-slate-100">
+                                             <button 
+                                                 onClick={() => handleOpenOrderModal(order)}
+                                                 className={`w-full py-2.5 font-bold rounded-xl shadow-sm flex items-center justify-center gap-2 ${isInternal ? 'bg-amber-500 hover:bg-amber-600 text-white' : 'bg-teal-600 hover:bg-teal-700 text-white'}`}
+                                             >
+                                                 {isInternal ? 'Aanvragen' : 'Plaatsen'} <ArrowRight size={18}/>
+                                             </button>
+                                         </div>
+                                     </div>
+                                 );
+                             })}
                         </div>
                     )}
 
@@ -925,29 +905,34 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                     </h3>
                     <div className="grid grid-cols-1 gap-4">
                         {orders.filter(o => o.status === 'Ordered').map(order => (
-                            <div key={order.id} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col md:flex-row gap-6">
+                            <div key={order.id} className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm flex flex-col md:flex-row gap-6 items-center">
                                 <div className="flex-1">
                                     <div className="flex items-center gap-3 mb-2">
                                         <span className="bg-blue-100 text-blue-700 px-2 py-1 rounded text-xs font-bold uppercase tracking-wide">Besteld</span>
+                                        <span className="font-bold text-slate-800">{order.supplier}</span>
                                         <span className="text-xs text-slate-500">op {new Date(order.orderedAt!).toLocaleDateString()}</span>
                                     </div>
-                                    <div className="space-y-1">
-                                        {order.items.map(item => (
-                                            <div key={item.itemId} className="text-sm text-slate-700 flex justify-between border-b border-slate-50 py-1 last:border-0">
-                                                <span>{item.name}</span>
-                                                <span className="font-bold text-slate-900">{item.quantity} {item.unit}</span>
-                                            </div>
-                                        ))}
+                                    <div className="text-sm text-slate-600">
+                                        {order.items.length} artikelen ({order.items.map(i => i.name).join(', ').substring(0, 50)}...)
                                     </div>
                                 </div>
-                                <div className="flex flex-col justify-center gap-2">
+                                <div className="flex items-center gap-4">
+                                    {order.attachmentUrl && (
+                                        <a 
+                                            href={order.attachmentUrl} 
+                                            target="_blank" 
+                                            rel="noopener noreferrer"
+                                            className="flex items-center gap-2 text-teal-600 font-bold text-sm hover:underline bg-teal-50 px-3 py-1.5 rounded-lg border border-teal-100"
+                                        >
+                                            <Paperclip size={14}/> Bekijk Bon
+                                        </a>
+                                    )}
                                     <button 
                                         onClick={() => handleReceiveOrder(order.id)}
                                         className="px-4 py-2 bg-slate-900 text-white font-bold rounded-xl shadow-sm hover:bg-slate-800 transition-all flex items-center justify-center gap-2"
                                     >
                                         <Box size={16}/> Binnenmelden
                                     </button>
-                                    <button onClick={() => handleDeleteOrder(order.id)} className="text-xs text-red-400 hover:text-red-600 hover:underline text-center">Annuleren & Verwijderen</button>
                                 </div>
                             </div>
                         ))}
@@ -966,10 +951,15 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                         {orders.filter(o => o.status === 'Received').slice(0, 5).map(order => (
                             <div key={order.id} className="bg-slate-50 rounded-xl border border-slate-200 p-4 flex justify-between items-center">
                                 <div>
-                                    <div className="text-xs font-bold text-slate-500 mb-1">Ontvangen: {new Date(order.receivedAt!).toLocaleDateString()} door {order.receivedBy}</div>
-                                    <div className="text-sm text-slate-700">{order.items.length} artikelen ({order.items.map(i => i.name).join(', ').substring(0, 50)}...)</div>
+                                    <div className="text-xs font-bold text-slate-500 mb-1">
+                                        Ontvangen: {new Date(order.receivedAt!).toLocaleDateString()} • {order.supplier}
+                                    </div>
+                                    <div className="text-sm text-slate-700">{order.items.length} artikelen</div>
                                 </div>
                                 <div className="flex items-center gap-3">
+                                    {order.attachmentUrl && (
+                                        <a href={order.attachmentUrl} target="_blank" className="text-slate-400 hover:text-teal-600"><Paperclip size={16}/></a>
+                                    )}
                                     <span className="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold">Voltooid</span>
                                     <button onClick={() => handleDeleteOrder(order.id)} className="text-slate-300 hover:text-red-500 transition-colors p-1 rounded hover:bg-red-50">
                                         <Trash2 size={16}/>
@@ -1044,18 +1034,49 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                             required
                         />
                     </div>
-                    <div>
-                         <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Leverancier / Bron</label>
-                         <div className="relative">
-                             <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
-                             <input 
-                                 className="w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl text-sm"
-                                 placeholder="bv. Makro, Technische Dienst"
-                                 value={editingItem.supplier || ''}
-                                 onChange={(e) => setEditingItem({...editingItem, supplier: e.target.value})}
-                             />
-                         </div>
+                    
+                    {/* SOURCE SELECTION */}
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <label className="block text-xs font-bold text-slate-500 uppercase mb-3">Bron / Herkomst</label>
+                        <div className="flex gap-4 mb-4">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="radio" 
+                                    name="sourceType"
+                                    checked={editingItem.sourceType === 'External'}
+                                    onChange={() => setEditingItem({...editingItem, sourceType: 'External'})}
+                                    className="text-teal-600 focus:ring-teal-500"
+                                />
+                                <span className="text-sm font-bold text-slate-700">Extern (Leverancier)</span>
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="radio" 
+                                    name="sourceType"
+                                    checked={editingItem.sourceType === 'Internal'}
+                                    onChange={() => setEditingItem({...editingItem, sourceType: 'Internal'})}
+                                    className="text-amber-600 focus:ring-amber-500"
+                                />
+                                <span className="text-sm font-bold text-slate-700">Intern (Afdeling)</span>
+                            </label>
+                        </div>
+                        <div>
+                             <label className="block text-xs font-bold text-slate-400 uppercase mb-1">
+                                 {editingItem.sourceType === 'External' ? 'Leverancier Naam' : 'Afdeling Naam'}
+                             </label>
+                             <div className="relative">
+                                 {editingItem.sourceType === 'External' ? <Truck className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/> : <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>}
+                                 <input 
+                                     className="w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl text-sm bg-white"
+                                     placeholder={editingItem.sourceType === 'External' ? "bv. Makro, Hanos" : "bv. Keuken, Technische Dienst"}
+                                     value={editingItem.sourceName || ''}
+                                     onChange={(e) => setEditingItem({...editingItem, sourceName: e.target.value})}
+                                     required
+                                 />
+                             </div>
+                        </div>
                     </div>
+
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Categorie</label>
@@ -1262,6 +1283,69 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                          >
                              Verwijderen & Verplaatsen
                          </button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* PLACE ORDER MODAL */}
+            <Modal 
+                isOpen={isOrderModalOpen} 
+                onClose={() => setIsOrderModalOpen(false)} 
+                title={activeOrderTarget?.orderType === 'External' ? 'Bestelling Plaatsen' : 'Intern Aanvragen'}
+            >
+                <div className="space-y-6">
+                    {activeOrderTarget?.orderType === 'External' ? (
+                        <>
+                            <div className="bg-teal-50 p-4 rounded-xl border border-teal-100">
+                                <h4 className="font-bold text-teal-900 text-sm mb-2 flex items-center gap-2">
+                                    <Truck size={16}/> {activeOrderTarget.supplier}
+                                </h4>
+                                <p className="text-teal-700 text-xs leading-relaxed">
+                                    Upload de bestelbon (PDF/Excel) om de bestelling te bevestigen. Deze wordt opgeslagen bij de order.
+                                </p>
+                            </div>
+                            
+                            <div 
+                                onClick={() => !isUploadingOrder && orderInputRef.current?.click()}
+                                className="border-2 border-dashed border-slate-300 rounded-2xl p-8 flex flex-col items-center justify-center cursor-pointer hover:border-teal-500 hover:bg-slate-50 transition-all group"
+                            >
+                                <input type="file" ref={orderInputRef} className="hidden" accept=".pdf,.jpg,.png,.xlsx" onChange={handleOrderFileUpload} />
+                                {orderFile ? (
+                                    <div className="text-center">
+                                        <FileText size={32} className="text-teal-600 mx-auto mb-2"/>
+                                        <p className="font-bold text-slate-900">{orderFile.name}</p>
+                                        <p className="text-xs text-slate-500">Klik om te wijzigen</p>
+                                    </div>
+                                ) : (
+                                    <div className="text-center">
+                                        <Upload size={32} className="text-slate-400 mx-auto mb-2 group-hover:text-teal-600 transition-colors"/>
+                                        <p className="font-bold text-slate-700">Bestelbon Uploaden</p>
+                                        <p className="text-xs text-slate-400">PDF, Excel of Afbeelding</p>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    ) : (
+                        <div className="bg-amber-50 p-6 rounded-xl border border-amber-100 text-center">
+                            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Building2 size={32}/>
+                            </div>
+                            <h4 className="font-bold text-amber-900 text-lg mb-2">Aanvraag voor {activeOrderTarget?.supplier}</h4>
+                            <p className="text-amber-800 text-sm mb-4">
+                                Je staat op het punt deze artikelen intern door te geven aan de afdeling. <br/>Zij zullen de verdere afhandeling verzorgen.
+                            </p>
+                        </div>
+                    )}
+
+                    <div className="flex justify-end gap-3 pt-4">
+                        <button onClick={() => setIsOrderModalOpen(false)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg font-bold text-slate-600 hover:bg-slate-50">Annuleren</button>
+                        <button 
+                            onClick={handleConfirmOrder} 
+                            disabled={activeOrderTarget?.orderType === 'External' && !orderFile}
+                            className="px-6 py-2 bg-slate-900 text-white rounded-lg font-bold shadow-md hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        >
+                            {isUploadingOrder ? 'Bezig...' : (activeOrderTarget?.orderType === 'External' ? 'Bestelling Bevestigen' : 'Aanvraag Versturen')} <Send size={16}/>
+                        </button>
                     </div>
                 </div>
             </Modal>
