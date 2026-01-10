@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Package, Search, Plus, Filter, AlertTriangle, RefreshCw, 
     Edit2, Trash2, Save, X, History, TrendingUp, TrendingDown, 
-    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft, Settings, Tag
+    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft, Settings, Tag, Building2
 } from 'lucide-react';
 import { Employee, StockItem, StockLog, StockOrder, StockOrderItem } from '../types';
 import { api } from '../utils/api';
@@ -107,6 +107,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             minStock: 5,
             unit: 'Stuks',
             itemsPerBox: 1, 
+            supplier: '',
             lastUpdated: new Date().toISOString()
         });
         setIsCustomCategory(false);
@@ -180,6 +181,30 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             onShowToast(`Categorie hernoemd. ${itemsToUpdate.length} artikelen bijgewerkt.`);
             setCategoryToRename(null);
             setNewCategoryName('');
+        }
+    };
+
+    const handleDeleteCategory = async (catToDelete: string) => {
+        if (catToDelete === 'Algemeen') {
+            return onShowToast("De categorie 'Algemeen' kan niet verwijderd worden.");
+        }
+        
+        const itemsToMove = items.filter(i => i.category === catToDelete);
+        
+        if (confirm(`Weet je zeker dat je de categorie '${catToDelete}' wilt verwijderen? ${itemsToMove.length} artikelen worden verplaatst naar 'Algemeen'.`)) {
+            for (const item of itemsToMove) {
+                const updated = { ...item, category: 'Algemeen' };
+                await api.saveStockItem(updated);
+            }
+            
+            setItems(prev => prev.map(i => {
+                if (i.category === catToDelete) {
+                    return { ...i, category: 'Algemeen' };
+                }
+                return i;
+            }));
+            
+            onShowToast(`Categorie verwijderd. Artikelen verplaatst naar Algemeen.`);
         }
     };
 
@@ -507,10 +532,15 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                         <tr key={item.id} className="hover:bg-slate-50">
                                             <td className="px-6 py-4">
                                                 <div className="font-bold text-slate-900">{item.name}</div>
-                                                <div className="text-xs text-slate-500 flex items-center gap-2">
-                                                    {item.category}
+                                                <div className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
+                                                    <span className="bg-slate-100 px-1.5 py-0.5 rounded">{item.category}</span>
                                                     {item.itemsPerBox && item.itemsPerBox > 1 && (
-                                                        <span className="bg-slate-100 px-1.5 rounded border border-slate-200">Per doos: {item.itemsPerBox}st</span>
+                                                        <span className="bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">Per doos: {item.itemsPerBox}st</span>
+                                                    )}
+                                                    {item.supplier && (
+                                                        <span className="bg-white px-1.5 py-0.5 rounded border border-slate-200 flex items-center gap-1">
+                                                            <Building2 size={10} className="text-slate-400"/> {item.supplier}
+                                                        </span>
                                                     )}
                                                 </div>
                                             </td>
@@ -736,6 +766,18 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                             required
                         />
                     </div>
+                    <div>
+                         <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Leverancier / Bron</label>
+                         <div className="relative">
+                             <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
+                             <input 
+                                 className="w-full pl-10 pr-3 py-3 border border-slate-200 rounded-xl text-sm"
+                                 placeholder="bv. Makro, Technische Dienst"
+                                 value={editingItem.supplier || ''}
+                                 onChange={(e) => setEditingItem({...editingItem, supplier: e.target.value})}
+                             />
+                         </div>
+                    </div>
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Categorie</label>
@@ -883,20 +925,30 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                         </div>
                     ) : (
                         <div className="space-y-2">
-                            <p className="text-xs text-slate-400 mb-2">Klik op het potloodje om een categorie te hernoemen.</p>
+                            <p className="text-xs text-slate-400 mb-2">Klik op het potloodje om te hernoemen, of prullenbak om te verwijderen.</p>
                             {activeCategories.map(([cat, count]) => (
                                 <div key={cat} className="flex justify-between items-center p-3 bg-white border border-slate-100 rounded-xl hover:border-slate-200 transition-colors">
                                     <div>
                                         <span className="font-bold text-slate-800 text-sm">{cat}</span>
                                         <span className="text-xs text-slate-400 ml-2">({count} items)</span>
                                     </div>
-                                    <button 
-                                        onClick={() => { setCategoryToRename(cat); setNewCategoryName(cat); }}
-                                        className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
-                                        title="Hernoemen"
-                                    >
-                                        <Edit2 size={16}/>
-                                    </button>
+                                    <div className="flex gap-1">
+                                        <button 
+                                            onClick={() => { setCategoryToRename(cat); setNewCategoryName(cat); }}
+                                            className="p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-colors"
+                                            title="Hernoemen"
+                                        >
+                                            <Edit2 size={16}/>
+                                        </button>
+                                        <button 
+                                            onClick={() => handleDeleteCategory(cat)}
+                                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="Verwijderen"
+                                            disabled={cat === 'Algemeen'}
+                                        >
+                                            <Trash2 size={16}/>
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                         </div>

@@ -717,6 +717,7 @@ export interface StockItem {
   unit: string;
   itemsPerBox?: number;
   lastUpdated: string;
+  supplier?: string;
 }
 
 export type StockTransactionType = 'Delivery' | 'Count' | 'Usage' | 'Correction';
