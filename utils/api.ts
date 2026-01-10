@@ -33,7 +33,20 @@ export const api = {
 
   saveEmployee: async (employee: Employee, isNew = false): Promise<boolean> => {
     if (isLive && supabase) {
+      // PROBEER EERST RPC (Bypass RLS voor Welcome Flow & Wachtwoord Resets)
+      // Dit maakt gebruik van de 'update_employee_data' functie die als Security Definer draait
+      const { error: rpcError } = await supabase.rpc('update_employee_data', {
+          p_id: employee.id,
+          p_data: employee
+      });
+
+      if (!rpcError) return true;
+
+      // Fallback naar standaard upsert als RPC niet bestaat of faalt
+      // (Dit werkt alleen als RLS het toestaat of uit staat)
+      console.warn("RPC update failed, attempting standard upsert:", rpcError);
       const { error } = await supabase.from('employees').upsert({ id: employee.id, data: employee });
+      
       if (error) {
           console.error("Supabase Error:", error);
           return false;
