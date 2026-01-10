@@ -53,11 +53,11 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     
     // GENERAL COUNTING MODE STATE
     const [isCountingMode, setIsCountingMode] = useState(false);
-    const [countQueue, setCountQueue] = useState<StockItem[]>([]);
-    const [currentCountIndex, setCurrentCountIndex] = useState(0);
-    const [generalCountValue, setGeneralCountValue] = useState('');
-    const countInputRef = useRef<HTMLInputElement>(null);
-    
+    const [countingCategories, setCountingCategories] = useState<string[]>([]);
+    const [currentCategoryIndex, setCurrentCategoryIndex] = useState(0);
+    const [groupedItems, setGroupedItems] = useState<Record<string, StockItem[]>>({});
+    const [categoryCounts, setCategoryCounts] = useState<Record<string, string>>({}); // itemId -> value
+
     // Hidden Categories (Persisted)
     const [hiddenCategories, setHiddenCategories] = useState<string[]>(() => {
         if (typeof window !== 'undefined') {
@@ -73,13 +73,6 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     useEffect(() => {
         loadData();
     }, []);
-
-    // Focus input when moving to next item in Counting Mode
-    useEffect(() => {
-        if (isCountingMode && countInputRef.current) {
-            countInputRef.current.focus();
-        }
-    }, [isCountingMode, currentCountIndex]);
 
     const loadData = async () => {
         setIsLoading(true);
@@ -325,61 +318,96 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         onShowToast("Voorraad bijgewerkt.");
     };
 
-    // --- GENERAL COUNTING MODE LOGIC ---
+    // --- GENERAL COUNTING MODE LOGIC (CATEGORY BASED) ---
     
     const startGeneralCount = () => {
-        // 1. Prepare list: Sort by Category ASC, then Name ASC
-        const sortedItems = [...items].sort((a, b) => {
-            if (a.category !== b.category) return a.category.localeCompare(b.category);
-            return a.name.localeCompare(b.name);
+        // Group items
+        const grouped: Record<string, StockItem[]> = {};
+        items.forEach(item => {
+            if (!grouped[item.category]) grouped[item.category] = [];
+            grouped[item.category].push(item);
         });
-        
-        if (sortedItems.length === 0) return onShowToast("Geen artikelen om te tellen.");
 
-        setCountQueue(sortedItems);
-        setCurrentCountIndex(0);
-        // Pre-fill with empty string to force entry, or current stock if you want guidance
-        // Usually blank is better to force counting.
-        setGeneralCountValue(''); 
+        // Get sorted category names
+        const sortedCats = Object.keys(grouped).sort();
+        
+        if (sortedCats.length === 0) return onShowToast("Geen artikelen om te tellen.");
+
+        setGroupedItems(grouped);
+        setCountingCategories(sortedCats);
+        setCurrentCategoryIndex(0);
+        setCategoryCounts({}); // Start fresh
         setIsCountingMode(true);
     };
 
-    const handleCountNext = async () => {
-        const currentItem = countQueue[currentCountIndex];
-        const newStock = generalCountValue === '' ? currentItem.currentStock : parseInt(generalCountValue);
-        
-        // Only update if changed
-        if (newStock !== currentItem.currentStock) {
-            const diff = newStock - currentItem.currentStock;
-            const updatedItem = { ...currentItem, currentStock: newStock, lastUpdated: new Date().toISOString() };
-            
-            const log: StockLog = {
-                id: crypto.randomUUID(),
-                itemId: updatedItem.id,
-                itemName: updatedItem.name,
-                change: diff,
-                type: 'Count',
-                date: new Date().toISOString(),
-                user: currentUser.name,
-                notes: 'Algemene Telling'
-            };
+    const handleCategoryCountChange = (itemId: string, val: string) => {
+        setCategoryCounts(prev => ({
+            ...prev,
+            [itemId]: val
+        }));
+    };
 
-            // Save async (no await to keep UI snappy)
-            api.saveStockItem(updatedItem);
-            api.saveStockLog(log);
+    const handleNextCategory = async () => {
+        const currentCat = countingCategories[currentCategoryIndex];
+        const categoryItems = groupedItems[currentCat] || [];
+        
+        // Process updates for current category
+        const updates: StockItem[] = [];
+        const newLogs: StockLog[] = [];
+
+        categoryItems.forEach(item => {
+            const inputVal = categoryCounts[item.id];
+            // If input is empty, we assume NO CHANGE or 0? 
+            // Better UX: If empty, assume 0 for full audit, but lets treat empty as "Skipped/Unchanged" to be safe?
+            // Actually for "General Count", usually you want to set stock. 
+            // Let's treat empty as 0 to force counting. Or use placeholder.
+            // DECISION: If empty string, treat as 0.
             
-            // Update local items state
-            setItems(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i));
+            if (inputVal !== undefined) {
+                const newStock = inputVal === '' ? 0 : parseInt(inputVal);
+                
+                if (newStock !== item.currentStock) {
+                    const diff = newStock - item.currentStock;
+                    const updatedItem = { ...item, currentStock: newStock, lastUpdated: new Date().toISOString() };
+                    updates.push(updatedItem);
+                    
+                    newLogs.push({
+                        id: crypto.randomUUID(),
+                        itemId: updatedItem.id,
+                        itemName: updatedItem.name,
+                        change: diff,
+                        type: 'Count',
+                        date: new Date().toISOString(),
+                        user: currentUser.name,
+                        notes: 'Algemene Telling'
+                    });
+                }
+            }
+        });
+
+        // Batch Save
+        if (updates.length > 0) {
+            // Save items
+            await Promise.all(updates.map(u => api.saveStockItem(u)));
+            // Save logs
+            await Promise.all(newLogs.map(l => api.saveStockLog(l)));
             
-            // Also update queue if needed (though queue is just for flow)
-            // Note: Logs state update handled by effect or next reload, or manually:
-            setLogs(prev => [log, ...prev]);
+            // Update local state
+            setItems(prev => {
+                const map = new Map(prev.map(i => [i.id, i]));
+                updates.forEach(u => map.set(u.id, u));
+                return Array.from(map.values());
+            });
+            setLogs(prev => [...newLogs, ...prev]);
         }
 
         // Move next
-        if (currentCountIndex < countQueue.length - 1) {
-            setCurrentCountIndex(prev => prev + 1);
-            setGeneralCountValue(''); // Reset input
+        if (currentCategoryIndex < countingCategories.length - 1) {
+            setCurrentCategoryIndex(prev => prev + 1);
+            setCategoryCounts({}); // Reset inputs for next cat
+            // Scroll to top of list
+            const listContainer = document.getElementById('counting-list-container');
+            if (listContainer) listContainer.scrollTop = 0;
         } else {
             // Finished
             setIsCountingMode(false);
@@ -387,17 +415,15 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         }
     };
 
-    const handleCountPrev = () => {
-        if (currentCountIndex > 0) {
-            setCurrentCountIndex(prev => prev - 1);
-            // Optionally load the previous value if we tracked edits in a temp map, 
-            // but simplest is just reset to empty to force re-count or show current stock.
-            setGeneralCountValue('');
+    const handlePrevCategory = () => {
+        if (currentCategoryIndex > 0) {
+            setCurrentCategoryIndex(prev => prev - 1);
+            setCategoryCounts({}); // Reset to force re-count or load current? Loading current is safer but tricky with optimistic UI. Let's reset.
         }
     };
 
     const handleExitCountMode = () => {
-        if (confirm("Wil je de telling afbreken? Voortgang is opgeslagen.")) {
+        if (confirm("Wil je de telling afbreken? Voortgang van vorige categorieën is opgeslagen.")) {
             setIsCountingMode(false);
         }
     };
@@ -587,20 +613,21 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
     // --- COUNTING MODE RENDERER ---
     const renderCountingMode = () => {
-        const currentItem = countQueue[currentCountIndex];
-        const progress = Math.round(((currentCountIndex) / countQueue.length) * 100);
+        const currentCatName = countingCategories[currentCategoryIndex];
+        const categoryItems = groupedItems[currentCatName] || [];
+        const progress = Math.round(((currentCategoryIndex) / countingCategories.length) * 100);
         
         return (
             <div className="fixed inset-0 z-50 bg-slate-50 flex flex-col animate-in fade-in duration-300">
                 {/* Header */}
-                <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+                <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm z-10">
                     <div className="flex items-center gap-4">
                         <button onClick={handleExitCountMode} className="p-2 hover:bg-slate-100 rounded-full text-slate-500">
                             <X size={24}/>
                         </button>
                         <div>
                             <h2 className="text-xl font-bold text-slate-900">Voorraad Tellen</h2>
-                            <p className="text-sm text-slate-500">Item {currentCountIndex + 1} van {countQueue.length}</p>
+                            <p className="text-sm text-slate-500">Categorie {currentCategoryIndex + 1} van {countingCategories.length}</p>
                         </div>
                     </div>
                     <div className="w-48 hidden md:block">
@@ -614,68 +641,64 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                     </div>
                 </div>
 
-                {/* Main Content */}
-                <div className="flex-1 flex flex-col items-center justify-center p-6 max-w-4xl mx-auto w-full">
-                    <div className="mb-6">
-                        <span className="bg-slate-200 text-slate-700 px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wide">
-                            {currentItem.category}
-                        </span>
-                    </div>
-
-                    <h1 className="text-3xl md:text-5xl font-black text-slate-900 text-center mb-4 leading-tight">
-                        {currentItem.name}
-                    </h1>
-                    
-                    {currentItem.itemsPerBox && currentItem.itemsPerBox > 1 && (
-                        <div className="mb-8 bg-blue-50 text-blue-700 px-4 py-2 rounded-lg font-bold text-lg border border-blue-200">
-                            Inhoud per doos: {currentItem.itemsPerBox} stuks
+                {/* Main Content - SCROLLABLE LIST */}
+                <div className="flex-1 overflow-y-auto p-4 md:p-8" id="counting-list-container">
+                    <div className="max-w-3xl mx-auto space-y-6">
+                        <div className="text-center mb-6">
+                             <span className="bg-slate-200 text-slate-700 px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wide">
+                                {currentCatName}
+                            </span>
                         </div>
-                    )}
-                    
-                    <div className="w-full max-w-md space-y-6">
-                         <div className="relative">
-                             <input 
-                                ref={countInputRef}
-                                type="number"
-                                inputMode="numeric" 
-                                pattern="[0-9]*"
-                                className="w-full p-6 text-center text-5xl font-bold border-4 border-slate-200 rounded-3xl focus:border-teal-500 focus:outline-none focus:ring-4 focus:ring-teal-500/20 transition-all bg-white"
-                                placeholder="0"
-                                value={generalCountValue}
-                                onChange={(e) => setGeneralCountValue(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if(e.key === 'Enter') handleCountNext();
-                                }}
-                             />
-                             <div className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 text-xl font-bold pointer-events-none">
-                                 {currentItem.unit}
-                             </div>
-                         </div>
 
-                         <div className="text-center text-slate-400 font-medium">
-                             Systeem aantal: {currentItem.currentStock}
-                         </div>
+                        {categoryItems.map(item => (
+                            <div key={item.id} className="bg-white p-4 md:p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between gap-4">
+                                <div className="flex-1">
+                                    <h3 className="text-lg md:text-xl font-bold text-slate-900 mb-1">{item.name}</h3>
+                                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                                        {item.itemsPerBox && item.itemsPerBox > 1 && (
+                                            <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-xs font-bold border border-blue-100">
+                                                Inhoud: {item.itemsPerBox}st
+                                            </span>
+                                        )}
+                                        <span className="text-slate-400">Huidig: {item.currentStock} {item.unit}</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input 
+                                        type="number"
+                                        inputMode="numeric" 
+                                        pattern="[0-9]*"
+                                        className="w-24 md:w-32 p-3 md:p-4 text-center text-xl md:text-2xl font-bold border-2 border-slate-200 rounded-xl focus:border-teal-500 focus:outline-none focus:ring-4 focus:ring-teal-500/20 transition-all bg-slate-50 focus:bg-white"
+                                        placeholder="0"
+                                        value={categoryCounts[item.id] || ''}
+                                        onChange={(e) => handleCategoryCountChange(item.id, e.target.value)}
+                                        onFocus={(e) => e.target.select()}
+                                    />
+                                    <span className="text-sm font-bold text-slate-400 w-8">{item.unit}</span>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 </div>
 
                 {/* Footer Controls */}
-                <div className="bg-white border-t border-slate-200 p-6 flex gap-4 justify-center">
+                <div className="bg-white border-t border-slate-200 p-6 flex gap-4 justify-center z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
                     <button 
-                        onClick={handleCountPrev}
-                        disabled={currentCountIndex === 0}
+                        onClick={handlePrevCategory}
+                        disabled={currentCategoryIndex === 0}
                         className="px-6 py-4 rounded-2xl border-2 border-slate-200 text-slate-500 font-bold text-lg hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2"
                     >
                         <ChevronLeft size={24}/> Vorige
                     </button>
                     
                     <button 
-                        onClick={handleCountNext}
+                        onClick={handleNextCategory}
                         className="flex-1 max-w-md px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold text-xl shadow-lg hover:bg-slate-800 active:scale-95 transition-all flex items-center justify-center gap-3"
                     >
-                        {currentCountIndex === countQueue.length - 1 ? (
+                        {currentCategoryIndex === countingCategories.length - 1 ? (
                             <>Afronden <Check size={24}/></>
                         ) : (
-                            <>Bevestigen & Volgende <ChevronRight size={24}/></>
+                            <>Volgende Categorie <ChevronRight size={24}/></>
                         )}
                     </button>
                 </div>
