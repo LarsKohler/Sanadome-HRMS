@@ -67,6 +67,9 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const [isUploadingOrder, setIsUploadingOrder] = useState(false);
     const [noSlipAvailable, setNoSlipAvailable] = useState(false); 
     
+    // NEW: Track order quantities per item ID to avoid hooks in loops
+    const [orderQuantities, setOrderQuantities] = useState<Record<string, number>>({});
+    
     // Approval States
     const [ccConfirmed, setCcConfirmed] = useState(false);
     const [managementApproved, setManagementApproved] = useState(false);
@@ -453,6 +456,9 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         });
         
         onShowToast(`${quantity}x ${item.name} toegevoegd aan bestelling voor ${sourceName}.`);
+        
+        // Reset quantity for this item in state
+        setOrderQuantities(prev => ({...prev, [item.id]: 1}));
     };
 
     const handleOpenOrderModal = (order: StockOrder) => {
@@ -816,8 +822,8 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                     const isLow = item.currentStock < item.minStock;
                                     const isInternal = item.sourceType === 'Internal';
                                     
-                                    // Order Input State (Temporary inside loop - better extracted but keeping simple)
-                                    const [orderQty, setOrderQty] = useState(1);
+                                    // Use state from the parent dictionary, default to 1
+                                    const currentQty = orderQuantities[item.id] || 1;
 
                                     return (
                                         <tr key={item.id} className="hover:bg-slate-50 group">
@@ -880,13 +886,19 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                                             <input 
                                                                 type="number"
                                                                 className="w-16 h-full pl-2 border border-teal-300 rounded-l-lg text-xs font-bold focus:outline-none focus:ring-1 focus:ring-teal-500"
-                                                                defaultValue={1}
+                                                                value={currentQty}
                                                                 min={1}
-                                                                onChange={(e) => setOrderQty(Math.max(1, parseInt(e.target.value) || 1))}
+                                                                onChange={(e) => {
+                                                                    const val = Math.max(1, parseInt(e.target.value) || 1);
+                                                                    setOrderQuantities(prev => ({...prev, [item.id]: val}));
+                                                                }}
                                                                 onClick={(e) => e.stopPropagation()}
                                                             />
                                                             <button 
-                                                                onClick={() => handleAddToPending(item, orderQty)}
+                                                                onClick={() => {
+                                                                    handleAddToPending(item, currentQty);
+                                                                    setOrderQuantities(prev => ({...prev, [item.id]: 1})); // Reset to 1 after adding
+                                                                }}
                                                                 className="flex-1 h-full bg-teal-600 text-white rounded-r-lg hover:bg-teal-700 text-xs font-bold flex items-center justify-center"
                                                             >
                                                                 <Check size={14}/>
