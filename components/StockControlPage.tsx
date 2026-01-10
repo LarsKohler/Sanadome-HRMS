@@ -3,12 +3,13 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
     Package, Search, Plus, Filter, AlertTriangle, RefreshCw, 
     Edit2, Trash2, Save, X, History, TrendingUp, TrendingDown, 
-    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft, Settings, Tag, Building2, PlayCircle, ChevronRight, StopCircle, Upload, FileText, Paperclip, Send, ExternalLink, Mail, ShieldCheck, ListFilter, User
+    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft, Settings, Tag, Building2, PlayCircle, ChevronRight, StopCircle, Upload, FileText, Paperclip, Send, ExternalLink, Mail, ShieldCheck, ListFilter, User, BarChart3, PieChart
 } from 'lucide-react';
 import { Employee, StockItem, StockLog, StockOrder, StockOrderItem } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
 import { hasPermission } from '../utils/permissions';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, PieChart as RePieChart, Pie, Cell, Legend } from 'recharts';
 
 interface StockControlPageProps {
     currentUser: Employee;
@@ -27,14 +28,19 @@ const DEFAULT_CATEGORIES = [
     'Wellness'
 ];
 
+const COLORS = ['#0f172a', '#0d9488', '#f59e0b', '#ef4444', '#6366f1', '#8b5cf6', '#ec4899', '#10b981'];
+
 const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShowToast }) => {
-    const [activeTab, setActiveTab] = useState<'inventory' | 'orders' | 'logs'>('inventory');
+    const [activeTab, setActiveTab] = useState<'inventory' | 'orders' | 'logs' | 'reports'>('inventory');
     const [items, setItems] = useState<StockItem[]>([]);
     const [orders, setOrders] = useState<StockOrder[]>([]);
     const [logs, setLogs] = useState<StockLog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState('');
     const [categoryFilter, setCategoryFilter] = useState('All');
+
+    // Report State
+    const [reportTimeframe, setReportTimeframe] = useState<'30d' | '90d' | '365d'>('90d');
 
     // Modals
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
@@ -67,7 +73,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const [isUploadingOrder, setIsUploadingOrder] = useState(false);
     const [noSlipAvailable, setNoSlipAvailable] = useState(false); 
     
-    // NEW: Track order quantities per item ID to avoid hooks in loops
+    // Track order quantities per item ID to avoid hooks in loops
     const [orderQuantities, setOrderQuantities] = useState<Record<string, number>>({});
     
     // Approval States
@@ -145,6 +151,81 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             return matchesSearch && matchesCategory;
         });
     }, [items, searchTerm, categoryFilter]);
+
+    // --- REPORTING LOGIC ---
+    const reportStats = useMemo(() => {
+        const now = new Date();
+        const cutoffDate = new Date();
+        
+        if (reportTimeframe === '30d') cutoffDate.setDate(now.getDate() - 30);
+        if (reportTimeframe === '90d') cutoffDate.setDate(now.getDate() - 90);
+        if (reportTimeframe === '365d') cutoffDate.setDate(now.getDate() - 365);
+
+        // 1. Calculate Consumption per Item (Based on Orders Received + Manual Usage Logs)
+        const itemUsage: Record<string, number> = {};
+        const categoryUsage: Record<string, number> = {};
+
+        // A. From Received Orders (Inflow is a proxy for consumption in a replenishment system)
+        orders.forEach(order => {
+            if (order.status === 'Received' && order.receivedAt) {
+                if (new Date(order.receivedAt) >= cutoffDate) {
+                    order.items.forEach(line => {
+                        itemUsage[line.itemId] = (itemUsage[line.itemId] || 0) + line.quantity;
+                        
+                        const itemDef = items.find(i => i.id === line.itemId);
+                        if (itemDef) {
+                            categoryUsage[itemDef.category] = (categoryUsage[itemDef.category] || 0) + line.quantity;
+                        }
+                    });
+                }
+            }
+        });
+
+        // B. From Logs (Usage or Negative Corrections)
+        logs.forEach(log => {
+            if (new Date(log.date) >= cutoffDate) {
+                if (log.type === 'Usage' || (log.type === 'Correction' && log.change < 0)) {
+                    const qty = Math.abs(log.change);
+                    itemUsage[log.itemId] = (itemUsage[log.itemId] || 0) + qty;
+                    
+                    const itemDef = items.find(i => i.id === log.itemId);
+                    if (itemDef) {
+                        categoryUsage[itemDef.category] = (categoryUsage[itemDef.category] || 0) + qty;
+                    }
+                }
+            }
+        });
+
+        // 2. Format for Charts
+        const topMovers = Object.entries(itemUsage)
+            .map(([id, qty]) => {
+                const item = items.find(i => i.id === id);
+                return { name: item?.name || 'Onbekend', qty, category: item?.category };
+            })
+            .sort((a,b) => b.qty - a.qty)
+            .slice(0, 10);
+
+        const categoryData = Object.entries(categoryUsage)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a,b) => b.value - a.value);
+
+        // 3. Detailed Table Data
+        const detailedStats = items.map(item => {
+            const usage = itemUsage[item.id] || 0;
+            return {
+                ...item,
+                usage,
+                status: usage > 20 ? 'Hardloper' : usage > 5 ? 'Normaal' : 'Langzaamloper'
+            };
+        }).sort((a,b) => b.usage - a.usage);
+
+        // 4. KPI's
+        const lowStockCount = items.filter(i => i.currentStock < i.minStock).length;
+        const totalStockCount = items.reduce((acc, i) => acc + i.currentStock, 0);
+        const totalConsumed = Object.values(itemUsage).reduce((acc, v) => acc + v, 0);
+
+        return { topMovers, categoryData, detailedStats, lowStockCount, totalStockCount, totalConsumed };
+    }, [items, orders, logs, reportTimeframe]);
 
     // --- ITEM ACTIONS ---
 
@@ -753,7 +834,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             </div>
 
             {/* TABS */}
-            <div className="border-b border-slate-200 mb-8 flex gap-8">
+            <div className="border-b border-slate-200 mb-8 flex gap-8 overflow-x-auto">
                 <button onClick={() => setActiveTab('inventory')} className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'inventory' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500'}`}>
                     <ClipboardList size={18}/> Voorraad Receptie
                 </button>
@@ -763,6 +844,9 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 </button>
                 <button onClick={() => setActiveTab('logs')} className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'logs' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500'}`}>
                     <History size={18}/> Logboek
+                </button>
+                 <button onClick={() => setActiveTab('reports')} className={`pb-4 text-sm font-bold border-b-2 transition-colors flex items-center gap-2 ${activeTab === 'reports' ? 'border-teal-600 text-teal-700' : 'border-transparent text-slate-500'}`}>
+                    <BarChart3 size={18}/> Rapportages
                 </button>
             </div>
 
@@ -926,6 +1010,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             {/* ORDERS TAB */}
             {activeTab === 'orders' && (
                 <div className="space-y-8">
+                    {/* ... (Previous Orders Code) ... */}
                     {/* PENDING ORDERS (Grouped) */}
                     {orders.some(o => o.status === 'Pending') && (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1110,6 +1195,133 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                             )}
                         </tbody>
                     </table>
+                </div>
+            )}
+
+            {/* REPORTS TAB (NEW) */}
+            {activeTab === 'reports' && (
+                <div className="space-y-8 animate-in fade-in">
+                    {/* Header Controls */}
+                    <div className="flex justify-between items-center mb-6">
+                         <h3 className="font-bold text-slate-900 text-lg">Rapportages & Analyse</h3>
+                         <div className="flex gap-2 bg-white border border-slate-200 p-1 rounded-xl">
+                             {[
+                                 { id: '30d', label: '1 Maand' },
+                                 { id: '90d', label: '3 Maanden' },
+                                 { id: '365d', label: '1 Jaar' }
+                             ].map(tf => (
+                                 <button
+                                    key={tf.id}
+                                    onClick={() => setReportTimeframe(tf.id as any)}
+                                    className={`px-4 py-2 rounded-lg text-xs font-bold transition-all ${reportTimeframe === tf.id ? 'bg-slate-900 text-white' : 'text-slate-500 hover:bg-slate-50'}`}
+                                 >
+                                     {tf.label}
+                                 </button>
+                             ))}
+                         </div>
+                    </div>
+
+                    {/* KPI Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                            <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Totaal Verbruik (Aantal)</div>
+                            <div className="text-3xl font-bold text-teal-600">{reportStats.totalConsumed}</div>
+                            <p className="text-xs text-slate-400 mt-1">Stuks verbruikt/besteld in periode</p>
+                        </div>
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Huidige Voorraad</div>
+                             <div className="text-3xl font-bold text-slate-900">{reportStats.totalStockCount}</div>
+                             <p className="text-xs text-slate-400 mt-1">Stuks op voorraad</p>
+                        </div>
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                             <div className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Lage Voorraad</div>
+                             <div className={`text-3xl font-bold ${reportStats.lowStockCount > 0 ? 'text-red-600' : 'text-green-600'}`}>{reportStats.lowStockCount}</div>
+                             <p className="text-xs text-slate-400 mt-1">Producten onder minimum</p>
+                        </div>
+                    </div>
+
+                    {/* Charts Row */}
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-80">
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+                            <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2"><TrendingUp size={16} className="text-green-600"/> Top 10 Hardlopers</h4>
+                            <div className="flex-1 min-h-0">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <BarChart data={reportStats.topMovers} layout="vertical" margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                                        <XAxis type="number" hide />
+                                        <YAxis dataKey="name" type="category" width={100} tick={{fontSize: 10}} interval={0} />
+                                        <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{borderRadius: '8px', border:'none', boxShadow:'0 4px 6px -1px rgba(0,0,0,0.1)'}} />
+                                        <Bar dataKey="qty" fill="#0d9488" radius={[0, 4, 4, 0]} barSize={20} name="Aantal" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+
+                        <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+                            <h4 className="font-bold text-slate-900 mb-4 flex items-center gap-2"><PieChart size={16} className="text-purple-600"/> Verdeling Categorieën</h4>
+                            <div className="flex-1 min-h-0">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <RePieChart>
+                                        <Pie 
+                                            data={reportStats.categoryData} 
+                                            dataKey="value" 
+                                            nameKey="name" 
+                                            cx="50%" 
+                                            cy="50%" 
+                                            outerRadius={80} 
+                                            fill="#8884d8"
+                                            label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}
+                                            labelLine={false}
+                                        >
+                                            {reportStats.categoryData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} stroke="none"/>
+                                            ))}
+                                        </Pie>
+                                        <Tooltip />
+                                    </RePieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Detailed Table */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                        <div className="px-6 py-4 border-b border-slate-200 bg-slate-50/50">
+                            <h4 className="font-bold text-slate-900">Detailoverzicht Verbruik</h4>
+                        </div>
+                        <div className="max-h-96 overflow-y-auto">
+                            <table className="w-full text-left text-sm">
+                                <thead className="bg-slate-50 text-xs font-bold text-slate-500 uppercase sticky top-0 z-10">
+                                    <tr>
+                                        <th className="px-6 py-3">Artikel</th>
+                                        <th className="px-6 py-3">Categorie</th>
+                                        <th className="px-6 py-3">Verbruik ({reportTimeframe})</th>
+                                        <th className="px-6 py-3">Huidige Voorraad</th>
+                                        <th className="px-6 py-3">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {reportStats.detailedStats.map(item => (
+                                        <tr key={item.id} className="hover:bg-slate-50">
+                                            <td className="px-6 py-3 font-bold text-slate-900">{item.name}</td>
+                                            <td className="px-6 py-3 text-slate-600">{item.category}</td>
+                                            <td className="px-6 py-3 font-mono">{item.usage}</td>
+                                            <td className="px-6 py-3 font-mono">{item.currentStock}</td>
+                                            <td className="px-6 py-3">
+                                                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${
+                                                    item.status === 'Hardloper' ? 'bg-green-100 text-green-700' :
+                                                    item.status === 'Langzaamloper' ? 'bg-slate-100 text-slate-500' :
+                                                    'bg-blue-100 text-blue-700'
+                                                }`}>
+                                                    {item.status}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
             )}
 
