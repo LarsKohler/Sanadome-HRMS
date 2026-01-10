@@ -433,7 +433,12 @@ function App() {
           case ViewState.COMPLAINTS:
               return <ComplaintsPage currentUser={currentUser!} onShowToast={handleShowToast} />;
           case ViewState.STOCK_CONTROL: // Added
-              return <StockControlPage currentUser={currentUser!} onShowToast={handleShowToast} />;
+              return <StockControlPage 
+                  currentUser={currentUser!} 
+                  onShowToast={handleShowToast} 
+                  globalSettings={globalSettings}
+                  onUpdateGlobalSettings={handleUpdateGlobalSettings}
+              />;
           default:
               return <div className="p-10 dark:text-white">Pagina niet gevonden of in ontwikkeling.</div>;
       }

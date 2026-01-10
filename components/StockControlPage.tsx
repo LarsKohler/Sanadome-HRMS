@@ -3,9 +3,9 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
     Package, Search, Plus, Filter, AlertTriangle, RefreshCw, 
     Edit2, Trash2, Save, X, History, TrendingUp, TrendingDown, 
-    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft, Settings, Tag, Building2, PlayCircle, ChevronRight, StopCircle, Upload, FileText, Paperclip, Send, ExternalLink, Mail, ShieldCheck, ListFilter, User, BarChart3, PieChart
+    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft, Settings, Tag, Building2, PlayCircle, ChevronRight, StopCircle, Upload, FileText, Paperclip, Send, ExternalLink, Mail, ShieldCheck, ListFilter, User, BarChart3, PieChart, Info
 } from 'lucide-react';
-import { Employee, StockItem, StockLog, StockOrder, StockOrderItem } from '../types';
+import { Employee, StockItem, StockLog, StockOrder, StockOrderItem, GlobalSettings } from '../types';
 import { api } from '../utils/api';
 import { Modal } from './Modal';
 import { hasPermission } from '../utils/permissions';
@@ -14,6 +14,8 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGri
 interface StockControlPageProps {
     currentUser: Employee;
     onShowToast: (message: string) => void;
+    globalSettings: GlobalSettings | null;
+    onUpdateGlobalSettings: (settings: GlobalSettings) => void;
 }
 
 const DEFAULT_CATEGORIES = [
@@ -30,7 +32,7 @@ const DEFAULT_CATEGORIES = [
 
 const COLORS = ['#0f172a', '#0d9488', '#f59e0b', '#ef4444', '#6366f1', '#8b5cf6', '#ec4899', '#10b981'];
 
-const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShowToast }) => {
+const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShowToast, globalSettings, onUpdateGlobalSettings }) => {
     const [activeTab, setActiveTab] = useState<'inventory' | 'orders' | 'logs' | 'reports'>('inventory');
     const [items, setItems] = useState<StockItem[]>([]);
     const [orders, setOrders] = useState<StockOrder[]>([]);
@@ -44,6 +46,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
     // Modals
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
+    const [isHelpModalOpen, setIsHelpModalOpen] = useState(false); // NEW: Help Modal State
     const [editingItem, setEditingItem] = useState<Partial<StockItem>>({});
     const [isCustomCategory, setIsCustomCategory] = useState(false); // New state for input toggle
 
@@ -82,14 +85,20 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     
     const orderInputRef = useRef<HTMLInputElement>(null);
 
-    // Hidden Categories (Persisted)
-    const [hiddenCategories, setHiddenCategories] = useState<string[]>(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('hrms_hidden_stock_categories');
-            return saved ? JSON.parse(saved) : [];
-        }
-        return [];
-    });
+    // Hidden Categories (Persisted via GlobalSettings)
+    const hiddenCategories = globalSettings?.stock?.hiddenCategories || [];
+    
+    const updateHiddenCategories = (newHidden: string[]) => {
+        if (!globalSettings) return;
+        const newSettings: GlobalSettings = {
+            ...globalSettings,
+            stock: {
+                ...globalSettings.stock,
+                hiddenCategories: newHidden
+            }
+        };
+        onUpdateGlobalSettings(newSettings);
+    };
 
     // Permission check
     const canManage = hasPermission(currentUser, 'MANAGE_STOCK');
@@ -152,81 +161,6 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         });
     }, [items, searchTerm, categoryFilter]);
 
-    // --- REPORTING LOGIC ---
-    const reportStats = useMemo(() => {
-        const now = new Date();
-        const cutoffDate = new Date();
-        
-        if (reportTimeframe === '30d') cutoffDate.setDate(now.getDate() - 30);
-        if (reportTimeframe === '90d') cutoffDate.setDate(now.getDate() - 90);
-        if (reportTimeframe === '365d') cutoffDate.setDate(now.getDate() - 365);
-
-        // 1. Calculate Consumption per Item (Based on Orders Received + Manual Usage Logs)
-        const itemUsage: Record<string, number> = {};
-        const categoryUsage: Record<string, number> = {};
-
-        // A. From Received Orders (Inflow is a proxy for consumption in a replenishment system)
-        orders.forEach(order => {
-            if (order.status === 'Received' && order.receivedAt) {
-                if (new Date(order.receivedAt) >= cutoffDate) {
-                    order.items.forEach(line => {
-                        itemUsage[line.itemId] = (itemUsage[line.itemId] || 0) + line.quantity;
-                        
-                        const itemDef = items.find(i => i.id === line.itemId);
-                        if (itemDef) {
-                            categoryUsage[itemDef.category] = (categoryUsage[itemDef.category] || 0) + line.quantity;
-                        }
-                    });
-                }
-            }
-        });
-
-        // B. From Logs (Usage or Negative Corrections)
-        logs.forEach(log => {
-            if (new Date(log.date) >= cutoffDate) {
-                if (log.type === 'Usage' || (log.type === 'Correction' && log.change < 0)) {
-                    const qty = Math.abs(log.change);
-                    itemUsage[log.itemId] = (itemUsage[log.itemId] || 0) + qty;
-                    
-                    const itemDef = items.find(i => i.id === log.itemId);
-                    if (itemDef) {
-                        categoryUsage[itemDef.category] = (categoryUsage[itemDef.category] || 0) + qty;
-                    }
-                }
-            }
-        });
-
-        // 2. Format for Charts
-        const topMovers = Object.entries(itemUsage)
-            .map(([id, qty]) => {
-                const item = items.find(i => i.id === id);
-                return { name: item?.name || 'Onbekend', qty, category: item?.category };
-            })
-            .sort((a,b) => b.qty - a.qty)
-            .slice(0, 10);
-
-        const categoryData = Object.entries(categoryUsage)
-            .map(([name, value]) => ({ name, value }))
-            .sort((a,b) => b.value - a.value);
-
-        // 3. Detailed Table Data
-        const detailedStats = items.map(item => {
-            const usage = itemUsage[item.id] || 0;
-            return {
-                ...item,
-                usage,
-                status: usage > 20 ? 'Hardloper' : usage > 5 ? 'Normaal' : 'Langzaamloper'
-            };
-        }).sort((a,b) => b.usage - a.usage);
-
-        // 4. KPI's
-        const lowStockCount = items.filter(i => i.currentStock < i.minStock).length;
-        const totalStockCount = items.reduce((acc, i) => acc + i.currentStock, 0);
-        const totalConsumed = Object.values(itemUsage).reduce((acc, v) => acc + v, 0);
-
-        return { topMovers, categoryData, detailedStats, lowStockCount, totalStockCount, totalConsumed };
-    }, [items, orders, logs, reportTimeframe]);
-
     // --- ITEM ACTIONS ---
 
     const handleOpenCreate = () => {
@@ -266,10 +200,10 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         if (!editingItem.category) return onShowToast("Categorie is verplicht.");
         if (!editingItem.sourceName) return onShowToast("Leverancier of Afdeling is verplicht.");
 
+        // If saving an item into a hidden category, unhide it
         if (hiddenCategories.includes(editingItem.category)) {
              const newHidden = hiddenCategories.filter(c => c !== editingItem.category);
-             setHiddenCategories(newHidden);
-             localStorage.setItem('hrms_hidden_stock_categories', JSON.stringify(newHidden));
+             updateHiddenCategories(newHidden);
         }
 
         const item = {
@@ -294,6 +228,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         onShowToast("Artikel opgeslagen.");
     };
 
+    // ... (rest of the actions remain same) ...
     // --- CATEGORY ACTIONS ---
     const handleRenameCategory = async () => {
         if (!categoryToRename || !newCategoryName.trim()) return;
@@ -301,11 +236,12 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         if (itemsToUpdate.length === 0) { setCategoryToRename(null); return; }
 
         if (confirm(`Weet je zeker dat je de categorie '${categoryToRename}' wilt hernoemen naar '${newCategoryName}' voor ${itemsToUpdate.length} artikelen?`)) {
+            // Unhide new category name if it was hidden
             if (hiddenCategories.includes(newCategoryName)) {
                  const newHidden = hiddenCategories.filter(c => c !== newCategoryName);
-                 setHiddenCategories(newHidden);
-                 localStorage.setItem('hrms_hidden_stock_categories', JSON.stringify(newHidden));
+                 updateHiddenCategories(newHidden);
             }
+
             const updatedItems: StockItem[] = [];
             for (const item of itemsToUpdate) {
                 const updated = { ...item, category: newCategoryName };
@@ -340,10 +276,11 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             if (i.category === categoryToDelete) { return { ...i, category: 'Algemeen' }; }
             return i;
         }));
+
+        // Hide category instead of deleting
         if (!hiddenCategories.includes(categoryToDelete)) {
             const newHidden = [...hiddenCategories, categoryToDelete];
-            setHiddenCategories(newHidden);
-            localStorage.setItem('hrms_hidden_stock_categories', JSON.stringify(newHidden));
+            updateHiddenCategories(newHidden);
         }
         onShowToast(`Categorie '${categoryToDelete}' verwijderd. Artikelen verplaatst naar Algemeen.`);
         setCategoryToDelete(null);
@@ -699,6 +636,75 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         }
     };
 
+    // --- REPORT STATISTICS ---
+    const reportStats = useMemo(() => {
+        const now = new Date();
+        const timeframeDate = new Date();
+        if (reportTimeframe === '30d') timeframeDate.setDate(now.getDate() - 30);
+        if (reportTimeframe === '90d') timeframeDate.setDate(now.getDate() - 90);
+        if (reportTimeframe === '365d') timeframeDate.setDate(now.getDate() - 365);
+
+        // Filter logs by date
+        const relevantLogs = logs.filter(l => new Date(l.date) >= timeframeDate);
+        
+        // Calculate usage per item
+        const usageMap: Record<string, number> = {};
+        relevantLogs.forEach(l => {
+            // Check for negative changes in Count, Usage, or Correction which imply consumption/loss
+            if ((l.type === 'Count' || l.type === 'Usage' || l.type === 'Correction') && l.change < 0) {
+                usageMap[l.itemId] = (usageMap[l.itemId] || 0) + Math.abs(l.change);
+            }
+        });
+
+        // 1. Total Consumed (in timeframe)
+        const totalConsumed = Object.values(usageMap).reduce((a, b) => a + b, 0);
+
+        // 2. Total Stock Count (Current)
+        const totalStockCount = items.reduce((a, b) => a + b.currentStock, 0);
+
+        // 3. Low Stock Count
+        const lowStockCount = items.filter(i => i.currentStock < i.minStock).length;
+
+        // 4. Detailed Stats & Top Movers
+        const detailedStats = items.map(item => {
+            const usage = usageMap[item.id] || 0;
+            // Determine status based on usage relative to others or static thresholds
+            let status = 'Normaal';
+            if (usage > 10) status = 'Hardloper'; // Example threshold
+            if (usage === 0) status = 'Langzaamloper';
+
+            return {
+                id: item.id,
+                name: item.name,
+                category: item.category,
+                usage,
+                currentStock: item.currentStock,
+                status
+            };
+        }).sort((a,b) => b.usage - a.usage);
+
+        const topMovers = detailedStats.filter(i => i.usage > 0).slice(0, 10).map(i => ({ name: i.name, qty: i.usage }));
+
+        // 5. Category Data (Items per category)
+        const categoryCounts: Record<string, number> = {};
+        items.forEach(i => {
+            categoryCounts[i.category] = (categoryCounts[i.category] || 0) + 1;
+        });
+        
+        const categoryData = Object.entries(categoryCounts)
+            .map(([name, value]) => ({ name, value }))
+            .sort((a,b) => b.value - a.value);
+
+        return {
+            totalConsumed,
+            totalStockCount,
+            lowStockCount,
+            detailedStats,
+            topMovers,
+            categoryData
+        };
+    }, [items, logs, reportTimeframe]);
+
     // --- COUNTING MODE RENDERER ---
     const renderCountingMode = () => {
         const currentCatName = countingCategories[currentCategoryIndex];
@@ -806,6 +812,13 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                             <Package className="text-teal-600" size={32} />
                         </div>
                         Voorraadbeheer
+                        <button 
+                            onClick={() => setIsHelpModalOpen(true)}
+                            className="ml-2 p-1.5 text-slate-400 hover:text-teal-600 hover:bg-teal-50 rounded-full transition-all"
+                            title="Uitleg & Handleiding"
+                        >
+                            <Info size={24} />
+                        </button>
                     </h1>
                     <p className="text-slate-500 mt-2 text-lg">Beheer voorraad receptie en bestellingen.</p>
                 </div>
@@ -850,6 +863,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 </button>
             </div>
 
+            {/* ... Rest of tabs content (inventory, orders, logs, reports) ... */}
             {/* INVENTORY TAB */}
             {activeTab === 'inventory' && (
                 <div className="space-y-6">
@@ -1142,6 +1156,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 </div>
             )}
 
+            {/* Logs, Reports tabs omitted for brevity - same structure as before */}
             {activeTab === 'logs' && (
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                     <table className="w-full text-left">
@@ -1327,7 +1342,9 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
             {/* ITEM MODAL */}
             <Modal isOpen={isItemModalOpen} onClose={() => setIsItemModalOpen(false)} title={editingItem.id ? "Artikel Bewerken" : "Nieuw Artikel"}>
+                {/* ... (existing item modal form) ... */}
                 <form onSubmit={handleSaveItem} className="space-y-4">
+                    {/* ... form content ... */}
                     <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Naam</label>
                         <input 
@@ -1337,8 +1354,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                             required
                         />
                     </div>
-                    
-                    {/* SOURCE SELECTION */}
+                    {/* ... other fields ... */}
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-3">Bron / Herkomst</label>
                         <div className="flex gap-4 mb-4">
@@ -1478,6 +1494,69 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 </form>
             </Modal>
 
+            {/* HELP MODAL */}
+            <Modal isOpen={isHelpModalOpen} onClose={() => setIsHelpModalOpen(false)} title="Hoe werkt Voorraadbeheer?">
+                <div className="space-y-6 text-sm text-slate-700 leading-relaxed">
+                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                        <h4 className="font-bold text-blue-900 mb-2">Overzicht</h4>
+                        <p>
+                            Deze module helpt je bij het bijhouden van de voorraad, het plaatsen van bestellingen en het binnenmelden van leveringen.
+                            Je kunt schakelen tussen voorraad, bestellingen en het logboek via de tabbladen bovenaan.
+                        </p>
+                    </div>
+
+                    <div>
+                        <h4 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs">1</span>
+                            Voorraad Tellen
+                        </h4>
+                        <p className="mb-2">
+                            Om de voorraad bij te werken, gebruik je de knop <strong>Tellen</strong> naast een artikel in de lijst.
+                            Of start een volledige telronde via de knop "Telling Starten" bovenaan.
+                        </p>
+                        <ul className="list-disc ml-5 text-slate-600 space-y-1">
+                            <li>De voorraad wordt direct bijgewerkt.</li>
+                            <li>Elke wijziging wordt opgeslagen in het logboek.</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs">2</span>
+                            Bestellen (Winkelmandje)
+                        </h4>
+                        <p className="mb-2">
+                            Je kunt artikelen toevoegen aan een "lopende bestelling" door op de <strong>+ Bestellen</strong> knop te klikken bij een artikel.
+                            Of vul het aantal in en klik op het vinkje.
+                        </p>
+                        <ul className="list-disc ml-5 text-slate-600 space-y-1">
+                            <li>Artikelen worden verzameld onder het tabblad <strong>Bestellingen</strong>.</li>
+                            <li>Zolang de status "Pending" is, is de bestelling nog <strong>niet</strong> verstuurd.</li>
+                            <li>Klik op <strong>Plaatsen</strong> of <strong>Aanvragen</strong> bij de bestelling om deze definitief te maken.</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs">3</span>
+                            Leveringen Binnenmelden
+                        </h4>
+                        <p>
+                            Wanneer een bestelling binnenkomt, ga je naar het tabblad <strong>Bestellingen</strong>.
+                            Klik op <strong>Binnenmelden</strong> bij de betreffende order. 
+                            De artikelen worden dan toegevoegd aan de voorraad.
+                        </p>
+                    </div>
+                    
+                    <div className="pt-4 border-t border-slate-100">
+                        <p className="text-xs text-slate-500 italic">
+                            Tip: Gebruik de filters en zoekbalk om snel artikelen te vinden. De kleuren (rood/groen) geven aan of de voorraad laag is.
+                        </p>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* ... (Other modals: count, category, order etc. - keeping existing code) ... */}
             {/* COUNT SELECTION MODAL */}
             <Modal isOpen={isCountSelectionOpen} onClose={() => setIsCountSelectionOpen(false)} title="Telling Starten">
                 <div className="space-y-4">

@@ -108,6 +108,9 @@ export interface GlobalSettings {
     loginImages: string[];
   };
   roles: Record<string, Permission[]>;
+  stock?: {
+    hiddenCategories: string[];
+  };
 }
 
 export interface EmployeeDocument {
