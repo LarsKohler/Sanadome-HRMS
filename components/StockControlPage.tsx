@@ -399,7 +399,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
     // --- ORDERING LOGIC ---
 
-    const handleAddToPending = async (item: StockItem) => {
+    const handleAddToPending = async (item: StockItem, quantity: number = 1) => {
         const sourceName = item.sourceName || 'Onbekend';
         
         // Find existing pending order SPECIFICALLY for this supplier/department
@@ -412,12 +412,12 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             newItems = [...pendingOrder.items];
             const existingItemIndex = newItems.findIndex(i => i.itemId === item.id);
             if (existingItemIndex >= 0) {
-                newItems[existingItemIndex].quantity += 1;
+                newItems[existingItemIndex].quantity += quantity;
             } else {
                 newItems.push({
                     itemId: item.id,
                     name: item.name,
-                    quantity: 1, 
+                    quantity: quantity, 
                     unit: item.unit || 'Stuk'
                 });
             }
@@ -425,7 +425,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             newItems = [{
                 itemId: item.id,
                 name: item.name,
-                quantity: 1,
+                quantity: quantity,
                 unit: item.unit || 'Stuk'
             }];
         }
@@ -452,7 +452,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             return [order, ...prev];
         });
         
-        onShowToast(`${item.name} toegevoegd aan bestelling voor ${sourceName}.`);
+        onShowToast(`${quantity}x ${item.name} toegevoegd aan bestelling voor ${sourceName}.`);
     };
 
     const handleOpenOrderModal = (order: StockOrder) => {
@@ -792,7 +792,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                         </div>
                     </div>
 
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-visible">
                         <table className="w-full text-left">
                             <thead className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
                                 <tr>
@@ -805,11 +805,22 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-sm">
                                 {filteredItems.map(item => {
+                                    // Calculate pending stock from orders
+                                    const pendingCount = orders
+                                        .filter(o => o.status !== 'Received')
+                                        .flatMap(o => o.items)
+                                        .filter(line => line.itemId === item.id)
+                                        .reduce((acc, curr) => acc + curr.quantity, 0);
+
                                     // Change logic: only < minStock is low
                                     const isLow = item.currentStock < item.minStock;
                                     const isInternal = item.sourceType === 'Internal';
+                                    
+                                    // Order Input State (Temporary inside loop - better extracted but keeping simple)
+                                    const [orderQty, setOrderQty] = useState(1);
+
                                     return (
-                                        <tr key={item.id} className="hover:bg-slate-50">
+                                        <tr key={item.id} className="hover:bg-slate-50 group">
                                             <td className="px-6 py-4">
                                                 <div className="font-bold text-slate-900">{item.name}</div>
                                                 <div className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
@@ -828,7 +839,13 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 font-mono font-bold text-base text-slate-800">
-                                                {item.currentStock} <span className="text-xs text-slate-400 font-normal ml-1">{item.unit}</span>
+                                                <span className={pendingCount > 0 ? "text-orange-600" : ""}>{item.currentStock}</span> 
+                                                <span className="text-xs text-slate-400 font-normal ml-1">{item.unit}</span>
+                                                {pendingCount > 0 && (
+                                                    <span className="text-[10px] text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded ml-2 border border-orange-100 font-bold whitespace-nowrap">
+                                                        (+{pendingCount})
+                                                    </span>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4">
                                                 {isLow ? (
@@ -837,12 +854,12 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                                     </span>
                                                 ) : (
                                                     <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold border border-green-200">
-                                                        <Check size={12}/> Voldoende
+                                                        <Check size={12}/> Voldoende (Min: {item.minStock})
                                                     </span>
                                                 )}
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <div className="flex justify-end gap-2">
+                                                <div className="flex justify-end gap-2 items-center">
                                                     {canManage && (
                                                         <button 
                                                             onClick={() => handleOpenCount(item)}
@@ -851,12 +868,32 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                                             Tellen
                                                         </button>
                                                     )}
-                                                    <button 
-                                                        onClick={() => handleAddToPending(item)}
-                                                        className="px-3 py-1.5 bg-teal-50 text-teal-700 border border-teal-200 font-bold text-xs rounded-lg hover:bg-teal-100"
-                                                    >
-                                                        + Bestellen
-                                                    </button>
+                                                    
+                                                    {/* Hover Order Input */}
+                                                    <div className="relative group/order w-28 h-8 transition-all duration-300 hover:w-40 z-10">
+                                                        <button 
+                                                            className="absolute inset-0 w-full h-full bg-teal-50 text-teal-700 border border-teal-200 font-bold text-xs rounded-lg hover:bg-teal-100 flex items-center justify-center group-hover/order:opacity-0 transition-opacity"
+                                                        >
+                                                            + Bestellen
+                                                        </button>
+                                                        <div className="absolute inset-0 w-full h-full flex items-center gap-1 opacity-0 group-hover/order:opacity-100 pointer-events-none group-hover/order:pointer-events-auto transition-opacity">
+                                                            <input 
+                                                                type="number"
+                                                                className="w-16 h-full pl-2 border border-teal-300 rounded-l-lg text-xs font-bold focus:outline-none focus:ring-1 focus:ring-teal-500"
+                                                                defaultValue={1}
+                                                                min={1}
+                                                                onChange={(e) => setOrderQty(Math.max(1, parseInt(e.target.value) || 1))}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                            />
+                                                            <button 
+                                                                onClick={() => handleAddToPending(item, orderQty)}
+                                                                className="flex-1 h-full bg-teal-600 text-white rounded-r-lg hover:bg-teal-700 text-xs font-bold flex items-center justify-center"
+                                                            >
+                                                                <Check size={14}/>
+                                                            </button>
+                                                        </div>
+                                                    </div>
+
                                                     {canManage && (
                                                         <>
                                                             <button onClick={() => handleEditItem(item)} className="p-1.5 text-slate-400 hover:text-slate-700"><Edit2 size={16}/></button>
