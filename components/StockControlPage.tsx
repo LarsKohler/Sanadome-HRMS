@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
     Package, Search, Plus, Filter, AlertTriangle, RefreshCw, 
     Edit2, Trash2, Save, X, History, TrendingUp, TrendingDown, 
-    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft, Settings, Tag, Building2
+    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft, Settings, Tag, Building2, PlayCircle, ChevronRight, StopCircle
 } from 'lucide-react';
 import { Employee, StockItem, StockLog, StockOrder, StockOrderItem } from '../types';
 import { api } from '../utils/api';
@@ -51,6 +51,13 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const [newCategoryName, setNewCategoryName] = useState('');
     const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
     
+    // GENERAL COUNTING MODE STATE
+    const [isCountingMode, setIsCountingMode] = useState(false);
+    const [countQueue, setCountQueue] = useState<StockItem[]>([]);
+    const [currentCountIndex, setCurrentCountIndex] = useState(0);
+    const [generalCountValue, setGeneralCountValue] = useState('');
+    const countInputRef = useRef<HTMLInputElement>(null);
+    
     // Hidden Categories (Persisted)
     const [hiddenCategories, setHiddenCategories] = useState<string[]>(() => {
         if (typeof window !== 'undefined') {
@@ -66,6 +73,13 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     useEffect(() => {
         loadData();
     }, []);
+
+    // Focus input when moving to next item in Counting Mode
+    useEffect(() => {
+        if (isCountingMode && countInputRef.current) {
+            countInputRef.current.focus();
+        }
+    }, [isCountingMode, currentCountIndex]);
 
     const loadData = async () => {
         setIsLoading(true);
@@ -311,6 +325,83 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         onShowToast("Voorraad bijgewerkt.");
     };
 
+    // --- GENERAL COUNTING MODE LOGIC ---
+    
+    const startGeneralCount = () => {
+        // 1. Prepare list: Sort by Category ASC, then Name ASC
+        const sortedItems = [...items].sort((a, b) => {
+            if (a.category !== b.category) return a.category.localeCompare(b.category);
+            return a.name.localeCompare(b.name);
+        });
+        
+        if (sortedItems.length === 0) return onShowToast("Geen artikelen om te tellen.");
+
+        setCountQueue(sortedItems);
+        setCurrentCountIndex(0);
+        // Pre-fill with empty string to force entry, or current stock if you want guidance
+        // Usually blank is better to force counting.
+        setGeneralCountValue(''); 
+        setIsCountingMode(true);
+    };
+
+    const handleCountNext = async () => {
+        const currentItem = countQueue[currentCountIndex];
+        const newStock = generalCountValue === '' ? currentItem.currentStock : parseInt(generalCountValue);
+        
+        // Only update if changed
+        if (newStock !== currentItem.currentStock) {
+            const diff = newStock - currentItem.currentStock;
+            const updatedItem = { ...currentItem, currentStock: newStock, lastUpdated: new Date().toISOString() };
+            
+            const log: StockLog = {
+                id: crypto.randomUUID(),
+                itemId: updatedItem.id,
+                itemName: updatedItem.name,
+                change: diff,
+                type: 'Count',
+                date: new Date().toISOString(),
+                user: currentUser.name,
+                notes: 'Algemene Telling'
+            };
+
+            // Save async (no await to keep UI snappy)
+            api.saveStockItem(updatedItem);
+            api.saveStockLog(log);
+            
+            // Update local items state
+            setItems(prev => prev.map(i => i.id === updatedItem.id ? updatedItem : i));
+            
+            // Also update queue if needed (though queue is just for flow)
+            // Note: Logs state update handled by effect or next reload, or manually:
+            setLogs(prev => [log, ...prev]);
+        }
+
+        // Move next
+        if (currentCountIndex < countQueue.length - 1) {
+            setCurrentCountIndex(prev => prev + 1);
+            setGeneralCountValue(''); // Reset input
+        } else {
+            // Finished
+            setIsCountingMode(false);
+            onShowToast("Telling voltooid!");
+        }
+    };
+
+    const handleCountPrev = () => {
+        if (currentCountIndex > 0) {
+            setCurrentCountIndex(prev => prev - 1);
+            // Optionally load the previous value if we tracked edits in a temp map, 
+            // but simplest is just reset to empty to force re-count or show current stock.
+            setGeneralCountValue('');
+        }
+    };
+
+    const handleExitCountMode = () => {
+        if (confirm("Wil je de telling afbreken? Voortgang is opgeslagen.")) {
+            setIsCountingMode(false);
+        }
+    };
+
     // --- ORDERING LOGIC ---
 
     const handleAddToPending = async (item: StockItem) => {
@@ -494,6 +585,108 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         }
     };
 
+    // --- COUNTING MODE RENDERER ---
+    const renderCountingMode = () => {
+        const currentItem = countQueue[currentCountIndex];
+        const progress = Math.round(((currentCountIndex) / countQueue.length) * 100);
+        
+        return (
+            <div className="fixed inset-0 z-50 bg-slate-50 flex flex-col animate-in fade-in duration-300">
+                {/* Header */}
+                <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <button onClick={handleExitCountMode} className="p-2 hover:bg-slate-100 rounded-full text-slate-500">
+                            <X size={24}/>
+                        </button>
+                        <div>
+                            <h2 className="text-xl font-bold text-slate-900">Voorraad Tellen</h2>
+                            <p className="text-sm text-slate-500">Item {currentCountIndex + 1} van {countQueue.length}</p>
+                        </div>
+                    </div>
+                    <div className="w-48 hidden md:block">
+                         <div className="flex justify-between text-xs text-slate-500 mb-1">
+                             <span>Voortgang</span>
+                             <span>{progress}%</span>
+                         </div>
+                         <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+                             <div className="h-full bg-teal-500 transition-all duration-300" style={{width: `${progress}%`}}></div>
+                         </div>
+                    </div>
+                </div>
+
+                {/* Main Content */}
+                <div className="flex-1 flex flex-col items-center justify-center p-6 max-w-4xl mx-auto w-full">
+                    <div className="mb-6">
+                        <span className="bg-slate-200 text-slate-700 px-4 py-1.5 rounded-full text-sm font-bold uppercase tracking-wide">
+                            {currentItem.category}
+                        </span>
+                    </div>
+
+                    <h1 className="text-3xl md:text-5xl font-black text-slate-900 text-center mb-4 leading-tight">
+                        {currentItem.name}
+                    </h1>
+                    
+                    {currentItem.itemsPerBox && currentItem.itemsPerBox > 1 && (
+                        <div className="mb-8 bg-blue-50 text-blue-700 px-4 py-2 rounded-lg font-bold text-lg border border-blue-200">
+                            Inhoud per doos: {currentItem.itemsPerBox} stuks
+                        </div>
+                    )}
+                    
+                    <div className="w-full max-w-md space-y-6">
+                         <div className="relative">
+                             <input 
+                                ref={countInputRef}
+                                type="number"
+                                inputMode="numeric" 
+                                pattern="[0-9]*"
+                                className="w-full p-6 text-center text-5xl font-bold border-4 border-slate-200 rounded-3xl focus:border-teal-500 focus:outline-none focus:ring-4 focus:ring-teal-500/20 transition-all bg-white"
+                                placeholder="0"
+                                value={generalCountValue}
+                                onChange={(e) => setGeneralCountValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if(e.key === 'Enter') handleCountNext();
+                                }}
+                             />
+                             <div className="absolute right-6 top-1/2 -translate-y-1/2 text-slate-300 text-xl font-bold pointer-events-none">
+                                 {currentItem.unit}
+                             </div>
+                         </div>
+
+                         <div className="text-center text-slate-400 font-medium">
+                             Systeem aantal: {currentItem.currentStock}
+                         </div>
+                    </div>
+                </div>
+
+                {/* Footer Controls */}
+                <div className="bg-white border-t border-slate-200 p-6 flex gap-4 justify-center">
+                    <button 
+                        onClick={handleCountPrev}
+                        disabled={currentCountIndex === 0}
+                        className="px-6 py-4 rounded-2xl border-2 border-slate-200 text-slate-500 font-bold text-lg hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-2"
+                    >
+                        <ChevronLeft size={24}/> Vorige
+                    </button>
+                    
+                    <button 
+                        onClick={handleCountNext}
+                        className="flex-1 max-w-md px-8 py-4 bg-slate-900 text-white rounded-2xl font-bold text-xl shadow-lg hover:bg-slate-800 active:scale-95 transition-all flex items-center justify-center gap-3"
+                    >
+                        {currentCountIndex === countQueue.length - 1 ? (
+                            <>Afronden <Check size={24}/></>
+                        ) : (
+                            <>Bevestigen & Volgende <ChevronRight size={24}/></>
+                        )}
+                    </button>
+                </div>
+            </div>
+        );
+    };
+
+    if (isCountingMode) {
+        return renderCountingMode();
+    }
+
     return (
         <div className="p-6 md:p-10 w-full max-w-[2400px] mx-auto animate-in fade-in duration-500 min-h-[calc(100vh-80px)]">
             
@@ -509,6 +702,12 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 </div>
                 {canManage && (
                     <div className="flex gap-3">
+                        <button 
+                            onClick={startGeneralCount}
+                            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md hover:shadow-lg transition-all"
+                        >
+                            <PlayCircle size={18} /> Telling Starten
+                        </button>
                         <button 
                             onClick={() => setIsCategoryModalOpen(true)}
                             className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-xl shadow-sm hover:bg-slate-50 transition-all"
