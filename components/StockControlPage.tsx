@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
     Package, Search, Plus, Filter, AlertTriangle, RefreshCw, 
     Edit2, Trash2, Save, X, History, TrendingUp, TrendingDown, 
-    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft, Settings, Tag, Building2, PlayCircle, ChevronRight, StopCircle, Upload, FileText, Paperclip, Send, ExternalLink
+    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft, Settings, Tag, Building2, PlayCircle, ChevronRight, StopCircle, Upload, FileText, Paperclip, Send, ExternalLink, Mail, ShieldCheck
 } from 'lucide-react';
 import { Employee, StockItem, StockLog, StockOrder, StockOrderItem } from '../types';
 import { api } from '../utils/api';
@@ -63,7 +63,12 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const [activeOrderTarget, setActiveOrderTarget] = useState<StockOrder | null>(null);
     const [orderFile, setOrderFile] = useState<File | null>(null);
     const [isUploadingOrder, setIsUploadingOrder] = useState(false);
-    const [noSlipAvailable, setNoSlipAvailable] = useState(false); // NEW: No slip option
+    const [noSlipAvailable, setNoSlipAvailable] = useState(false); 
+    
+    // Approval States
+    const [ccConfirmed, setCcConfirmed] = useState(false);
+    const [managementApproved, setManagementApproved] = useState(false);
+    
     const orderInputRef = useRef<HTMLInputElement>(null);
 
     // Hidden Categories (Persisted)
@@ -435,7 +440,9 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const handleOpenOrderModal = (order: StockOrder) => {
         setActiveOrderTarget(order);
         setOrderFile(null);
-        setNoSlipAvailable(false); // Reset
+        setNoSlipAvailable(false);
+        setCcConfirmed(false); // Reset CC check
+        setManagementApproved(false); // Reset Management check
         setIsOrderModalOpen(true);
     };
 
@@ -448,6 +455,11 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
     const handleConfirmOrder = async () => {
         if (!activeOrderTarget) return;
+
+        // Final Validation check (redundant but safe)
+        if (!ccConfirmed) return;
+        if (activeOrderTarget.orderType === 'External' && !managementApproved) return;
+        if (activeOrderTarget.orderType === 'External' && !orderFile && !noSlipAvailable) return;
 
         setIsUploadingOrder(true);
         let publicUrl = undefined;
@@ -1323,6 +1335,23 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                     Geen bestelbon beschikbaar (Telefonisch/Mail)
                                 </label>
                             </div>
+
+                            <div className="bg-red-50 p-4 rounded-xl border border-red-100 flex items-start gap-3">
+                                <div className="mt-0.5"><ShieldCheck size={18} className="text-red-600"/></div>
+                                <div>
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
+                                            checked={managementApproved}
+                                            onChange={(e) => setManagementApproved(e.target.checked)}
+                                        />
+                                        <span className="text-sm font-bold text-red-800 select-none">
+                                            Ik bevestig dat er toestemming is van het management om deze bestelling te plaatsen.
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
                         </>
                     ) : (
                         <div className="bg-amber-50 p-6 rounded-xl border border-amber-100 text-center">
@@ -1336,11 +1365,33 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                         </div>
                     )}
 
+                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-start gap-3">
+                        <div className="mt-0.5"><Mail size={18} className="text-blue-600"/></div>
+                        <div>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                                    checked={ccConfirmed}
+                                    onChange={(e) => setCcConfirmed(e.target.checked)}
+                                />
+                                <span className="text-sm font-bold text-blue-800 select-none">
+                                    Lars, Mila en Janique zijn toegevoegd aan de CC.
+                                </span>
+                            </label>
+                            <p className="text-xs text-blue-600 mt-1 ml-6">Zij ontvangen automatisch een kopie van deze bestelling/aanvraag.</p>
+                        </div>
+                    </div>
+
                     <div className="flex justify-end gap-3 pt-4">
                         <button onClick={() => setIsOrderModalOpen(false)} className="px-4 py-2 bg-white border border-slate-200 rounded-lg font-bold text-slate-600 hover:bg-slate-50">Annuleren</button>
                         <button 
                             onClick={handleConfirmOrder} 
-                            disabled={activeOrderTarget?.orderType === 'External' && !orderFile && !noSlipAvailable}
+                            disabled={
+                                (!ccConfirmed) ||
+                                (activeOrderTarget?.orderType === 'External' && (!managementApproved || (!orderFile && !noSlipAvailable))) ||
+                                isUploadingOrder
+                            }
                             className="px-6 py-2 bg-slate-900 text-white rounded-lg font-bold shadow-md hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                         >
                             {isUploadingOrder ? 'Bezig...' : (activeOrderTarget?.orderType === 'External' ? 'Bestelling Bevestigen' : 'Aanvraag Versturen')} <Send size={16}/>
