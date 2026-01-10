@@ -533,36 +533,20 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         const order = orders.find(o => o.id === orderId);
         if (!order) return;
 
-        // Update Stock
+        // Create logs for history, but DO NOT update stock automatically
         const newLogs: StockLog[] = [];
-        const updatedItems = [...items];
 
         for (const orderItem of order.items) {
-            const itemIndex = updatedItems.findIndex(i => i.id === orderItem.itemId);
-            if (itemIndex >= 0) {
-                const stockItem = updatedItems[itemIndex];
-                // REMOVED MULTIPLIER LOGIC
-                const totalQty = orderItem.quantity; 
-
-                const updatedStockItem = {
-                    ...stockItem,
-                    currentStock: stockItem.currentStock + totalQty,
-                    lastUpdated: new Date().toISOString()
-                };
-                updatedItems[itemIndex] = updatedStockItem;
-                await api.saveStockItem(updatedStockItem);
-
-                newLogs.push({
-                    id: crypto.randomUUID(),
-                    itemId: stockItem.id,
-                    itemName: stockItem.name,
-                    change: totalQty,
-                    type: 'Delivery',
-                    date: new Date().toISOString(),
-                    user: currentUser.name,
-                    notes: `Ontvangen van ${order.supplier} (Door: ${currentUser.name})`
-                });
-            }
+             newLogs.push({
+                id: crypto.randomUUID(),
+                itemId: orderItem.itemId,
+                itemName: orderItem.name,
+                change: 0, // No automatic stock change, needs manual count
+                type: 'Delivery',
+                date: new Date().toISOString(),
+                user: currentUser.name,
+                notes: `Ontvangen van ${order.supplier}: ${orderItem.quantity} ${orderItem.unit} (Nog niet bijgeschreven)`
+            });
         }
 
         const updatedOrder: StockOrder = {
@@ -575,11 +559,10 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         await api.saveStockOrder(updatedOrder);
         for (const log of newLogs) { await api.saveStockLog(log); }
 
-        setItems(updatedItems);
         setLogs(prev => [...newLogs, ...prev]);
         setOrders(prev => prev.map(o => o.id === orderId ? updatedOrder : o));
         
-        onShowToast("Bestelling binnengemeld en voorraad bijgewerkt.");
+        onShowToast("Bestelling binnengemeld. Voer een telling uit om de voorraad bij te werken.");
     };
 
     const handleDeleteOrder = async (id: string) => {
