@@ -122,22 +122,30 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
     const categories = useMemo(() => {
         const cats = new Set<string>();
+        // Add default categories ONLY if they are not hidden
         DEFAULT_CATEGORIES.forEach(c => {
             if (!hiddenCategories.includes(c)) cats.add(c);
         });
+        // Add categories from actual items
         items.forEach(i => cats.add(i.category));
+        
         cats.add('Algemeen');
         return ['All', ...Array.from(cats).sort()];
     }, [items, hiddenCategories]);
 
     const activeCategories = useMemo(() => {
         const counts: Record<string, number> = {};
+        
+        // Initialize visible default categories with 0
         DEFAULT_CATEGORIES.forEach(c => {
              if (!hiddenCategories.includes(c)) counts[c] = 0;
         });
+
+        // Count items per category
         items.forEach(i => {
             counts[i.category] = (counts[i.category] || 0) + 1;
         });
+        
         return Object.entries(counts).sort((a,b) => a[0].localeCompare(b[0]));
     }, [items, hiddenCategories]);
 
@@ -228,7 +236,6 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         onShowToast("Artikel opgeslagen.");
     };
 
-    // ... (rest of the actions remain same) ...
     // --- CATEGORY ACTIONS ---
     const handleRenameCategory = async () => {
         if (!categoryToRename || !newCategoryName.trim()) return;
@@ -267,21 +274,31 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
     const executeDeleteCategory = async () => {
         if (!categoryToDelete) return;
+
+        // 1. Move items to 'Algemeen' in local state immediately (Optimistic UI)
+        const updatedItems = items.map(i => {
+            if (i.category === categoryToDelete) {
+                return { ...i, category: 'Algemeen' };
+            }
+            return i;
+        });
+        setItems(updatedItems);
+
+        // 2. Perform API calls to save item changes in DB
         const itemsToMove = items.filter(i => i.category === categoryToDelete);
         for (const item of itemsToMove) {
-            const updated = { ...item, category: 'Algemeen' };
-            await api.saveStockItem(updated);
+            await api.saveStockItem({ ...item, category: 'Algemeen' });
         }
-        setItems(prev => prev.map(i => {
-            if (i.category === categoryToDelete) { return { ...i, category: 'Algemeen' }; }
-            return i;
-        }));
 
-        // Hide category instead of deleting
-        if (!hiddenCategories.includes(categoryToDelete)) {
-            const newHidden = [...hiddenCategories, categoryToDelete];
-            updateHiddenCategories(newHidden);
-        }
+        // 3. Handle Persistence of the Category Deletion
+        // If it's a DEFAULT category, we must explicitly hide it to "delete" it from view
+        if (DEFAULT_CATEGORIES.includes(categoryToDelete)) {
+            if (!hiddenCategories.includes(categoryToDelete)) {
+                const newHidden = [...hiddenCategories, categoryToDelete];
+                updateHiddenCategories(newHidden);
+            }
+        } 
+        
         onShowToast(`Categorie '${categoryToDelete}' verwijderd. Artikelen verplaatst naar Algemeen.`);
         setCategoryToDelete(null);
     };
@@ -863,7 +880,6 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 </button>
             </div>
 
-            {/* ... Rest of tabs content (inventory, orders, logs, reports) ... */}
             {/* INVENTORY TAB */}
             {activeTab === 'inventory' && (
                 <div className="space-y-6">
@@ -1156,7 +1172,6 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 </div>
             )}
 
-            {/* Logs, Reports tabs omitted for brevity - same structure as before */}
             {activeTab === 'logs' && (
                 <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
                     <table className="w-full text-left">
@@ -1342,9 +1357,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
             {/* ITEM MODAL */}
             <Modal isOpen={isItemModalOpen} onClose={() => setIsItemModalOpen(false)} title={editingItem.id ? "Artikel Bewerken" : "Nieuw Artikel"}>
-                {/* ... (existing item modal form) ... */}
                 <form onSubmit={handleSaveItem} className="space-y-4">
-                    {/* ... form content ... */}
                     <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Naam</label>
                         <input 
@@ -1354,7 +1367,8 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                             required
                         />
                     </div>
-                    {/* ... other fields ... */}
+                    
+                    {/* SOURCE SELECTION */}
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                         <label className="block text-xs font-bold text-slate-500 uppercase mb-3">Bron / Herkomst</label>
                         <div className="flex gap-4 mb-4">
@@ -1494,69 +1508,6 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 </form>
             </Modal>
 
-            {/* HELP MODAL */}
-            <Modal isOpen={isHelpModalOpen} onClose={() => setIsHelpModalOpen(false)} title="Hoe werkt Voorraadbeheer?">
-                <div className="space-y-6 text-sm text-slate-700 leading-relaxed">
-                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
-                        <h4 className="font-bold text-blue-900 mb-2">Overzicht</h4>
-                        <p>
-                            Deze module helpt je bij het bijhouden van de voorraad, het plaatsen van bestellingen en het binnenmelden van leveringen.
-                            Je kunt schakelen tussen voorraad, bestellingen en het logboek via de tabbladen bovenaan.
-                        </p>
-                    </div>
-
-                    <div>
-                        <h4 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs">1</span>
-                            Voorraad Tellen
-                        </h4>
-                        <p className="mb-2">
-                            Om de voorraad bij te werken, gebruik je de knop <strong>Tellen</strong> naast een artikel in de lijst.
-                            Of start een volledige telronde via de knop "Telling Starten" bovenaan.
-                        </p>
-                        <ul className="list-disc ml-5 text-slate-600 space-y-1">
-                            <li>De voorraad wordt direct bijgewerkt.</li>
-                            <li>Elke wijziging wordt opgeslagen in het logboek.</li>
-                        </ul>
-                    </div>
-
-                    <div>
-                        <h4 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs">2</span>
-                            Bestellen (Winkelmandje)
-                        </h4>
-                        <p className="mb-2">
-                            Je kunt artikelen toevoegen aan een "lopende bestelling" door op de <strong>+ Bestellen</strong> knop te klikken bij een artikel.
-                            Of vul het aantal in en klik op het vinkje.
-                        </p>
-                        <ul className="list-disc ml-5 text-slate-600 space-y-1">
-                            <li>Artikelen worden verzameld onder het tabblad <strong>Bestellingen</strong>.</li>
-                            <li>Zolang de status "Pending" is, is de bestelling nog <strong>niet</strong> verstuurd.</li>
-                            <li>Klik op <strong>Plaatsen</strong> of <strong>Aanvragen</strong> bij de bestelling om deze definitief te maken.</li>
-                        </ul>
-                    </div>
-
-                    <div>
-                        <h4 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
-                            <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs">3</span>
-                            Leveringen Binnenmelden
-                        </h4>
-                        <p>
-                            Wanneer een bestelling binnenkomt, ga je naar het tabblad <strong>Bestellingen</strong>.
-                            Klik op <strong>Binnenmelden</strong> bij de betreffende order. 
-                            De artikelen worden dan toegevoegd aan de voorraad.
-                        </p>
-                    </div>
-                    
-                    <div className="pt-4 border-t border-slate-100">
-                        <p className="text-xs text-slate-500 italic">
-                            Tip: Gebruik de filters en zoekbalk om snel artikelen te vinden. De kleuren (rood/groen) geven aan of de voorraad laag is.
-                        </p>
-                    </div>
-                </div>
-            </Modal>
-
-            {/* ... (Other modals: count, category, order etc. - keeping existing code) ... */}
             {/* COUNT SELECTION MODAL */}
             <Modal isOpen={isCountSelectionOpen} onClose={() => setIsCountSelectionOpen(false)} title="Telling Starten">
                 <div className="space-y-4">
@@ -1819,6 +1770,68 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                         >
                             {isUploadingOrder ? 'Bezig...' : (activeOrderTarget?.orderType === 'External' ? 'Bestelling Bevestigen' : 'Aanvraag Versturen')} <Send size={16}/>
                         </button>
+                    </div>
+                </div>
+            </Modal>
+
+            {/* HELP MODAL */}
+            <Modal isOpen={isHelpModalOpen} onClose={() => setIsHelpModalOpen(false)} title="Hoe werkt Voorraadbeheer?">
+                <div className="space-y-6 text-sm text-slate-700 leading-relaxed">
+                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-100">
+                        <h4 className="font-bold text-blue-900 mb-2">Overzicht</h4>
+                        <p>
+                            Deze module helpt je bij het bijhouden van de voorraad, het plaatsen van bestellingen en het binnenmelden van leveringen.
+                            Je kunt schakelen tussen voorraad, bestellingen en het logboek via de tabbladen bovenaan.
+                        </p>
+                    </div>
+
+                    <div>
+                        <h4 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs">1</span>
+                            Voorraad Tellen
+                        </h4>
+                        <p className="mb-2">
+                            Om de voorraad bij te werken, gebruik je de knop <strong>Tellen</strong> naast een artikel in de lijst.
+                            Of start een volledige telronde via de knop "Telling Starten" bovenaan.
+                        </p>
+                        <ul className="list-disc ml-5 text-slate-600 space-y-1">
+                            <li>De voorraad wordt direct bijgewerkt.</li>
+                            <li>Elke wijziging wordt opgeslagen in het logboek.</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs">2</span>
+                            Bestellen (Winkelmandje)
+                        </h4>
+                        <p className="mb-2">
+                            Je kunt artikelen toevoegen aan een "lopende bestelling" door op de <strong>+ Bestellen</strong> knop te klikken bij een artikel.
+                            Of vul het aantal in en klik op het vinkje.
+                        </p>
+                        <ul className="list-disc ml-5 text-slate-600 space-y-1">
+                            <li>Artikelen worden verzameld onder het tabblad <strong>Bestellingen</strong>.</li>
+                            <li>Zolang de status "Pending" is, is de bestelling nog <strong>niet</strong> verstuurd.</li>
+                            <li>Klik op <strong>Plaatsen</strong> of <strong>Aanvragen</strong> bij de bestelling om deze definitief te maken.</li>
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h4 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
+                            <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs">3</span>
+                            Leveringen Binnenmelden
+                        </h4>
+                        <p>
+                            Wanneer een bestelling binnenkomt, ga je naar het tabblad <strong>Bestellingen</strong>.
+                            Klik op <strong>Binnenmelden</strong> bij de betreffende order. 
+                            De artikelen worden dan toegevoegd aan de voorraad.
+                        </p>
+                    </div>
+                    
+                    <div className="pt-4 border-t border-slate-100">
+                        <p className="text-xs text-slate-500 italic">
+                            Tip: Gebruik de filters en zoekbalk om snel artikelen te vinden. De kleuren (rood/groen) geven aan of de voorraad laag is.
+                        </p>
                     </div>
                 </div>
             </Modal>
