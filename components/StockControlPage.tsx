@@ -49,6 +49,16 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
     const [categoryToRename, setCategoryToRename] = useState<string | null>(null);
     const [newCategoryName, setNewCategoryName] = useState('');
+    const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
+    
+    // Hidden Categories (Persisted)
+    const [hiddenCategories, setHiddenCategories] = useState<string[]>(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('hrms_hidden_stock_categories');
+            return saved ? JSON.parse(saved) : [];
+        }
+        return [];
+    });
 
     // Permission check
     const canManage = hasPermission(currentUser, 'MANAGE_STOCK');
@@ -71,22 +81,37 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     };
 
     const categories = useMemo(() => {
-        const cats = new Set<string>(DEFAULT_CATEGORIES);
-        // Add any categories that exist in items but not in defaults
+        const cats = new Set<string>();
+        
+        // Add defaults if not hidden
+        DEFAULT_CATEGORIES.forEach(c => {
+            if (!hiddenCategories.includes(c)) cats.add(c);
+        });
+        
+        // Add any categories that exist in items (even if they were hidden, presence of items force visibility, or custom cats)
         items.forEach(i => cats.add(i.category));
+        
+        // Ensure Algemeen is always there
+        cats.add('Algemeen');
+        
         return ['All', ...Array.from(cats).sort()];
-    }, [items]);
+    }, [items, hiddenCategories]);
 
     const activeCategories = useMemo(() => {
         const counts: Record<string, number> = {};
-        // Initialize defaults with 0
-        DEFAULT_CATEGORIES.forEach(c => counts[c] = 0);
+        
+        // Initialize defaults with 0 if not hidden
+        DEFAULT_CATEGORIES.forEach(c => {
+             if (!hiddenCategories.includes(c)) counts[c] = 0;
+        });
+        
         // Count items
         items.forEach(i => {
             counts[i.category] = (counts[i.category] || 0) + 1;
         });
+        
         return Object.entries(counts).sort((a,b) => a[0].localeCompare(b[0]));
-    }, [items]);
+    }, [items, hiddenCategories]);
 
     const filteredItems = useMemo(() => {
         return items.filter(i => {
@@ -133,6 +158,13 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         if (!editingItem.name) return onShowToast("Naam is verplicht.");
         if (!editingItem.category) return onShowToast("Categorie is verplicht.");
 
+        // Unhide if needed
+        if (hiddenCategories.includes(editingItem.category)) {
+             const newHidden = hiddenCategories.filter(c => c !== editingItem.category);
+             setHiddenCategories(newHidden);
+             localStorage.setItem('hrms_hidden_stock_categories', JSON.stringify(newHidden));
+        }
+
         const item = editingItem as StockItem;
         await api.saveStockItem(item);
         
@@ -162,6 +194,14 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         }
 
         if (confirm(`Weet je zeker dat je de categorie '${categoryToRename}' wilt hernoemen naar '${newCategoryName}' voor ${itemsToUpdate.length} artikelen?`)) {
+            
+            // Unhide target if hidden
+            if (hiddenCategories.includes(newCategoryName)) {
+                 const newHidden = hiddenCategories.filter(c => c !== newCategoryName);
+                 setHiddenCategories(newHidden);
+                 localStorage.setItem('hrms_hidden_stock_categories', JSON.stringify(newHidden));
+            }
+
             // Update all items
             const updatedItems: StockItem[] = [];
             
@@ -178,34 +218,50 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 return i;
             }));
 
+            // If renaming a default category, we are essentially "moving" items out of it. 
+            // We don't hide the old one automatically, it stays as empty default unless deleted.
+            
             onShowToast(`Categorie hernoemd. ${itemsToUpdate.length} artikelen bijgewerkt.`);
             setCategoryToRename(null);
             setNewCategoryName('');
         }
     };
 
-    const handleDeleteCategory = async (catToDelete: string) => {
-        if (catToDelete === 'Algemeen') {
+    const handleDeleteCategoryClick = (cat: string) => {
+        if (cat === 'Algemeen') {
             return onShowToast("De categorie 'Algemeen' kan niet verwijderd worden.");
         }
+        setCategoryToDelete(cat);
+    };
+
+    const executeDeleteCategory = async () => {
+        if (!categoryToDelete) return;
+
+        const itemsToMove = items.filter(i => i.category === categoryToDelete);
         
-        const itemsToMove = items.filter(i => i.category === catToDelete);
-        
-        if (confirm(`Weet je zeker dat je de categorie '${catToDelete}' wilt verwijderen? ${itemsToMove.length} artikelen worden verplaatst naar 'Algemeen'.`)) {
-            for (const item of itemsToMove) {
-                const updated = { ...item, category: 'Algemeen' };
-                await api.saveStockItem(updated);
-            }
-            
-            setItems(prev => prev.map(i => {
-                if (i.category === catToDelete) {
-                    return { ...i, category: 'Algemeen' };
-                }
-                return i;
-            }));
-            
-            onShowToast(`Categorie verwijderd. Artikelen verplaatst naar Algemeen.`);
+        // Move items to Algemeen
+        for (const item of itemsToMove) {
+            const updated = { ...item, category: 'Algemeen' };
+            await api.saveStockItem(updated);
         }
+        
+        // Update local state for items
+        setItems(prev => prev.map(i => {
+            if (i.category === categoryToDelete) {
+                return { ...i, category: 'Algemeen' };
+            }
+            return i;
+        }));
+
+        // Add to hidden list if it's not already there (this persists the deletion for default categories)
+        if (!hiddenCategories.includes(categoryToDelete)) {
+            const newHidden = [...hiddenCategories, categoryToDelete];
+            setHiddenCategories(newHidden);
+            localStorage.setItem('hrms_hidden_stock_categories', JSON.stringify(newHidden));
+        }
+        
+        onShowToast(`Categorie '${categoryToDelete}' verwijderd. Artikelen verplaatst naar Algemeen.`);
+        setCategoryToDelete(null);
     };
 
     // --- COUNTING ---
@@ -941,7 +997,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                             <Edit2 size={16}/>
                                         </button>
                                         <button 
-                                            onClick={() => handleDeleteCategory(cat)}
+                                            onClick={() => handleDeleteCategoryClick(cat)}
                                             className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                             title="Verwijderen"
                                             disabled={cat === 'Algemeen'}
@@ -953,6 +1009,38 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                             ))}
                         </div>
                     )}
+                </div>
+            </Modal>
+            
+            {/* DELETE CATEGORY CONFIRMATION MODAL */}
+            <Modal isOpen={!!categoryToDelete} onClose={() => setCategoryToDelete(null)} title="Categorie Verwijderen">
+                <div className="space-y-4">
+                    <div className="bg-red-50 border border-red-100 p-4 rounded-xl flex items-start gap-3">
+                        <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={20}/>
+                        <div>
+                             <h4 className="text-sm font-bold text-red-900">Let op!</h4>
+                             <p className="text-sm text-red-800 mt-1">
+                                 Weet je zeker dat je de categorie <strong>'{categoryToDelete}'</strong> wilt verwijderen?
+                             </p>
+                             <p className="text-xs text-red-700 mt-2">
+                                 Alle artikelen in deze categorie worden verplaatst naar <strong>'Algemeen'</strong>.
+                             </p>
+                        </div>
+                    </div>
+                    <div className="flex justify-end gap-3">
+                         <button 
+                             onClick={() => setCategoryToDelete(null)}
+                             className="px-4 py-2 bg-white border border-slate-200 text-slate-600 font-bold text-sm rounded-lg hover:bg-slate-50 transition-colors"
+                         >
+                             Annuleren
+                         </button>
+                         <button 
+                             onClick={executeDeleteCategory}
+                             className="px-4 py-2 bg-red-600 text-white font-bold text-sm rounded-lg hover:bg-red-700 shadow-sm transition-colors"
+                         >
+                             Verwijderen & Verplaatsen
+                         </button>
+                    </div>
                 </div>
             </Modal>
 
