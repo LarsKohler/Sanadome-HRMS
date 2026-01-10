@@ -42,15 +42,15 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
       items: [
         { icon: User, label: 'Mijn Profiel', id: ViewState.HOME },
         { icon: Newspaper, label: 'Nieuws', id: ViewState.NEWS },
-        { icon: GraduationCap, label: 'Academy', id: ViewState.ACADEMY },
-        { icon: BookOpen, label: 'Kennisbank', id: ViewState.KNOWLEDGE_BASE },
-        { icon: Users, label: 'Collega\'s', id: ViewState.DIRECTORY },
+        { icon: GraduationCap, label: 'Academy', id: ViewState.ACADEMY, permission: 'VIEW_ACADEMY' },
+        { icon: BookOpen, label: 'Kennisbank', id: ViewState.KNOWLEDGE_BASE, permission: 'VIEW_KNOWLEDGE_BASE' },
+        { icon: Users, label: 'Collega\'s', id: ViewState.DIRECTORY, permission: 'VIEW_DIRECTORY' },
       ]
     },
     {
       label: 'Receptie Tools',
       items: [
-        { icon: ListTodo, label: 'Checklists', id: ViewState.CHECKLISTS }, 
+        { icon: ListTodo, label: 'Checklists', id: ViewState.CHECKLISTS, permission: 'VIEW_CHECKLISTS' }, 
         { icon: Scale, label: 'Compensatie', id: ViewState.COMPENSATION }, 
         { icon: Package, label: 'Voorraad', id: ViewState.STOCK_CONTROL, permission: 'MANAGE_STOCK' }, // Added
       ]
@@ -59,7 +59,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
       label: 'HR & Team',
       items: [
         { icon: FolderOpen, label: 'HR Dossier', id: ViewState.HR_DOSSIER, permission: 'MANAGE_EMPLOYEES' },
-        { icon: UserCheck, label: 'Onboarding', id: ViewState.ONBOARDING },
+        { icon: UserCheck, label: 'Onboarding', id: ViewState.ONBOARDING, permission: 'VIEW_ONBOARDING' },
         { icon: ClipboardCheck, label: 'Performance', id: ViewState.EVALUATIONS, permission: 'MANAGE_EVALUATIONS' },
         { icon: UserPlus, label: 'Recruitment', id: ViewState.RECRUITMENT, permission: 'MANAGE_RECRUITMENT' },
       ]
@@ -67,7 +67,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, onChangeView, user, isOp
     {
       label: 'Management Tools',
       items: [
-        { icon: CheckSquare, label: 'Takenlijst', id: ViewState.TODO_LIST },
+        { icon: CheckSquare, label: 'Takenlijst', id: ViewState.TODO_LIST, permission: 'VIEW_TASKS' },
         { icon: MessageCircleWarning, label: 'Klachten', id: ViewState.COMPLAINTS, permission: 'MANAGE_COMPLAINTS' },
         { icon: Euro, label: 'Debiteuren', id: ViewState.DEBT_CONTROL, permission: 'MANAGE_DEBTORS' },
         { icon: ScanEye, label: 'Data Audit', id: ViewState.DATA_AUDIT, permission: 'VIEW_REPORTS' }, 

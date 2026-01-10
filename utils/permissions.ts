@@ -1,3 +1,4 @@
+
 import { Employee, Permission, ViewState, GlobalSettings } from '../types';
 
 // Define default permissions per role
@@ -27,7 +28,14 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'MANAGE_CHECKLISTS',
     'MANAGE_TASKS',
     'MANAGE_COMPLAINTS', // Added
-    'MANAGE_STOCK' // Added
+    'MANAGE_STOCK', // Added
+    // VIEW PERMISSIONS
+    'VIEW_ACADEMY',
+    'VIEW_KNOWLEDGE_BASE',
+    'VIEW_DIRECTORY',
+    'VIEW_CHECKLISTS',
+    'VIEW_ONBOARDING',
+    'VIEW_TASKS'
   ],
   'Senior Medewerker': [
     'CREATE_NEWS',
@@ -41,10 +49,23 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<string, Permission[]> = {
     'MANAGE_COMPENSATION',
     'MANAGE_CHECKLISTS',
     'MANAGE_COMPLAINTS', // Added
-    'MANAGE_STOCK' // Added
+    'MANAGE_STOCK', // Added
+    // VIEW PERMISSIONS
+    'VIEW_ACADEMY',
+    'VIEW_KNOWLEDGE_BASE',
+    'VIEW_DIRECTORY',
+    'VIEW_CHECKLISTS',
+    'VIEW_ONBOARDING',
+    'VIEW_TASKS'
   ],
   'Medewerker': [
-    // Removed specific permissions for Medewerker related to removed features
+    // VIEW PERMISSIONS
+    'VIEW_ACADEMY',
+    'VIEW_KNOWLEDGE_BASE',
+    'VIEW_DIRECTORY',
+    'VIEW_CHECKLISTS',
+    'VIEW_ONBOARDING',
+    'VIEW_TASKS'
   ]
 };
 

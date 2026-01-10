@@ -1,3 +1,4 @@
+
 export enum ViewState {
   HOME = 'HOME',
   DIRECTORY = 'DIRECTORY',
@@ -47,7 +48,13 @@ export type Permission =
   | 'MANAGE_CHECKLISTS'
   | 'MANAGE_TASKS'
   | 'MANAGE_COMPLAINTS'
-  | 'MANAGE_STOCK';
+  | 'MANAGE_STOCK'
+  | 'VIEW_ACADEMY'
+  | 'VIEW_KNOWLEDGE_BASE'
+  | 'VIEW_DIRECTORY'
+  | 'VIEW_CHECKLISTS'
+  | 'VIEW_ONBOARDING'
+  | 'VIEW_TASKS';
 
 export const PERMISSION_LABELS: Record<Permission, string> = {
   'VIEW_REPORTS': 'Bekijk Rapportages',
@@ -74,7 +81,13 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   'MANAGE_CHECKLISTS': 'Checklists Beheren',
   'MANAGE_TASKS': 'Taken Beheren',
   'MANAGE_COMPLAINTS': 'Klachten Beheren',
-  'MANAGE_STOCK': 'Voorraad Beheren'
+  'MANAGE_STOCK': 'Voorraad Beheren',
+  'VIEW_ACADEMY': 'Bekijk Academy',
+  'VIEW_KNOWLEDGE_BASE': 'Bekijk Kennisbank',
+  'VIEW_DIRECTORY': 'Bekijk Collega\'s',
+  'VIEW_CHECKLISTS': 'Bekijk Checklists',
+  'VIEW_ONBOARDING': 'Bekijk Onboarding',
+  'VIEW_TASKS': 'Bekijk Takenlijst'
 };
 
 export interface GlobalSettings {
