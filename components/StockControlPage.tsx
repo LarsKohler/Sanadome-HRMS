@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
     Package, Search, Plus, Filter, AlertTriangle, RefreshCw, 
     Edit2, Trash2, Save, X, History, TrendingUp, TrendingDown, 
-    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight
+    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft
 } from 'lucide-react';
 import { Employee, StockItem, StockLog, StockOrder, StockOrderItem } from '../types';
 import { api } from '../utils/api';
@@ -14,6 +14,18 @@ interface StockControlPageProps {
     currentUser: Employee;
     onShowToast: (message: string) => void;
 }
+
+const DEFAULT_CATEGORIES = [
+    'Algemeen', 
+    'Kantoor', 
+    'F&B', 
+    'Schoonmaak', 
+    'Technische Dienst', 
+    'Receptie', 
+    'Drukwerk', 
+    'Merchandise',
+    'Wellness'
+];
 
 const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShowToast }) => {
     const [activeTab, setActiveTab] = useState<'inventory' | 'orders' | 'logs'>('inventory');
@@ -27,6 +39,8 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     // Modals
     const [isItemModalOpen, setIsItemModalOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<Partial<StockItem>>({});
+    const [isCustomCategory, setIsCustomCategory] = useState(false); // New state for input toggle
+
     const [isCountModalOpen, setIsCountModalOpen] = useState(false);
     const [countTarget, setCountTarget] = useState<StockItem | null>(null);
     const [countValue, setCountValue] = useState(''); 
@@ -51,7 +65,12 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         setIsLoading(false);
     };
 
-    const categories = useMemo(() => ['All', ...Array.from(new Set(items.map(i => i.category)))], [items]);
+    const categories = useMemo(() => {
+        const cats = new Set<string>(DEFAULT_CATEGORIES);
+        // Add any categories that exist in items but not in defaults
+        items.forEach(i => cats.add(i.category));
+        return ['All', ...Array.from(cats).sort()];
+    }, [items]);
 
     const filteredItems = useMemo(() => {
         return items.filter(i => {
@@ -74,11 +93,13 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             itemsPerBox: 1, 
             lastUpdated: new Date().toISOString()
         });
+        setIsCustomCategory(false);
         setIsItemModalOpen(true);
     };
 
     const handleEditItem = (item: StockItem) => {
         setEditingItem(item);
+        setIsCustomCategory(false);
         setIsItemModalOpen(true);
     };
 
@@ -93,6 +114,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const handleSaveItem = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!editingItem.name) return onShowToast("Naam is verplicht.");
+        if (!editingItem.category) return onShowToast("Categorie is verplicht.");
 
         const item = editingItem as StockItem;
         await api.saveStockItem(item);
@@ -658,15 +680,50 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                     <div className="grid grid-cols-2 gap-4">
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Categorie</label>
-                            <input 
-                                className="w-full p-3 border border-slate-200 rounded-xl"
-                                value={editingItem.category}
-                                onChange={(e) => setEditingItem({...editingItem, category: e.target.value})}
-                                list="categories"
-                            />
-                            <datalist id="categories">
-                                {categories.filter(c => c !== 'All').map(c => <option key={c} value={c}/>)}
-                            </datalist>
+                            
+                            {!isCustomCategory ? (
+                                <div className="flex gap-2">
+                                    <select 
+                                        className="w-full p-3 border border-slate-200 rounded-xl text-sm bg-white"
+                                        value={editingItem.category}
+                                        onChange={(e) => {
+                                            if (e.target.value === 'NEW_CAT') {
+                                                setIsCustomCategory(true);
+                                                setEditingItem({...editingItem, category: ''});
+                                            } else {
+                                                setEditingItem({...editingItem, category: e.target.value});
+                                            }
+                                        }}
+                                    >
+                                        <option value="">Selecteer...</option>
+                                        {categories.filter(c => c !== 'All').map(c => (
+                                            <option key={c} value={c}>{c}</option>
+                                        ))}
+                                        <option value="NEW_CAT" className="font-bold">+ Nieuwe Categorie...</option>
+                                    </select>
+                                </div>
+                            ) : (
+                                <div className="flex gap-2 items-center">
+                                    <div className="relative flex-1">
+                                        <FolderOpen className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16}/>
+                                        <input 
+                                            className="w-full pl-9 pr-3 py-3 border border-slate-200 rounded-xl text-sm"
+                                            placeholder="Nieuwe categorienaam..."
+                                            value={editingItem.category}
+                                            onChange={(e) => setEditingItem({...editingItem, category: e.target.value})}
+                                            autoFocus
+                                        />
+                                    </div>
+                                    <button 
+                                        type="button"
+                                        onClick={() => setIsCustomCategory(false)}
+                                        className="p-2 text-slate-400 hover:text-slate-600 bg-slate-100 rounded-lg hover:bg-slate-200"
+                                        title="Terug naar lijst"
+                                    >
+                                        <ChevronLeft size={20} />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                         <div>
                             <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Eenheid</label>
