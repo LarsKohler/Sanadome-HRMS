@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
     Package, Search, Plus, Filter, AlertTriangle, RefreshCw, 
     Edit2, Trash2, Save, X, History, TrendingUp, TrendingDown, 
-    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft, Settings, Tag, Building2, PlayCircle, ChevronRight, StopCircle, Upload, FileText, Paperclip, Send, ExternalLink, Mail, ShieldCheck, ListFilter
+    ClipboardList, ShoppingCart, Box, Truck, Check, Calendar, ArrowRight, FolderOpen, ChevronLeft, Settings, Tag, Building2, PlayCircle, ChevronRight, StopCircle, Upload, FileText, Paperclip, Send, ExternalLink, Mail, ShieldCheck, ListFilter, User
 } from 'lucide-react';
 import { Employee, StockItem, StockLog, StockOrder, StockOrderItem } from '../types';
 import { api } from '../utils/api';
@@ -503,6 +503,22 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         };
 
         await api.saveStockOrder(updatedOrder);
+
+        // CREATE LOGS FOR ORDER PLACEMENT
+        // Even though stock doesn't change, we want to see "Ordered" in the log
+        const newLogs: StockLog[] = activeOrderTarget.items.map(item => ({
+            id: crypto.randomUUID(),
+            itemId: item.itemId,
+            itemName: item.name,
+            change: 0, // No stock change
+            type: 'Correction', // Use 'Correction' as a catch-all for non-movement events
+            date: new Date().toISOString(),
+            user: currentUser.name,
+            notes: `Besteld bij ${activeOrderTarget.supplier} (Aantal: ${item.quantity})`
+        }));
+        await Promise.all(newLogs.map(l => api.saveStockLog(l)));
+        
+        setLogs(prev => [...newLogs, ...prev]);
         setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
         
         setIsUploadingOrder(false);
@@ -544,7 +560,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                     type: 'Delivery',
                     date: new Date().toISOString(),
                     user: currentUser.name,
-                    notes: `Bestelling ontvangen (${order.supplier}): ${orderItem.quantity} stuks`
+                    notes: `Ontvangen van ${order.supplier} (Door: ${currentUser.name})`
                 });
             }
         }
@@ -990,6 +1006,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                 <div>
                                     <div className="text-xs font-bold text-slate-500 mb-1">
                                         Ontvangen: {new Date(order.receivedAt!).toLocaleDateString()} • {order.supplier}
+                                        <span className="block font-normal text-slate-400">Door: {order.receivedBy}</span>
                                     </div>
                                     <div className="text-sm text-slate-700">{order.items.length} artikelen</div>
                                 </div>
@@ -1039,7 +1056,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                             {log.type === 'Delivery' ? 'Levering' : log.type === 'Count' ? 'Telling' : log.type === 'Correction' ? 'Correctie' : 'Verbruik'}
                                         </span>
                                     </td>
-                                    <td className={`px-6 py-4 font-mono font-bold ${log.change > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                    <td className={`px-6 py-4 font-mono font-bold ${log.change > 0 ? 'text-green-600' : log.change < 0 ? 'text-red-600' : 'text-slate-400'}`}>
                                         {log.change > 0 ? '+' : ''}{log.change}
                                     </td>
                                     <td className="px-6 py-4 text-slate-600">{log.user}</td>
