@@ -925,18 +925,22 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-sm">
                                 {filteredItems.map(item => {
-                                    // Calculate pending stock from orders
-                                    const pendingCount = orders
-                                        .filter(o => o.status !== 'Received')
+                                    // Separate counts for Draft (Pending) and Incoming (Ordered)
+                                    const draftCount = orders
+                                        .filter(o => o.status === 'Pending')
                                         .flatMap(o => o.items)
                                         .filter(line => line.itemId === item.id)
                                         .reduce((acc, curr) => acc + curr.quantity, 0);
 
-                                    // Change logic: only < minStock is low
+                                    const incomingCount = orders
+                                        .filter(o => o.status === 'Ordered')
+                                        .flatMap(o => o.items)
+                                        .filter(line => line.itemId === item.id)
+                                        .reduce((acc, curr) => acc + curr.quantity, 0);
+
                                     const isLow = item.currentStock < item.minStock;
                                     const isInternal = item.sourceType === 'Internal';
                                     
-                                    // Use state from the parent dictionary, default to 1
                                     const currentQty = orderQuantities[item.id] || 1;
 
                                     return (
@@ -958,14 +962,22 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                                     </span>
                                                 )}
                                             </td>
-                                            <td className="px-6 py-4 font-mono font-bold text-base text-slate-800">
-                                                <span className={pendingCount > 0 ? "text-orange-600" : ""}>{item.currentStock}</span> 
-                                                <span className="text-xs text-slate-400 font-normal ml-1">{item.unit}</span>
-                                                {pendingCount > 0 && (
-                                                    <span className="text-[10px] text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded ml-2 border border-orange-100 font-bold whitespace-nowrap">
-                                                        (+{pendingCount})
-                                                    </span>
-                                                )}
+                                            <td className="px-6 py-4 align-top">
+                                                <div className="font-mono font-bold text-base text-slate-800">
+                                                    {item.currentStock} <span className="text-xs text-slate-400 font-normal">{item.unit}</span>
+                                                </div>
+                                                <div className="flex flex-col gap-1 mt-1">
+                                                     {draftCount > 0 && (
+                                                         <span className="inline-flex items-center gap-1 text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 font-bold w-fit" title="Ligt in concept winkelmandje">
+                                                            <ShoppingCart size={10}/> +{draftCount} Concept
+                                                         </span>
+                                                     )}
+                                                     {incomingCount > 0 && (
+                                                         <span className="inline-flex items-center gap-1 text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 font-bold w-fit" title="Besteld en onderweg">
+                                                            <Truck size={10}/> +{incomingCount} Onderweg
+                                                         </span>
+                                                     )}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 {isLow ? (

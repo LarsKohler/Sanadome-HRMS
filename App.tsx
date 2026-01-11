@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Employee, ViewState, NewsPost, GlobalSettings, Applicant, Notification } from './types';
 import Sidebar from './components/Sidebar';
 import TopNav from './components/TopNav';
@@ -28,9 +28,13 @@ import ComplaintsPage from './components/ComplaintsPage';
 import DataAuditPage from './components/DataAuditPage'; 
 import UpdateNotifier from './components/UpdateNotifier';
 import ResetPasswordPage from './components/ResetPasswordPage'; 
-import StockControlPage from './components/StockControlPage'; // Added
+import StockControlPage from './components/StockControlPage'; 
+import SessionLockScreen from './components/SessionLockScreen'; // New Import
 import { api, isLive } from './utils/api';
 import { isModuleEnabled } from './utils/permissions';
+
+// Configuration for inactivity
+const INACTIVITY_LIMIT_MS = 15 * 60 * 1000; // 15 Minutes
 
 function App() {
   const [currentUser, setCurrentUser] = useState<Employee | null>(() => {
@@ -40,6 +44,10 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
       return !!localStorage.getItem('hrms_current_user');
   });
+
+  // Session Lock State
+  const [isSessionLocked, setIsSessionLocked] = useState(false);
+  const activityTimerRef = useRef<number | null>(null);
   
   // URL Routing for special pages (Reset Password)
   const [resetToken, setResetToken] = useState<string | null>(null);
@@ -76,6 +84,36 @@ function App() {
           if (id) setResetToken(id);
       }
   }, []);
+
+  // --- INACTIVITY TIMER LOGIC ---
+  const resetInactivityTimer = () => {
+      if (activityTimerRef.current) {
+          clearTimeout(activityTimerRef.current);
+      }
+      if (isAuthenticated && !isSessionLocked) {
+          activityTimerRef.current = window.setTimeout(() => {
+              setIsSessionLocked(true);
+          }, INACTIVITY_LIMIT_MS);
+      }
+  };
+
+  useEffect(() => {
+      if (isAuthenticated && !isSessionLocked) {
+          // Add event listeners for user activity
+          const events = ['mousedown', 'mousemove', 'keydown', 'scroll', 'touchstart'];
+          const handler = () => resetInactivityTimer();
+          
+          events.forEach(event => document.addEventListener(event, handler));
+          
+          // Initial start
+          resetInactivityTimer();
+
+          return () => {
+              events.forEach(event => document.removeEventListener(event, handler));
+              if (activityTimerRef.current) clearTimeout(activityTimerRef.current);
+          };
+      }
+  }, [isAuthenticated, isSessionLocked]);
 
   // Toggle Theme Function
   const toggleTheme = () => {
@@ -149,7 +187,20 @@ function App() {
       if (user) {
           setCurrentUser(user);
           setIsAuthenticated(true);
+          setIsSessionLocked(false);
           localStorage.setItem('hrms_current_user', JSON.stringify(user));
+          return true;
+      }
+      return false;
+  };
+
+  const handleUnlock = async (password: string): Promise<boolean> => {
+      if (!currentUser) return false;
+      // Re-verify credentials
+      const user = await api.loginUser(currentUser.email, password);
+      if (user) {
+          setIsSessionLocked(false);
+          resetInactivityTimer();
           return true;
       }
       return false;
@@ -158,8 +209,10 @@ function App() {
   const handleLogout = () => {
       setCurrentUser(null);
       setIsAuthenticated(false);
+      setIsSessionLocked(false);
       setCurrentView(ViewState.HOME);
       localStorage.removeItem('hrms_current_user');
+      if (activityTimerRef.current) clearTimeout(activityTimerRef.current);
   };
 
   const handleUpdateEmployee = async (updatedEmployee: Employee) => {
@@ -261,6 +314,17 @@ function App() {
 
   if (!isAuthenticated) {
       return <Login onLogin={handleLogin} />;
+  }
+
+  // --- SESSION LOCK CHECK ---
+  if (isSessionLocked && currentUser) {
+      return (
+          <SessionLockScreen 
+              currentUser={currentUser}
+              onUnlock={handleUnlock}
+              onLogout={handleLogout}
+          />
+      );
   }
 
   if (currentUser?.accountStatus === 'Pending') {
@@ -432,7 +496,7 @@ function App() {
               return <TodoListPage currentUser={currentUser!} employees={employees} onShowToast={handleShowToast} />;
           case ViewState.COMPLAINTS:
               return <ComplaintsPage currentUser={currentUser!} onShowToast={handleShowToast} />;
-          case ViewState.STOCK_CONTROL: // Added
+          case ViewState.STOCK_CONTROL:
               return <StockControlPage 
                   currentUser={currentUser!} 
                   onShowToast={handleShowToast} 
