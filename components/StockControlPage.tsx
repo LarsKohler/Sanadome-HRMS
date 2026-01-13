@@ -89,6 +89,16 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     // Permission check
     const canManage = hasPermission(currentUser, 'MANAGE_STOCK');
 
+    // Helper to ensure settings object structure is valid
+    const getSafeSettings = (): GlobalSettings => {
+        return globalSettings || {
+            modules: {},
+            branding: { loginImages: [] },
+            roles: {},
+            stock: { categories: [...INITIAL_DEFAULT_CATEGORIES] }
+        };
+    };
+
     // --- CATEGORY INITIALIZATION ---
     // If globalSettings.stock.categories is undefined/empty, initialize it with defaults ONCE.
     useEffect(() => {
@@ -108,7 +118,8 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
     // Derived list of categories from DB
     const categories = useMemo(() => {
-        const storedCats = globalSettings?.stock?.categories || [];
+        const settings = getSafeSettings();
+        const storedCats = settings.stock?.categories || [];
         // Ensure 'Algemeen' is always there
         const uniqueCats = new Set(['Algemeen', ...storedCats]);
         return ['All', ...Array.from(uniqueCats).sort()];
@@ -116,7 +127,8 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
     // Active categories for management (excluding 'All')
     const activeCategories = useMemo(() => {
-        const storedCats = globalSettings?.stock?.categories || [];
+        const settings = getSafeSettings();
+        const storedCats = settings.stock?.categories || [];
         const uniqueCats = Array.from(new Set(['Algemeen', ...storedCats])).sort();
 
         // Calculate item counts for display
@@ -210,13 +222,15 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         if (!editingItem.category) return onShowToast("Categorie is verplicht.");
         if (!editingItem.sourceName) return onShowToast("Leverancier of Afdeling is verplicht.");
 
+        const currentSettings = getSafeSettings();
+        const currentCats = currentSettings.stock?.categories || [];
+        
         // If new category, add to global list
-        const currentCats = globalSettings?.stock?.categories || [];
         if (!currentCats.includes(editingItem.category) && editingItem.category !== 'Algemeen') {
             const updatedCats = [...currentCats, editingItem.category];
             const newSettings: GlobalSettings = {
-                ...globalSettings!,
-                stock: { ...globalSettings?.stock, categories: updatedCats }
+                ...currentSettings,
+                stock: { ...currentSettings.stock, categories: updatedCats }
             };
             onUpdateGlobalSettings(newSettings);
         }
@@ -247,7 +261,9 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const handleAddCategory = () => {
         if (!createCategoryInput.trim()) return;
         
-        const currentCats = globalSettings?.stock?.categories || [];
+        const currentSettings = getSafeSettings();
+        const currentCats = currentSettings.stock?.categories || [];
+
         if (currentCats.includes(createCategoryInput.trim())) {
             return onShowToast("Deze categorie bestaat al.");
         }
@@ -255,8 +271,8 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         const updatedCats = [...currentCats, createCategoryInput.trim()];
         
         const newSettings: GlobalSettings = {
-            ...globalSettings!,
-            stock: { ...globalSettings?.stock, categories: updatedCats }
+            ...currentSettings,
+            stock: { ...currentSettings.stock, categories: updatedCats }
         };
         
         onUpdateGlobalSettings(newSettings);
@@ -286,14 +302,15 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             }));
 
             // 2. Update Global Settings List (Replace old with new)
-            const currentCats = globalSettings?.stock?.categories || [];
+            const currentSettings = getSafeSettings();
+            const currentCats = currentSettings.stock?.categories || [];
             const updatedCats = currentCats.map(c => c === categoryToRename ? newCategoryName : c);
             // Ensure uniqueness if new name already existed
             const uniqueCats = Array.from(new Set(updatedCats));
 
             const newSettings: GlobalSettings = {
-                ...globalSettings!,
-                stock: { ...globalSettings?.stock, categories: uniqueCats }
+                ...currentSettings,
+                stock: { ...currentSettings.stock, categories: uniqueCats }
             };
             onUpdateGlobalSettings(newSettings);
 
@@ -327,12 +344,13 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         }
 
         // 3. Remove Category from DB List
-        const currentCats = globalSettings?.stock?.categories || [];
+        const currentSettings = getSafeSettings();
+        const currentCats = currentSettings.stock?.categories || [];
         const newCats = currentCats.filter(c => c !== categoryToDelete);
         
         const newSettings: GlobalSettings = {
-            ...globalSettings!,
-            stock: { ...globalSettings?.stock, categories: newCats }
+            ...currentSettings,
+            stock: { ...currentSettings.stock, categories: newCats }
         };
         onUpdateGlobalSettings(newSettings);
         
