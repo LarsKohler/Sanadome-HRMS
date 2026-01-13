@@ -11,31 +11,9 @@ interface SettingsPageProps {
   currentUser: Employee;
   onUpdateEmployee: (employee: Employee) => void;
   onShowToast: (message: string) => void;
-  globalSettings: GlobalSettings | null; // NEW
-  onUpdateGlobalSettings: (settings: GlobalSettings) => void; // NEW
+  globalSettings: GlobalSettings | null; 
+  onUpdateGlobalSettings: (settings: GlobalSettings) => void;
 }
-
-// Readable names for modules - Updated list
-const MODULE_NAMES: Record<string, string> = {
-    [ViewState.NEWS]: 'Nieuws',
-    [ViewState.ACADEMY]: 'Academy',
-    [ViewState.KNOWLEDGE_BASE]: 'Kennisbank',
-    [ViewState.DIRECTORY]: 'Collega\'s',
-    [ViewState.HR_DOSSIER]: 'HR Dossiers',
-    [ViewState.CHECKLISTS]: 'Checklists',
-    [ViewState.COMPENSATION]: 'Compensatie',
-    [ViewState.COMPLAINTS]: 'Klachten',
-    [ViewState.STOCK_CONTROL]: 'Voorraadbeheer', // Added
-    [ViewState.ONBOARDING]: 'Onboarding',
-    [ViewState.EVALUATIONS]: 'Performance',
-    [ViewState.RECRUITMENT]: 'Recruitment',
-    [ViewState.TODO_LIST]: 'Takenlijst', 
-    [ViewState.DEBT_CONTROL]: 'Debiteuren',
-    [ViewState.LINEN_AUDIT]: 'Linnen Audit',
-    [ViewState.DATA_AUDIT]: 'Data Audit', 
-    [ViewState.REPORTS]: 'Rapportages',
-    [ViewState.SYSTEM_STATUS]: 'Systeemstatus'
-};
 
 const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onUpdateEmployee, onShowToast, globalSettings, onUpdateGlobalSettings }) => {
   const [activeTab, setActiveTab] = useState<'users' | 'roles' | 'modules' | 'branding'>('users');
@@ -70,6 +48,28 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Define module names inside component to ensure ViewState is defined
+  const moduleNames: Record<string, string> = useMemo(() => ({
+    [ViewState.NEWS]: 'Nieuws',
+    [ViewState.ACADEMY]: 'Academy',
+    [ViewState.KNOWLEDGE_BASE]: 'Kennisbank',
+    [ViewState.DIRECTORY]: 'Collega\'s',
+    [ViewState.HR_DOSSIER]: 'HR Dossiers',
+    [ViewState.CHECKLISTS]: 'Checklists',
+    [ViewState.COMPENSATION]: 'Compensatie',
+    [ViewState.COMPLAINTS]: 'Klachten',
+    [ViewState.STOCK_CONTROL]: 'Voorraadbeheer',
+    [ViewState.ONBOARDING]: 'Onboarding',
+    [ViewState.EVALUATIONS]: 'Performance',
+    [ViewState.RECRUITMENT]: 'Recruitment',
+    [ViewState.TODO_LIST]: 'Takenlijst', 
+    [ViewState.DEBT_CONTROL]: 'Debiteuren',
+    [ViewState.LINEN_AUDIT]: 'Linnen Audit',
+    [ViewState.DATA_AUDIT]: 'Data Audit', 
+    [ViewState.REPORTS]: 'Rapportages',
+    [ViewState.SYSTEM_STATUS]: 'Systeemstatus'
+  }), []);
 
   // Initialize selection & sync roles
   useEffect(() => {
@@ -119,11 +119,6 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
 
   const handleResetUserPermissions = () => {
       if (!selectedEmployee) return;
-      // Setting to undefined/empty triggers fallback to Role in hasPermission logic
-      // Ideally we set it to undefined to indicate "Inherit", but JSON doesn't support undefined.
-      // So we rely on the logic that if it's NOT an array, or if we use null. 
-      // Types say Permission[] | undefined.
-      // Let's pass undefined to reset to "Inherited".
       onUpdateEmployee({ ...selectedEmployee, customPermissions: undefined });
       onShowToast(`Rechten voor ${selectedEmployee.name} hersteld naar standaard (Rol).`);
   };
@@ -173,7 +168,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
   const getModuleConfig = (viewId: string) => {
       const defaultConf = {
           id: viewId as ViewState,
-          name: MODULE_NAMES[viewId],
+          name: moduleNames[viewId],
           enabled: true,
           accessMode: 'open' as const,
           hiddenForRoles: [],
@@ -224,7 +219,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
               ...(globalSettings?.modules || {}),
               [editingModuleId]: {
                   id: editingModuleId as ViewState,
-                  name: MODULE_NAMES[editingModuleId],
+                  name: moduleNames[editingModuleId],
                   ...moduleConfigForm
               }
           },
@@ -623,13 +618,13 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
                                       </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-100 text-sm">
-                                      {Object.keys(MODULE_NAMES).map(viewId => {
+                                      {Object.keys(moduleNames).map(viewId => {
                                           const config = getModuleConfig(viewId);
                                           const isRestricted = config.accessMode === 'restricted';
 
                                           return (
                                               <tr key={viewId} className="hover:bg-slate-50 transition-colors">
-                                                  <td className="px-6 py-4 font-bold text-slate-900">{MODULE_NAMES[viewId]}</td>
+                                                  <td className="px-6 py-4 font-bold text-slate-900">{moduleNames[viewId]}</td>
                                                   <td className="px-6 py-4">
                                                       <button 
                                                         onClick={() => updateModuleStatus(viewId, !config.enabled)}
@@ -765,7 +760,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
       <Modal
         isOpen={isConfigModalOpen}
         onClose={() => setIsConfigModalOpen(false)}
-        title={editingModuleId ? `Configureer ${MODULE_NAMES[editingModuleId]}` : 'Module Configuratie'}
+        title={editingModuleId ? `Configureer ${moduleNames[editingModuleId]}` : 'Module Configuratie'}
       >
           <div className="space-y-6 max-h-[70vh] overflow-y-auto pr-2 custom-scrollbar">
               
