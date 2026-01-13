@@ -18,7 +18,7 @@ interface StockControlPageProps {
     onUpdateGlobalSettings: (settings: GlobalSettings) => void;
 }
 
-const DEFAULT_CATEGORIES = [
+const INITIAL_DEFAULT_CATEGORIES = [
     'Algemeen', 
     'Kantoor', 
     'F&B', 
@@ -85,30 +85,53 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     
     const orderInputRef = useRef<HTMLInputElement>(null);
 
-    // Hidden Categories (Persisted via GlobalSettings)
-    const hiddenCategories = globalSettings?.stock?.hiddenCategories || [];
-    
-    const updateHiddenCategories = (newHidden: string[]) => {
-        // Fix: Handle null globalSettings by providing default structure
-        const currentSettings: GlobalSettings = globalSettings || {
-            modules: {},
-            branding: { loginImages: [] },
-            roles: {},
-            stock: { hiddenCategories: [] }
-        };
-
-        const newSettings: GlobalSettings = {
-            ...currentSettings,
-            stock: {
-                ...(currentSettings.stock || { hiddenCategories: [] }),
-                hiddenCategories: newHidden
-            }
-        };
-        onUpdateGlobalSettings(newSettings);
-    };
-
     // Permission check
     const canManage = hasPermission(currentUser, 'MANAGE_STOCK');
+
+    // --- CATEGORY INITIALIZATION ---
+    // If globalSettings.stock.categories is undefined/empty, initialize it with defaults ONCE.
+    useEffect(() => {
+        if (globalSettings && (!globalSettings.stock || !globalSettings.stock.categories || globalSettings.stock.categories.length === 0)) {
+            const initialCategories = [...INITIAL_DEFAULT_CATEGORIES];
+            const currentSettings = { ...globalSettings };
+            currentSettings.stock = {
+                ...(currentSettings.stock || {}),
+                categories: initialCategories
+            };
+            // Only update if we actually have settings loaded (to prevent overwriting with defaults if fetch is slow)
+            if (globalSettings.modules) { 
+                onUpdateGlobalSettings(currentSettings);
+            }
+        }
+    }, [globalSettings]);
+
+    // Derived list of categories from DB
+    const categories = useMemo(() => {
+        const storedCats = globalSettings?.stock?.categories || [];
+        // Ensure 'Algemeen' is always there
+        const uniqueCats = new Set(['Algemeen', ...storedCats]);
+        return ['All', ...Array.from(uniqueCats).sort()];
+    }, [globalSettings]);
+
+    // Active categories for management (excluding 'All')
+    const activeCategories = useMemo(() => {
+        const storedCats = globalSettings?.stock?.categories || [];
+        const uniqueCats = Array.from(new Set(['Algemeen', ...storedCats])).sort();
+
+        // Calculate item counts for display
+        const counts: Record<string, number> = {};
+        uniqueCats.forEach(c => counts[c] = 0);
+        items.forEach(i => {
+             // If item has a category not in the list (e.g. legacy), count it too
+             if (counts[i.category] !== undefined) {
+                 counts[i.category]++;
+             } else {
+                 counts[i.category] = 1; 
+             }
+        });
+        
+        return uniqueCats.map(c => [c, counts[c] || 0] as [string, number]);
+    }, [items, globalSettings]);
 
     useEffect(() => {
         loadData();
@@ -126,35 +149,6 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         setOrders(o.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
         setIsLoading(false);
     };
-
-    const categories = useMemo(() => {
-        const cats = new Set<string>();
-        // Add default categories ONLY if they are not hidden
-        DEFAULT_CATEGORIES.forEach(c => {
-            if (!hiddenCategories.includes(c)) cats.add(c);
-        });
-        // Add categories from actual items
-        items.forEach(i => cats.add(i.category));
-        
-        cats.add('Algemeen');
-        return ['All', ...Array.from(cats).sort()];
-    }, [items, hiddenCategories]);
-
-    const activeCategories = useMemo(() => {
-        const counts: Record<string, number> = {};
-        
-        // Initialize visible default categories with 0
-        DEFAULT_CATEGORIES.forEach(c => {
-             if (!hiddenCategories.includes(c)) counts[c] = 0;
-        });
-
-        // Count items per category
-        items.forEach(i => {
-            counts[i.category] = (counts[i.category] || 0) + 1;
-        });
-        
-        return Object.entries(counts).sort((a,b) => a[0].localeCompare(b[0]));
-    }, [items, hiddenCategories]);
 
     // Get unique list of existing suppliers for autocomplete
     const existingSuppliers = useMemo(() => {
@@ -215,10 +209,15 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         if (!editingItem.category) return onShowToast("Categorie is verplicht.");
         if (!editingItem.sourceName) return onShowToast("Leverancier of Afdeling is verplicht.");
 
-        // If saving an item into a hidden category, unhide it
-        if (hiddenCategories.includes(editingItem.category)) {
-             const newHidden = hiddenCategories.filter(c => c !== editingItem.category);
-             updateHiddenCategories(newHidden);
+        // If new category, add to global list
+        const currentCats = globalSettings?.stock?.categories || [];
+        if (!currentCats.includes(editingItem.category) && editingItem.category !== 'Algemeen') {
+            const updatedCats = [...currentCats, editingItem.category];
+            const newSettings: GlobalSettings = {
+                ...globalSettings!,
+                stock: { ...globalSettings?.stock, categories: updatedCats }
+            };
+            onUpdateGlobalSettings(newSettings);
         }
 
         const item = {
@@ -250,12 +249,8 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         if (itemsToUpdate.length === 0) { setCategoryToRename(null); return; }
 
         if (confirm(`Weet je zeker dat je de categorie '${categoryToRename}' wilt hernoemen naar '${newCategoryName}' voor ${itemsToUpdate.length} artikelen?`)) {
-            // Unhide new category name if it was hidden
-            if (hiddenCategories.includes(newCategoryName)) {
-                 const newHidden = hiddenCategories.filter(c => c !== newCategoryName);
-                 updateHiddenCategories(newHidden);
-            }
-
+            
+            // 1. Update Items in DB
             const updatedItems: StockItem[] = [];
             for (const item of itemsToUpdate) {
                 const updated = { ...item, category: newCategoryName };
@@ -268,6 +263,19 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 }
                 return i;
             }));
+
+            // 2. Update Global Settings List (Replace old with new)
+            const currentCats = globalSettings?.stock?.categories || [];
+            const updatedCats = currentCats.map(c => c === categoryToRename ? newCategoryName : c);
+            // Ensure uniqueness if new name already existed
+            const uniqueCats = Array.from(new Set(updatedCats));
+
+            const newSettings: GlobalSettings = {
+                ...globalSettings!,
+                stock: { ...globalSettings?.stock, categories: uniqueCats }
+            };
+            onUpdateGlobalSettings(newSettings);
+
             onShowToast(`Categorie hernoemd. ${itemsToUpdate.length} artikelen bijgewerkt.`);
             setCategoryToRename(null);
             setNewCategoryName('');
@@ -297,14 +305,15 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             await api.saveStockItem({ ...item, category: 'Algemeen' });
         }
 
-        // 3. Handle Persistence of the Category Deletion
-        // If it's a DEFAULT category, we must explicitly hide it to "delete" it from view
-        if (DEFAULT_CATEGORIES.includes(categoryToDelete)) {
-            if (!hiddenCategories.includes(categoryToDelete)) {
-                const newHidden = [...hiddenCategories, categoryToDelete];
-                updateHiddenCategories(newHidden);
-            }
-        } 
+        // 3. Remove Category from DB List
+        const currentCats = globalSettings?.stock?.categories || [];
+        const newCats = currentCats.filter(c => c !== categoryToDelete);
+        
+        const newSettings: GlobalSettings = {
+            ...globalSettings!,
+            stock: { ...globalSettings?.stock, categories: newCats }
+        };
+        onUpdateGlobalSettings(newSettings);
         
         onShowToast(`Categorie '${categoryToDelete}' verwijderd. Artikelen verplaatst naar Algemeen.`);
         setCategoryToDelete(null);
