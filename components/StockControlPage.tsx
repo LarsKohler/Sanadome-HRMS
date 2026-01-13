@@ -18,7 +18,7 @@ interface StockControlPageProps {
     onUpdateGlobalSettings: (settings: GlobalSettings) => void;
 }
 
-const INITIAL_DEFAULT_CATEGORIES = [
+const DEFAULT_CATEGORIES = [
     'Algemeen', 
     'Kantoor', 
     'F&B', 
@@ -59,7 +59,6 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const [categoryToRename, setCategoryToRename] = useState<string | null>(null);
     const [newCategoryName, setNewCategoryName] = useState('');
     const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
-    const [createCategoryInput, setCreateCategoryInput] = useState(''); // New input for creating category directly
     
     // GENERAL COUNTING MODE STATE
     const [isCountSelectionOpen, setIsCountSelectionOpen] = useState(false); // NEW: Selection modal
@@ -86,71 +85,23 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     
     const orderInputRef = useRef<HTMLInputElement>(null);
 
-    // Permission check
-    const canManage = hasPermission(currentUser, 'MANAGE_STOCK');
-
-    // Helper to ensure settings object structure is valid
-    const getSafeSettings = (): GlobalSettings => {
-        return globalSettings || {
-            modules: {},
-            branding: { loginImages: [] },
-            roles: {},
-            stock: { categories: [...INITIAL_DEFAULT_CATEGORIES] }
+    // Hidden Categories (Persisted via GlobalSettings)
+    const hiddenCategories = globalSettings?.stock?.hiddenCategories || [];
+    
+    const updateHiddenCategories = (newHidden: string[]) => {
+        if (!globalSettings) return;
+        const newSettings: GlobalSettings = {
+            ...globalSettings,
+            stock: {
+                ...globalSettings.stock,
+                hiddenCategories: newHidden
+            }
         };
+        onUpdateGlobalSettings(newSettings);
     };
 
-    // --- CATEGORY INITIALIZATION ---
-    // Only initialize defaults if the Settings object is completely fresh/empty
-    useEffect(() => {
-        if (globalSettings && (!globalSettings.stock || !globalSettings.stock.categories)) {
-            const initialCategories = [...INITIAL_DEFAULT_CATEGORIES];
-            const currentSettings = { ...globalSettings };
-            currentSettings.stock = {
-                ...(currentSettings.stock || {}),
-                categories: initialCategories
-            };
-            if (globalSettings.modules) { 
-                onUpdateGlobalSettings(currentSettings);
-            }
-        }
-    }, [globalSettings]);
-
-    // Derived list of categories: Union of Settings Categories AND Item Categories
-    const categories = useMemo(() => {
-        const settings = getSafeSettings();
-        const settingsCats = settings.stock?.categories || [];
-        
-        // Extract categories currently used by items
-        const itemCats = items.map(i => i.category).filter(Boolean);
-        
-        // Merge and deduplicate
-        const uniqueCats = new Set(['Algemeen', ...settingsCats, ...itemCats]);
-        return ['All', ...Array.from(uniqueCats).sort()];
-    }, [globalSettings, items]);
-
-    // Active categories for management (excluding 'All')
-    const activeCategories = useMemo(() => {
-        const settings = getSafeSettings();
-        const settingsCats = settings.stock?.categories || [];
-        const itemCats = items.map(i => i.category).filter(Boolean);
-        
-        // Merge settings categories with actual used categories
-        const uniqueCats = Array.from(new Set(['Algemeen', ...settingsCats, ...itemCats])).sort();
-
-        // Calculate item counts for display
-        const counts: Record<string, number> = {};
-        uniqueCats.forEach(c => counts[c] = 0);
-        items.forEach(i => {
-             if (counts[i.category] !== undefined) {
-                 counts[i.category]++;
-             } else {
-                 // Fallback for weird edge cases
-                 counts[i.category] = 1; 
-             }
-        });
-        
-        return uniqueCats.map(c => [c, counts[c] || 0] as [string, number]);
-    }, [items, globalSettings]);
+    // Permission check
+    const canManage = hasPermission(currentUser, 'MANAGE_STOCK');
 
     useEffect(() => {
         loadData();
@@ -168,6 +119,35 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         setOrders(o.sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
         setIsLoading(false);
     };
+
+    const categories = useMemo(() => {
+        const cats = new Set<string>();
+        // Add default categories ONLY if they are not hidden
+        DEFAULT_CATEGORIES.forEach(c => {
+            if (!hiddenCategories.includes(c)) cats.add(c);
+        });
+        // Add categories from actual items
+        items.forEach(i => cats.add(i.category));
+        
+        cats.add('Algemeen');
+        return ['All', ...Array.from(cats).sort()];
+    }, [items, hiddenCategories]);
+
+    const activeCategories = useMemo(() => {
+        const counts: Record<string, number> = {};
+        
+        // Initialize visible default categories with 0
+        DEFAULT_CATEGORIES.forEach(c => {
+             if (!hiddenCategories.includes(c)) counts[c] = 0;
+        });
+
+        // Count items per category
+        items.forEach(i => {
+            counts[i.category] = (counts[i.category] || 0) + 1;
+        });
+        
+        return Object.entries(counts).sort((a,b) => a[0].localeCompare(b[0]));
+    }, [items, hiddenCategories]);
 
     // Get unique list of existing suppliers for autocomplete
     const existingSuppliers = useMemo(() => {
@@ -228,17 +208,10 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         if (!editingItem.category) return onShowToast("Categorie is verplicht.");
         if (!editingItem.sourceName) return onShowToast("Leverancier of Afdeling is verplicht.");
 
-        const currentSettings = getSafeSettings();
-        const currentCats = currentSettings.stock?.categories || [];
-        
-        // If new category, add to global list
-        if (!currentCats.includes(editingItem.category)) {
-            const updatedCats = [...currentCats, editingItem.category];
-            const newSettings: GlobalSettings = {
-                ...currentSettings,
-                stock: { ...currentSettings.stock, categories: updatedCats }
-            };
-            onUpdateGlobalSettings(newSettings);
+        // If saving an item into a hidden category, unhide it
+        if (hiddenCategories.includes(editingItem.category)) {
+             const newHidden = hiddenCategories.filter(c => c !== editingItem.category);
+             updateHiddenCategories(newHidden);
         }
 
         const item = {
@@ -264,74 +237,30 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     };
 
     // --- CATEGORY ACTIONS ---
-    const handleAddCategory = () => {
-        const catName = createCategoryInput.trim();
-        if (!catName) return;
-        
-        const currentSettings = getSafeSettings();
-        const currentCats = currentSettings.stock?.categories || [];
-        
-        // Check if category already exists (in settings OR in items)
-        const allCurrentCats = new Set([...currentCats, ...items.map(i => i.category)]);
-
-        if (allCurrentCats.has(catName)) {
-            return onShowToast("Deze categorie bestaat al.");
-        }
-
-        const updatedCats = [...currentCats, catName];
-        
-        const newSettings: GlobalSettings = {
-            ...currentSettings,
-            stock: { ...currentSettings.stock, categories: updatedCats }
-        };
-        
-        onUpdateGlobalSettings(newSettings);
-        setCreateCategoryInput('');
-        onShowToast(`Categorie '${catName}' toegevoegd.`);
-    };
-
     const handleRenameCategory = async () => {
         if (!categoryToRename || !newCategoryName.trim()) return;
         const itemsToUpdate = items.filter(i => i.category === categoryToRename);
-        
+        if (itemsToUpdate.length === 0) { setCategoryToRename(null); return; }
+
         if (confirm(`Weet je zeker dat je de categorie '${categoryToRename}' wilt hernoemen naar '${newCategoryName}' voor ${itemsToUpdate.length} artikelen?`)) {
-            
-            // 1. Update Items in DB
+            // Unhide new category name if it was hidden
+            if (hiddenCategories.includes(newCategoryName)) {
+                 const newHidden = hiddenCategories.filter(c => c !== newCategoryName);
+                 updateHiddenCategories(newHidden);
+            }
+
             const updatedItems: StockItem[] = [];
             for (const item of itemsToUpdate) {
                 const updated = { ...item, category: newCategoryName };
                 await api.saveStockItem(updated);
                 updatedItems.push(updated);
             }
-            // Optimistic update of items
             setItems(prev => prev.map(i => {
                 if (i.category === categoryToRename) {
                     return { ...i, category: newCategoryName };
                 }
                 return i;
             }));
-
-            // 2. Update Global Settings List
-            const currentSettings = getSafeSettings();
-            const currentCats = currentSettings.stock?.categories || [];
-            
-            // Rename in the list
-            let updatedCats = currentCats.map(c => c === categoryToRename ? newCategoryName : c);
-            
-            // If the old name wasn't in the list (orphan) but new one should be, ensure it's there
-            if (!updatedCats.includes(newCategoryName)) {
-                updatedCats.push(newCategoryName);
-            }
-            
-            // Filter out duplicates
-            const uniqueCats = Array.from(new Set(updatedCats));
-
-            const newSettings: GlobalSettings = {
-                ...currentSettings,
-                stock: { ...currentSettings.stock, categories: uniqueCats }
-            };
-            onUpdateGlobalSettings(newSettings);
-
             onShowToast(`Categorie hernoemd. ${itemsToUpdate.length} artikelen bijgewerkt.`);
             setCategoryToRename(null);
             setNewCategoryName('');
@@ -361,16 +290,14 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             await api.saveStockItem({ ...item, category: 'Algemeen' });
         }
 
-        // 3. Remove Category from DB List
-        const currentSettings = getSafeSettings();
-        const currentCats = currentSettings.stock?.categories || [];
-        const newCats = currentCats.filter(c => c !== categoryToDelete);
-        
-        const newSettings: GlobalSettings = {
-            ...currentSettings,
-            stock: { ...currentSettings.stock, categories: newCats }
-        };
-        onUpdateGlobalSettings(newSettings);
+        // 3. Handle Persistence of the Category Deletion
+        // If it's a DEFAULT category, we must explicitly hide it to "delete" it from view
+        if (DEFAULT_CATEGORIES.includes(categoryToDelete)) {
+            if (!hiddenCategories.includes(categoryToDelete)) {
+                const newHidden = [...hiddenCategories, categoryToDelete];
+                updateHiddenCategories(newHidden);
+            }
+        } 
         
         onShowToast(`Categorie '${categoryToDelete}' verwijderd. Artikelen verplaatst naar Algemeen.`);
         setCategoryToDelete(null);
@@ -956,23 +883,6 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             {/* INVENTORY TAB */}
             {activeTab === 'inventory' && (
                 <div className="space-y-6">
-                    {/* Category Tabs */}
-                    <div className="flex gap-2 w-full overflow-x-auto pb-2 no-scrollbar mb-2">
-                         {categories.map(cat => (
-                             <button
-                                 key={cat}
-                                 onClick={() => setCategoryFilter(cat)}
-                                 className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap border transition-all ${
-                                     categoryFilter === cat 
-                                     ? 'bg-slate-900 text-white border-slate-900 shadow-sm' 
-                                     : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
-                                 }`}
-                             >
-                                 {cat}
-                             </button>
-                         ))}
-                    </div>
-
                     {/* Filters */}
                     <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center">
                         <div className="relative flex-1 w-full">
@@ -984,6 +894,21 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
+                        </div>
+                        <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1 no-scrollbar">
+                            {categories.map(cat => (
+                                <button
+                                    key={cat}
+                                    onClick={() => setCategoryFilter(cat)}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap border transition-all ${
+                                        categoryFilter === cat 
+                                        ? 'bg-slate-900 text-white border-slate-900' 
+                                        : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                                    }`}
+                                >
+                                    {cat}
+                                </button>
+                            ))}
                         </div>
                     </div>
 
@@ -1668,32 +1593,8 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             </Modal>
 
             {/* CATEGORY MANAGEMENT MODAL */}
-            <Modal isOpen={isCategoryModalOpen} onClose={() => { setIsCategoryModalOpen(false); setCategoryToRename(null); setNewCategoryName(''); setCreateCategoryInput(''); }} title="Categorieën Beheren">
-                <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
-                    
-                    {/* SECTION: ADD NEW CATEGORY */}
-                    {!categoryToRename && (
-                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Nieuwe Categorie Toevoegen</label>
-                            <div className="flex gap-2">
-                                <input 
-                                    type="text" 
-                                    className="flex-1 p-3 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-500 bg-white"
-                                    placeholder="Naam nieuwe categorie..."
-                                    value={createCategoryInput}
-                                    onChange={(e) => setCreateCategoryInput(e.target.value)}
-                                />
-                                <button 
-                                    onClick={handleAddCategory}
-                                    disabled={!createCategoryInput.trim()}
-                                    className="px-4 py-2 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 disabled:opacity-50 transition-colors"
-                                >
-                                    Toevoegen
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
+            <Modal isOpen={isCategoryModalOpen} onClose={() => { setIsCategoryModalOpen(false); setCategoryToRename(null); setNewCategoryName(''); }} title="Categorieën Beheren">
+                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                     {categoryToRename ? (
                         <div className="animate-in fade-in">
                             <div className="mb-4 bg-blue-50 border border-blue-100 p-4 rounded-xl">

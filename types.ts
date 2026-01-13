@@ -109,7 +109,7 @@ export interface GlobalSettings {
   };
   roles: Record<string, Permission[]>;
   stock?: {
-    categories: string[]; 
+    hiddenCategories: string[];
   };
 }
 

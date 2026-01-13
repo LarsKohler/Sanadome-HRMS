@@ -1,4 +1,3 @@
-
 import { supabase } from './supabaseClient';
 import { 
   Employee, NewsPost, Notification, OnboardingTemplate, SystemUpdateLog, OnboardingTask, 
@@ -543,8 +542,7 @@ export const api = {
               return {
                   modules: data.modules,
                   branding: data.branding,
-                  roles: data.roles,
-                  stock: data.stock // ADDED STOCK
+                  roles: data.roles
               };
           }
           return null;
@@ -560,8 +558,7 @@ export const api = {
               id: 'singleton_settings', 
               modules: settings.modules,
               branding: settings.branding,
-              roles: settings.roles,
-              stock: settings.stock // ADDED STOCK
+              roles: settings.roles
           });
       } else {
           localStorage.setItem('hrms_global_settings', JSON.stringify(settings));

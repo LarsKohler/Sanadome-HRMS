@@ -29,40 +29,12 @@ import DataAuditPage from './components/DataAuditPage';
 import UpdateNotifier from './components/UpdateNotifier';
 import ResetPasswordPage from './components/ResetPasswordPage'; 
 import StockControlPage from './components/StockControlPage'; 
-import SessionLockScreen from './components/SessionLockScreen'; 
+import SessionLockScreen from './components/SessionLockScreen'; // New Import
 import { api, isLive } from './utils/api';
 import { isModuleEnabled } from './utils/permissions';
 
 // Configuration for inactivity
 const INACTIVITY_LIMIT_MS = 15 * 60 * 1000; // 15 Minutes
-
-// View Title Mapping
-const getViewTitle = (view: ViewState): string => {
-    switch (view) {
-        case ViewState.HOME: return 'Mijn Profiel';
-        case ViewState.DIRECTORY: return 'Collega Directory';
-        case ViewState.NEWS: return 'Nieuws & Updates';
-        case ViewState.ACADEMY: return 'Academy';
-        case ViewState.KNOWLEDGE_BASE: return 'Kennisbank';
-        case ViewState.CHECKLISTS: return 'Checklists';
-        case ViewState.COMPENSATION: return 'Compensatie & Coulance';
-        case ViewState.STOCK_CONTROL: return 'Voorraadbeheer';
-        case ViewState.HR_DOSSIER: return 'HR Dossiers';
-        case ViewState.ONBOARDING: return 'Onboarding';
-        case ViewState.EVALUATIONS: return 'Evaluaties';
-        case ViewState.RECRUITMENT: return 'Recruitment';
-        case ViewState.TODO_LIST: return 'Takenlijst';
-        case ViewState.COMPLAINTS: return 'Klachtenmanagement';
-        case ViewState.DEBT_CONTROL: return 'Debiteurenbeheer';
-        case ViewState.DATA_AUDIT: return 'Data Audit';
-        case ViewState.LINEN_AUDIT: return 'Linnen Audit';
-        case ViewState.REPORTS: return 'Rapportages';
-        case ViewState.SYSTEM_STATUS: return 'Systeemstatus';
-        case ViewState.SETTINGS: return 'Instellingen';
-        case ViewState.PROFILE: return 'Medewerker Profiel';
-        default: return 'Dashboard';
-    }
-};
 
 function App() {
   const [currentUser, setCurrentUser] = useState<Employee | null>(() => {
@@ -172,11 +144,12 @@ function App() {
       setGlobalSettings(settings);
     };
 
-    if (isAuthenticated || resetToken) { 
+    if (isAuthenticated || resetToken) { // Load data even if just resetting password to find employee name
         loadData();
     }
     
     if (isAuthenticated) {
+        // Subscribe to realtime updates only if authenticated
         const unsubscribe = api.subscribe(
             setEmployees,
             setNewsItems,
@@ -223,6 +196,7 @@ function App() {
 
   const handleUnlock = async (password: string): Promise<boolean> => {
       if (!currentUser) return false;
+      // Re-verify credentials
       const user = await api.loginUser(currentUser.email, password);
       if (user) {
           setIsSessionLocked(false);
@@ -332,11 +306,7 @@ function App() {
       handleShowToast('Systeem instellingen opgeslagen.');
   };
 
-  // --- Global Search Navigation Handler ---
-  const handleSearchNavigation = (profileId: string) => {
-      setSelectedProfileId(profileId);
-      setCurrentView(ViewState.PROFILE);
-  };
+  // --- SPECIAL ROUTING CHECKS ---
 
   if (resetToken) {
       return <ResetPasswordPage employeeId={resetToken} />;
@@ -346,6 +316,7 @@ function App() {
       return <Login onLogin={handleLogin} />;
   }
 
+  // --- SESSION LOCK CHECK ---
   if (isSessionLocked && currentUser) {
       return (
           <SessionLockScreen 
@@ -364,14 +335,18 @@ function App() {
           }
           setCurrentUser(updated);
           localStorage.setItem('hrms_current_user', JSON.stringify(updated));
+          // Optimistic update
           setEmployees(prev => prev.map(e => e.id === updated.id ? updated : e));
+          // We rely on the optimistic update here to prevent potential race conditions or stale reads if DB write failed
       }} />;
   }
 
+  // Check if current view is enabled, else redirect home
   if (!isModuleEnabled(currentView, currentUser, globalSettings)) {
       setCurrentView(ViewState.HOME);
   }
 
+  // --- ACADEMY LAYOUT CHECK ---
   if (currentView === ViewState.ACADEMY && isModuleEnabled(ViewState.ACADEMY, currentUser, globalSettings)) {
       return (
           <>
@@ -392,6 +367,7 @@ function App() {
       );
   }
 
+  // --- STANDARD LAYOUT ---
   const renderView = () => {
       switch(currentView) {
           case ViewState.HOME:
@@ -414,7 +390,7 @@ function App() {
                   onUpdateEmployee={handleUpdateEmployee}
                   onDeleteEmployee={handleDeleteEmployee}
                   onViewProfile={(id) => { setSelectedProfileId(id); setCurrentView(ViewState.PROFILE); }}
-                  globalSettings={globalSettings}
+                  globalSettings={globalSettings} // Passed down
               />;
           case ViewState.PROFILE:
               const targetProfile = employees.find(e => e.id === selectedProfileId) || currentUser!;
@@ -540,7 +516,6 @@ function App() {
         user={currentUser!}
         isOpen={isMobileMenuOpen}
         onClose={() => setIsMobileMenuOpen(false)}
-        onLogout={handleLogout}
         globalSettings={globalSettings}
       />
       
@@ -554,12 +529,6 @@ function App() {
           onOpenFeedbackModal={() => {}}
           isDarkMode={isDarkMode}
           toggleTheme={toggleTheme}
-          currentViewTitle={getViewTitle(currentView)}
-          onLockSession={() => setIsSessionLocked(true)}
-          // Pass data for global search
-          searchData={{ employees, news: newsItems }}
-          onSelectProfile={handleSearchNavigation}
-          globalSettings={globalSettings}
         />
         
         <main className="flex-1 overflow-y-auto scroll-smooth">
