@@ -89,11 +89,18 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const hiddenCategories = globalSettings?.stock?.hiddenCategories || [];
     
     const updateHiddenCategories = (newHidden: string[]) => {
-        if (!globalSettings) return;
+        // Fix: Handle null globalSettings by providing default structure
+        const currentSettings: GlobalSettings = globalSettings || {
+            modules: {},
+            branding: { loginImages: [] },
+            roles: {},
+            stock: { hiddenCategories: [] }
+        };
+
         const newSettings: GlobalSettings = {
-            ...globalSettings,
+            ...currentSettings,
             stock: {
-                ...globalSettings.stock,
+                ...(currentSettings.stock || { hiddenCategories: [] }),
                 hiddenCategories: newHidden
             }
         };

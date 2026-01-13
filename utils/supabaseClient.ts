@@ -86,6 +86,7 @@ import { createClient } from '@supabase/supabase-js';
 
   -- MIGRATION: Ensure roles column exists if table already existed
   ALTER TABLE global_settings ADD COLUMN IF NOT EXISTS roles jsonb;
+  ALTER TABLE global_settings ADD COLUMN IF NOT EXISTS stock jsonb;
 
   -- Complaints
   CREATE TABLE IF NOT EXISTS complaints (
