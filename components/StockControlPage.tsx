@@ -100,45 +100,51 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     };
 
     // --- CATEGORY INITIALIZATION ---
-    // If globalSettings.stock.categories is undefined/empty, initialize it with defaults ONCE.
+    // Only initialize defaults if the Settings object is completely fresh/empty
     useEffect(() => {
-        if (globalSettings && (!globalSettings.stock || !globalSettings.stock.categories || globalSettings.stock.categories.length === 0)) {
+        if (globalSettings && (!globalSettings.stock || !globalSettings.stock.categories)) {
             const initialCategories = [...INITIAL_DEFAULT_CATEGORIES];
             const currentSettings = { ...globalSettings };
             currentSettings.stock = {
                 ...(currentSettings.stock || {}),
                 categories: initialCategories
             };
-            // Only update if we actually have settings loaded (to prevent overwriting with defaults if fetch is slow)
             if (globalSettings.modules) { 
                 onUpdateGlobalSettings(currentSettings);
             }
         }
     }, [globalSettings]);
 
-    // Derived list of categories from DB
+    // Derived list of categories: Union of Settings Categories AND Item Categories
     const categories = useMemo(() => {
         const settings = getSafeSettings();
-        const storedCats = settings.stock?.categories || [];
-        // Ensure 'Algemeen' is always there
-        const uniqueCats = new Set(['Algemeen', ...storedCats]);
+        const settingsCats = settings.stock?.categories || [];
+        
+        // Extract categories currently used by items
+        const itemCats = items.map(i => i.category).filter(Boolean);
+        
+        // Merge and deduplicate
+        const uniqueCats = new Set(['Algemeen', ...settingsCats, ...itemCats]);
         return ['All', ...Array.from(uniqueCats).sort()];
-    }, [globalSettings]);
+    }, [globalSettings, items]);
 
     // Active categories for management (excluding 'All')
     const activeCategories = useMemo(() => {
         const settings = getSafeSettings();
-        const storedCats = settings.stock?.categories || [];
-        const uniqueCats = Array.from(new Set(['Algemeen', ...storedCats])).sort();
+        const settingsCats = settings.stock?.categories || [];
+        const itemCats = items.map(i => i.category).filter(Boolean);
+        
+        // Merge settings categories with actual used categories
+        const uniqueCats = Array.from(new Set(['Algemeen', ...settingsCats, ...itemCats])).sort();
 
         // Calculate item counts for display
         const counts: Record<string, number> = {};
         uniqueCats.forEach(c => counts[c] = 0);
         items.forEach(i => {
-             // If item has a category not in the list (e.g. legacy), count it too
              if (counts[i.category] !== undefined) {
                  counts[i.category]++;
              } else {
+                 // Fallback for weird edge cases
                  counts[i.category] = 1; 
              }
         });
@@ -226,7 +232,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         const currentCats = currentSettings.stock?.categories || [];
         
         // If new category, add to global list
-        if (!currentCats.includes(editingItem.category) && editingItem.category !== 'Algemeen') {
+        if (!currentCats.includes(editingItem.category)) {
             const updatedCats = [...currentCats, editingItem.category];
             const newSettings: GlobalSettings = {
                 ...currentSettings,
@@ -259,16 +265,20 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
 
     // --- CATEGORY ACTIONS ---
     const handleAddCategory = () => {
-        if (!createCategoryInput.trim()) return;
+        const catName = createCategoryInput.trim();
+        if (!catName) return;
         
         const currentSettings = getSafeSettings();
         const currentCats = currentSettings.stock?.categories || [];
+        
+        // Check if category already exists (in settings OR in items)
+        const allCurrentCats = new Set([...currentCats, ...items.map(i => i.category)]);
 
-        if (currentCats.includes(createCategoryInput.trim())) {
+        if (allCurrentCats.has(catName)) {
             return onShowToast("Deze categorie bestaat al.");
         }
 
-        const updatedCats = [...currentCats, createCategoryInput.trim()];
+        const updatedCats = [...currentCats, catName];
         
         const newSettings: GlobalSettings = {
             ...currentSettings,
@@ -277,14 +287,13 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
         
         onUpdateGlobalSettings(newSettings);
         setCreateCategoryInput('');
-        onShowToast(`Categorie '${createCategoryInput}' toegevoegd.`);
+        onShowToast(`Categorie '${catName}' toegevoegd.`);
     };
 
     const handleRenameCategory = async () => {
         if (!categoryToRename || !newCategoryName.trim()) return;
         const itemsToUpdate = items.filter(i => i.category === categoryToRename);
-        if (itemsToUpdate.length === 0) { setCategoryToRename(null); return; }
-
+        
         if (confirm(`Weet je zeker dat je de categorie '${categoryToRename}' wilt hernoemen naar '${newCategoryName}' voor ${itemsToUpdate.length} artikelen?`)) {
             
             // 1. Update Items in DB
@@ -294,6 +303,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 await api.saveStockItem(updated);
                 updatedItems.push(updated);
             }
+            // Optimistic update of items
             setItems(prev => prev.map(i => {
                 if (i.category === categoryToRename) {
                     return { ...i, category: newCategoryName };
@@ -301,11 +311,19 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                 return i;
             }));
 
-            // 2. Update Global Settings List (Replace old with new)
+            // 2. Update Global Settings List
             const currentSettings = getSafeSettings();
             const currentCats = currentSettings.stock?.categories || [];
-            const updatedCats = currentCats.map(c => c === categoryToRename ? newCategoryName : c);
-            // Ensure uniqueness if new name already existed
+            
+            // Rename in the list
+            let updatedCats = currentCats.map(c => c === categoryToRename ? newCategoryName : c);
+            
+            // If the old name wasn't in the list (orphan) but new one should be, ensure it's there
+            if (!updatedCats.includes(newCategoryName)) {
+                updatedCats.push(newCategoryName);
+            }
+            
+            // Filter out duplicates
             const uniqueCats = Array.from(new Set(updatedCats));
 
             const newSettings: GlobalSettings = {
