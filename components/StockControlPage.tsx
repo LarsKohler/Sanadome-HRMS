@@ -59,6 +59,7 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     const [categoryToRename, setCategoryToRename] = useState<string | null>(null);
     const [newCategoryName, setNewCategoryName] = useState('');
     const [categoryToDelete, setCategoryToDelete] = useState<string | null>(null);
+    const [createCategoryInput, setCreateCategoryInput] = useState(''); // New input for creating category directly
     
     // GENERAL COUNTING MODE STATE
     const [isCountSelectionOpen, setIsCountSelectionOpen] = useState(false); // NEW: Selection modal
@@ -243,6 +244,26 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
     };
 
     // --- CATEGORY ACTIONS ---
+    const handleAddCategory = () => {
+        if (!createCategoryInput.trim()) return;
+        
+        const currentCats = globalSettings?.stock?.categories || [];
+        if (currentCats.includes(createCategoryInput.trim())) {
+            return onShowToast("Deze categorie bestaat al.");
+        }
+
+        const updatedCats = [...currentCats, createCategoryInput.trim()];
+        
+        const newSettings: GlobalSettings = {
+            ...globalSettings!,
+            stock: { ...globalSettings?.stock, categories: updatedCats }
+        };
+        
+        onUpdateGlobalSettings(newSettings);
+        setCreateCategoryInput('');
+        onShowToast(`Categorie '${createCategoryInput}' toegevoegd.`);
+    };
+
     const handleRenameCategory = async () => {
         if (!categoryToRename || !newCategoryName.trim()) return;
         const itemsToUpdate = items.filter(i => i.category === categoryToRename);
@@ -899,6 +920,23 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             {/* INVENTORY TAB */}
             {activeTab === 'inventory' && (
                 <div className="space-y-6">
+                    {/* Category Tabs */}
+                    <div className="flex gap-2 w-full overflow-x-auto pb-2 no-scrollbar mb-2">
+                         {categories.map(cat => (
+                             <button
+                                 key={cat}
+                                 onClick={() => setCategoryFilter(cat)}
+                                 className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap border transition-all ${
+                                     categoryFilter === cat 
+                                     ? 'bg-slate-900 text-white border-slate-900 shadow-sm' 
+                                     : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
+                                 }`}
+                             >
+                                 {cat}
+                             </button>
+                         ))}
+                    </div>
+
                     {/* Filters */}
                     <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center">
                         <div className="relative flex-1 w-full">
@@ -910,21 +948,6 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
-                        </div>
-                        <div className="flex gap-2 w-full md:w-auto overflow-x-auto pb-1 no-scrollbar">
-                            {categories.map(cat => (
-                                <button
-                                    key={cat}
-                                    onClick={() => setCategoryFilter(cat)}
-                                    className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap border transition-all ${
-                                        categoryFilter === cat 
-                                        ? 'bg-slate-900 text-white border-slate-900' 
-                                        : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'
-                                    }`}
-                                >
-                                    {cat}
-                                </button>
-                            ))}
                         </div>
                     </div>
 
@@ -1609,8 +1632,32 @@ const StockControlPage: React.FC<StockControlPageProps> = ({ currentUser, onShow
             </Modal>
 
             {/* CATEGORY MANAGEMENT MODAL */}
-            <Modal isOpen={isCategoryModalOpen} onClose={() => { setIsCategoryModalOpen(false); setCategoryToRename(null); setNewCategoryName(''); }} title="Categorieën Beheren">
-                <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+            <Modal isOpen={isCategoryModalOpen} onClose={() => { setIsCategoryModalOpen(false); setCategoryToRename(null); setNewCategoryName(''); setCreateCategoryInput(''); }} title="Categorieën Beheren">
+                <div className="space-y-6 max-h-[60vh] overflow-y-auto pr-2">
+                    
+                    {/* SECTION: ADD NEW CATEGORY */}
+                    {!categoryToRename && (
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-2">Nieuwe Categorie Toevoegen</label>
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    className="flex-1 p-3 border border-slate-200 rounded-xl text-sm outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                                    placeholder="Naam nieuwe categorie..."
+                                    value={createCategoryInput}
+                                    onChange={(e) => setCreateCategoryInput(e.target.value)}
+                                />
+                                <button 
+                                    onClick={handleAddCategory}
+                                    disabled={!createCategoryInput.trim()}
+                                    className="px-4 py-2 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 disabled:opacity-50 transition-colors"
+                                >
+                                    Toevoegen
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {categoryToRename ? (
                         <div className="animate-in fade-in">
                             <div className="mb-4 bg-blue-50 border border-blue-100 p-4 rounded-xl">
