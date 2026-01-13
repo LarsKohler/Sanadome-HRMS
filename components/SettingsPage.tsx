@@ -49,26 +49,27 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ employees, currentUser, onU
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Define module names inside component to ensure ViewState is defined
+  // Define module names using string keys to avoid runtime dependency on ViewState enum
+  // This ensures the object is created even if ViewState is temporarily undefined during initialization cycles
   const moduleNames: Record<string, string> = useMemo(() => ({
-    [ViewState.NEWS]: 'Nieuws',
-    [ViewState.ACADEMY]: 'Academy',
-    [ViewState.KNOWLEDGE_BASE]: 'Kennisbank',
-    [ViewState.DIRECTORY]: 'Collega\'s',
-    [ViewState.HR_DOSSIER]: 'HR Dossiers',
-    [ViewState.CHECKLISTS]: 'Checklists',
-    [ViewState.COMPENSATION]: 'Compensatie',
-    [ViewState.COMPLAINTS]: 'Klachten',
-    [ViewState.STOCK_CONTROL]: 'Voorraadbeheer',
-    [ViewState.ONBOARDING]: 'Onboarding',
-    [ViewState.EVALUATIONS]: 'Performance',
-    [ViewState.RECRUITMENT]: 'Recruitment',
-    [ViewState.TODO_LIST]: 'Takenlijst', 
-    [ViewState.DEBT_CONTROL]: 'Debiteuren',
-    [ViewState.LINEN_AUDIT]: 'Linnen Audit',
-    [ViewState.DATA_AUDIT]: 'Data Audit', 
-    [ViewState.REPORTS]: 'Rapportages',
-    [ViewState.SYSTEM_STATUS]: 'Systeemstatus'
+    'NEWS': 'Nieuws',
+    'ACADEMY': 'Academy',
+    'KNOWLEDGE_BASE': 'Kennisbank',
+    'DIRECTORY': 'Collega\'s',
+    'HR_DOSSIER': 'HR Dossiers',
+    'CHECKLISTS': 'Checklists',
+    'COMPENSATION': 'Compensatie',
+    'COMPLAINTS': 'Klachten',
+    'STOCK_CONTROL': 'Voorraadbeheer',
+    'ONBOARDING': 'Onboarding',
+    'EVALUATIONS': 'Performance',
+    'RECRUITMENT': 'Recruitment',
+    'TODO_LIST': 'Takenlijst', 
+    'DEBT_CONTROL': 'Debiteuren',
+    'LINEN_AUDIT': 'Linnen Audit',
+    'DATA_AUDIT': 'Data Audit', 
+    'REPORTS': 'Rapportages',
+    'SYSTEM_STATUS': 'Systeemstatus'
   }), []);
 
   // Initialize selection & sync roles
